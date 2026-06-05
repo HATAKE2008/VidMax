@@ -1,0 +1,33 @@
+name: Build VidMax APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: Setup Java JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+        
+    - name: Make gradlew executable
+      run: chmod +x gradlew
+      
+    - name: Build APK with Gradle
+      run: ./gradlew assembleDebug
+      env:
+        GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: VidMax-Debug-APK
+        path: app/*.apk
