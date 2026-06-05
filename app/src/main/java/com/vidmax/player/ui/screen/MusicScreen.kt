@@ -93,18 +93,18 @@ fun MusicScreen(
     onOpenFavorites: () -> Unit,
     onOpenMyMix: () -> Unit
 ) {
-  val context = LocalContext.current
-  val audioList by viewModel.filteredAudio.collectAsState()
-  val searchQuery by viewModel.audioSearchQuery.collectAsState()
+  val context: Context = LocalContext.current
+  val audioList: List<AudioItem> by viewModel.filteredAudio.collectAsState()
+  val searchQuery: String by viewModel.audioSearchQuery.collectAsState()
 
-  val currentlyPlayingPath by viewModel.recentlyPlayedPath.collectAsState()
-  val isAudioPlaying by viewModel.isAudioPlaying.collectAsState()
+  val currentlyPlayingPath: String by viewModel.recentlyPlayedPath.collectAsState()
+  val isAudioPlaying: Boolean by viewModel.isAudioPlaying.collectAsState()
 
-  var selectedAudioIds by remember { mutableStateOf(setOf<Long>()) }
-  var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+  var selectedAudioIds: Set<Long> by remember { mutableStateOf(emptySet<Long>()) }
+  var showDeleteConfirmDialog: Boolean by remember { mutableStateOf(false) }
 
-  val inSelectionMode = selectedAudioIds.isNotEmpty()
-  var isSearchExpanded by remember { mutableStateOf(false) }
+  val inSelectionMode: Boolean = selectedAudioIds.isNotEmpty()
+  var isSearchExpanded: Boolean by remember { mutableStateOf(false) }
 
   val deleteLauncher =
       rememberLauncherForActivityResult(
@@ -131,9 +131,9 @@ fun MusicScreen(
           TextButton(
               onClick = {
                 showDeleteConfirmDialog = false
-                val urisToDelete =
-                    selectedAudioIds.mapNotNull { id ->
-                      val path = audioList.find { it.id == id }?.path ?: return@mapNotNull null
+                val urisToDelete: List<Uri> =
+                    selectedAudioIds.mapNotNull { id: Long ->
+                      val path: String = audioList.find { audioItem: AudioItem -> audioItem.id == id }?.path ?: return@mapNotNull null
                       getAudioUriFromPathForMulti(context, path)
                     }
 
@@ -144,13 +144,13 @@ fun MusicScreen(
                       IntentSenderRequest.Builder(pendingIntent.intentSender).build())
                 } else {
                   var deletedCount = 0
-                  selectedAudioIds.forEach { id ->
-                    val path = audioList.find { it.id == id }?.path ?: return@forEach
+                  selectedAudioIds.forEach { id: Long ->
+                    val path: String = audioList.find { audioItem: AudioItem -> audioItem.id == id }?.path ?: return@forEach
                     val file = File(path)
                     if (file.exists() && file.delete()) {
                       deletedCount++
                     } else {
-                      val uri = getAudioUriFromPathForMulti(context, path)
+                      val uri: Uri? = getAudioUriFromPathForMulti(context, path)
                       if (uri != null) {
                         val rows = context.contentResolver.delete(uri, null, null)
                         if (rows > 0) deletedCount++
@@ -211,7 +211,7 @@ fun MusicScreen(
                       onClick = {
                         selectedAudioIds =
                             if (selectedAudioIds.size == audioList.size) emptySet()
-                            else audioList.map { it.id }.toSet()
+                            else audioList.map { audioItem: AudioItem -> audioItem.id }.toSet()
                       }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_select_all),
@@ -221,11 +221,11 @@ fun MusicScreen(
                       }
                   IconButton(
                       onClick = {
-                        val uris =
+                        val uris: ArrayList<Uri> =
                             selectedAudioIds
-                                .mapNotNull { id ->
-                                  val path =
-                                      audioList.find { it.id == id }?.path ?: return@mapNotNull null
+                                .mapNotNull { id: Long ->
+                                  val path: String =
+                                      audioList.find { audioItem: AudioItem -> audioItem.id == id }?.path ?: return@mapNotNull null
                                   getAudioUriFromPathForMulti(context, path)
                                 }
                                 .toCollection(ArrayList())
@@ -273,7 +273,7 @@ fun MusicScreen(
                 Box(modifier = Modifier.weight(1f)) {
                   VidMaxSearchBar(
                       query = searchQuery,
-                      onQueryChange = { viewModel.setAudioSearchQuery(it) },
+                      onQueryChange = { query: String -> viewModel.setAudioSearchQuery(query) },
                       placeholder = "Search songs...")
                 }
               }
@@ -402,8 +402,8 @@ fun MusicScreen(
               }
 
               itemsIndexed(items = audioList, key = { _, item -> item.id }) { index, audio ->
-                val isSelected = selectedAudioIds.contains(audio.id)
-                val isPlayingNow = currentlyPlayingPath == audio.path
+                val isSelected: Boolean = selectedAudioIds.contains(audio.id)
+                val isPlayingNow: Boolean = currentlyPlayingPath == audio.path
 
                 AudioCard(
                     audio = audio,
@@ -441,18 +441,21 @@ fun AudioCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit = {}
 ) {
-  val context = LocalContext.current
-  var albumArt by remember { mutableStateOf<Bitmap?>(null) }
-  val folderName = File(audio.path).parentFile?.name ?: "Unknown"
+  val context: Context = LocalContext.current
+  var albumArt: Bitmap? by remember { mutableStateOf(null) }
+  val folderName: String = File(audio.path).parentFile?.name ?: "Unknown"
 
   LaunchedEffect(audio.path) {
     withContext(Dispatchers.IO) {
       try {
         val retriever = MediaMetadataRetriever()
         retriever.setDataSource(context, Uri.parse(audio.path))
-        val art = retriever.embeddedPicture
+        val art: ByteArray? = retriever.embeddedPicture
         if (art != null) {
-          albumArt = BitmapFactory.decodeByteArray(art, 0, art.size)
+          // 🔥 ম্যাজিক: র‍্যাম ইউজ এবং ল্যাগ কমানোর জন্য ছবির কোয়ালিটি রিসাইজ করা হলো
+          val options = BitmapFactory.Options()
+          options.inSampleSize = 4 
+          albumArt = BitmapFactory.decodeByteArray(art, 0, art.size, options)
         }
         retriever.release()
       } catch (e: Exception) {
@@ -461,14 +464,14 @@ fun AudioCard(
     }
   }
 
-  val backgroundColor =
+  val backgroundColor: Color =
       if (isSelected) {
         MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
       } else {
         Color.Transparent
       }
 
-  val borderColor =
+  val borderColor: Color =
       when {
         isSelected || isPlayingNow -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
         else -> Color.Transparent
@@ -585,7 +588,7 @@ fun AudioCard(
 fun PlayingEqualizerAnim() {
   val transition = rememberInfiniteTransition(label = "dj_eq_transition")
 
-  val bar1 by
+  val bar1: Float by
       transition.animateFloat(
           initialValue = 4f,
           targetValue = 4f,
@@ -601,7 +604,7 @@ fun PlayingEqualizerAnim() {
                   repeatMode = RepeatMode.Restart),
           label = "bar1")
 
-  val bar2 by
+  val bar2: Float by
       transition.animateFloat(
           initialValue = 6f,
           targetValue = 6f,
@@ -617,7 +620,7 @@ fun PlayingEqualizerAnim() {
                   repeatMode = RepeatMode.Restart),
           label = "bar2")
 
-  val bar3 by
+  val bar3: Float by
       transition.animateFloat(
           initialValue = 5f,
           targetValue = 5f,
@@ -633,7 +636,7 @@ fun PlayingEqualizerAnim() {
                   repeatMode = RepeatMode.Restart),
           label = "bar3")
 
-  val bar4 by
+  val bar4: Float by
       transition.animateFloat(
           initialValue = 4f,
           targetValue = 4f,
