@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.sp
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.decode.VideoFrameDecoder
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
 import com.vidmax.player.R
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.VidMaxSearchBar
@@ -495,6 +497,7 @@ fun PremiumVideoListCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
+  val context = LocalContext.current
   val folderName = File(video.path).parentFile?.name ?: "Unknown"
 
   Row(
@@ -515,8 +518,14 @@ fun PremiumVideoListCard(
         Box(
             modifier =
                 Modifier.size(width = 110.dp, height = 64.dp).clip(RoundedCornerShape(10.dp))) {
+              // 🔥 ফিক্স: অপ্টিমাইজড ইমেজ রিকোয়েস্ট (ল্যাগ এবং অ্যানিমে ব্ল্যাক স্ক্রিন সলভ)
               AsyncImage(
-                  model = File(video.path),
+                  model = ImageRequest.Builder(context)
+                      .data(File(video.path))
+                      .videoFrameMillis(2000)
+                      .size(512)
+                      .crossfade(true)
+                      .build(),
                   imageLoader = imageLoader,
                   contentDescription = "Thumbnail",
                   contentScale = ContentScale.Crop,
@@ -593,6 +602,7 @@ fun CustomVideoGridCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
+  val context = LocalContext.current
   Card(
       modifier =
           Modifier.fillMaxWidth()
@@ -609,8 +619,14 @@ fun CustomVideoGridCard(
               containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
         Column {
           Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+            // 🔥 ফিক্স: অপ্টিমাইজড ইমেজ রিকোয়েস্ট
             AsyncImage(
-                model = File(video.path),
+                model = ImageRequest.Builder(context)
+                    .data(File(video.path))
+                    .videoFrameMillis(2000)
+                    .size(512)
+                    .crossfade(true)
+                    .build(),
                 imageLoader = imageLoader,
                 contentDescription = "Thumbnail",
                 contentScale = ContentScale.Crop,
@@ -670,6 +686,7 @@ fun CustomVideoLargeCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
+  val context = LocalContext.current
   val folderName = File(video.path).parentFile?.name ?: "Unknown"
 
   Card(
@@ -686,8 +703,14 @@ fun CustomVideoLargeCard(
       colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column {
           Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+            // 🔥 ফিক্স: লার্জ ভিউর জন্য সাইজ একটু বড় (768) করে দেওয়া হয়েছে যাতে ঘোলা না লাগে
             AsyncImage(
-                model = File(video.path),
+                model = ImageRequest.Builder(context)
+                    .data(File(video.path))
+                    .videoFrameMillis(2000)
+                    .size(768)
+                    .crossfade(true)
+                    .build(),
                 imageLoader = imageLoader,
                 contentDescription = "Thumbnail",
                 contentScale = ContentScale.Crop,
