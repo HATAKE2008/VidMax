@@ -6,28 +6,47 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
-      
+
     - name: Setup Java JDK
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: gradle
-        
+
     - name: Make gradlew executable
       run: chmod +x gradlew
-      
-    - name: Build APK with Gradle
+
+    - name: Build APK
       run: ./gradlew assembleDebug
       env:
         GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
-        
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: VidMax-Debug-APK
-        path: app/*.apk
+
+    - name: Find APK
+      id: apk
+      run: |
+        APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
+        APK_NAME=$(basename "$APK_PATH")
+        echo "path=$APK_PATH" >> $GITHUB_OUTPUT
+        echo "name=$APK_NAME" >> $GITHUB_OUTPUT
+
+    - name: Send APK to Telegram
+      run: |
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument" \
+          -F "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -F "document=@${{ steps.apk.outputs.path }};type=application/vnd.android.package-archive" \
+          -F "caption=✅ VidMax Build Done!
+📦 ${{ steps.apk.outputs.name }}
+🔖 ${{ github.sha }}" 
+
+    - name: Notify on Failure
+      if: failure()
+      run: |
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d "text=❌ VidMax Build FAILED!
+Commit: ${{ github.sha }}"
