@@ -5,50 +5,65 @@ import android.content.Intent
 import android.os.Build
 import android.os.Process
 import android.util.Log
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.decode.VideoFrameDecoder
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import com.vidmax.player.ui.crash.CrashActivity
 import java.io.PrintWriter
 import java.io.StringWriter
 import kotlin.system.exitProcess
 
-class VidMaxApp : Application() {
+// 🔥 Coil এর ImageLoaderFactory ইমপ্লিমেন্ট করা হলো
+class VidMaxApp : Application(), ImageLoaderFactory {
+    
     override fun onCreate() {
         super.onCreate()
-
-        // CodeAssist এর Logger রিমুভ করে স্ট্যান্ডার্ড Android Log যুক্ত করা হলো
         Log.d("VidMaxApp", "VidMax Player initialized successfully!")
 
-        // অ্যাপের গ্লোবাল ক্র্যাশ লিসেনার সেট করা হচ্ছে
-        Thread.setDefaultUncaughtExceptionHandler { thread: Thread, exception: Throwable ->
-
-            // Stacktrace বের করা
-            val stringWriter: StringWriter = StringWriter()
-            val printWriter: PrintWriter = PrintWriter(stringWriter)
-            exception.printStackTrace(printWriter)
-            val stackTrace: String = stringWriter.toString()
-
-            // ডিভাইসের মডেল এবং অ্যান্ড্রয়েড ভার্সন বের করা
-            val deviceInfo: String = """
+        Thread.setDefaultUncaughtExceptionHandler { thread, exception ->
+            val stringWriter = StringWriter()
+            exception.printStackTrace(PrintWriter(stringWriter))
+            
+            val deviceInfo = """
             📱 Device Info:
             Brand: ${Build.BRAND}
             Model: ${Build.MODEL}
-            Device: ${Build.DEVICE}
             Android Version: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})
 
             ⚠️ --- Crash Log ---
 
             """.trimIndent()
 
-            val fullErrorLog: String = deviceInfo + stackTrace
-
-            // ক্র্যাশ স্ক্রিনে ডাটা পাঠানো (apply রিমুভ করা হয়েছে যাতে কম্পাইলার ক্র্যাশ না করে)
-            val intent: Intent = Intent(this, CrashActivity::class.java)
-            intent.putExtra("EXTRA_ERROR_DETAILS", fullErrorLog)
+            val intent = Intent(this, CrashActivity::class.java)
+            intent.putExtra("EXTRA_ERROR_DETAILS", deviceInfo + stringWriter.toString())
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
             startActivity(intent)
 
-            // ব্যাকগ্রাউন্ডের মরা প্রসেস কিল করে দেওয়া
             Process.killProcess(Process.myPid())
             exitProcess(1)
         }
+    }
+
+    // 🔥 গ্লোবাল ImageLoader কনফিগারেশন (ল্যাগ কমানোর ম্যাজিক)
+    override fun newImageLoader(): ImageLoader {
+        return ImageLoader.Builder(this)
+            .components {
+                add(VideoFrameDecoder.Factory()) // ভিডিও থেকে থাম্বনেইল বের করার জন্য
+            }
+            .memoryCache {
+                MemoryCache.Builder(this)
+                    .maxSizePercent(0.25) // র‍্যামের ২৫% ক্যাশ হিসেবে ব্যবহার করবে
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(cacheDir.resolve("image_cache"))
+                    .maxSizePercent(0.05) // স্টোরেজের ৫% ক্যাশ করবে, যাতে বারবার ল্যাগ না করে
+                    .build()
+            }
+            .crossfade(true) // স্মুথ ট্রানজিশনের জন্য
+            .build()
     }
 }
