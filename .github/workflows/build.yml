@@ -25,30 +25,17 @@ jobs:
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > vidmax.keystore
 
-    - name: Build APK
+    - name: Build Signed APK
       run: ./gradlew assembleRelease
       env:
         GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
         KEYSTORE_PATH: ${{ github.workspace }}/vidmax.keystore
+        STORE_PASS: vidmax123
         KEY_ALIAS: vidmax
         KEY_PASS: vidmax123
-        STORE_PASS: vidmax123
-
-    - name: Sign APK
-      run: |
-        APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
-        jarsigner -verbose \
-          -sigalg SHA256withRSA \
-          -digestalg SHA-256 \
-          -keystore vidmax.keystore \
-          -storepass vidmax123 \
-          -keypass vidmax123 \
-          "$APK_PATH" vidmax
-        $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | tail -1)/zipalign \
-          -v 4 "$APK_PATH" app-signed.apk
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: VidMax-Release-APK
-        path: app-signed.apk
+        path: app/build/outputs/apk/release/*.apk
