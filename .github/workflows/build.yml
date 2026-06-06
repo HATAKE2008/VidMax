@@ -26,8 +26,54 @@ jobs:
       env:
         GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
+    - name: Find APK
+      id: apk
+      run: |
+        APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
+        APK_NAME=$(basename "$APK_PATH")
+        echo "path=$APK_PATH" >> $GITHUB_OUTPUT
+        echo "name=$APK_NAME" >> $GITHUB_OUTPUT
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
-        name: VidMax-Debug-APK
-        path: app/build/outputs/apk/debug/*.apk
+        python-version: '3.11'
+
+    - name: Install Pyrogram
+      run: pip install pyrogram tgcrypto
+
+    - name: Send APK to Telegram
+      env:
+        TG_API_ID: ${{ secrets.TG_API_ID }}
+        TG_API_HASH: ${{ secrets.TG_API_HASH }}
+        TG_SESSION: ${{ secrets.TG_SESSION }}
+        TG_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        APK_PATH: ${{ steps.apk.outputs.path }}
+        APK_NAME: ${{ steps.apk.outputs.name }}
+      run: |
+        python3 << 'EOF'
+import asyncio, os
+from pyrogram import Client
+
+async def main():
+    async with Client(
+        name="session",
+        api_id=int(os.environ["TG_API_ID"]),
+        api_hash=os.environ["TG_API_HASH"],
+        session_string=os.environ["TG_SESSION"]
+    ) as app:
+        await app.send_document(
+            chat_id=int(os.environ["TG_CHAT_ID"]),
+            document=os.environ["APK_PATH"],
+            caption=f"✅ VidMax Build Done!\n📦 {os.environ['APK_NAME']}"
+        )
+
+asyncio.run(main())
+EOF
+
+    - name: Notify on Failure
+      if: failure()
+      run: |
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d "text=❌ VidMax Build FAILED!"
