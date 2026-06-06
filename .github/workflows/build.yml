@@ -21,40 +21,34 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x gradlew
 
-    - name: Build APK with Gradle
-      run: ./gradlew assembleDebug
+    - name: Setup Keystore
+      run: |
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > vidmax.keystore
+
+    - name: Build APK
+      run: ./gradlew assembleRelease
       env:
         GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
+        KEYSTORE_PATH: ${{ github.workspace }}/vidmax.keystore
+        KEY_ALIAS: vidmax
+        KEY_PASS: vidmax123
+        STORE_PASS: vidmax123
 
-    - name: Find APK
-      id: apk
+    - name: Sign APK
       run: |
-        APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
-        APK_NAME=$(basename "$APK_PATH")
-        echo "path=$APK_PATH" >> $GITHUB_OUTPUT
-        echo "name=$APK_NAME" >> $GITHUB_OUTPUT
+        APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
+        jarsigner -verbose \
+          -sigalg SHA256withRSA \
+          -digestalg SHA-256 \
+          -keystore vidmax.keystore \
+          -storepass vidmax123 \
+          -keypass vidmax123 \
+          "$APK_PATH" vidmax
+        $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | tail -1)/zipalign \
+          -v 4 "$APK_PATH" app-signed.apk
 
-    - name: Setup Python
-      uses: actions/setup-python@v5
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
       with:
-        python-version: '3.11'
-
-    - name: Install Pyrogram
-      run: pip install pyrogram tgcrypto
-
-    - name: Send APK to Telegram
-      env:
-        TG_API_ID: ${{ secrets.TG_API_ID }}
-        TG_API_HASH: ${{ secrets.TG_API_HASH }}
-        TG_SESSION: ${{ secrets.TG_SESSION }}
-        TG_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        APK_PATH: ${{ steps.apk.outputs.path }}
-        APK_NAME: ${{ steps.apk.outputs.name }}
-      run: python3 .github/scripts/send_apk.py
-
-    - name: Notify on Failure
-      if: failure()
-      run: |
-        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-          -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
-          -d "text=❌ VidMax Build FAILED!"
+        name: VidMax-Release-APK
+        path: app-signed.apk
