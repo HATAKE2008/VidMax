@@ -8,8 +8,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Code
+    - name: Checkout VidMax
       uses: actions/checkout@v4
+
+    - name: Download MPV .so files
+      run: |
+        APK_URL=$(curl -s https://api.github.com/repos/mpv-android/mpv-android/releases/latest \
+          | grep "browser_download_url" \
+          | grep "arm64-v8a" \
+          | grep -v "api29" \
+          | head -1 \
+          | cut -d '"' -f 4)
+        echo "Downloading: $APK_URL"
+        curl -L "$APK_URL" -o mpv.apk
+        unzip -o mpv.apk "lib/arm64-v8a/*.so" -d mpv_extracted
+        mkdir -p app/src/main/jniLibs/arm64-v8a
+        cp mpv_extracted/lib/arm64-v8a/*.so app/src/main/jniLibs/arm64-v8a/
+        echo "Copied .so files:"
+        ls app/src/main/jniLibs/arm64-v8a/
 
     - name: Setup Java JDK
       uses: actions/setup-java@v4
