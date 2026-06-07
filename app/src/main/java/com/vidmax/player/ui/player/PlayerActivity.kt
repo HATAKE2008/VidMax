@@ -47,6 +47,10 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
     private var isResumePlayback: Boolean = true
     private var audioBoostEnabled: Boolean = false
     private var currentPlayingPath: String = ""
+    
+    // 🔥 FIX: দ্রুত নেক্সট বাটন চাপলে MPV হ্যাং হওয়া আটকানোর ফ্ল্যাগ
+    private var isTrackChanging: Boolean = false
+    private val resetTrackChangeRunnable = Runnable { isTrackChanging = false }
 
     private var subtitlePfd: ParcelFileDescriptor? = null
 
@@ -97,7 +101,12 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         val currentTheme = AppTheme.valueOf(savedThemeName)
 
         val savedEngineName = prefs.getString("player_engine", PlayerEngine.EXO.name) ?: PlayerEngine.EXO.name
-        playerViewModel.setPlayerEngine(PlayerEngine.valueOf(savedEngineName))
+        val engineToSet = try {
+            if (savedEngineName == "VLC") PlayerEngine.MPV else PlayerEngine.valueOf(savedEngineName)
+        } catch (e: Exception) {
+            PlayerEngine.EXO
+        }
+        playerViewModel.setPlayerEngine(engineToSet)
 
         requestedOrientation =
             if (isAutoRotate) ActivityInfo.SCREEN_ORIENTATION_SENSOR
@@ -123,14 +132,13 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
         playerViewModel.setTotalVideos(videoPaths.size)
 
-        // 🔥 MPV Hardware Decoding & Optimization Config (MX Player লেভেলের পারফরম্যান্স)
         MPVLib.create(this)
         MPVLib.setOptionString("profile", "fast")
-        MPVLib.setOptionString("hwdec", "mediacodec") // Software ডিকোডিং বন্ধ করে MediaCodec চালু করা হলো
+        MPVLib.setOptionString("hwdec", "mediacodec") 
         MPVLib.setOptionString("hwdec-codecs", "all") 
-        MPVLib.setOptionString("vo", "gpu")           // ভিডিও সরাসরি GPU তে পাঠাবে
+        MPVLib.setOptionString("vo", "gpu")           
         MPVLib.setOptionString("gpu-context", "android")
-        MPVLib.setOptionString("vd-lavc-fast", "yes") // বাফার ল্যাগ কমাবে
+        MPVLib.setOptionString("vd-lavc-fast", "yes") 
         MPVLib.init()
 
         MPVLib.addObserver(this)
@@ -140,6 +148,9 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
         exoPlayer = ExoPlayer.Builder(this).build()
         setupExoListeners()
+        
+        // 🔥 FIX: আইকন যাতে কোনোভাবেই ভুল না দেখায়, তার জন্য ইউনিভার্সাল পোলিং চালু করা হলো
+        handler.post(progressUpdateRunnable)
 
         pendingPlayIndex = startIndex
 
@@ -184,6 +195,10 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         if (index < 0 || index >= videoPaths.size) return
         saveCurrentPlaybackPosition()
 
+        // 🔥 FIX: দ্রুত নেক্সট ক্লিক করলে আগের ടাইমার বাতিল করা হলো (হ্যাং করবে না)
+        handler.removeCallbacks(resetTrackChangeRunnable)
+        isTrackChanging = true
+
         playerViewModel.setCurrentVideoIndex(index)
         val path = videoPaths[index]
         currentPlayingPath = path
@@ -217,9 +232,14 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                 MPVLib.setOptionString("start", "none")
             }
 
-            MPVLib.command(arrayOf("loadfile", uri.toString()))
+            // আগের ভিডিও ফোর্স-স্টপ করে নতুনটা লোড করা হচ্ছে
+            MPVLib.command(arrayOf("loadfile", uri.toString(), "replace"))
             MPVLib.setPropertyBoolean("pause", false)
+            playerViewModel.setPlaying(true)
         }
+
+        // 🔥 ২ সেকেন্ডের জন্য ফেক "ভিডিও শেষ" (EOF) সিগন্যালগুলো ইগনোর করা হবে
+        handler.postDelayed(resetTrackChangeRunnable, 2000)
     }
 
     private fun saveCurrentPlaybackPosition() {
@@ -255,10 +275,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             val newPos = (exoPlayer?.currentPosition ?: 0L) + 10_000L
             exoPlayer?.seekTo(newPos)
         } else {
-            try {
-                val cur = MPVLib.getPropertyDouble("time-pos") ?: 0.0
-                MPVLib.setPropertyDouble("time-pos", cur + 10.0)
-            } catch (e: Exception) {}
+            MPVLib.command(arrayOf("seek", "10", "relative"))
         }
     }
 
@@ -267,37 +284,26 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             val newPosition = (exoPlayer?.currentPosition ?: 0L) - 10_000L
             exoPlayer?.seekTo(if (newPosition < 0) 0L else newPosition)
         } else {
-            try {
-                val cur = MPVLib.getPropertyDouble("time-pos") ?: 0.0
-                val newPos = if (cur - 10.0 < 0) 0.0 else cur - 10.0
-                MPVLib.setPropertyDouble("time-pos", newPos)
-            } catch (e: Exception) {}
+            MPVLib.command(arrayOf("seek", "-10", "relative"))
         }
     }
 
     override fun eventProperty(property: String) {}
 
-    override fun eventProperty(property: String, value: Boolean) {
-        if (property == "pause" && playerViewModel.currentEngine.value == PlayerEngine.MPV) {
-            playerViewModel.setPlaying(!value)
-        }
-    }
+    override fun eventProperty(property: String, value: Boolean) {}
 
     override fun eventProperty(property: String, value: Long) {}
 
-    override fun eventProperty(property: String, value: Double) {
-        if (playerViewModel.currentEngine.value == PlayerEngine.MPV) {
-            when (property) {
-                "time-pos" -> playerViewModel.setCurrentPosition((value * 1000).toLong())
-                "duration" -> playerViewModel.setDuration((value * 1000).toLong())
-            }
-        }
-    }
+    override fun eventProperty(property: String, value: Double) {}
 
     override fun eventProperty(property: String, value: String) {}
 
     override fun event(eventId: Int) {
+        // 7 = MPV_EVENT_END_FILE (ভিডিও শেষ হলে এই সিগন্যাল আসে)
         if (eventId == 7 && playerViewModel.currentEngine.value == PlayerEngine.MPV) {
+            // 🔥 FIX: ইউজার নিজে স্কিপ করলে এই সিগন্যাল বাতিল হয়ে যাবে, তাই লুপ হবে না
+            if (isTrackChanging) return 
+
             playerViewModel.setPlaying(false)
             if (currentPlayingPath.isNotEmpty()) {
                 prefs.edit().putLong("resume_pos_$currentPlayingPath", 0L).apply()
@@ -306,13 +312,29 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         }
     }
 
+    // 🔥 FIX: এই Polling ইঞ্জিন প্রতি ৫০০ms এ চেক করবে ভিডিও কি আসলেও চলছে নাকি পজ আছে
+    // এতে Play/Pause আইকন আর কখনো জ্যাম হয়ে থাকবে না
     private val progressUpdateRunnable = object : Runnable {
         override fun run() {
-            if (playerViewModel.currentEngine.value == PlayerEngine.EXO &&
-                exoPlayer?.isPlaying == true) {
-                playerViewModel.setCurrentPosition(exoPlayer?.currentPosition ?: 0L)
-                handler.postDelayed(this, 100)
+            if (playerViewModel.currentEngine.value == PlayerEngine.EXO) {
+                if (exoPlayer?.isPlaying == true) {
+                    playerViewModel.setCurrentPosition(exoPlayer?.currentPosition ?: 0L)
+                }
+            } else if (playerViewModel.currentEngine.value == PlayerEngine.MPV) {
+                try {
+                    val isPaused = MPVLib.getPropertyBoolean("pause") ?: true
+                    playerViewModel.setPlaying(!isPaused) // জোর করে আইকন আপডেট
+                    
+                    if (!isPaused) {
+                        val pos = MPVLib.getPropertyDouble("time-pos") ?: 0.0
+                        playerViewModel.setCurrentPosition((pos * 1000).toLong())
+                        
+                        val dur = MPVLib.getPropertyDouble("duration") ?: 0.0
+                        if (dur > 0) playerViewModel.setDuration((dur * 1000).toLong())
+                    }
+                } catch (e: Exception) {}
             }
+            handler.postDelayed(this, 500) // প্রতি হাফ সেকেন্ড পর পর আপডেট
         }
     }
 
@@ -323,9 +345,6 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                     playerViewModel.setPlaying(isPlaying)
                     if (isPlaying) {
                         playerViewModel.setDuration(exoPlayer?.duration ?: 0L)
-                        handler.post(progressUpdateRunnable)
-                    } else {
-                        handler.removeCallbacks(progressUpdateRunnable)
                     }
                 }
             }
