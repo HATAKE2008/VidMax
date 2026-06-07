@@ -17,18 +17,18 @@ enum class AspectRatioMode {
   STRETCH
 }
 
-// 🔥 নতুন: Dual Engine ট্র্যাক করার জন্য Enum
+// 🔥 Updated: Dual Engine tracking Enum with MPV instead of VLC
 enum class PlayerEngine {
   EXO, // Google's Super Smooth Engine
-  VLC // Heavy Lifter Engine
+  MPV  // Advanced Hardware Decoding Engine (previously was VLC)
 }
 
-// ম্যাজিক: মাল্টিপল সাবটাইটেল ট্র্যাক রাখার জন্য নতুন ডেটা ক্লাস
+// Magic: New data class to track multiple subtitles
 data class SubtitleTrack(val name: String, val subtitles: List<SubtitleItem>)
 
 class PlayerViewModel : ViewModel() {
 
-  // 🔥 নতুন: বর্তমানে কোন ইঞ্জিন চলছে তার State
+  // 🔥 New: State for currently active engine
   private val _currentEngine: MutableStateFlow<PlayerEngine> = MutableStateFlow(PlayerEngine.EXO)
   val currentEngine: StateFlow<PlayerEngine> = _currentEngine
 
@@ -70,7 +70,7 @@ class PlayerViewModel : ViewModel() {
   private val _subtitleTracks: MutableStateFlow<List<SubtitleTrack>> = MutableStateFlow(emptyList())
   val subtitleTracks: StateFlow<List<SubtitleTrack>> = _subtitleTracks
 
-  // -1 মানে সাবটাইটেল অফ (Off) করা আছে
+  // -1 means subtitles are turned off
   private val _selectedTrackIndex: MutableStateFlow<Int> = MutableStateFlow(-1)
   val selectedTrackIndex: StateFlow<Int> = _selectedTrackIndex
 
@@ -109,7 +109,7 @@ class PlayerViewModel : ViewModel() {
     val currentTracks = _subtitleTracks.value.toMutableList()
     currentTracks.add(SubtitleTrack(name, subtitles))
     _subtitleTracks.value = currentTracks
-    // নতুন সাবটাইটেল অ্যাড করলে সেটা অটোমেটিক অন হয়ে যাবে
+    // Auto-enable when a new subtitle is added
     _selectedTrackIndex.value = currentTracks.size - 1
     _currentSubtitleText.value = ""
   }
@@ -135,7 +135,7 @@ class PlayerViewModel : ViewModel() {
         _currentSubtitleText.value = foundText
       }
     } else {
-      // সাবটাইটেল অফ থাকলে টেক্সট হাইড করে দেবে
+      // Hide text if subtitle is off
       if (_currentSubtitleText.value.isNotEmpty()) {
         _currentSubtitleText.value = ""
       }
