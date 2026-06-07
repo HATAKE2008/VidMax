@@ -125,10 +125,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   val hasPermission: StateFlow<Boolean> = _hasPermission
 
   // --- Advanced Player States ---
-  private val _playerEngine: MutableStateFlow<PlayerEngine> =
-      MutableStateFlow(
-          PlayerEngine.valueOf(
-              prefs.getString("player_engine", PlayerEngine.EXO.name) ?: PlayerEngine.EXO.name))
+  // 🔥 CRASH FIX: Handles old "VLC" cache by defaulting to MPV
+  private val _playerEngine: MutableStateFlow<PlayerEngine> = MutableStateFlow(
+      try {
+          val savedEngine = prefs.getString("player_engine", PlayerEngine.EXO.name) ?: PlayerEngine.EXO.name
+          if (savedEngine == "VLC") PlayerEngine.MPV else PlayerEngine.valueOf(savedEngine)
+      } catch (e: Exception) {
+          PlayerEngine.EXO
+      }
+  )
   val playerEngine: StateFlow<PlayerEngine> = _playerEngine
 
   private val _audioBoost: MutableStateFlow<Boolean> =
