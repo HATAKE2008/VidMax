@@ -64,13 +64,13 @@ fun PlayerScreen(
     if (bgPlayEnabled) {
       if (currentEngine == PlayerEngine.EXO) {
         (exoPlayer as? androidx.media3.exoplayer.ExoPlayer)?.clearVideoSurface()
-      } else if (currentEngine == PlayerEngine.VLC) {
+      } else if (currentEngine == PlayerEngine.MPV) { // 🔥 VLC changed to MPV
         try {
           MPVLib.setPropertyString("vid", "no")
         } catch (e: Exception) {}
       }
     } else {
-      if (currentEngine == PlayerEngine.VLC) {
+      if (currentEngine == PlayerEngine.MPV) { // 🔥 VLC changed to MPV
         try {
           MPVLib.setPropertyString("vid", "auto")
         } catch (e: Exception) {}
@@ -80,7 +80,7 @@ fun PlayerScreen(
 
   // 🔥 Runtime Aspect Ratio Fix (Using setProperty instead of setOption)
   LaunchedEffect(aspectRatio, currentEngine) {
-    if (currentEngine == PlayerEngine.VLC) {
+    if (currentEngine == PlayerEngine.MPV) { // 🔥 VLC changed to MPV
       try {
         when (aspectRatio) {
           AspectRatioMode.FIT -> {
@@ -228,7 +228,7 @@ fun PlayerScreen(
         currentPlaybackSpeed = currentPlaybackSpeed,
         onSpeedChange = { speed ->
           currentPlaybackSpeed = speed
-          if (currentEngine == PlayerEngine.VLC) {
+          if (currentEngine == PlayerEngine.MPV) { // 🔥 VLC changed to MPV
             try {
               MPVLib.setPropertyDouble("speed", speed.toDouble())
             } catch (e: Exception) {}
@@ -254,7 +254,7 @@ fun PlayerScreen(
           prefs.edit().putBoolean("bg_play_enabled", isEnabled).apply()
         },
         onPlayPause = {
-          if (currentEngine == PlayerEngine.VLC) {
+          if (currentEngine == PlayerEngine.MPV) { // 🔥 VLC changed to MPV
             try {
               val isPaused = MPVLib.getPropertyBoolean("pause") ?: false
               MPVLib.setPropertyBoolean("pause", !isPaused)
@@ -264,7 +264,7 @@ fun PlayerScreen(
           }
         },
         onSeek = { position: Long ->
-          if (currentEngine == PlayerEngine.VLC) {
+          if (currentEngine == PlayerEngine.MPV) { // 🔥 VLC changed to MPV
             try {
               MPVLib.setPropertyDouble("time-pos", position / 1000.0)
             } catch (e: Exception) {}
