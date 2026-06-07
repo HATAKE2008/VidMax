@@ -156,8 +156,9 @@ fun PlayerControls(
     }
   }
 
+  // 🔥 VLC changed to MPV
   LaunchedEffect(showSubtitleMenu) {
-    if (showSubtitleMenu && currentEngine == PlayerEngine.VLC) {
+    if (showSubtitleMenu && currentEngine == PlayerEngine.MPV) {
       try {
         val tracks = mutableListOf<MpvTrackInfo>()
         val count = MPVLib.getPropertyInt("track-list/count") ?: 0
@@ -181,8 +182,9 @@ fun PlayerControls(
     }
   }
 
+  // 🔥 VLC changed to MPV
   LaunchedEffect(showAudioMenu) {
-    if (showAudioMenu && currentEngine == PlayerEngine.VLC) {
+    if (showAudioMenu && currentEngine == PlayerEngine.MPV) {
       try {
         val tracks = mutableListOf<MpvTrackInfo>()
         val count = MPVLib.getPropertyInt("track-list/count") ?: 0
@@ -217,7 +219,8 @@ fun PlayerControls(
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxSystemVol, 0)
       }
 
-      if (currentEngine == PlayerEngine.VLC) {
+      // 🔥 VLC changed to MPV
+      if (currentEngine == PlayerEngine.MPV) {
         try {
           MPVLib.setPropertyInt("volume", 100)
         } catch (e: Exception) {}
@@ -294,7 +297,8 @@ fun PlayerControls(
 
   if (showSyncMenu) {
     LaunchedEffect(showSyncMenu) {
-      if (currentEngine == PlayerEngine.VLC) {
+      // 🔥 VLC changed to MPV
+      if (currentEngine == PlayerEngine.MPV) {
         try {
           audioDelayMs = ((MPVLib.getPropertyDouble("audio-delay") ?: 0.0) * 1000).toLong()
           subtitleDelayMs = ((MPVLib.getPropertyDouble("sub-delay") ?: 0.0) * 1000).toLong()
@@ -343,7 +347,8 @@ fun PlayerControls(
 
                 Divider(color = Color.DarkGray)
 
-                if (currentEngine == PlayerEngine.VLC) {
+                // 🔥 VLC changed to MPV
+                if (currentEngine == PlayerEngine.MPV) {
                   Row(
                       modifier = Modifier.fillMaxWidth(),
                       horizontalArrangement = Arrangement.SpaceBetween,
@@ -490,7 +495,8 @@ fun PlayerControls(
                     }
                 Divider(color = Color.DarkGray)
 
-                if (currentEngine == PlayerEngine.VLC) {
+                // 🔥 VLC changed to MPV
+                if (currentEngine == PlayerEngine.MPV) {
                   val isOff =
                       currentMpvSubId == "no" ||
                           currentMpvSubId == "false" ||
@@ -563,7 +569,8 @@ fun PlayerControls(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 8.dp))
 
-                if (currentEngine == PlayerEngine.VLC) {
+                // 🔥 VLC changed to MPV
+                if (currentEngine == PlayerEngine.MPV) {
                   mpvAudioTracks.forEach { track ->
                     val isSelected = currentMpvAudioId == track.id.toString()
                     Row(
@@ -649,13 +656,15 @@ fun PlayerControls(
                         targetSeekPosition = currentPosition
 
                         var mpvVolume = 100
-                        if (currentEngine == PlayerEngine.VLC) {
+                        // 🔥 VLC changed to MPV
+                        if (currentEngine == PlayerEngine.MPV) {
                           try {
                             mpvVolume = MPVLib.getPropertyInt("volume") ?: 100
                           } catch (e: Exception) {}
                         }
 
-                        if (currentEngine == PlayerEngine.VLC && mpvVolume > 100) {
+                        // 🔥 VLC changed to MPV
+                        if (currentEngine == PlayerEngine.MPV && mpvVolume > 100) {
                           volumeAccumulator = mpvVolume.toFloat()
                         } else if (currentEngine == PlayerEngine.EXO &&
                             gestureIndicatorValue > 100f) {
@@ -757,7 +766,8 @@ fun PlayerControls(
                                     AudioManager.STREAM_MUSIC, newSystemVol, 0)
                               }
 
-                              if (currentEngine == PlayerEngine.VLC) {
+                              // 🔥 VLC changed to MPV
+                              if (currentEngine == PlayerEngine.MPV) {
                                 try {
                                   if ((MPVLib.getPropertyInt("volume") ?: 100) != 100)
                                       MPVLib.setPropertyInt("volume", 100)
@@ -777,7 +787,8 @@ fun PlayerControls(
                                     AudioManager.STREAM_MUSIC, maxSystemVol, 0)
                               }
 
-                              if (currentEngine == PlayerEngine.VLC) {
+                              // 🔥 VLC changed to MPV
+                              if (currentEngine == PlayerEngine.MPV) {
                                 try {
                                   MPVLib.setPropertyInt("volume", volumeAccumulator.toInt())
                                 } catch (e: Exception) {}
@@ -1062,9 +1073,10 @@ fun PlayerControls(
                                           },
                                           onClick = {
                                             showMoreMenu = false
+                                            // 🔥 VLC changed to MPV
                                             val newEngine =
                                                 if (currentEngine == PlayerEngine.EXO)
-                                                    PlayerEngine.VLC
+                                                    PlayerEngine.MPV
                                                 else PlayerEngine.EXO
                                             viewModel.setPlayerEngine(newEngine)
                                             context
