@@ -123,12 +123,14 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
         playerViewModel.setTotalVideos(videoPaths.size)
 
-        // MPV Init
+        // 🔥 MPV Hardware Decoding & Optimization Config (MX Player লেভেলের পারফরম্যান্স)
         MPVLib.create(this)
         MPVLib.setOptionString("profile", "fast")
-        MPVLib.setOptionString("hwdec", "auto")
-        MPVLib.setOptionString("vo", "gpu")
+        MPVLib.setOptionString("hwdec", "mediacodec") // Software ডিকোডিং বন্ধ করে MediaCodec চালু করা হলো
+        MPVLib.setOptionString("hwdec-codecs", "all") 
+        MPVLib.setOptionString("vo", "gpu")           // ভিডিও সরাসরি GPU তে পাঠাবে
         MPVLib.setOptionString("gpu-context", "android")
+        MPVLib.setOptionString("vd-lavc-fast", "yes") // বাফার ল্যাগ কমাবে
         MPVLib.init()
 
         MPVLib.addObserver(this)
@@ -366,7 +368,6 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             } catch (e: Exception) {}
             exoPlayer?.pause()
         }
-        // ✅ clearVideoSurface() সরানো হয়েছে — Surface হারায় না
     }
 
     override fun onResume() {
