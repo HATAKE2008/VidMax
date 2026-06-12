@@ -124,11 +124,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// 🔥 Theme Enum
+// 🔥 Theme Enum Update (Added GLASS)
 enum class PlayerTheme {
   DEFAULT,
   MODERN,
-  WAVY
+  WAVY,
+  GLASS
 }
 
 // 🔥 Apple Style Liquid Glass Modifier
@@ -193,6 +194,11 @@ fun MusicPlayerScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
       }
       PlayerTheme.WAVY -> {
         WavyPlayerScreen(viewModel = viewModel, onBack = onBack, onThemeChange = changeAndSaveTheme)
+      }
+      PlayerTheme.GLASS -> {
+        // 🔥 নতুন Glass Theme কল করা হলো
+        GlassPlayerScreen(
+            viewModel = viewModel, onBack = onBack, onThemeChange = changeAndSaveTheme)
       }
     }
   }
@@ -560,6 +566,15 @@ fun DefaultPlayerUI(
                             onClick = {
                               showMoreMenu = false
                               onThemeChange(PlayerTheme.WAVY)
+                            })
+                        // 🔥 Added Glass Theme Option
+                        DropdownMenuItem(
+                            text = {
+                              Text("Glass Theme", color = MaterialTheme.colorScheme.primary)
+                            },
+                            onClick = {
+                              showMoreMenu = false
+                              onThemeChange(PlayerTheme.GLASS)
                             })
                       }
                 }
