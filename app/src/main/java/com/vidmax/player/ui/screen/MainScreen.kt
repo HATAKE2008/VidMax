@@ -3,7 +3,6 @@ package com.vidmax.player.ui.screen
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -30,6 +29,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -67,6 +69,22 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
   val isAudioPlaying by viewModel.isAudioPlaying.collectAsState()
 
   var albumArtBitmap by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+
+  // 🔥 স্ক্রল ডিটেক্ট করার জন্য স্টেট এবং কানেকশন
+  val isScrollingDown = remember { mutableStateOf(false) }
+
+  val nestedScrollConnection = remember {
+    object : NestedScrollConnection {
+      override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (available.y < -15f) { // নিচের দিকে স্ক্রল
+          isScrollingDown.value = true
+        } else if (available.y > 15f) { // ওপরের দিকে স্ক্রল
+          isScrollingDown.value = false
+        }
+        return Offset.Zero // আমরা স্ক্রল ব্লক করছি না, শুধু ইভেন্ট শুনছি
+      }
+    }
+  }
 
   LaunchedEffect(recentMusicPath) {
     if (recentMusicPath.isNotEmpty()) {
@@ -126,7 +144,8 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
   val showMusicRecentBar =
       (selectedTab == 2 || openedPlaylistTitle.isNotEmpty()) && recentMusicTitle.isNotEmpty()
 
-  Box(modifier = Modifier.fillMaxSize()) {
+  // 🔥 মেইন বক্সে NestedScrollConnection অ্যাড করা হলো
+  Box(modifier = Modifier.fillMaxSize().nestedScroll(nestedScrollConnection)) {
 
     // --- MAIN BACKGROUND CONTENT ---
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { paddingValues ->
@@ -166,72 +185,117 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
 
     // --- 🔥 FLOATING NAVIGATION BARS 🔥 ---
     Column(modifier = Modifier.align(Alignment.BottomCenter)) {
-      // --- MUSIC RECENT BAR ---
+
+      // --- MUSIC RECENT BAR (Theme Adaptive + Scroll Auto Hide) ---
       AnimatedVisibility(
-          visible = showMusicRecentBar,
+          visible = showMusicRecentBar && !isScrollingDown.value, // 🔥 স্ক্রল ডাউনে হাইড হবে
           enter = slideInVertically(initialOffsetY = { fullHeight: Int -> fullHeight }),
           exit = slideOutVertically(targetOffsetY = { fullHeight: Int -> fullHeight })) {
             Box(
                 modifier =
                     Modifier.fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .padding(bottom = 6.dp)
-                        .shadow(8.dp, RoundedCornerShape(16.dp))
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF242424))
-                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                        .padding(bottom = 8.dp)
+                        .shadow(12.dp, RoundedCornerShape(24.dp))
+                        .clip(RoundedCornerShape(24.dp))
+                        // 🔥 থিমের সাথে মানানসই কালার করার জন্য surface ব্যবহার করা হলো
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            RoundedCornerShape(24.dp))
                         .clickable { isMusicPlayerOpen = true }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)) {
-                  Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier =
-                            Modifier.size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center) {
-                          if (albumArtBitmap != null) {
-                            Image(
-                                bitmap = albumArtBitmap!!,
-                                contentDescription = "Album Art",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize())
-                          } else {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_music_note),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp))
-                          }
+                        .padding(horizontal = 16.dp, vertical = 10.dp)) {
+                  Row(
+                      verticalAlignment = Alignment.CenterVertically,
+                      modifier = Modifier.fillMaxWidth()) {
+                        // ১. অ্যালবাম আর্ট (থাম্বনেইল)
+                        Box(
+                            modifier =
+                                Modifier.size(48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center) {
+                              if (albumArtBitmap != null) {
+                                Image(
+                                    bitmap = albumArtBitmap!!,
+                                    contentDescription = "Album Art",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize())
+                              } else {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_music_note),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp))
+                              }
+                            }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        // ২. গান এবং আর্টিস্টের নাম
+                        Column(modifier = Modifier.weight(1f)) {
+                          Text(
+                              text = recentMusicTitle,
+                              color = MaterialTheme.colorScheme.onSurface,
+                              fontSize = 14.sp,
+                              fontWeight = FontWeight.Bold,
+                              maxLines = 1,
+                              overflow = TextOverflow.Ellipsis)
+                          Text(
+                              text = "Vibe Music",
+                              color = MaterialTheme.colorScheme.onSurfaceVariant,
+                              fontSize = 12.sp,
+                              maxLines = 1,
+                              overflow = TextOverflow.Ellipsis)
                         }
 
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                      Text(
-                          text = recentMusicTitle,
-                          color = Color.White,
-                          fontSize = 14.sp,
-                          fontWeight = FontWeight.Bold,
-                          maxLines = 1,
-                          overflow = TextOverflow.Ellipsis)
-                      Text(
-                          text = "Now Playing",
-                          color = Color.White.copy(alpha = 0.6f),
-                          fontSize = 11.sp)
-                    }
+                        // ৩. মিডিয়া কন্ট্রোল বাটন গ্রুপ
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                              // Previous Button
+                              IconButton(
+                                  onClick = { viewModel.previousAudio() },
+                                  modifier = Modifier.size(36.dp)) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_skip_previous),
+                                        contentDescription = "Previous",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(20.dp))
+                                  }
 
-                    IconButton(
-                        onClick = { viewModel.toggleAudio() }, modifier = Modifier.size(40.dp)) {
-                          Icon(
-                              painter =
-                                  painterResource(
-                                      id =
-                                          if (isAudioPlaying) R.drawable.ic_pause
-                                          else R.drawable.ic_play),
-                              contentDescription = "Play/Pause Music",
-                              tint = Color.White,
-                              modifier = Modifier.size(32.dp))
-                        }
-                  }
+                              // Play/Pause Button (Theme Primary Circle)
+                              Box(
+                                  modifier =
+                                      Modifier.size(44.dp)
+                                          .clip(androidx.compose.foundation.shape.CircleShape)
+                                          .background(MaterialTheme.colorScheme.primary)
+                                          .clickable { viewModel.toggleAudio() },
+                                  contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        painter =
+                                            painterResource(
+                                                id =
+                                                    if (isAudioPlaying) R.drawable.ic_pause
+                                                    else R.drawable.ic_play),
+                                        contentDescription = "Play/Pause",
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(22.dp))
+                                  }
+
+                              // Next Button
+                              IconButton(
+                                  onClick = { viewModel.nextAudio() },
+                                  modifier = Modifier.size(36.dp)) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_skip_next),
+                                        contentDescription = "Next",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(20.dp))
+                                  }
+                            }
+                      }
                 }
           }
 
@@ -267,7 +331,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                               stiffness = Spring.StiffnessLow),
                       label = "scaleAnim")
 
-              // 🔥 হাফ-চাঁদ আর্কের ড্র অ্যানিমেশন প্রোগ্রেস
               val arcProgress by
                   animateFloatAsState(
                       targetValue = if (isSelected) 1f else 0f,
@@ -296,26 +359,19 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                           else -> R.drawable.ic_video_library
                         }
 
-                    // 🔥 শুধুমাত্র আইকনকে র্যাপ করার জন্য এই Box ব্যবহার করা হয়েছে
                     Box(
                         modifier =
                             Modifier.wrapContentSize()
                                 .drawBehind {
                                   if (arcProgress > 0f) {
                                     val strokeWidth = 2.5.dp.toPx()
-                                    // ডায়ামিটার শুধু আইকনের সাইজের ওপর ডিপেন্ড করবে, তাই এটি এখন
-                                    // ছোট ও সুক্ষ্ম
                                     val diameter = maxOf(size.width, size.height) + 6.dp.toPx()
-
-                                    // আইকনের ঠিক ডানপাশে চাঁদের মতো পজিশন সেট করা হয়েছে (+5.dp)
                                     val topLeftX = (size.width - diameter) / 2f + 5.dp.toPx()
                                     val topLeftY = (size.height - diameter) / 2f
 
                                     drawArc(
                                         color = contentColor,
-                                        startAngle =
-                                            -50f, // কোণ সামান্য কমানো হলো যেন নিখুঁত হাফ-চাঁদ লুক
-                                                  // আসে
+                                        startAngle = -50f,
                                         sweepAngle = 100f * arcProgress,
                                         useCenter = false,
                                         topLeft = Offset(topLeftX, topLeftY),
@@ -323,7 +379,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                         style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
                                   }
                                 }
-                                .padding(4.dp), // আইকন ও আর্কের মাঝে হালকা সেফটি স্পেস
+                                .padding(4.dp),
                         contentAlignment = Alignment.Center) {
                           Icon(
                               painter = painterResource(id = iconRes),
