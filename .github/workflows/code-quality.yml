@@ -3,8 +3,9 @@ name: Android Code Quality Check
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request: # কেউ কোড কন্ট্রিবিউট করতে চাইলে আগে চেক করবে
+  pull_request:
     branches: [ "main", "master" ]
+  workflow_dispatch: # 🔥 এই লাইনটিই আপনাকে ম্যানুয়ালি ব্রাঞ্চ সিলেক্ট করার অপশন দেবে!
 
 jobs:
   quality-scan:
@@ -27,11 +28,10 @@ jobs:
           cache-read-only: false
 
       - name: Run Android Lint
-        # এটি আপনার পুরো প্রজেক্ট স্ক্যান করে মেমরি লিক, ক্র্যাশ এবং পারফরম্যান্স ইস্যু খুঁজবে
         run: gradle lintDebug --stacktrace
 
       - name: Upload Lint Report
-        if: always() # বিল্ড ফেইল হলেও রিপোর্টটি আপলোড করবে
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Android-Lint-Report
