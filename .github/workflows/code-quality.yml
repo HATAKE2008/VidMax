@@ -1,0 +1,39 @@
+name: Android Code Quality Check
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request: # কেউ কোড কন্ট্রিবিউট করতে চাইলে আগে চেক করবে
+    branches: [ "main", "master" ]
+
+jobs:
+  quality-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '9.3.1'
+          cache-read-only: false
+
+      - name: Run Android Lint
+        # এটি আপনার পুরো প্রজেক্ট স্ক্যান করে মেমরি লিক, ক্র্যাশ এবং পারফরম্যান্স ইস্যু খুঁজবে
+        run: gradle lintDebug --stacktrace
+
+      - name: Upload Lint Report
+        if: always() # বিল্ড ফেইল হলেও রিপোর্টটি আপলোড করবে
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-Lint-Report
+          path: app/build/reports/lint-results-debug.html
+          retention-days: 7
