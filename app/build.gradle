@@ -20,6 +20,7 @@ android {
     lint {
         abortOnError = false
         checkReleaseBuilds = false
+        disable "GradleDependency", "OldTargetApi", "SelectedPhotoAccess", "IconLauncherShape", "MonochromeLauncherIcon", "IconLocation", "IconDuplicates", "ModifierParameter", "UseOfNonLambdaOffsetOverload"
     }
 
     signingConfigs {
