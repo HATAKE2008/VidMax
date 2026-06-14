@@ -103,20 +103,20 @@ val hours: Long = totalSec / 3600
 val minutes: Long = (totalSec % 3600) / 60
 val seconds: Long = totalSec % 60
 return if (hours > 0) {
-String.format("%d:%02d:%02d", hours, minutes, seconds)
+String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
 } else {
-String.format("%02d:%02d", minutes, seconds)
+String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
 }
 }
 
 fun formatSize(bytes: Long): String {
 return when {
 bytes >= 1_073_741_824L ->
-String.format("%.1f GB", bytes / 1_073_741_824.0)
+String.format(java.util.Locale.US, "%.1f GB", bytes / 1_073_741_824.0)
 bytes >= 1_048_576L ->
-String.format("%.1f MB", bytes / 1_048_576.0)
+String.format(java.util.Locale.US, "%.1f MB", bytes / 1_048_576.0)
 else ->
-String.format("%.1f KB", bytes / 1_024.0)
+String.format(java.util.Locale.US, "%.1f KB", bytes / 1_024.0)
 }
 }
 

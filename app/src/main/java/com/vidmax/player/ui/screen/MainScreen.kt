@@ -56,7 +56,7 @@ private val navItems = listOf(NavItem("Videos"), NavItem("Folders"), NavItem("Mu
 @Composable
 fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int) -> Unit) {
   val context = LocalContext.current
-  var selectedTab by remember { mutableStateOf(0) }
+  var selectedTab by remember { mutableIntStateOf(0) }
   var isSettingsOpen by remember { mutableStateOf(false) }
   var isMusicPlayerOpen by remember { mutableStateOf(false) }
 

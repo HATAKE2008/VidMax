@@ -124,7 +124,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// 🔥 Theme Enum
+// 🔥 Theme Enum Update (Removed GLASS)
 enum class PlayerTheme {
   DEFAULT,
   MODERN,
@@ -138,8 +138,8 @@ fun Modifier.liquidGlass(shape: Shape = RoundedCornerShape(24.dp)): Modifier =
             Brush.linearGradient(
                 colors =
                     listOf(
-                        Color.White.copy(alpha = 0.15f), // উপরে হালকা সাদা
-                        Color.White.copy(alpha = 0.03f) // নিচে একদম ট্রান্সপারেন্ট
+                        Color.White.copy(alpha = 0.15f), 
+                        Color.White.copy(alpha = 0.03f) 
                         )))
         .border(
             width = 1.dp,
@@ -147,7 +147,7 @@ fun Modifier.liquidGlass(shape: Shape = RoundedCornerShape(24.dp)): Modifier =
                 Brush.linearGradient(
                     colors =
                         listOf(
-                            Color.White.copy(alpha = 0.35f), // লাইট সোর্সের রিফ্লেকশন
+                            Color.White.copy(alpha = 0.35f), 
                             Color.Transparent,
                             Color.White.copy(alpha = 0.05f))),
             shape = shape)
@@ -157,12 +157,10 @@ fun Modifier.liquidGlass(shape: Shape = RoundedCornerShape(24.dp)): Modifier =
 fun MusicPlayerScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
   val context = LocalContext.current
 
-  // SharedPreferences initialize kora holo data save korar jonno
   val sharedPreferences = remember {
     context.getSharedPreferences("PlayerThemePrefs", Context.MODE_PRIVATE)
   }
 
-  // App open hole save kora theme load korbe, kisu na pele DEFAULT rakhbe
   var currentTheme by remember {
     val savedTheme = sharedPreferences.getString("SAVED_THEME", PlayerTheme.DEFAULT.name)
     val initialTheme =
@@ -174,7 +172,6 @@ fun MusicPlayerScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
     mutableStateOf(initialTheme)
   }
 
-  // Theme change hole sathe sathe storage e save kore dibe
   val changeAndSaveTheme = { newTheme: PlayerTheme ->
     currentTheme = newTheme
     sharedPreferences.edit().putString("SAVED_THEME", newTheme.name).apply()
@@ -198,7 +195,7 @@ fun MusicPlayerScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
   }
 }
 
-// 🔥 APNAR AGER PURO CODE (DEFAULT UI)
+// 🔥 DEFAULT UI
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DefaultPlayerUI(
@@ -357,7 +354,7 @@ fun DefaultPlayerUI(
   if (showPropertiesDialog) {
     val file = File(currentPath)
     val fileSizeMb =
-        if (file.exists()) String.format("%.2f MB", file.length() / (1024.0 * 1024.0))
+        if (file.exists()) String.format(java.util.Locale.US, "%.2f MB", file.length() / (1024.0 * 1024.0))
         else "Unknown Size"
 
     AlertDialog(

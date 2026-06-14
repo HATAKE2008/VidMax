@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.vidmax.player.ui.player
 
 import android.content.Context
@@ -59,18 +61,17 @@ fun PlayerScreen(
   var videoOffsetY by remember { mutableFloatStateOf(0f) }
   var currentPlaybackSpeed by remember { mutableFloatStateOf(1f) }
 
-  // BG Play Fix
   LaunchedEffect(bgPlayEnabled, currentEngine) {
     if (bgPlayEnabled) {
       if (currentEngine == PlayerEngine.EXO) {
         (exoPlayer as? androidx.media3.exoplayer.ExoPlayer)?.clearVideoSurface()
-      } else if (currentEngine == PlayerEngine.VLC) {
+      } else if (currentEngine == PlayerEngine.MPV) {
         try {
           MPVLib.setPropertyString("vid", "no")
         } catch (e: Exception) {}
       }
     } else {
-      if (currentEngine == PlayerEngine.VLC) {
+      if (currentEngine == PlayerEngine.MPV) {
         try {
           MPVLib.setPropertyString("vid", "auto")
         } catch (e: Exception) {}
@@ -78,9 +79,8 @@ fun PlayerScreen(
     }
   }
 
-  // 🔥 Runtime Aspect Ratio Fix (Using setProperty instead of setOption)
   LaunchedEffect(aspectRatio, currentEngine) {
-    if (currentEngine == PlayerEngine.VLC) {
+    if (currentEngine == PlayerEngine.MPV) {
       try {
         when (aspectRatio) {
           AspectRatioMode.FIT -> {
@@ -149,7 +149,6 @@ fun PlayerScreen(
                         onMpvLayoutReady()
                       }
 
-                      // 🔥 THE ULTIMATE ROTATION FIX 🔥
                       override fun surfaceChanged(
                           holder: SurfaceHolder,
                           format: Int,
@@ -157,10 +156,7 @@ fun PlayerScreen(
                           h: Int
                       ) {
                         try {
-                          // 1. Tell MPV the exact new screen size
                           MPVLib.setPropertyString("android-surface-size", "${w}x${h}")
-
-                          // 2. Re-apply the user's selected Aspect Ratio immediately
                           val currentMode = viewModel.aspectRatio.value
                           if (currentMode == AspectRatioMode.STRETCH) {
                             MPVLib.setPropertyString("keepaspect", "no")
@@ -228,7 +224,7 @@ fun PlayerScreen(
         currentPlaybackSpeed = currentPlaybackSpeed,
         onSpeedChange = { speed ->
           currentPlaybackSpeed = speed
-          if (currentEngine == PlayerEngine.VLC) {
+          if (currentEngine == PlayerEngine.MPV) {
             try {
               MPVLib.setPropertyDouble("speed", speed.toDouble())
             } catch (e: Exception) {}
@@ -254,19 +250,22 @@ fun PlayerScreen(
           prefs.edit().putBoolean("bg_play_enabled", isEnabled).apply()
         },
         onPlayPause = {
-          if (currentEngine == PlayerEngine.VLC) {
+          if (currentEngine == PlayerEngine.MPV) {
             try {
               val isPaused = MPVLib.getPropertyBoolean("pause") ?: false
               MPVLib.setPropertyBoolean("pause", !isPaused)
+              // 🔥 FIX: ইনস্ট্যান্ট UI আপডেট করার জন্য জোর করে ভিউমডেলের স্টেট চেঞ্জ করা হলো
+              viewModel.setPlaying(isPaused) 
             } catch (e: Exception) {}
           } else {
             if (exoPlayer?.isPlaying == true) exoPlayer.pause() else exoPlayer?.play()
           }
         },
         onSeek = { position: Long ->
-          if (currentEngine == PlayerEngine.VLC) {
+          if (currentEngine == PlayerEngine.MPV) {
             try {
-              MPVLib.setPropertyDouble("time-pos", position / 1000.0)
+              // 🔥 FIX: ম্যানুয়ালি প্রপার্টি চেঞ্জ করার বদলে ডিরেক্ট MPV command দিয়ে absolute seek
+              MPVLib.command(arrayOf("seek", (position / 1000.0).toString(), "absolute"))
             } catch (e: Exception) {}
           } else exoPlayer?.seekTo(position)
         },

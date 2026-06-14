@@ -38,23 +38,23 @@ class AudioService : Service() {
         // 🔥 লেটেস্ট ফিক্স ১: MediaSession Callback। Android 13+ নোটিফিকেশন থেকে প্লে/পজ কমান্ড এখানেই পাঠায়।
         mediaSession?.setCallback(object : MediaSession.Callback() {
             override fun onPlay() {
-                sendBroadcast(Intent("ACTION_TOGGLE"))
+                sendBroadcast(Intent("ACTION_TOGGLE").apply { setPackage(packageName) })
             }
 
             override fun onPause() {
-                sendBroadcast(Intent("ACTION_TOGGLE"))
+                sendBroadcast(Intent("ACTION_TOGGLE").apply { setPackage(packageName) })
             }
 
             override fun onSkipToNext() {
-                sendBroadcast(Intent("ACTION_NEXT"))
+                sendBroadcast(Intent("ACTION_NEXT").apply { setPackage(packageName) })
             }
 
             override fun onSkipToPrevious() {
-                sendBroadcast(Intent("ACTION_PREVIOUS"))
+                sendBroadcast(Intent("ACTION_PREVIOUS").apply { setPackage(packageName) })
             }
 
             override fun onStop() {
-                sendBroadcast(Intent("ACTION_STOP"))
+                sendBroadcast(Intent("ACTION_STOP").apply { setPackage(packageName) })
             }
         })
 
@@ -82,7 +82,8 @@ class AudioService : Service() {
             stopForeground(true)
             stopSelf()
         } else if (action != null) {
-            sendBroadcast(Intent(action))
+            // 🔥 ইনকামিং অ্যাকশন ব্রডকাস্ট করার সময়ও প্যাকেজ নেম যুক্ত করা হলো
+            sendBroadcast(Intent(action).apply { setPackage(packageName) })
         }
 
         return START_NOT_STICKY
@@ -94,12 +95,12 @@ class AudioService : Service() {
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 if (isCurrentlyPlaying) {
-                    sendBroadcast(Intent("ACTION_TOGGLE"))
+                    sendBroadcast(Intent("ACTION_TOGGLE").apply { setPackage(packageName) })
                 }
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 if (!isCurrentlyPlaying) {
-                    sendBroadcast(Intent("ACTION_TOGGLE"))
+                    sendBroadcast(Intent("ACTION_TOGGLE").apply { setPackage(packageName) })
                 }
             }
         }

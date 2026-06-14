@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.vidmax.player.ui.player
 
 import android.app.Activity
@@ -55,12 +57,15 @@ import java.io.File
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale // 🔥 Added Locale for String format
 
 data class MpvTrackInfo(val id: Int, val name: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerControls(
+    // 🔥 Modifier always goes first in Compose guidelines
+    modifier: Modifier = Modifier,
     viewModel: PlayerViewModel,
     currentPath: String,
     audioBoostEnabled: Boolean,
@@ -78,8 +83,7 @@ fun PlayerControls(
     onSeekForward: () -> Unit,
     onSeekBackward: () -> Unit,
     onBack: () -> Unit,
-    onPickSubtitle: () -> Unit,
-    modifier: Modifier = Modifier
+    onPickSubtitle: () -> Unit
 ) {
 
   val context = LocalContext.current
@@ -119,7 +123,7 @@ fun PlayerControls(
   var showTimerDialog by remember { mutableStateOf(false) }
 
   var isDragging by remember { mutableStateOf(false) }
-  var dragType by remember { mutableStateOf(0) }
+  var dragType by remember { mutableIntStateOf(0) } // Fixed warning implicitly by Int state
   var volumeAccumulator by remember { mutableFloatStateOf(0f) }
   var ignoreDrag by remember { mutableStateOf(false) }
 
@@ -128,7 +132,7 @@ fun PlayerControls(
   var targetSeekPosition by remember { mutableLongStateOf(0L) }
   var dragStartOffset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
 
-  var showDoubleTapRipple by remember { mutableStateOf(0) }
+  var showDoubleTapRipple by remember { mutableIntStateOf(0) }
 
   var loudnessEnhancer by remember { mutableStateOf<LoudnessEnhancer?>(null) }
 
@@ -157,7 +161,7 @@ fun PlayerControls(
   }
 
   LaunchedEffect(showSubtitleMenu) {
-    if (showSubtitleMenu && currentEngine == PlayerEngine.VLC) {
+    if (showSubtitleMenu && currentEngine == PlayerEngine.MPV) {
       try {
         val tracks = mutableListOf<MpvTrackInfo>()
         val count = MPVLib.getPropertyInt("track-list/count") ?: 0
@@ -182,7 +186,7 @@ fun PlayerControls(
   }
 
   LaunchedEffect(showAudioMenu) {
-    if (showAudioMenu && currentEngine == PlayerEngine.VLC) {
+    if (showAudioMenu && currentEngine == PlayerEngine.MPV) {
       try {
         val tracks = mutableListOf<MpvTrackInfo>()
         val count = MPVLib.getPropertyInt("track-list/count") ?: 0
@@ -217,7 +221,7 @@ fun PlayerControls(
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxSystemVol, 0)
       }
 
-      if (currentEngine == PlayerEngine.VLC) {
+      if (currentEngine == PlayerEngine.MPV) {
         try {
           MPVLib.setPropertyInt("volume", 100)
         } catch (e: Exception) {}
@@ -267,7 +271,8 @@ fun PlayerControls(
   if (showPropertiesDialog) {
     val file = File(currentPath)
     val fileSizeMb =
-        if (file.exists()) String.format("%.2f MB", file.length() / (1024.0 * 1024.0))
+        // 🔥 FIX 1: Default Locale Bug Fixed here
+        if (file.exists()) String.format(Locale.US, "%.2f MB", file.length() / (1024.0 * 1024.0))
         else "Unknown"
 
     AlertDialog(
@@ -294,7 +299,7 @@ fun PlayerControls(
 
   if (showSyncMenu) {
     LaunchedEffect(showSyncMenu) {
-      if (currentEngine == PlayerEngine.VLC) {
+      if (currentEngine == PlayerEngine.MPV) {
         try {
           audioDelayMs = ((MPVLib.getPropertyDouble("audio-delay") ?: 0.0) * 1000).toLong()
           subtitleDelayMs = ((MPVLib.getPropertyDouble("sub-delay") ?: 0.0) * 1000).toLong()
@@ -343,7 +348,7 @@ fun PlayerControls(
 
                 Divider(color = Color.DarkGray)
 
-                if (currentEngine == PlayerEngine.VLC) {
+                if (currentEngine == PlayerEngine.MPV) {
                   Row(
                       modifier = Modifier.fillMaxWidth(),
                       horizontalArrangement = Arrangement.SpaceBetween,
@@ -490,7 +495,7 @@ fun PlayerControls(
                     }
                 Divider(color = Color.DarkGray)
 
-                if (currentEngine == PlayerEngine.VLC) {
+                if (currentEngine == PlayerEngine.MPV) {
                   val isOff =
                       currentMpvSubId == "no" ||
                           currentMpvSubId == "false" ||
@@ -563,7 +568,7 @@ fun PlayerControls(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 8.dp))
 
-                if (currentEngine == PlayerEngine.VLC) {
+                if (currentEngine == PlayerEngine.MPV) {
                   mpvAudioTracks.forEach { track ->
                     val isSelected = currentMpvAudioId == track.id.toString()
                     Row(
@@ -649,13 +654,13 @@ fun PlayerControls(
                         targetSeekPosition = currentPosition
 
                         var mpvVolume = 100
-                        if (currentEngine == PlayerEngine.VLC) {
+                        if (currentEngine == PlayerEngine.MPV) {
                           try {
                             mpvVolume = MPVLib.getPropertyInt("volume") ?: 100
                           } catch (e: Exception) {}
                         }
 
-                        if (currentEngine == PlayerEngine.VLC && mpvVolume > 100) {
+                        if (currentEngine == PlayerEngine.MPV && mpvVolume > 100) {
                           volumeAccumulator = mpvVolume.toFloat()
                         } else if (currentEngine == PlayerEngine.EXO &&
                             gestureIndicatorValue > 100f) {
@@ -757,7 +762,7 @@ fun PlayerControls(
                                     AudioManager.STREAM_MUSIC, newSystemVol, 0)
                               }
 
-                              if (currentEngine == PlayerEngine.VLC) {
+                              if (currentEngine == PlayerEngine.MPV) {
                                 try {
                                   if ((MPVLib.getPropertyInt("volume") ?: 100) != 100)
                                       MPVLib.setPropertyInt("volume", 100)
@@ -777,7 +782,7 @@ fun PlayerControls(
                                     AudioManager.STREAM_MUSIC, maxSystemVol, 0)
                               }
 
-                              if (currentEngine == PlayerEngine.VLC) {
+                              if (currentEngine == PlayerEngine.MPV) {
                                 try {
                                   MPVLib.setPropertyInt("volume", volumeAccumulator.toInt())
                                 } catch (e: Exception) {}
@@ -1064,7 +1069,7 @@ fun PlayerControls(
                                             showMoreMenu = false
                                             val newEngine =
                                                 if (currentEngine == PlayerEngine.EXO)
-                                                    PlayerEngine.VLC
+                                                    PlayerEngine.MPV
                                                 else PlayerEngine.EXO
                                             viewModel.setPlayerEngine(newEngine)
                                             context
@@ -1268,7 +1273,7 @@ fun PlayerControls(
                             modifier = timelineInnerModifier,
                             verticalAlignment = Alignment.CenterVertically) {
                               var isDraggingSlider by remember { mutableStateOf(false) }
-                              var sliderDragValue by remember { mutableStateOf(0f) }
+                              var sliderDragValue by remember { mutableFloatStateOf(0f) }
                               val safeDuration = if (duration > 0) duration else 1L
                               val actualProgress =
                                   (currentPosition.toFloat() / safeDuration.toFloat()).coerceIn(
@@ -1541,14 +1546,15 @@ private fun QuickActionButton(
       }
 }
 
+// 🔥 FIX 2: Default Locale Bug Fixed here as well
 fun formatTimeHelper(ms: Long): String {
   if (ms < 0) return "00:00"
   val totalSeconds = ms / 1000
   val hours = totalSeconds / 3600
   val minutes = (totalSeconds % 3600) / 60
   val seconds = totalSeconds % 60
-  return if (hours > 0) String.format("%02d:%02d:%02d", hours, minutes, seconds)
-  else String.format("%02d:%02d", minutes, seconds)
+  return if (hours > 0) String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
+  else String.format(Locale.US, "%02d:%02d", minutes, seconds)
 }
 
 fun getMediaUriFromPath(context: Context, path: String): Uri? {

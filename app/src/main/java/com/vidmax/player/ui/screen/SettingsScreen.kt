@@ -183,8 +183,8 @@ fun SettingsScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
                     title = "MPV Engine (HW)",
                     subtitle = "Superfast hardware-accelerated engine",
                     iconId = R.drawable.ic_gear,
-                    selected = currentEngine == PlayerEngine.VLC,
-                    onClick = { viewModel.setPlayerEngine(PlayerEngine.VLC) })
+                    selected = currentEngine == PlayerEngine.MPV, // 🔥 VLC changed to MPV
+                    onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) }) // 🔥 VLC changed to MPV
               }
 
               item { Spacer(modifier = Modifier.height(16.dp)) }
