@@ -45,6 +45,8 @@ enum class DecoderMode {
   SOFTWARE
 }
 
+// 🔥 লেটেস্ট ফিক্স: UnstableApi Opt-In যোগ করা হলো
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
 
   private val repository: VideoRepository = VideoRepository(application.contentResolver)
