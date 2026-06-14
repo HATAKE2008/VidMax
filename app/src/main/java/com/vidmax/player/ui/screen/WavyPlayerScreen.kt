@@ -222,7 +222,7 @@ fun WavyPlayerScreen(
   if (showPropertiesDialog) {
     val file = File(currentPath)
     val fileSizeMb =
-        if (file.exists()) String.format("%.2f MB", file.length() / (1024.0 * 1024.0))
+        if (file.exists()) String.format(java.util.Locale.US, "%.2f MB", file.length() / (1024.0 * 1024.0))
         else "Unknown Size"
     AlertDialog(
         onDismissRequest = { showPropertiesDialog = false },

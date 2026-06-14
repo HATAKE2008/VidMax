@@ -37,7 +37,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -265,7 +265,7 @@ fun GlassPlayerScreen(
   if (showPropertiesDialog) {
     val file = File(currentPath)
     val fileSizeMb =
-        if (file.exists()) String.format("%.2f MB", file.length() / (1024.0 * 1024.0))
+        if (file.exists()) String.format(java.util.Locale.US, "%.2f MB", file.length() / (1024.0 * 1024.0))
         else "Unknown Size"
 
     AlertDialog(
@@ -502,7 +502,7 @@ fun GlassPlayerScreen(
                       }
 
                   // Volume Bar
-                  BoxWithConstraints(
+                  Box(
                       modifier =
                           Modifier.weight(1f)
                               .fillMaxHeight()
@@ -685,7 +685,7 @@ fun GlassPlayerScreen(
                   val primaryColor = MaterialTheme.colorScheme.primary
                   val density = LocalDensity.current
 
-                  BoxWithConstraints(
+                  Box(
                       modifier =
                           Modifier.fillMaxWidth()
                               .padding(

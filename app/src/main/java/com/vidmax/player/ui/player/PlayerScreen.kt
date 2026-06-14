@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.vidmax.player.ui.player
 
 import android.content.Context
