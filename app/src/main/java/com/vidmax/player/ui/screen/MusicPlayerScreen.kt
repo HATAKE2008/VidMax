@@ -124,12 +124,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// 🔥 Theme Enum Update (Added GLASS)
+// 🔥 Theme Enum Update (Removed GLASS)
 enum class PlayerTheme {
   DEFAULT,
   MODERN,
-  WAVY,
-  GLASS
+  WAVY
 }
 
 // 🔥 Apple Style Liquid Glass Modifier
@@ -139,8 +138,8 @@ fun Modifier.liquidGlass(shape: Shape = RoundedCornerShape(24.dp)): Modifier =
             Brush.linearGradient(
                 colors =
                     listOf(
-                        Color.White.copy(alpha = 0.15f), // উপরে হালকা সাদা
-                        Color.White.copy(alpha = 0.03f) // নিচে একদম ট্রান্সপারেন্ট
+                        Color.White.copy(alpha = 0.15f), 
+                        Color.White.copy(alpha = 0.03f) 
                         )))
         .border(
             width = 1.dp,
@@ -148,7 +147,7 @@ fun Modifier.liquidGlass(shape: Shape = RoundedCornerShape(24.dp)): Modifier =
                 Brush.linearGradient(
                     colors =
                         listOf(
-                            Color.White.copy(alpha = 0.35f), // লাইট সোর্সের রিফ্লেকশন
+                            Color.White.copy(alpha = 0.35f), 
                             Color.Transparent,
                             Color.White.copy(alpha = 0.05f))),
             shape = shape)
@@ -158,12 +157,10 @@ fun Modifier.liquidGlass(shape: Shape = RoundedCornerShape(24.dp)): Modifier =
 fun MusicPlayerScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
   val context = LocalContext.current
 
-  // SharedPreferences initialize kora holo data save korar jonno
   val sharedPreferences = remember {
     context.getSharedPreferences("PlayerThemePrefs", Context.MODE_PRIVATE)
   }
 
-  // App open hole save kora theme load korbe, kisu na pele DEFAULT rakhbe
   var currentTheme by remember {
     val savedTheme = sharedPreferences.getString("SAVED_THEME", PlayerTheme.DEFAULT.name)
     val initialTheme =
@@ -175,7 +172,6 @@ fun MusicPlayerScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
     mutableStateOf(initialTheme)
   }
 
-  // Theme change hole sathe sathe storage e save kore dibe
   val changeAndSaveTheme = { newTheme: PlayerTheme ->
     currentTheme = newTheme
     sharedPreferences.edit().putString("SAVED_THEME", newTheme.name).apply()
@@ -195,16 +191,11 @@ fun MusicPlayerScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
       PlayerTheme.WAVY -> {
         WavyPlayerScreen(viewModel = viewModel, onBack = onBack, onThemeChange = changeAndSaveTheme)
       }
-      PlayerTheme.GLASS -> {
-        // 🔥 নতুন Glass Theme কল করা হলো
-        GlassPlayerScreen(
-            viewModel = viewModel, onBack = onBack, onThemeChange = changeAndSaveTheme)
-      }
     }
   }
 }
 
-// 🔥 APNAR AGER PURO CODE (DEFAULT UI)
+// 🔥 DEFAULT UI
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DefaultPlayerUI(
@@ -566,15 +557,6 @@ fun DefaultPlayerUI(
                             onClick = {
                               showMoreMenu = false
                               onThemeChange(PlayerTheme.WAVY)
-                            })
-                        // 🔥 Added Glass Theme Option
-                        DropdownMenuItem(
-                            text = {
-                              Text("Glass Theme", color = MaterialTheme.colorScheme.primary)
-                            },
-                            onClick = {
-                              showMoreMenu = false
-                              onThemeChange(PlayerTheme.GLASS)
                             })
                       }
                 }
