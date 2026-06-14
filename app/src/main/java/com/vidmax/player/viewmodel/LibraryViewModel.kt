@@ -45,7 +45,7 @@ enum class DecoderMode {
   SOFTWARE
 }
 
-// 🔥 লেটেস্ট ফিক্স: UnstableApi Opt-In যোগ করা হলো
+// 🔥 ফিক্স ১: UnstableApi Opt-In যোগ করা হলো
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -60,7 +60,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
   private var isAudioLoaded: Boolean = false
 
-  // 🔥 Volume Trackers
+  // Volume Trackers
   private var targetExoVolume: Float = 1.0f
 
   private val _isAudioPlaying: MutableStateFlow<Boolean> = MutableStateFlow(false)
@@ -157,7 +157,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       MutableStateFlow(prefs.getBoolean("resolution_badge", true))
   val showResolutionBadge: StateFlow<Boolean> = _showResolutionBadge
 
-  // 🔥 Default Theme Changed to CINEMATIC_CRIMSON
   private val savedThemeName: String =
       prefs.getString("app_theme", AppTheme.CINEMATIC_CRIMSON.name)
           ?: AppTheme.CINEMATIC_CRIMSON.name
@@ -165,7 +164,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       MutableStateFlow(AppTheme.valueOf(savedThemeName))
   val appTheme: StateFlow<AppTheme> = _appTheme
 
-  // 🔥 NEW Premium Feature States
   private val _skipSilence: MutableStateFlow<Boolean> =
       MutableStateFlow(prefs.getBoolean("skip_silence", false))
   val skipSilence: StateFlow<Boolean> = _skipSilence
@@ -234,20 +232,21 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           addAction("ACTION_PREVIOUS")
           addAction("ACTION_STOP")
         }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      application.registerReceiver(audioReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    } else {
-      application.registerReceiver(audioReceiver, filter)
-    }
+
+    // 🔥 ফিক্স ২: ContextCompat দিয়ে registerReceiver কল করা হলো (Security Bug Fixed)
+    androidx.core.content.ContextCompat.registerReceiver(
+        application,
+        audioReceiver,
+        filter,
+        androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+    )
   }
 
-  // 🔥 Instant Play (Fade-In Removed)
   private fun executePlay() {
     exoPlayer?.volume = targetExoVolume
     exoPlayer?.play()
   }
 
-  // 🔥 Instant Pause (Fade-Out Removed to prevent Delay)
   private fun executePause() {
     exoPlayer?.pause()
     audioProgressJob?.cancel()
@@ -375,7 +374,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       exoPlayer?.setMediaItem(MediaItem.fromUri(uri))
       exoPlayer?.prepare()
 
-      executePlay() // 🔥 Play INSTANTLY
+      executePlay() 
 
       isAudioLoaded = true
       _currentAudioArtist.value = artist
@@ -429,12 +428,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     playAudioInternal(audio.title, audio.artist, audio.path)
   }
 
-  // 🔥 MainScreen এর সাথে মেলানোর জন্য যোগ করা হলো
   fun nextAudio() {
     playNextAudio(false)
   }
 
-  // 🔥 MainScreen এর সাথে মেলানোর জন্য যোগ করা হলো
   fun previousAudio() {
     playPreviousAudio()
   }
@@ -455,7 +452,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   fun pauseAudio() {
     exoPlayer?.let { player ->
       if (player.isPlaying) {
-        executePause() // 🔥 Pause INSTANTLY
+        executePause() 
       }
     }
   }
@@ -463,7 +460,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   fun toggleAudio() {
     exoPlayer?.let { player ->
       if (player.isPlaying) {
-        executePause() // 🔥 Pause INSTANTLY
+        executePause() 
       } else {
         if (!isAudioLoaded && _recentlyPlayedPath.value.isNotEmpty()) {
           if (currentAudioIndex != -1 && currentAudioList.isNotEmpty()) {
@@ -474,7 +471,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 _recentlyPlayedTitle.value, _currentAudioArtist.value, _recentlyPlayedPath.value)
           }
         } else {
-          executePlay() // 🔥 Play INSTANTLY
+          executePlay() 
           startAudioProgress()
           updateNotification(_recentlyPlayedTitle.value, _currentAudioArtist.value, true)
         }
@@ -705,7 +702,6 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
   fun setCrossfade(enabled: Boolean) {
     _crossfadeEnabled.value = enabled
-    // Settings state will save, but fade effect is now natively bypassed in logic
     prefs.edit().putBoolean("crossfade_enabled", enabled).apply()
   }
 
