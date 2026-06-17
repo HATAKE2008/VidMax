@@ -1,0 +1,27 @@
+name: 🎨 Migrate to Material 3
+
+on:
+  workflow_dispatch: # ম্যানুয়ালি রান করার জন্য
+
+jobs:
+  migrate-m3:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🪄 Update Material Imports
+        run: |
+          # সমস্ত .kt ফাইল খুঁজে বের করবে এবং Material 2 ইম্পোর্টকে Material 3 করে দেবে।
+          # তবে 'icons' প্যাকেজটিকে ইগনোর করবে, কারণ আইকনগুলো আগের প্যাকেজেই থাকে।
+          find . -type f -name "*.kt" -exec sed -i '/import androidx\.compose\.material\.icons/! s/import androidx\.compose\.material\./import androidx.compose.material3./g' {} +
+
+      - name: 🚀 Commit & Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🎨 refactor: Auto-migrate Material 2 imports to Material 3"
+          commit_user_name: "VidMax Magic-Bot"
+          commit_user_email: "actions@github.com"
