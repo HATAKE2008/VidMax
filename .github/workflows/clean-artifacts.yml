@@ -3,6 +3,11 @@ name: Emergency Artifact Cleanup
 on:
   workflow_dispatch: # Allows you to trigger it manually
 
+# 👇 ADD THIS BLOCK TO FIX THE 403 ERROR
+permissions:
+  actions: write
+  contents: read
+
 jobs:
   purge:
     runs-on: ubuntu-latest
