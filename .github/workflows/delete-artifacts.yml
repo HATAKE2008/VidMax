@@ -1,12 +1,19 @@
 name: 🗑️ Delete All Artifacts
 on:
-  workflow_dispatch: # এই লাইনের কারণেই ১-ক্লিকে রান করার বাটনটি তৈরি হবে
+  workflow_dispatch:
 
 jobs:
-  delete-artifacts:
+  delete-all-artifacts:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write # Artifact ডিলিট করার পারমিশনের জন্য এটি খুব জরুরি
     steps:
-      - name: Delete all artifacts
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          failOnError: false
+      - name: Delete all artifacts via GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Deleting all artifacts..."
+          gh api repos/${{ github.repository }}/actions/artifacts \
+            --paginate -q '.artifacts[].id' | \
+            xargs -I {} gh api -X DELETE repos/${{ github.repository }}/actions/artifacts/{}
+          echo "All artifacts deleted successfully!"
