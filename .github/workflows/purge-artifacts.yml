@@ -6,6 +6,8 @@ on:
 jobs:
   purge:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write   # ← এইটা ছিল না, এইজন্য 403
     steps:
       - name: Delete all artifacts from this repo
         uses: actions/github-script@v7
