@@ -16,13 +16,14 @@
 
 <br/>
 
-[![Build](https://github.com/HATAKE2008/VidMax/actions/workflows/build.yml/badge.svg)](https://github.com/HATAKE2008/VidMax/actions/workflows/build.yml)
-[![License](https://img.shields.io/badge/License-Open%20Source-blue?style=flat-square)](#license)
+[![Build](https://github.com/HATAKE2008/vidamx/actions/workflows/build.yml/badge.svg)](https://github.com/HATAKE2008/vidamx/actions/workflows/build.yml)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](./LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android-green?style=flat-square&logo=android)](https://android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-purple?style=flat-square&logo=kotlin)](https://kotlinlang.org)
 [![Material 3](https://img.shields.io/badge/Material-3-teal?style=flat-square&logo=materialdesign)](https://m3.material.io)
 [![Ad-Free](https://img.shields.io/badge/Ads-None%20Ever-red?style=flat-square)](#)
 [![Themes](https://img.shields.io/badge/Themes-28%20Offline-orange?style=flat-square)](#-themes)
+[![GitHub](https://img.shields.io/badge/GitHub-HATAKE2008%2Fvidamx-black?style=flat-square&logo=github)](https://github.com/HATAKE2008/vidamx)
 
 <br/>
 
@@ -167,14 +168,14 @@ app/src/main/
 
 ```bash
 # Clone the repository
-git clone https://github.com/HATAKE2008/VidMax.git
-cd VidMax
+git clone https://github.com/HATAKE2008/vidamx.git
+cd vidamx
 
 # Build debug APK
 ./gradlew assembleDebug
 ```
 
-Or download the latest APK from [**Releases**](https://github.com/HATAKE2008/VidMax/releases).
+Or download the latest APK from [**Releases**](https://github.com/HATAKE2008/vidamx/releases).
 
 ---
 
@@ -194,7 +195,7 @@ Please make sure your code follows the existing Kotlin style and Material 3 guid
 
 ## 🐛 Bug Reports
 
-Found a bug? Please open an [issue](https://github.com/HATAKE2008/VidMax/issues) with:
+Found a bug? Please open an [issue](https://github.com/HATAKE2008/vidamx/issues) with:
 - Device model and Android version
 - Steps to reproduce
 - Expected vs actual behavior
@@ -204,7 +205,29 @@ Found a bug? Please open an [issue](https://github.com/HATAKE2008/VidMax/issues)
 
 ## 📜 License
 
-VidMax is open-source software. See the [LICENSE](./LICENSE) file for details.
+```
+MIT License
+
+Copyright (c) 2026 HATAKE2008
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ---
 
