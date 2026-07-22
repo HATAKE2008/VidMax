@@ -3,8 +3,10 @@ package com.vidmax.player.ui.screen
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.animateColorAsState // 🔥 Correct Import Location
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -20,15 +22,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -81,7 +79,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         } else if (available.y > 15f) { // ওপরের দিকে স্ক্রল
           isScrollingDown.value = false
         }
-        return Offset.Zero // আমরা স্ক্রল ব্লক করছি না, শুধু ইভেন্ট শুনছি
+        return Offset.Zero
       }
     }
   }
@@ -144,7 +142,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
   val showMusicRecentBar =
       (selectedTab == 2 || openedPlaylistTitle.isNotEmpty()) && recentMusicTitle.isNotEmpty()
 
-  // 🔥 মেইন বক্সে NestedScrollConnection অ্যাড করা হলো
   Box(modifier = Modifier.fillMaxSize().nestedScroll(nestedScrollConnection)) {
 
     // --- MAIN BACKGROUND CONTENT ---
@@ -186,9 +183,9 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     // --- 🔥 FLOATING NAVIGATION BARS 🔥 ---
     Column(modifier = Modifier.align(Alignment.BottomCenter)) {
 
-      // --- MUSIC RECENT BAR (Theme Adaptive + Scroll Auto Hide) ---
+      // --- MUSIC RECENT BAR ---
       AnimatedVisibility(
-          visible = showMusicRecentBar && !isScrollingDown.value, // 🔥 স্ক্রল ডাউনে হাইড হবে
+          visible = showMusicRecentBar && !isScrollingDown.value,
           enter = slideInVertically(initialOffsetY = { fullHeight: Int -> fullHeight }),
           exit = slideOutVertically(targetOffsetY = { fullHeight: Int -> fullHeight })) {
             Box(
@@ -198,18 +195,16 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                         .padding(bottom = 8.dp)
                         .shadow(12.dp, RoundedCornerShape(24.dp))
                         .clip(RoundedCornerShape(24.dp))
-                        // 🔥 থিমের সাথে মানানসই কালার করার জন্য surface ব্যবহার করা হলো
-                        .background(MaterialTheme.colorScheme.surface)
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
                         .border(
                             1.dp,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                             RoundedCornerShape(24.dp))
                         .clickable { isMusicPlayerOpen = true }
                         .padding(horizontal = 16.dp, vertical = 10.dp)) {
                   Row(
                       verticalAlignment = Alignment.CenterVertically,
                       modifier = Modifier.fillMaxWidth()) {
-                        // ১. অ্যালবাম আর্ট (থাম্বনেইল)
                         Box(
                             modifier =
                                 Modifier.size(48.dp)
@@ -233,7 +228,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
 
                         Spacer(modifier = Modifier.width(14.dp))
 
-                        // ২. গান এবং আর্টিস্টের নাম
                         Column(modifier = Modifier.weight(1f)) {
                           Text(
                               text = recentMusicTitle,
@@ -250,11 +244,9 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                               overflow = TextOverflow.Ellipsis)
                         }
 
-                        // ৩. মিডিয়া কন্ট্রোল বাটন গ্রুপ
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                              // Previous Button
                               IconButton(
                                   onClick = { viewModel.previousAudio() },
                                   modifier = Modifier.size(36.dp)) {
@@ -265,7 +257,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                         modifier = Modifier.size(20.dp))
                                   }
 
-                              // Play/Pause Button (Theme Primary Circle)
                               Box(
                                   modifier =
                                       Modifier.size(44.dp)
@@ -284,7 +275,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                         modifier = Modifier.size(22.dp))
                                   }
 
-                              // Next Button
                               IconButton(
                                   onClick = { viewModel.nextAudio() },
                                   modifier = Modifier.size(36.dp)) {
@@ -299,58 +289,66 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 }
           }
 
-      // --- CUSTOM SLEEK & SLIM NAVIGATION BAR ---
-      Row(
+      // --- 🔥 NAVIGATION BAR 🔥 ---
+      BoxWithConstraints(
           modifier =
-              Modifier.padding(horizontal = 16.dp)
+              Modifier.padding(horizontal = 18.dp)
                   .padding(bottom = 16.dp)
                   .fillMaxWidth()
-                  .height(64.dp)
-                  .shadow(12.dp, RoundedCornerShape(50.dp))
-                  .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(50.dp))
-                  .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(50.dp)),
-          horizontalArrangement = Arrangement.SpaceEvenly,
-          verticalAlignment = Alignment.CenterVertically) {
-            navItems.forEachIndexed { index, item ->
-              val isSelected = selectedTab == index
+                  .height(70.dp)
+                  .shadow(16.dp, RoundedCornerShape(35.dp), spotColor = Color.Black.copy(alpha = 0.45f))
+                  .clip(RoundedCornerShape(35.dp))
+                  .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                  .border(
+                      1.2.dp,
+                      MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                      RoundedCornerShape(35.dp)
+                  )
+                  .padding(6.dp)) {
 
-              val contentColor by
-                  animateColorAsState(
-                      targetValue =
-                          if (isSelected) MaterialTheme.colorScheme.primary
-                          else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                      animationSpec = tween(250),
-                      label = "colorAnim")
+            val tabWidth = maxWidth / navItems.size
 
-              val iconScale by
-                  animateFloatAsState(
-                      targetValue = if (isSelected) 1.15f else 1.0f,
-                      animationSpec =
-                          spring(
-                              dampingRatio = Spring.DampingRatioMediumBouncy,
-                              stiffness = Spring.StiffnessLow),
-                      label = "scaleAnim")
+            val indicatorOffset by
+                animateDpAsState(
+                    targetValue = tabWidth * selectedTab,
+                    animationSpec =
+                        spring(
+                            dampingRatio = 0.75f,
+                            stiffness = Spring.StiffnessMedium),
+                    label = "indicatorOffset")
 
-              val arcProgress by
-                  animateFloatAsState(
-                      targetValue = if (isSelected) 1f else 0f,
-                      animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-                      label = "arcAnim")
+            Box(
+                modifier =
+                    Modifier.offset(x = indicatorOffset)
+                        .width(tabWidth)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)))
 
-              Column(
-                  modifier =
-                      Modifier.weight(1f)
-                          .fillMaxHeight()
-                          .clickable(
-                              interactionSource = remember { MutableInteractionSource() },
-                              indication = null,
-                              onClick = {
-                                selectedTab = index
-                                if (index != 1) viewModel.closeFolder()
-                                viewModel.closePlaylist()
-                              }),
-                  horizontalAlignment = Alignment.CenterHorizontally,
-                  verticalArrangement = Arrangement.Center) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically) {
+                  navItems.forEachIndexed { index, item ->
+                    val isSelected = selectedTab == index
+
+                    val contentColor by
+                        animateColorAsState(
+                            targetValue =
+                                if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                            animationSpec = tween(250),
+                            label = "colorAnim")
+
+                    val iconScale by
+                        animateFloatAsState(
+                            targetValue = if (isSelected) 1.15f else 1.0f,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow),
+                            label = "scaleAnim")
+
                     val iconRes =
                         when (item.label) {
                           "Videos" -> R.drawable.ic_video_library
@@ -361,39 +359,36 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
 
                     Box(
                         modifier =
-                            Modifier.wrapContentSize()
-                                .drawBehind {
-                                  if (arcProgress > 0f) {
-                                    val strokeWidth = 2.5.dp.toPx()
-                                    val diameter = maxOf(size.width, size.height) + 6.dp.toPx()
-                                    val topLeftX = (size.width - diameter) / 2f + 5.dp.toPx()
-                                    val topLeftY = (size.height - diameter) / 2f
-
-                                    drawArc(
-                                        color = contentColor,
-                                        startAngle = -50f,
-                                        sweepAngle = 100f * arcProgress,
-                                        useCenter = false,
-                                        topLeft = Offset(topLeftX, topLeftY),
-                                        size = Size(diameter, diameter),
-                                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
-                                  }
-                                }
-                                .padding(4.dp),
+                            Modifier.weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                      selectedTab = index
+                                      if (index != 1) viewModel.closeFolder()
+                                      viewModel.closePlaylist()
+                                    }),
                         contentAlignment = Alignment.Center) {
-                          Icon(
-                              painter = painterResource(id = iconRes),
-                              contentDescription = item.label,
-                              tint = contentColor,
-                              modifier = Modifier.size(24.dp).scale(iconScale))
-                        }
+                          Column(
+                              horizontalAlignment = Alignment.CenterHorizontally,
+                              verticalArrangement = Arrangement.Center) {
+                                Icon(
+                                    painter = painterResource(id = iconRes),
+                                    contentDescription = item.label,
+                                    tint = contentColor,
+                                    modifier = Modifier.size(26.dp).scale(iconScale))
 
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = item.label,
-                        fontSize = 11.sp,
-                        color = contentColor,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                                Spacer(modifier = Modifier.height(3.dp))
+
+                                Text(
+                                    text = item.label,
+                                    fontSize = 12.sp,
+                                    color = contentColor,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                              }
+                        }
                   }
             }
           }
