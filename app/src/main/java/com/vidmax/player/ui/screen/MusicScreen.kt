@@ -10,6 +10,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.LruCache
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -67,12 +68,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -105,6 +105,70 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+
+// --- 🚀 FAST MEMORY THUMBNAIL CACHE ENGINE 🚀 ---
+private object AudioArtCache {
+  private val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+  private val cacheSize = maxMemory / 8 // allocate 1/8th of memory
+  private val memoryCache = object : LruCache<String, Bitmap>(cacheSize) {
+    override fun sizeOf(key: String, bitmap: Bitmap): Int {
+      return bitmap.byteCount / 1024
+    }
+  }
+
+  fun get(key: String): Bitmap? = memoryCache.get(key)
+
+  fun put(key: String, bitmap: Bitmap) {
+    if (get(key) == null) {
+      memoryCache.put(key, bitmap)
+    }
+  }
+
+  fun loadThumbnail(context: Context, path: String, targetDp: Int = 120): Bitmap? {
+    if (path.isEmpty()) return null
+    val cached = get(path)
+    if (cached != null) return cached
+
+    return try {
+      val retriever = MediaMetadataRetriever()
+      val uri = if (path.startsWith("/")) Uri.fromFile(File(path)) else Uri.parse(path)
+      retriever.setDataSource(context, uri)
+      val art = retriever.embeddedPicture
+      retriever.release()
+
+      if (art != null) {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(art, 0, art.size, options)
+
+        val density = context.resources.displayMetrics.density
+        val targetPx = (targetDp * density).toInt()
+        options.inSampleSize = calculateInSampleSize(options, targetPx, targetPx)
+        options.inJustDecodeBounds = false
+
+        val bitmap = BitmapFactory.decodeByteArray(art, 0, art.size, options)
+        if (bitmap != null) {
+          put(path, bitmap)
+        }
+        bitmap
+      } else null
+    } catch (e: Exception) {
+      null
+    }
+  }
+
+  private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+    val (height: Int, width: Int) = options.outHeight to options.outWidth
+    var inSampleSize = 1
+    if (height > reqHeight || width > reqWidth) {
+      val halfHeight = height / 2
+      val halfWidth = width / 2
+      while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+        inSampleSize *= 2
+      }
+    }
+    return inSampleSize
+  }
+}
 
 // Playlist Data Model
 data class VidMaxPlaylist(val name: String, val paths: List<String>)
@@ -237,7 +301,7 @@ fun MusicScreen(
             }
           }
 
-  // লোকাল ব্যাক হ্যান্ডলার
+  // ব্যাক হ্যান্ডলার
   BackHandler(
       enabled =
           inSelectionMode ||
@@ -667,30 +731,28 @@ fun MusicScreen(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // 🔥 TABS (Spring Animated Fluid Effect) 🔥
+        // TABS
         val tabsList = listOf("Songs", "Folders", "Playlists", "Favorites")
         val selectedTabIndex = tabsList.indexOf(currentTab).coerceAtLeast(0)
 
         BoxWithConstraints(
             modifier =
                 Modifier.fillMaxWidth()
-                    .height(68.dp) // ব্যাকগ্রাউন্ড পিলের জন্য নির্দিষ্ট হাইট
+                    .height(68.dp)
                     .clip(RoundedCornerShape(32.dp))
                     .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                     .padding(6.dp)) {
               val tabWidth = maxWidth / tabsList.size
-              // পানির মতো গ্লাইড করার অ্যানিমেশন
               val indicatorOffset by
                   animateDpAsState(
                       targetValue = tabWidth * selectedTabIndex,
                       animationSpec =
                           spring(
                               dampingRatio =
-                                  Spring.DampingRatioMediumBouncy, // স্প্রিং বাউন্সি ইফেক্ট
+                                  Spring.DampingRatioMediumBouncy,
                               stiffness = Spring.StiffnessLow),
                       label = "indicatorOffset")
 
-              // Animated Gliding Background Pill
               Box(
                   modifier =
                       Modifier.offset(x = indicatorOffset)
@@ -797,12 +859,12 @@ fun MusicScreen(
               modifier = Modifier.padding(bottom = 8.dp))
         }
 
-        // 🔥 MAIN CONTENT AREA (List + FAB)
+        // MAIN CONTENT AREA
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
           LazyColumn(
               modifier = Modifier.fillMaxSize(),
               verticalArrangement = Arrangement.spacedBy(10.dp),
-              contentPadding = PaddingValues(bottom = 160.dp) // Space for bottom player
+              contentPadding = PaddingValues(bottom = 160.dp)
               ) {
                 if (currentTab == "Albums" && activeAlbumName == null) {
                   if (albumsMap.isEmpty()) {
@@ -874,7 +936,6 @@ fun MusicScreen(
                                   .clickable { activeFolderName = folderName }
                                   .padding(12.dp),
                           verticalAlignment = Alignment.CenterVertically) {
-                            // Folder Icon Box
                             Box(
                                 modifier =
                                     Modifier.size(56.dp)
@@ -1038,21 +1099,16 @@ fun MusicScreen(
 @Composable
 fun AlbumThumbnail(path: String) {
   val context = LocalContext.current
-  var bitmap by remember(path) { mutableStateOf<Bitmap?>(null) }
+  var bitmap by remember(path) { mutableStateOf<Bitmap?>(AudioArtCache.get(path)) }
 
   LaunchedEffect(path) {
-    if (path.isEmpty()) return@LaunchedEffect
-    withContext(Dispatchers.IO) {
-      try {
-        val retriever = MediaMetadataRetriever()
-        val uri = if (path.startsWith("/")) Uri.fromFile(File(path)) else Uri.parse(path)
-        retriever.setDataSource(context, uri)
-        val art = retriever.embeddedPicture
-        if (art != null) {
-          bitmap = BitmapFactory.decodeByteArray(art, 0, art.size)
+    if (bitmap == null && path.isNotEmpty()) {
+      withContext(Dispatchers.IO) {
+        val loaded = AudioArtCache.loadThumbnail(context, path, targetDp = 120)
+        if (loaded != null) {
+          bitmap = loaded
         }
-        retriever.release()
-      } catch (e: Exception) {}
+      }
     }
   }
 
@@ -1081,35 +1137,21 @@ fun AlbumThumbnail(path: String) {
 @Composable
 fun PlaylistStackedThumbnail(paths: List<String>) {
   val context = LocalContext.current
-  val displayPaths = paths.take(3)
-  var bitmaps by remember(displayPaths) { mutableStateOf<List<Bitmap?>>(emptyList()) }
+  val displayPaths = remember(paths) { paths.take(3) }
+  var bitmaps by remember(displayPaths) {
+    mutableStateOf<List<Bitmap?>>(displayPaths.map { AudioArtCache.get(it) })
+  }
 
   LaunchedEffect(displayPaths) {
-    if (displayPaths.isEmpty()) {
-      bitmaps = emptyList()
-      return@LaunchedEffect
-    }
-    withContext(Dispatchers.IO) {
-      val result = mutableListOf<Bitmap?>()
-      val retriever = MediaMetadataRetriever()
-      for (path in displayPaths) {
-        try {
-          val uri = if (path.startsWith("/")) Uri.fromFile(File(path)) else Uri.parse(path)
-          retriever.setDataSource(context, uri)
-          val art = retriever.embeddedPicture
-          if (art != null) {
-            result.add(BitmapFactory.decodeByteArray(art, 0, art.size))
-          } else {
-            result.add(null)
-          }
-        } catch (e: Exception) {
-          result.add(null)
+    if (displayPaths.isNotEmpty()) {
+      withContext(Dispatchers.IO) {
+        val result = displayPaths.map { path ->
+          AudioArtCache.loadThumbnail(context, path, targetDp = 100)
         }
+        bitmaps = result
       }
-      try {
-        retriever.release()
-      } catch (e: Exception) {}
-      bitmaps = result
+    } else {
+      bitmaps = emptyList()
     }
   }
 
@@ -1197,7 +1239,6 @@ fun PlaylistStackedThumbnail(paths: List<String>) {
   }
 }
 
-// 🔥 আপডেট করা অ্যানিমেটেড TabItem 🔥
 @Composable
 fun RowScope.TabItem(
     title: String,
@@ -1205,7 +1246,6 @@ fun RowScope.TabItem(
     onClick: () -> Unit,
     icon: @Composable (Color, Float) -> Unit
 ) {
-  // কালার স্মুথ ট্রানজিশন
   val contentColor by
       animateColorAsState(
           targetValue =
@@ -1214,7 +1254,6 @@ fun RowScope.TabItem(
           animationSpec = tween(250),
           label = "colorAnim")
 
-  // আইকন জুম হওয়ার স্প্রিং অ্যানিমেশন
   val iconScale by
       animateFloatAsState(
           targetValue = if (isSelected) 1.25f else 1.0f,
@@ -1248,21 +1287,16 @@ fun AudioCard(
     onLongClick: () -> Unit = {}
 ) {
   val context = LocalContext.current
-  var albumArt by remember { mutableStateOf<Bitmap?>(null) }
-  val folderName = File(audio.path).parentFile?.name ?: "Unknown"
+  var albumArt by remember(audio.path) { mutableStateOf<Bitmap?>(AudioArtCache.get(audio.path)) }
+  val folderName = remember(audio.path) { File(audio.path).parentFile?.name ?: "Unknown" }
 
   LaunchedEffect(audio.path) {
-    withContext(Dispatchers.IO) {
-      try {
-        val retriever = MediaMetadataRetriever()
-        retriever.setDataSource(context, Uri.parse(audio.path))
-        val art = retriever.embeddedPicture
-        if (art != null) {
-          albumArt = BitmapFactory.decodeByteArray(art, 0, art.size)
+    if (albumArt == null) {
+      withContext(Dispatchers.IO) {
+        val loadedBitmap = AudioArtCache.loadThumbnail(context, audio.path, targetDp = 100)
+        if (loadedBitmap != null) {
+          albumArt = loadedBitmap
         }
-        retriever.release()
-      } catch (e: Exception) {
-        // Ignore
       }
     }
   }
