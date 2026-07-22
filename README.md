@@ -11,8 +11,8 @@
   ╚═══╝  ╚═╝╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
 ```
 
-**A powerful, free and open-source video player for Android**  
-*Powered by MPV · Built with Kotlin · Designed with Material 3*
+**A powerful, free and open-source media player for Android**  
+*Powered by Media3 · Built with Kotlin · Designed with Material 3*
 
 <br/>
 
@@ -33,15 +33,17 @@
 
 ## ✨ Why VidMax?
 
-VidMax is built on a simple promise — **no ads, no tracking, no bloat.** Just a fast, beautiful video player that respects your device and your privacy. Under the hood runs the battle-tested **MPV engine**, one of the most capable media players ever built, wrapped in a clean Material 3 interface crafted entirely in Kotlin.
+VidMax is built on a simple promise — **no ads, no tracking, no bloat.** Just a fast, beautiful media player for both video and music, that respects your device and your privacy. The primary engine is **Jetpack Media3 (ExoPlayer)** — Google's modern, battle-tested media framework — with **MPV** available as a powerful secondary engine for advanced users who need broader codec support.
 
 ---
 
 ## 🎬 Features
 
 ### Playback
-- **MPV-powered engine** — hardware-accelerated, codec-rich, format-versatile
-- **Multiple player UIs** — choose between Modern Player and Wavy Player styles
+- **Media3 (ExoPlayer) engine** — primary engine, smooth and battery-efficient
+- **MPV engine** — secondary engine for advanced codec and format support
+- **Music & Video** — full media player, not just video
+- **Multiple player UIs** — Modern Player and Wavy Player styles
 - **Subtitle support** — built-in subtitle parser for SRT and more
 - **Speed control** — 0.25× to 2× playback speed
 - **Aspect ratio control** — fit, fill, stretch and more
@@ -122,7 +124,8 @@ Data / Service Layer (MPV, MediaSession, ContentResolver)
 | Language | Kotlin 100% |
 | UI | Jetpack Compose + Material 3 |
 | Architecture | MVVM + Clean Architecture |
-| Media Engine | MPV (via JNI bridge) |
+| Primary Engine | Jetpack Media3 (ExoPlayer) |
+| Secondary Engine | MPV (via JNI bridge) |
 | Audio Session | Android MediaSession / AudioService |
 | Build System | Gradle (Kotlin DSL) |
 | CI/CD | GitHub Actions |
@@ -233,7 +236,8 @@ SOFTWARE.
 
 ## 🙏 Acknowledgements
 
-- [**MPV**](https://mpv.io/) — the powerful media engine at VidMax's core
+- [**Jetpack Media3**](https://developer.android.com/media/media3) — the primary media engine powering VidMax
+- [**MPV**](https://mpv.io/) — secondary engine for advanced codec support
 - [**Jetpack Compose**](https://developer.android.com/jetpack/compose) — modern Android UI toolkit
 - [**Material 3**](https://m3.material.io/) — Google's design system
 - All contributors and testers who made this app better
@@ -244,6 +248,6 @@ SOFTWARE.
 
 Made with ❤️ in Kotlin
 
-*If VidMax saved you from a sketchy ad-filled video app, consider giving it a ⭐*
+*If VidMax saved you from a sketchy ad-filled media app, consider giving it a ⭐*
 
 </div>
