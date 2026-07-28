@@ -1,0 +1,12 @@
+name: 🗑️ Delete All Artifacts
+on:
+  workflow_dispatch: # এই লাইনের কারণেই ১-ক্লিকে রান করার বাটনটি তৈরি হবে
+
+jobs:
+  delete-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          failOnError: false

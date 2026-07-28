@@ -1,0 +1,30 @@
+buildscript {
+    ext {
+        // 🔥 একদম লেটেস্ট স্ট্যাবল Kotlin ভার্সন
+        kotlin_version = '2.0.21'
+        // 🔥 Hilt এবং KSP এর ভার্সন
+        hilt_version = '2.51.1'
+        ksp_version = '2.0.21-1.0.25'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.6.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        // 🔥 Kotlin 2.0 এর নতুন Compose Compiler প্লাগিন
+        classpath "org.jetbrains.kotlin:compose-compiler-gradle-plugin:$kotlin_version"
+        
+        // 🔥 Added: Hilt and KSP Classpaths (App level plugins-এর জন্য আবশ্যক)
+        classpath "com.google.dagger:hilt-android-gradle-plugin:$hilt_version"
+        classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:$ksp_version"
+    }
+}
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+}

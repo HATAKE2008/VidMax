@@ -1,0 +1,89 @@
+package com.vidmax.player.utils
+
+import android.content.Context
+import android.net.Uri
+import java.io.BufferedReader
+import java.io.InputStreamReader
+
+// সাবটাইটেলের ডেটা মডেল
+data class SubtitleItem(
+val startTimeMs: Long,
+val endTimeMs: Long,
+val text: String
+)
+
+object SubtitleParser {
+
+fun parseSrt(context: Context, uri: Uri): List<SubtitleItem> {
+val subtitles = mutableListOf<SubtitleItem>()
+try {
+val inputStream = context.contentResolver.openInputStream(uri)
+if (inputStream != null) {
+val reader = BufferedReader(InputStreamReader(inputStream))
+var line: String? = reader.readLine()
+
+var startTime = 0L
+var endTime = 0L
+var text = ""
+
+while (line != null) {
+line = line.trim()
+if (line.contains("-->")) {
+// সময় বের করা
+val parts = line.split("-->")
+if (parts.size == 2) {
+startTime = parseTime(parts[0].trim())
+endTime = parseTime(parts[1].trim())
+}
+text = "" // নতুন সাবটাইটেলের জন্য টেক্সট ক্লিয়ার করা
+} else if (line.isNotEmpty() && !line.matches(Regex("\\d+"))) {
+// টেক্সট যুক্ত করা
+if (text.isEmpty()) {
+text = line
+} else {
+text = text + "\n" + line
+}
+} else if (line.isEmpty() && text.isNotEmpty()) {
+// ফাঁকা লাইন মানে একটা সাবটাইটেল ব্লক শেষ
+subtitles.add(SubtitleItem(startTime, endTime, text))
+text = ""
+}
+line = reader.readLine()
+}
+
+// ফাইলের শেষের টেক্সটটুকু সেভ করা
+if (text.isNotEmpty()) {
+subtitles.add(SubtitleItem(startTime, endTime, text))
+}
+reader.close()
+}
+} catch (e: Exception) {
+e.printStackTrace()
+}
+return subtitles
+}
+
+private fun parseTime(timeStr: String): Long {
+// ফরমেট: 00:00:01,000 বা 00:00:01.000
+try {
+val cleanTime = timeStr.replace(",", ".")
+val parts = cleanTime.split(":")
+if (parts.size == 3) {
+val hours = parts[0].toLong()
+val mins = parts[1].toLong()
+
+val secsParts = parts[2].split(".")
+val secs = secsParts[0].toLong()
+var ms = 0L
+if (secsParts.size > 1) {
+val msStr = secsParts[1].padEnd(3, '0').substring(0, 3)
+ms = msStr.toLong()
+}
+return (hours * 3600000) + (mins * 60000) + (secs * 1000) + ms
+}
+} catch (e: Exception) {
+e.printStackTrace()
+}
+return 0L
+}
+}
