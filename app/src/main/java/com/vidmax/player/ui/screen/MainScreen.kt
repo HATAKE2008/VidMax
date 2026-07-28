@@ -546,15 +546,11 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
             modifier = Modifier.fillMaxSize().zIndex(10f)
         ) {
             Box(modifier = Modifier.fillMaxSize().clickable(enabled = false) {}) {
-                val onlinePlayerState by playerViewModel.uiState.collectAsState()
-                if (onlinePlayerState.currentSong != null) {
-                    OnlineMusicPlayerScreen(
-                        viewModel = playerViewModel,
-                        onClose = { isMusicPlayerOpen = false }
-                    )
-                } else {
-                    MusicPlayerScreen(viewModel = viewModel, onBack = { isMusicPlayerOpen = false })
-                }
+                MusicPlayerScreen(
+                    viewModel = viewModel,
+                    musicPlayerViewModel = playerViewModel,
+                    onBack = { isMusicPlayerOpen = false }
+                )
             }
         }
     }

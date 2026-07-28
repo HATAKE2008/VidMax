@@ -72,6 +72,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -118,6 +119,7 @@ import com.bumptech.glide.signature.ObjectKey
 import com.vidmax.player.R
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.LoopMode
+import com.vidmax.player.viewmodel.MusicPlayerViewModel
 import java.io.File
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -185,8 +187,23 @@ fun Modifier.liquidGlass(shape: Shape = RoundedCornerShape(24.dp)): Modifier =
 
 // 🔥 MAIN HUB / CONTROLLER
 @Composable
-fun MusicPlayerScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
+fun MusicPlayerScreen(
+    viewModel: LibraryViewModel,
+    musicPlayerViewModel: MusicPlayerViewModel? = null,
+    onBack: () -> Unit
+) {
   val context = LocalContext.current
+
+  val onlineState = musicPlayerViewModel?.uiState?.collectAsState()
+  val isOnlineMode = musicPlayerViewModel != null && onlineState?.value?.currentSong != null
+
+  if (isOnlineMode && musicPlayerViewModel != null) {
+    OnlineMusicPlayerContent(
+        viewModel = musicPlayerViewModel,
+        onBack = onBack
+    )
+    return
+  }
 
   val sharedPreferences = remember {
     context.getSharedPreferences("PlayerThemePrefs", Context.MODE_PRIVATE)
@@ -1266,4 +1283,296 @@ fun getAudioUriFromPath(context: Context, path: String): Uri? {
       ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
     } else null
   }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalGlideComposeApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun OnlineMusicPlayerContent(
+    viewModel: MusicPlayerViewModel,
+    onBack: () -> Unit
+) {
+    val playerState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(playerState.isPlaying) {
+        if (playerState.isPlaying) {
+            while (true) {
+                viewModel.updatePosition()
+                delay(250)
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(48.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Close",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+
+                Text(
+                    text = "Online Music",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Box(modifier = Modifier.size(48.dp))
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(260.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .shadow(20.dp, RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                GlideImage(
+                    model = playerState.currentSong?.thumbnailUrl ?: "",
+                    contentDescription = "Album Art",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+
+                if (playerState.isLoadingStream) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color.White)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            playerState.currentSong?.let { song ->
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = song.artist,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            val safeDuration = if (playerState.duration > 0) playerState.duration else 1L
+            val progress =
+                (playerState.position.toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
+
+            var isDraggingSlider by remember { mutableStateOf(false) }
+            var sliderDragValue by remember { mutableFloatStateOf(0f) }
+            val coroutineScope = rememberCoroutineScope()
+
+            val displayProgress = if (isDraggingSlider) sliderDragValue else progress
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = formatTimeMs(if (isDraggingSlider) (sliderDragValue * safeDuration).toLong() else playerState.position),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.width(44.dp)
+                )
+
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp)
+                        .padding(horizontal = 12.dp)
+                        .pointerInput(safeDuration) {
+                            detectTapGestures(
+                                onPress = { offset ->
+                                    isDraggingSlider = true
+                                    sliderDragValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                    viewModel.seekTo((sliderDragValue * safeDuration).toLong())
+                                    tryAwaitRelease()
+                                    coroutineScope.launch {
+                                        delay(200)
+                                        isDraggingSlider = false
+                                    }
+                                }
+                            )
+                        }
+                        .pointerInput(safeDuration) {
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    isDraggingSlider = true
+                                    sliderDragValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                },
+                                onDragEnd = {
+                                    viewModel.seekTo((sliderDragValue * safeDuration).toLong())
+                                    coroutineScope.launch {
+                                        delay(200)
+                                        isDraggingSlider = false
+                                    }
+                                },
+                                onDragCancel = { isDraggingSlider = false },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    sliderDragValue = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                                }
+                            )
+                        }
+                ) {
+                    val thumbWidth = 4.dp
+                    val thumbHeight = 20.dp
+                    val trackHeight = 8.dp
+                    val thumbX = maxWidth * displayProgress
+                    val thumbOffset = (thumbX - (thumbWidth / 2)).coerceIn(0.dp, maxWidth - thumbWidth)
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .fillMaxWidth()
+                            .height(trackHeight)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .width(thumbX)
+                            .height(trackHeight)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .offset(x = thumbOffset)
+                            .width(thumbWidth)
+                            .height(thumbHeight)
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+
+                Text(
+                    text = formatTimeMs(playerState.duration),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.width(44.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 48.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.colorScheme.tertiary
+                                )
+                            )
+                        )
+                        .clickable(enabled = !playerState.isLoadingStream) {
+                            viewModel.togglePlayPause()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (playerState.isLoadingStream) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(
+                                id = if (playerState.isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                            ),
+                            contentDescription = "Play/Pause",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            AnimatedVisibility(
+                visible = playerState.error != null,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                playerState.error?.let { error ->
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatTimeMs(millis: Long): String {
+    val totalSeconds = millis / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%02d:%02d".format(minutes, seconds)
 }
