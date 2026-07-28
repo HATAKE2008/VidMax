@@ -104,7 +104,7 @@ fun OnlineMusicScreen(
                     song = song,
                     isPlaying = playerState.isPlaying,
                     isLoading = playerState.isLoadingStream,
-                    onPlayPauseClick = { playerViewModel.setPlayingState(!playerState.isPlaying) },
+                    onPlayPauseClick = { playerViewModel.togglePlayPause() },
                     onClick = onOpenFullPlayer
                 )
             }
