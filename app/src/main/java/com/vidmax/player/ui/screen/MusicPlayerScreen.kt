@@ -194,17 +194,6 @@ fun MusicPlayerScreen(
 ) {
   val context = LocalContext.current
 
-  val onlineState = musicPlayerViewModel?.uiState?.collectAsState()
-  val isOnlineMode = musicPlayerViewModel != null && onlineState?.value?.currentSong != null
-
-  if (isOnlineMode && musicPlayerViewModel != null) {
-    OnlineMusicPlayerContent(
-        viewModel = musicPlayerViewModel,
-        onBack = onBack
-    )
-    return
-  }
-
   val sharedPreferences = remember {
     context.getSharedPreferences("PlayerThemePrefs", Context.MODE_PRIVATE)
   }
@@ -230,14 +219,20 @@ fun MusicPlayerScreen(
     ->
     when (theme) {
       PlayerTheme.DEFAULT -> {
-        DefaultPlayerUI(viewModel = viewModel, onBack = onBack, onThemeChange = changeAndSaveTheme)
+        DefaultPlayerUI(
+            viewModel = viewModel,
+            musicPlayerViewModel = musicPlayerViewModel,
+            onBack = onBack,
+            onThemeChange = changeAndSaveTheme
+        )
       }
       PlayerTheme.MODERN -> {
         ModernPlayerScreen(
             viewModel = viewModel, onBack = onBack, onThemeChange = changeAndSaveTheme)
       }
       PlayerTheme.WAVY -> {
-        WavyPlayerScreen(viewModel = viewModel, onBack = onBack, onThemeChange = changeAndSaveTheme)
+        WavyPlayerScreen(
+            viewModel = viewModel, onBack = onBack, onThemeChange = changeAndSaveTheme)
       }
     }
   }
@@ -248,40 +243,114 @@ fun MusicPlayerScreen(
 @Composable
 fun DefaultPlayerUI(
     viewModel: LibraryViewModel,
+    musicPlayerViewModel: MusicPlayerViewModel? = null,
     onBack: () -> Unit,
     onThemeChange: (PlayerTheme) -> Unit
 ) {
   val context = LocalContext.current
   val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
 
-  val title by viewModel.recentlyPlayedTitle.collectAsState()
-  val artist by viewModel.currentAudioArtist.collectAsState()
-  val currentPath by viewModel.recentlyPlayedPath.collectAsState()
+  // ---- ONLINE MODE STATE ----
+  val onlineState = musicPlayerViewModel?.uiState?.collectAsState()
+  val isOnlineMode = musicPlayerViewModel != null && onlineState?.value?.currentSong != null
 
-  val isPlaying by viewModel.isAudioPlaying.collectAsState()
-  val currentPosition by viewModel.audioPosition.collectAsState()
-  val duration by viewModel.audioDuration.collectAsState()
+  // ---- DISPLAY VALUES (conditional: online vs offline) ----
+  val offlineTitle by viewModel.recentlyPlayedTitle.collectAsState()
+  val offlineArtist by viewModel.currentAudioArtist.collectAsState()
+  val offlinePath by viewModel.recentlyPlayedPath.collectAsState()
+  val offlineIsPlaying by viewModel.isAudioPlaying.collectAsState()
+  val offlinePosition by viewModel.audioPosition.collectAsState()
+  val offlineDuration by viewModel.audioDuration.collectAsState()
+  val offlineIsShuffle by viewModel.isShuffleEnabled.collectAsState()
+  val offlineRepeat by viewModel.audioRepeatMode.collectAsState()
+  val offlineFavorites by viewModel.favoriteAudioPaths.collectAsState()
+  val offlineQueueList by viewModel.currentQueue.collectAsState()
+  val offlineQueueIndex by viewModel.currentQueueIndex.collectAsState()
+  val offlineTimerMinutes by viewModel.sleepTimerMinutes.collectAsState()
+  val offlineIsBoosted by viewModel.musicBoostEnabled.collectAsState()
 
-  val isShuffleEnabled by viewModel.isShuffleEnabled.collectAsState()
-  val repeatMode by viewModel.audioRepeatMode.collectAsState()
+  val title = if (isOnlineMode) onlineState?.value?.currentSong?.title ?: "" else offlineTitle
+  val artist = if (isOnlineMode) onlineState?.value?.currentSong?.artist ?: "" else offlineArtist
+  val isPlaying = if (isOnlineMode) onlineState?.value?.isPlaying ?: false else offlineIsPlaying
+  val currentPosition = if (isOnlineMode) onlineState?.value?.position ?: 0L else offlinePosition
+  val duration = if (isOnlineMode) onlineState?.value?.duration ?: 0L else offlineDuration
 
-  val favoritePaths by viewModel.favoriteAudioPaths.collectAsState()
-  val isFavorite = favoritePaths.contains(currentPath)
+  val isShuffleEnabled = if (isOnlineMode) false else offlineIsShuffle
+  val repeatMode = if (isOnlineMode) LoopMode.NONE else offlineRepeat
 
-  // Dialogs & Menus
+  val favoritePaths = if (isOnlineMode) emptySet<String>() else offlineFavorites
+  val isFavorite = favoritePaths.contains(offlinePath)
+
+  val currentTimerMinutes = if (isOnlineMode) 0 else offlineTimerMinutes
+  val isAudioBoosted = if (isOnlineMode) false else offlineIsBoosted
+
+  // Online queue: list of SongItem; offline: list of AudioItem
+  val onlineQueue by remember(isOnlineMode, onlineState?.value?.queue) { mutableStateOf(onlineState?.value?.queue ?: emptyList()) }
+  val onlineQueueIdx by remember(isOnlineMode, onlineState?.value?.queueIndex) { mutableStateOf(onlineState?.value?.queueIndex ?: -1) }
+  val queueList: List<*> = if (isOnlineMode) onlineQueue else offlineQueueList
+  val currentQueueIndex = if (isOnlineMode) onlineQueueIdx else offlineQueueIndex
+
+  // ---- ACTION WRAPPERS ----
+  val onTogglePlayPause: () -> Unit = if (isOnlineMode) {
+    { musicPlayerViewModel?.togglePlayPause() }
+  } else {
+    { onTogglePlayPause() }
+  }
+  val onSeekTo: (Long) -> Unit = if (isOnlineMode) {
+    { pos -> musicPlayerViewModel?.seekTo(pos) }
+  } else {
+    { pos -> onSeekTo(pos) }
+  }
+  val onNext: () -> Unit = if (isOnlineMode) {
+    { musicPlayerViewModel?.playNextOnlineSong() }
+  } else {
+    { onNext() }
+  }
+  val onPrevious: () -> Unit = if (isOnlineMode) {
+    { musicPlayerViewModel?.playPreviousOnlineSong() }
+  } else {
+    { onPrevious() }
+  }
+  val onToggleShuffle: () -> Unit = if (isOnlineMode) {
+    {}
+  } else {
+    { onToggleShuffle() }
+  }
+  val onToggleRepeat: () -> Unit = if (isOnlineMode) {
+    {}
+  } else {
+    { onToggleRepeat() }
+  }
+  val onToggleFavorite: () -> Unit = if (isOnlineMode) {
+    {}
+  } else {
+    { viewModel.toggleFavorite(offlinePath) }
+  }
+  val onQueueItemClick: (Any, Int) -> Unit = if (isOnlineMode) {
+    { _, idx -> musicPlayerViewModel?.playSongFromQueue(idx) }
+  } else {
+    { _, idx -> viewModel.playAudioFromList(offlineQueueList as List<com.vidmax.player.data.model.AudioItem>, idx) }
+  }
+  val formatDurationFn: (Long) -> String = { ms -> formatDurationFn(ms) }
+
+  // Position updater for online mode
+  LaunchedEffect(isOnlineMode, isPlaying) {
+    if (isOnlineMode && isPlaying) {
+      while (true) {
+        musicPlayerViewModel?.updatePosition()
+        delay(250)
+      }
+    }
+  }
+
+  // Dialog state
   var showMoreMenu by remember { mutableStateOf(false) }
   var showPropertiesDialog by remember { mutableStateOf(false) }
   var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-
-  // Timer & Boost States
   var showTimerDialog by remember { mutableStateOf(false) }
-  val currentTimerMinutes by viewModel.sleepTimerMinutes.collectAsState()
-  val isAudioBoosted by viewModel.musicBoostEnabled.collectAsState()
-
-  // QUEUE States
   var showQueueSheet by remember { mutableStateOf(false) }
-  val queueList by viewModel.currentQueue.collectAsState()
-  val currentQueueIndex by viewModel.currentQueueIndex.collectAsState()
+
+  val currentPath = offlinePath
 
   // Volume Controller
   var showVolumeIndicator by remember { mutableStateOf(false) }
@@ -461,11 +530,11 @@ fun DefaultPlayerUI(
                   if (internalVolumeLevel <= 1.0f) {
                     val targetHardwareVol = (internalVolumeLevel * maxHardwareVol).roundToInt()
                     audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetHardwareVol, 0)
-                    viewModel.setCustomVolume(100)
+                    if (!isOnlineMode) viewModel.setCustomVolume(100)
                   } else {
                     audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxHardwareVol, 0)
                     val targetSoftwareVol = (internalVolumeLevel * 100).roundToInt()
-                    viewModel.setCustomVolume(targetSoftwareVol)
+                    if (!isOnlineMode) viewModel.setCustomVolume(targetSoftwareVol)
                   }
                 })
           }) {
@@ -723,7 +792,7 @@ fun DefaultPlayerUI(
 
                       // Favorite Button
                       IconButton(
-                          onClick = { viewModel.toggleFavorite(currentPath) },
+                          onClick = { onToggleFavorite() },
                           modifier = Modifier.size(36.dp)) {
                             Crossfade(targetState = isFavorite, label = "fav") { fav ->
                               Icon(
@@ -767,7 +836,7 @@ fun DefaultPlayerUI(
               // Current Time
               val displayPos = if (isDraggingSlider) (sliderDragValue * safeDuration).toLong() else currentPosition
               Text(
-                  text = viewModel.formatDuration(displayPos),
+                  text = formatDurationFn(displayPos),
                   color = MaterialTheme.colorScheme.onSurface,
                   fontSize = 13.sp,
                   fontWeight = FontWeight.Medium,
@@ -785,7 +854,7 @@ fun DefaultPlayerUI(
                             onPress = { offset ->
                               isDraggingSlider = true
                               sliderDragValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                              viewModel.seekAudio((sliderDragValue * safeDuration).toLong())
+                              onSeekTo((sliderDragValue * safeDuration).toLong())
                               tryAwaitRelease()
                               coroutineScope.launch {
                                 delay(200)
@@ -800,7 +869,7 @@ fun DefaultPlayerUI(
                               sliderDragValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
                             },
                             onDragEnd = {
-                              viewModel.seekAudio((sliderDragValue * safeDuration).toLong())
+                              onSeekTo((sliderDragValue * safeDuration).toLong())
                               coroutineScope.launch {
                                 delay(200)
                                 isDraggingSlider = false
@@ -810,7 +879,7 @@ fun DefaultPlayerUI(
                             onDrag = { change, _ ->
                               change.consume()
                               sliderDragValue = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
-                              viewModel.seekAudio((sliderDragValue * safeDuration).toLong())
+                              onSeekTo((sliderDragValue * safeDuration).toLong())
                             })
                       }
               ) {
@@ -855,7 +924,7 @@ fun DefaultPlayerUI(
 
               // Total Duration
               Text(
-                  text = viewModel.formatDuration(duration),
+                  text = formatDurationFn(duration),
                   color = MaterialTheme.colorScheme.onSurface,
                   fontSize = 13.sp,
                   fontWeight = FontWeight.Medium,
@@ -877,7 +946,7 @@ fun DefaultPlayerUI(
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
-                    onClick = { viewModel.toggleShuffle() }, modifier = Modifier.size(48.dp)) {
+                    onClick = { onToggleShuffle() }, modifier = Modifier.size(48.dp)) {
                       Icon(
                           painter = painterResource(id = R.drawable.ic_shuffle),
                           contentDescription = "Shuffle",
@@ -887,7 +956,7 @@ fun DefaultPlayerUI(
                           modifier = Modifier.size(24.dp))
                     }
                 IconButton(
-                    onClick = { viewModel.playPreviousAudio() }, modifier = Modifier.size(48.dp)) {
+                    onClick = { onPrevious() }, modifier = Modifier.size(48.dp)) {
                       Icon(
                           painter = painterResource(id = R.drawable.ic_skip_previous),
                           contentDescription = "Previous",
@@ -910,7 +979,7 @@ fun DefaultPlayerUI(
                         Modifier.size(60.dp)
                             .clip(RoundedCornerShape(20.dp))
                             .background(MaterialTheme.colorScheme.primary)
-                            .clickable { viewModel.toggleAudio() },
+                            .clickable { onTogglePlayPause() },
                     contentAlignment = Alignment.Center) {
                       Crossfade(
                           targetState = isPlaying,
@@ -930,7 +999,7 @@ fun DefaultPlayerUI(
                     }
                     
                 IconButton(
-                    onClick = { viewModel.playNextAudio() }, modifier = Modifier.size(48.dp)) {
+                    onClick = { onNext() }, modifier = Modifier.size(48.dp)) {
                       Icon(
                           painter = painterResource(id = R.drawable.ic_skip_next),
                           contentDescription = "Next",
@@ -938,7 +1007,7 @@ fun DefaultPlayerUI(
                           modifier = Modifier.size(28.dp))
                     }
                 IconButton(
-                    onClick = { viewModel.toggleRepeat() }, modifier = Modifier.size(48.dp)) {
+                    onClick = { onToggleRepeat() }, modifier = Modifier.size(48.dp)) {
                       val iconRes =
                           when (repeatMode) {
                             LoopMode.ONE -> R.drawable.ic_repeat_one
@@ -1171,16 +1240,38 @@ fun DefaultPlayerUI(
                                             if (isCurrentlyPlaying)
                                                 MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                             else Color.Transparent)
-                                        .clickable { viewModel.playAudioFromList(queueList, index) }
+                                        .clickable {
+                                          if (isOnlineMode) {
+                                            musicPlayerViewModel?.playSongFromQueue(index)
+                                          } else {
+                                            viewModel.playAudioFromList(offlineQueueList, index)
+                                          }
+                                        }
                                         .padding(vertical = 12.dp, horizontal = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
-                                  QueueItemThumbnail(
-                                      path = audio.path, isCurrentlyPlaying = isCurrentlyPlaying)
+                                  if (isOnlineMode) {
+                                    val song = audio as? com.vidmax.player.data.model.SongItem
+                                    GlideImage(
+                                        model = song?.thumbnailUrl ?: "",
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                  } else {
+                                    QueueItemThumbnail(
+                                        path = (audio as com.vidmax.player.data.model.AudioItem).path,
+                                        isCurrentlyPlaying = isCurrentlyPlaying)
+                                  }
 
                                   Spacer(modifier = Modifier.width(16.dp))
                                   Column(modifier = Modifier.weight(1f)) {
+                                    val qTitle = if (isOnlineMode) (audio as com.vidmax.player.data.model.SongItem).title else (audio as com.vidmax.player.data.model.AudioItem).title
+                                    val qArtist = if (isOnlineMode) (audio as com.vidmax.player.data.model.SongItem).artist else (audio as com.vidmax.player.data.model.AudioItem).artist
                                     Text(
-                                        text = audio.title,
+                                        text = qTitle,
                                         color =
                                             if (isCurrentlyPlaying)
                                                 MaterialTheme.colorScheme.primary
@@ -1192,7 +1283,7 @@ fun DefaultPlayerUI(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis)
                                     Text(
-                                        text = audio.artist,
+                                        text = qArtist,
                                         color =
                                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                         fontSize = 12.sp,
