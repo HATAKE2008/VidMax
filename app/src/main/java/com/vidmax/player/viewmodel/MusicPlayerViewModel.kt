@@ -23,7 +23,9 @@ data class OnlinePlayerUiState(
     val resolvedStreamUrl: String? = null,
     val position: Long = 0L,
     val duration: Long = 0L,
-    val error: String? = null
+    val error: String? = null,
+    val queue: List<SongItem> = emptyList(),
+    val queueIndex: Int = -1
 )
 
 @HiltViewModel
@@ -49,7 +51,7 @@ class MusicPlayerViewModel @Inject constructor(
                                 duration = duration.coerceAtLeast(0L)
                             )
                         } else if (playbackState == Player.STATE_ENDED) {
-                            _uiState.value = _uiState.value.copy(isPlaying = false)
+                            playNextOnlineSong()
                         }
                     }
 
@@ -74,7 +76,45 @@ class MusicPlayerViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             currentSong = song,
             isLoadingStream = true,
-            error = null
+            error = null,
+            queue = emptyList(),
+            queueIndex = -1
+        )
+
+        viewModelScope.launch {
+            repository.saveToHistory(song)
+
+            val cachedUrl = streamUrlCache[song.videoId]
+            if (cachedUrl != null) {
+                startPlayback(cachedUrl)
+                loadRelatedSongs(song.videoId)
+                return@launch
+            }
+
+            repository.getAudioStreamUrl(song.videoId)
+                .onSuccess { url ->
+                    streamUrlCache[song.videoId] = url
+                    startPlayback(url)
+                    loadRelatedSongs(song.videoId)
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingStream = false,
+                        error = error.localizedMessage ?: "Unable to stream song"
+                    )
+                }
+        }
+    }
+
+    fun playSongFromQueue(index: Int) {
+        val queue = _uiState.value.queue
+        if (index !in queue.indices) return
+        val song = queue[index]
+        _uiState.value = _uiState.value.copy(
+            currentSong = song,
+            isLoadingStream = true,
+            error = null,
+            queueIndex = index
         )
 
         viewModelScope.launch {
@@ -95,6 +135,37 @@ class MusicPlayerViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoadingStream = false,
                         error = error.localizedMessage ?: "Unable to stream song"
+                    )
+                }
+        }
+    }
+
+    fun playNextOnlineSong() {
+        val state = _uiState.value
+        val queue = state.queue
+        if (queue.isEmpty()) return
+        val nextIndex = if (state.queueIndex + 1 < queue.size) state.queueIndex + 1 else 0
+        playSongFromQueue(nextIndex)
+    }
+
+    fun playPreviousOnlineSong() {
+        val state = _uiState.value
+        val queue = state.queue
+        if (queue.isEmpty()) return
+        val prevIndex = if (state.queueIndex - 1 >= 0) state.queueIndex - 1 else queue.size - 1
+        playSongFromQueue(prevIndex)
+    }
+
+    private fun loadRelatedSongs(videoId: String) {
+        viewModelScope.launch {
+            repository.getRelatedSongs(videoId)
+                .onSuccess { related ->
+                    val currentSong = _uiState.value.currentSong
+                    val current = currentSong?.let { listOf(it) } ?: emptyList()
+                    val queue = current + related
+                    _uiState.value = _uiState.value.copy(
+                        queue = queue,
+                        queueIndex = 0
                     )
                 }
         }
