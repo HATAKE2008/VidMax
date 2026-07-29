@@ -294,32 +294,32 @@ fun DefaultPlayerUI(
   val onTogglePlayPause: () -> Unit = if (isOnlineMode) {
     { musicPlayerViewModel?.togglePlayPause() }
   } else {
-    { onTogglePlayPause() }
+    { viewModel.toggleAudio() }
   }
   val onSeekTo: (Long) -> Unit = if (isOnlineMode) {
     { pos -> musicPlayerViewModel?.seekTo(pos) }
   } else {
-    { pos -> onSeekTo(pos) }
+    { pos -> viewModel.seekAudio(pos) }
   }
   val onNext: () -> Unit = if (isOnlineMode) {
     { musicPlayerViewModel?.playNextOnlineSong() }
   } else {
-    { onNext() }
+    { viewModel.playNextAudio() }
   }
   val onPrevious: () -> Unit = if (isOnlineMode) {
     { musicPlayerViewModel?.playPreviousOnlineSong() }
   } else {
-    { onPrevious() }
+    { viewModel.playPreviousAudio() }
   }
   val onToggleShuffle: () -> Unit = if (isOnlineMode) {
     {}
   } else {
-    { onToggleShuffle() }
+    { viewModel.toggleShuffle() }
   }
   val onToggleRepeat: () -> Unit = if (isOnlineMode) {
     {}
   } else {
-    { onToggleRepeat() }
+    { viewModel.toggleRepeat() }
   }
   val onToggleFavorite: () -> Unit = if (isOnlineMode) {
     {}
@@ -331,7 +331,7 @@ fun DefaultPlayerUI(
   } else {
     { _, idx -> viewModel.playAudioFromList(offlineQueueList as List<com.vidmax.player.data.model.AudioItem>, idx) }
   }
-  val formatDurationFn: (Long) -> String = { ms -> formatDurationFn(ms) }
+  val formatDurationFn: (Long) -> String = { ms -> viewModel.formatDuration(ms) }
 
   // Position updater for online mode
   LaunchedEffect(isOnlineMode, isPlaying) {
