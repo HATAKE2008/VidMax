@@ -163,7 +163,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     }
 
     val currentTabLabel = navItemsState[selectedTab].label
-    val showMusicRecentBar = (currentTabLabel == "Music" || currentTabLabel == "Online" || openedPlaylistTitle.isNotEmpty()) && recentMusicTitle.isNotEmpty()
+    val showMusicRecentBar = (currentTabLabel == "Music" || openedPlaylistTitle.isNotEmpty()) && recentMusicTitle.isNotEmpty()
 
     Box(modifier = Modifier.fillMaxSize().nestedScroll(nestedScrollConnection)) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { paddingValues ->
