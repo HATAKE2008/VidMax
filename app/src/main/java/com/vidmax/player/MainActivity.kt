@@ -29,7 +29,8 @@ class MainActivity : ComponentActivity() {
   private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    // 🔥 একদম স্ক্রিনের উপর থেকে (স্ট্যাটাস বারের নিচ থেকে) অ্যাপ শুরু করার জন্য
+    setTheme(R.style.Theme_VidMax_NoActionBar)
+
     enableEdgeToEdge()
 
     super.onCreate(savedInstanceState)
