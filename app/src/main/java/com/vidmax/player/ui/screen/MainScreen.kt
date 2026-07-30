@@ -186,9 +186,8 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     AnimatedContent(
                         targetState = selectedTab,
                         transitionSpec = {
-                            (fadeIn(tween(280, easing = FastOutSlowInEasing)) +
-                                scaleIn(initialScale = 0.96f, tween(280, easing = FastOutSlowInEasing)))
-                                .togetherWith(fadeOut(tween(280, easing = FastOutSlowInEasing)))
+                            fadeIn(tween(280, easing = FastOutSlowInEasing)) + scaleIn(initialScale = 0.96f) togetherWith
+                                fadeOut(tween(280, easing = FastOutSlowInEasing))
                         },
                         label = "pageTransition"
                     ) { tabIndex ->
