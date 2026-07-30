@@ -183,32 +183,42 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                         }
                     )
                 } else {
-                    // 🚀 ডায়নামিক ট্যাবের ওপর ভিত্তি করে স্ক্রিন লোড
-                    when (currentTabLabel) {
-                        "Videos" -> HomeScreen(
-                            viewModel = viewModel,
-                            onVideoClick = handleVideoClick,
-                            onSettingsClick = { isSettingsOpen = true }
-                        )
-                        "Folders" -> FoldersScreen(viewModel = viewModel, onVideoClick = handleVideoClick)
-                        "Music" -> MusicScreen(
-                            viewModel = viewModel,
-                            onSettingsClick = { isSettingsOpen = true },
-                            onAudioClick = { audioList, index ->
-                                playerViewModel.clearPlayer()
-                                viewModel.playAudioFromList(audioList, index)
-                            },
-                            onOpenFavorites = { viewModel.openFavorites() },
-                            onOpenMyMix = { viewModel.openMyMix() }
-                        )
-                        "Online" -> {
-                            OnlineMusicScreen(
-                                homeViewModel = homeViewModel,
-                                searchViewModel = searchViewModel,
-                                playerViewModel = playerViewModel,
-                                onOpenFullPlayer = { isMusicPlayerOpen = true },
-                                libraryViewModel = viewModel
+                    AnimatedContent(
+                        targetState = selectedTab,
+                        transitionSpec = {
+                            (fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing)) +
+                                scaleIn(initialScale = 0.96, animationSpec = tween(280, easing = FastOutSlowInEasing)))
+                                togetherWith
+                                fadeOut(animationSpec = tween(280, easing = FastOutSlowInEasing))
+                        },
+                        label = "pageTransition"
+                    ) { tabIndex ->
+                        when (navItemsState[tabIndex].label) {
+                            "Videos" -> HomeScreen(
+                                viewModel = viewModel,
+                                onVideoClick = handleVideoClick,
+                                onSettingsClick = { isSettingsOpen = true }
                             )
+                            "Folders" -> FoldersScreen(viewModel = viewModel, onVideoClick = handleVideoClick)
+                            "Music" -> MusicScreen(
+                                viewModel = viewModel,
+                                onSettingsClick = { isSettingsOpen = true },
+                                onAudioClick = { audioList, index ->
+                                    playerViewModel.clearPlayer()
+                                    viewModel.playAudioFromList(audioList, index)
+                                },
+                                onOpenFavorites = { viewModel.openFavorites() },
+                                onOpenMyMix = { viewModel.openMyMix() }
+                            )
+                            "Online" -> {
+                                OnlineMusicScreen(
+                                    homeViewModel = homeViewModel,
+                                    searchViewModel = searchViewModel,
+                                    playerViewModel = playerViewModel,
+                                    onOpenFullPlayer = { isMusicPlayerOpen = true },
+                                    libraryViewModel = viewModel
+                                )
+                            }
                         }
                     }
                 }
@@ -392,22 +402,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 val tabWidth = maxWidth / navItemsState.size
                 val tabWidthPx = with(LocalDensity.current) { tabWidth.toPx() }
 
-                val indicatorOffset by animateDpAsState(
-                    targetValue = tabWidth * selectedTab,
-                    animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessMedium),
-                    label = "indicatorOffset"
-                )
-
-                // অ্যানিমেটেড ইন্ডিকেটর
-                Box(
-                    modifier = Modifier
-                        .offset(x = indicatorOffset)
-                        .width(tabWidth)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
-                )
-
                 var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
 
                 Row(
@@ -435,12 +429,23 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 label = "scaleAnim"
                             )
 
+                            val tabBgAlpha by animateFloatAsState(
+                                targetValue = if (isSelected) 1f else 0f,
+                                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                                label = "tabBgAlpha"
+                            )
+
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .zIndex(if (draggedItemIndex == currentIndex) 1f else 0f)
                                     .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                                    .clip(RoundedCornerShape(28.dp))
+                                    .background(
+                                        if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
+                                        else Color.Transparent
+                                    )
                                     .pointerInput(item.label) {
                                         detectDragGesturesAfterLongPress(
                                             onDragStart = { draggedItemIndex = navItemsState.indexOf(item) },
