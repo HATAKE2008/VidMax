@@ -25,7 +25,8 @@ data class OnlinePlayerUiState(
     val duration: Long = 0L,
     val error: String? = null,
     val queue: List<SongItem> = emptyList(),
-    val queueIndex: Int = -1
+    val queueIndex: Int = -1,
+    val isFavorite: Boolean = false
 )
 
 @HiltViewModel
@@ -82,6 +83,7 @@ class MusicPlayerViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
+            checkFavoriteStatus(song.videoId)
             repository.saveToHistory(song)
 
             val cachedUrl = streamUrlCache[song.videoId]
@@ -118,6 +120,7 @@ class MusicPlayerViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
+            checkFavoriteStatus(song.videoId)
             repository.saveToHistory(song)
 
             val cachedUrl = streamUrlCache[song.videoId]
@@ -204,6 +207,20 @@ class MusicPlayerViewModel @Inject constructor(
     fun updatePosition() {
         val player = exoPlayer ?: return
         _uiState.value = _uiState.value.copy(position = player.currentPosition)
+    }
+
+    private suspend fun checkFavoriteStatus(videoId: String) {
+        val isFav = repository.isFavorite(videoId)
+        _uiState.value = _uiState.value.copy(isFavorite = isFav)
+    }
+
+    fun toggleFavorite() {
+        val song = _uiState.value.currentSong ?: return
+        val newFav = !_uiState.value.isFavorite
+        _uiState.value = _uiState.value.copy(isFavorite = newFav)
+        viewModelScope.launch {
+            repository.setFavorite(song.videoId, newFav)
+        }
     }
 
     fun clearPlayer() {

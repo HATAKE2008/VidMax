@@ -279,7 +279,7 @@ fun DefaultPlayerUI(
   val repeatMode = if (isOnlineMode) LoopMode.NONE else offlineRepeat
 
   val favoritePaths = if (isOnlineMode) emptySet<String>() else offlineFavorites
-  val isFavorite = favoritePaths.contains(offlinePath)
+  val isFavorite = if (isOnlineMode) onlineState?.value?.isFavorite ?: false else favoritePaths.contains(offlinePath)
 
   val currentTimerMinutes = if (isOnlineMode) 0 else offlineTimerMinutes
   val isAudioBoosted = if (isOnlineMode) false else offlineIsBoosted
@@ -322,7 +322,7 @@ fun DefaultPlayerUI(
     { viewModel.toggleRepeat() }
   }
   val onToggleFavorite: () -> Unit = if (isOnlineMode) {
-    {}
+    { musicPlayerViewModel?.toggleFavorite() }
   } else {
     { viewModel.toggleFavorite(offlinePath) }
   }
@@ -594,11 +594,25 @@ fun DefaultPlayerUI(
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally) {
-                      Text(
-                          text = "Now Playing",
-                          fontSize = 12.sp,
-                          color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                          fontWeight = FontWeight.Medium)
+                      Row(
+                          verticalAlignment = Alignment.CenterVertically,
+                          horizontalArrangement = Arrangement.Center
+                      ) {
+                          if (isOnlineMode) {
+                              Box(
+                                  modifier = Modifier
+                                      .size(8.dp)
+                                      .clip(CircleShape)
+                                      .background(Color(0xFF1DB954))
+                              )
+                              Spacer(modifier = Modifier.width(6.dp))
+                          }
+                          Text(
+                              text = if (isOnlineMode) "Online Stream" else "Now Playing",
+                              fontSize = 12.sp,
+                              color = if (isOnlineMode) Color(0xFF1DB954).copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                              fontWeight = FontWeight.Medium)
+                      }
                       Text(
                           text = artist.ifEmpty { "VidMax Player" },
                           fontSize = 14.sp,
