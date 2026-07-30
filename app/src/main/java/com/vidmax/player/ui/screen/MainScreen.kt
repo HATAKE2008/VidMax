@@ -157,6 +157,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     }
 
     val handleVideoClick = { videos: List<VideoItem>, index: Int ->
+        playerViewModel.clearPlayer()
         viewModel.pauseAudio()
         onVideoClick(videos, index)
     }
@@ -176,7 +177,10 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     PlaylistScreen(
                         viewModel = viewModel,
                         onBack = { viewModel.closePlaylist() },
-                        onAudioClick = { audioList, index -> viewModel.playAudioFromList(audioList, index) }
+                        onAudioClick = { audioList, index ->
+                            playerViewModel.clearPlayer()
+                            viewModel.playAudioFromList(audioList, index)
+                        }
                     )
                 } else {
                     // 🚀 ডায়নামিক ট্যাবের ওপর ভিত্তি করে স্ক্রিন লোড
@@ -190,17 +194,20 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                         "Music" -> MusicScreen(
                             viewModel = viewModel,
                             onSettingsClick = { isSettingsOpen = true },
-                            onAudioClick = { audioList, index -> viewModel.playAudioFromList(audioList, index) },
+                            onAudioClick = { audioList, index ->
+                                playerViewModel.clearPlayer()
+                                viewModel.playAudioFromList(audioList, index)
+                            },
                             onOpenFavorites = { viewModel.openFavorites() },
                             onOpenMyMix = { viewModel.openMyMix() }
                         )
                         "Online" -> {
-                            // 🌐 সংযুক্ত করা হলো OnlineMusicScreen
                             OnlineMusicScreen(
                                 homeViewModel = homeViewModel,
                                 searchViewModel = searchViewModel,
                                 playerViewModel = playerViewModel,
-                                onOpenFullPlayer = { isMusicPlayerOpen = true }
+                                onOpenFullPlayer = { isMusicPlayerOpen = true },
+                                libraryViewModel = viewModel
                             )
                         }
                     }
@@ -238,7 +245,10 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
-                                ) { viewModel.toggleAudio() },
+                                ) {
+                                    playerViewModel.clearPlayer()
+                                    viewModel.toggleAudio()
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             CircularProgressIndicator(
@@ -328,7 +338,10 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     .size(40.dp)
                                     .clip(CircleShape)
                                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                                    .clickable { viewModel.nextAudio() },
+                                    .clickable {
+                                        playerViewModel.clearPlayer()
+                                        viewModel.nextAudio()
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
