@@ -6,4 +6,8 @@
         <item name="android:navigationBarColor">#00000000</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
+
+    <style name="Theme.VidMax.Splash" parent="Theme.VidMax.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
 </resources>
