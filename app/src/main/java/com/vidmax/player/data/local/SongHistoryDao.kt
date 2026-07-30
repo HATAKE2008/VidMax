@@ -15,6 +15,15 @@ interface SongHistoryDao {
     @Query("SELECT * FROM song_history ORDER BY playedAt DESC LIMIT :limit")
     fun getRecentSongs(limit: Int = 20): Flow<List<SongItem>>
 
+    @Query("SELECT * FROM song_history WHERE isFavorite = 1 ORDER BY playedAt DESC")
+    fun getFavoriteSongs(): Flow<List<SongItem>>
+
+    @Query("UPDATE song_history SET isFavorite = :isFavorite WHERE videoId = :videoId")
+    suspend fun setFavorite(videoId: String, isFavorite: Boolean)
+
+    @Query("SELECT isFavorite FROM song_history WHERE videoId = :videoId")
+    suspend fun isFavorite(videoId: String): Boolean?
+
     @Query("DELETE FROM song_history")
     suspend fun clearHistory()
 }

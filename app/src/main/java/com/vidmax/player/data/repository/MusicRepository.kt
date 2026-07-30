@@ -29,16 +29,17 @@ class MusicRepository @Inject constructor(
             extractor.initialPage.items
                 .filterIsInstance<StreamInfoItem>()
                 .map { item ->
-                    SongItem(
-                        videoId = item.url
+                        val videoId = item.url
                             .substringAfter("v=")
-                            .substringBefore("&"), // extra params বাদ
-                        title = item.name,
-                        artist = item.uploaderName ?: "Unknown Artist",
-                        thumbnailUrl = item.thumbnails.firstOrNull()?.url ?: "",
-                        duration = item.duration
-                    )
-                }
+                            .substringBefore("&")
+                        SongItem(
+                            videoId = videoId,
+                            title = item.name,
+                            artist = item.uploaderName ?: "Unknown Artist",
+                            thumbnailUrl = "https://img.youtube.com/vi/$videoId/hqdefault.jpg",
+                            duration = item.duration
+                        )
+                    }
         }
     }
 
@@ -67,16 +68,17 @@ class MusicRepository @Inject constructor(
                 .filterIsInstance<StreamInfoItem>()
                 .take(10)
                 .map { item ->
-                    SongItem(
-                        videoId = item.url
+                        val relatedVideoId = item.url
                             .substringAfter("v=")
-                            .substringBefore("&"),
-                        title = item.name,
-                        artist = item.uploaderName ?: "Unknown Artist",
-                        thumbnailUrl = item.thumbnails.firstOrNull()?.url ?: "",
-                        duration = item.duration
-                    )
-                }
+                            .substringBefore("&")
+                        SongItem(
+                            videoId = relatedVideoId,
+                            title = item.name,
+                            artist = item.uploaderName ?: "Unknown Artist",
+                            thumbnailUrl = "https://img.youtube.com/vi/$relatedVideoId/hqdefault.jpg",
+                            duration = item.duration
+                        )
+                    }
         }
     }
 
@@ -87,6 +89,18 @@ class MusicRepository @Inject constructor(
 
     fun getRecentlyPlayed(): Flow<List<SongItem>> {
         return historyDao.getRecentSongs()
+    }
+
+    fun getFavorites(): Flow<List<SongItem>> {
+        return historyDao.getFavoriteSongs()
+    }
+
+    suspend fun isFavorite(videoId: String): Boolean {
+        return historyDao.isFavorite(videoId) ?: false
+    }
+
+    suspend fun setFavorite(videoId: String, isFavorite: Boolean) {
+        historyDao.setFavorite(videoId, isFavorite)
     }
 
     suspend fun clearHistory() {
