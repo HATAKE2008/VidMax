@@ -1,9 +1,10 @@
 package com.vidmax.player.ui.screen
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -21,7 +22,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
+import com.vidmax.player.R
 import com.vidmax.player.data.model.SongItem
+import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MusicHomeViewModel
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
 import com.vidmax.player.viewmodel.MusicSearchViewModel
@@ -41,7 +46,8 @@ fun OnlineMusicScreen(
     homeViewModel: MusicHomeViewModel,
     searchViewModel: MusicSearchViewModel,
     playerViewModel: MusicPlayerViewModel,
-    onOpenFullPlayer: () -> Unit
+    onOpenFullPlayer: () -> Unit,
+    libraryViewModel: LibraryViewModel? = null
 ) {
     val searchState by searchViewModel.uiState.collectAsState()
     val homeState by homeViewModel.uiState.collectAsState()
@@ -50,16 +56,15 @@ fun OnlineMusicScreen(
     val focusManager = LocalFocusManager.current
     val isSearchActive = searchState.query.isNotBlank() || searchState.searchResults.isNotEmpty()
 
-    // 🔙 Back Button Logic
-    BackHandler(enabled = isSearchActive) {
-        searchViewModel.clearSearch()
+    val handleSongClick: (SongItem) -> Unit = { song ->
+        libraryViewModel?.pauseAudio()
+        playerViewModel.playSong(song)
         focusManager.clearFocus()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             
-            // 🔍 SEARCH BAR
             OnlineSearchBar(
                 query = searchState.query,
                 onQueryChange = { searchViewModel.onQueryChange(it) },
@@ -70,41 +75,39 @@ fun OnlineMusicScreen(
                 onSearchAction = { focusManager.clearFocus() }
             )
 
-            // 🔀 SWITCH BETWEEN SEARCH RESULTS & HOME
             Crossfade(targetState = isSearchActive, label = "ScreenTransition") { showSearch ->
                 if (showSearch) {
                     OnlineSearchContent(
                         searchState = searchState,
-                        onSongClick = { 
-                            playerViewModel.playSong(it)
-                            focusManager.clearFocus()
-                        }
+                        onSongClick = handleSongClick
                     )
                 } else {
                     OnlineHomeContent(
                         homeState = homeState,
-                        onSongClick = { playerViewModel.playSong(it) }
+                        onSongClick = handleSongClick
                     )
                 }
             }
         }
 
-        // 🎵 ONLINE MINI PLAYER (Floating at bottom)
         AnimatedVisibility(
             visible = playerState.currentSong != null,
             enter = slideInVertically(initialOffsetY = { it }),
             exit = slideOutVertically(targetOffsetY = { it }),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                // MainScreen-এর বটম বারের উপর দিয়ে ভাসানোর জন্য প্যাডিং
                 .padding(bottom = 90.dp, start = 16.dp, end = 16.dp)
         ) {
             playerState.currentSong?.let { song ->
+                val safeDuration = if (playerState.duration > 0) playerState.duration else 1L
+                val progress = (playerState.position.toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
                 OnlineMiniPlayer(
                     song = song,
                     isPlaying = playerState.isPlaying,
                     isLoading = playerState.isLoadingStream,
+                    progress = progress,
                     onPlayPauseClick = { playerViewModel.togglePlayPause() },
+                    onNextClick = { playerViewModel.playNextOnlineSong() },
                     onClick = onOpenFullPlayer
                 )
             }
@@ -316,36 +319,87 @@ fun OnlineMiniPlayer(
     song: SongItem,
     isPlaying: Boolean,
     isLoading: Boolean,
+    progress: Float,
     onPlayPauseClick: () -> Unit,
+    onNextClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 14.dp)
+            .padding(bottom = 8.dp)
+            .shadow(12.dp, RoundedCornerShape(50), spotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
             .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 8.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                GlideImage(
-                    model = song.thumbnailUrl,
-                    contentDescription = "Album Art",
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onPlayPauseClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    progress = { 1f },
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                    strokeWidth = 3.dp,
+                    trackColor = Color.Transparent
                 )
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(52.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.primary
+                CircularProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 3.dp,
+                    strokeCap = StrokeCap.Round,
+                    trackColor = Color.Transparent
+                )
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface),
+                    contentAlignment = Alignment.Center
+                ) {
+                    GlideImage(
+                        model = song.thumbnailUrl,
+                        contentDescription = "Album Art",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
                     )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            Icon(
+                                painter = androidx.compose.ui.res.painterResource(
+                                    id = if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play
+                                ),
+                                contentDescription = "Play/Pause",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -354,27 +408,37 @@ fun OnlineMiniPlayer(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = song.title,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = song.artist,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            IconButton(onClick = onPlayPauseClick, enabled = !isLoading) {
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                    .clickable { onNextClick() },
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
-                    painter = androidx.compose.ui.res.painterResource(
-                        id = if (isPlaying) com.vidmax.player.R.drawable.ic_pause else com.vidmax.player.R.drawable.ic_play
-                    ),
-                    contentDescription = "Play/Pause",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_skip_next),
+                    contentDescription = "Next Track",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

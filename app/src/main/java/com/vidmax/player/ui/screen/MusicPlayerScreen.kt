@@ -351,6 +351,7 @@ fun DefaultPlayerUI(
   var showQueueSheet by remember { mutableStateOf(false) }
 
   val currentPath = offlinePath
+  val onlineThumbnailUrl = if (isOnlineMode) onlineState?.value?.currentSong?.thumbnailUrl else null
 
   // Volume Controller
   var showVolumeIndicator by remember { mutableStateOf(false) }
@@ -541,7 +542,21 @@ fun DefaultPlayerUI(
 
         // 🔥 GLIDE: Blurred Background
         Crossfade(targetState = isArtLoaded, label = "bgFade", animationSpec = tween(600)) { loaded ->
-            if (loaded && artByteArray != null) {
+            if (isOnlineMode && onlineThumbnailUrl != null) {
+                GlideImage(
+                    model = onlineThumbnailUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(radius = 80.dp)
+                        .graphicsLayer { alpha = 0.12f }
+                ) { requestBuilder ->
+                    requestBuilder
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .override(100)
+                }
+            } else if (loaded && artByteArray != null) {
                 GlideImage(
                     model = artByteArray,
                     contentDescription = null,
@@ -709,7 +724,18 @@ fun DefaultPlayerUI(
               contentAlignment = Alignment.Center) {
                 
                 // 🔥 GLIDE: Main Album Art
-                if (isArtLoaded && artByteArray != null) {
+                if (isOnlineMode && onlineThumbnailUrl != null) {
+                    GlideImage(
+                        model = onlineThumbnailUrl,
+                        contentDescription = "Album Art",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    ) { requestBuilder ->
+                        requestBuilder
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .override(500)
+                    }
+                } else if (isArtLoaded && artByteArray != null) {
                     GlideImage(
                         model = artByteArray,
                         contentDescription = "Album Art",
