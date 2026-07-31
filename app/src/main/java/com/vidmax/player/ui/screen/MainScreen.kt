@@ -183,7 +183,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                         }
                     )
                 } else {
-                    // 🌟 Flutter-style Fade + Scale Page Transition (250ms, easeOutCubic/FastOutSlowIn)
+                    // 🌟 Flutter-style Fade + Scale Page Transition
                     AnimatedContent(
                         targetState = selectedTab,
                         transitionSpec = {
@@ -418,9 +418,9 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                             val currentIndex = navItemsState.indexOf(item)
                             val isSelected = selectedTab == currentIndex
 
-                            // 🔥 dynamic weight expansion for smooth GNav feel without text truncation
+                            // 🔥 টেক্সট বড় করার কারণে tabWeight একটু বাড়ানো হলো (2.8f)
                             val tabWeight by animateFloatAsState(
-                                targetValue = if (isSelected) 2.6f else 1.0f,
+                                targetValue = if (isSelected) 2.8f else 1.0f,
                                 animationSpec = tween(320, easing = FastOutSlowInEasing),
                                 label = "tabWeight"
                             )
@@ -438,7 +438,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                             )
 
                             val iconScale by animateFloatAsState(
-                                targetValue = if (isSelected) 1.08f else 1.0f,
+                                targetValue = if (isSelected) 1.05f else 1.0f,
                                 animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
                                 label = "scaleAnim"
                             )
@@ -509,7 +509,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                // Bloomee / GNav active pill background
+                                // Active pill background
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -523,8 +523,10 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     Row(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .padding(horizontal = 8.dp),
-                                        horizontalArrangement = Arrangement.Center,
+                                            // 🔥 আইকনকে আরেকটু বামে চাপানোর জন্য প্যাডিং অ্যাডজাস্ট করা হলো
+                                            .padding(start = if (isSelected) 14.dp else 0.dp, end = if (isSelected) 16.dp else 0.dp),
+                                        // 🔥 সিলেক্টেড অবস্থায় Center এর বদলে Start থেকে শুরু হবে, এতে আইকন সুন্দরভাবে বামে বসে
+                                        horizontalArrangement = if (isSelected) Arrangement.Start else Arrangement.Center,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         if (item.label == "Online") {
@@ -533,7 +535,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                                 contentDescription = item.label,
                                                 tint = contentColor,
                                                 modifier = Modifier
-                                                    .size(22.dp)
+                                                    .size(24.dp) // 🔥 আইকন একটু বড় করা হলো (24.dp)
                                                     .scale(iconScale)
                                             )
                                         } else {
@@ -548,12 +550,12 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                                 contentDescription = item.label,
                                                 tint = contentColor,
                                                 modifier = Modifier
-                                                    .size(22.dp)
+                                                    .size(24.dp) // 🔥 আইকন একটু বড় করা হলো (24.dp)
                                                     .scale(iconScale)
                                             )
                                         }
 
-                                        // Text expands and fades in nicely after tab expands
+                                        // Text expands and fades in
                                         AnimatedVisibility(
                                             visible = isSelected,
                                             enter = expandHorizontally(
@@ -571,12 +573,13 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                         ) {
                                             Text(
                                                 text = item.label,
-                                                fontSize = 13.sp,
+                                                fontSize = 15.sp, // 🔥 টেক্সট সাইজ বড় করা হলো (15.sp)
                                                 color = contentColor,
                                                 fontWeight = FontWeight.Bold,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Clip,
-                                                modifier = Modifier.padding(start = 6.dp)
+                                                // 🔥 আইকন এবং টেক্সটের মাঝখানে একটু বেশি স্পেস দেওয়া হলো
+                                                modifier = Modifier.padding(start = 8.dp)
                                             )
                                         }
                                     }
