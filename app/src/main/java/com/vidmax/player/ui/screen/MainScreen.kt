@@ -495,7 +495,8 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     }
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
+                                        indication = ripple(),
+                                        shape = RoundedCornerShape(26.dp),
                                         onClick = {
                                             selectedTab = currentIndex
                                             if (item.label != "Folders") viewModel.closeFolder()
@@ -542,17 +543,17 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                                 modifier = Modifier.size(24.dp).scale(iconScale)
                                             )
                                         }
-                                        // Text fades + slides in only when selected (AnimatedSwitcher equivalent)
+                                        // Text fades late + unfolds from the icon, just like google_nav_bar
                                         AnimatedVisibility(
                                             visible = isSelected,
-                                            enter = fadeIn(tween(200, easing = FastOutSlowInEasing)) + expandHorizontally(tween(250, easing = FastOutSlowInEasing)),
-                                            exit = fadeOut(tween(150, easing = FastOutSlowInEasing)) + shrinkHorizontally(tween(200, easing = FastOutSlowInEasing))
+                                            enter = fadeIn(tween(160, delayMillis = 90, easing = FastOutSlowInEasing)) + expandHorizontally(tween(300, easing = FastOutSlowInEasing), expandFrom = Alignment.Start),
+                                            exit = fadeOut(tween(120, easing = FastOutSlowInEasing)) + shrinkHorizontally(tween(180, easing = FastOutSlowInEasing))
                                         ) {
                                             Text(
                                                 text = item.label,
-                                                fontSize = 12.sp,
+                                                fontSize = 14.sp,
                                                 color = contentColor,
-                                                fontWeight = FontWeight.Bold,
+                                                fontWeight = FontWeight.Medium,
                                                 maxLines = 1,
                                                 modifier = Modifier.padding(start = 6.dp)
                                             )
