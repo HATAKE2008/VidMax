@@ -421,16 +421,22 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 label = "colorAnim"
                             )
 
-                            val iconScale by animateFloatAsState(
-                                targetValue = if (isSelected) 1.15f else 1.0f,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                label = "scaleAnim"
+                            val pillWidth by animateDpAsState(
+                                targetValue = if (isSelected) tabWidth - 12.dp else 52.dp,
+                                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                                label = "pillWidth"
                             )
 
                             val tabBgAlpha by animateFloatAsState(
                                 targetValue = if (isSelected) 1f else 0f,
-                                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                                animationSpec = tween(350, easing = FastOutSlowInEasing),
                                 label = "tabBgAlpha"
+                            )
+
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (isSelected) 1.1f else 1.0f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                label = "scaleAnim"
                             )
 
                             Box(
@@ -439,11 +445,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     .fillMaxHeight()
                                     .zIndex(if (draggedItemIndex == currentIndex) 1f else 0f)
                                     .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                                    .clip(RoundedCornerShape(28.dp))
-                                    .background(
-                                        if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
-                                        else Color.Transparent
-                                    )
                                     .pointerInput(item.label) {
                                         detectDragGesturesAfterLongPress(
                                             onDragStart = { draggedItemIndex = navItemsState.indexOf(item) },
@@ -503,39 +504,60 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
+                                // BloomeeTunes GNav-style pill: selected tab expands with bg + text, unselected shows icon only
+                                Box(
+                                    modifier = Modifier
+                                        .width(pillWidth)
+                                        .height(52.dp)
+                                        .clip(RoundedCornerShape(26.dp))
+                                        .background(
+                                            if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
+                                            else Color.Transparent
+                                        ),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    if (item.label == "Online") {
-                                        // 🔥 Public আইকনের বদলে Search আইকন দেওয়া হলো
-                                        Icon(
-                                            imageVector = Icons.Default.Search,
-                                            contentDescription = item.label,
-                                            tint = contentColor,
-                                            modifier = Modifier.size(26.dp).scale(iconScale)
-                                        )
-                                    } else {
-                                        val iconRes = when (item.label) {
-                                            "Videos" -> R.drawable.ic_video_library
-                                            "Folders" -> R.drawable.ic_folder
-                                            "Music" -> R.drawable.ic_music_note
-                                            else -> R.drawable.ic_video_library
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (item.label == "Online") {
+                                            Icon(
+                                                imageVector = Icons.Default.Search,
+                                                contentDescription = item.label,
+                                                tint = contentColor,
+                                                modifier = Modifier.size(24.dp).scale(iconScale)
+                                            )
+                                        } else {
+                                            val iconRes = when (item.label) {
+                                                "Videos" -> R.drawable.ic_video_library
+                                                "Folders" -> R.drawable.ic_folder
+                                                "Music" -> R.drawable.ic_music_note
+                                                else -> R.drawable.ic_video_library
+                                            }
+                                            Icon(
+                                                painter = painterResource(id = iconRes),
+                                                contentDescription = item.label,
+                                                tint = contentColor,
+                                                modifier = Modifier.size(24.dp).scale(iconScale)
+                                            )
                                         }
-                                        Icon(
-                                            painter = painterResource(id = iconRes),
-                                            contentDescription = item.label,
-                                            tint = contentColor,
-                                            modifier = Modifier.size(26.dp).scale(iconScale)
-                                        )
+                                        // Text fades + slides in only when selected (AnimatedSwitcher equivalent)
+                                        AnimatedVisibility(
+                                            visible = isSelected,
+                                            enter = fadeIn(tween(200, easing = FastOutSlowInEasing)) + expandHorizontally(tween(250, easing = FastOutSlowInEasing)),
+                                            exit = fadeOut(tween(150, easing = FastOutSlowInEasing)) + shrinkHorizontally(tween(200, easing = FastOutSlowInEasing))
+                                        ) {
+                                            Text(
+                                                text = item.label,
+                                                fontSize = 12.sp,
+                                                color = contentColor,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                modifier = Modifier.padding(start = 6.dp)
+                                            )
+                                        }
                                     }
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Text(
-                                        text = item.label,
-                                        fontSize = 12.sp,
-                                        color = contentColor,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                    )
                                 }
                             }
                         }
