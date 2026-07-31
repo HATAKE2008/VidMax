@@ -493,10 +493,10 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                             }
                                         )
                                     }
+                                    .clip(RoundedCornerShape(26.dp))
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = ripple(),
-                                        shape = RoundedCornerShape(26.dp),
                                         onClick = {
                                             selectedTab = currentIndex
                                             if (item.label != "Folders") viewModel.closeFolder()
