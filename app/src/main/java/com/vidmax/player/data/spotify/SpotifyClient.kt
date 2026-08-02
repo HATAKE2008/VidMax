@@ -49,7 +49,8 @@ object SpotifyClient {
     private const val TAG = "SpotifyClient"
     private const val GQL_URL = "https://api-partner.spotify.com/pathfinder/v2/query"
     private const val REST_HOST = "api.spotify.com"
-    private const val GQL_JSON_MEDIA_TYPE: MediaType = "application/json; charset=UTF-8".toMediaType()
+    // Fix 1: Removed 'const' because MediaType is not a primitive type or String
+    private val GQL_JSON_MEDIA_TYPE: MediaType = "application/json; charset=UTF-8".toMediaType()
 
     @Volatile
     var accessToken: String? = null
@@ -192,7 +193,8 @@ object SpotifyClient {
                 throw SpotifyException(412, "PersistedQueryNotFound for $operationName — hash may have rotated")
             }
 
-            return result.json
+            // Fix 2: Added non-null assertion/fallback to match expected JSONObject return type
+            return result.json ?: throw SpotifyException(500, "Empty JSON response")
         }
 
         throw SpotifyException(412, "No valid hash found for $operationName")
