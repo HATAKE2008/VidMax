@@ -104,10 +104,11 @@ fun SpotifyLoginScreen(
 
     // লগইন ব্যর্থ হলে viewModel এর error মেসেজটিকে লোকালাইজড মেসেজে রূপান্তর করে দেখাও
     LaunchedEffect(uiState.error, uiState.isLoginInProgress, loginStarted) {
-        if (loginStarted && !uiState.isLoginInProgress && uiState.error != null) {
+        val currentError = uiState.error // Smart cast fix: Assign to a local variable
+        if (loginStarted && !uiState.isLoginInProgress && currentError != null) {
             isProcessing = false
             statusMessage = ""
-            loginError = classifyLoginError(context, uiState.error)
+            loginError = classifyLoginError(context, currentError)
             tokenFetchStarted.set(false)
         }
     }
