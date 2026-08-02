@@ -1,4 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- ─── Spotify Integration ─────────────────────────────────────────── -->
+    <string name="spotify_online_title">Spotify</string>
+    <string name="spotify_login">Spotify Login</string>
+    <string name="spotify_logout">Logout</string>
+    <string name="spotify_logged_in_as">Logged in as %1$s</string>
+    <string name="spotify_not_logged_in">Not logged in</string>
+    <string name="spotify_login_with_spotify">Login with Spotify</string>
+    <string name="spotify_suggestions_title">Made for you</string>
+    <string name="spotify_error">Something went wrong</string>
+    <string name="spotify_retry">Retry</string>
+    <string name="spotify_logging_in">Logging in…</string>
+    <string name="spotify_status_verifying">Verifying your account…</string>
+    <string name="spotify_status_connecting">Connecting to Spotify…</string>
+    <string name="spotify_status_loading_profile">Loading your profile…</string>
+    <string name="spotify_login_success">Logged in successfully!</string>
+    <string name="spotify_login_error_no_cookie">Login failed — no valid session. Please try again.</string>
+    <string name="spotify_login_error_expired">Your session expired. Please log in again.</string>
+    <string name="spotify_login_error_rejected">Spotify rejected the login. Please try again.</string>
+    <string name="spotify_login_error_network">Network error. Please check your connection and retry.</string>
+    <string name="spotify_login_error">Spotify login failed.</string>
+    <string name="spotify_top_tracks">Your Top Tracks</string>
+    <string name="spotify_top_artists">Your Top Artists</string>
+    <string name="spotify_your_playlists">Your Playlists</string>
+    <string name="spotify_new_releases">New Releases</string>
+    <string name="spotify_connect_description">Connect your Spotify account to unlock personalized song suggestions, top tracks, artists and playlists right here.</string>
+    <string name="spotify_signed_out">Signed out</string>
+    <string name="spotify_status_checking">Checking session…</string>
+    <string name="spotify_suggestions_empty_title">No suggestions yet</string>
+    <string name="spotify_suggestions_empty_message">Log in with Spotify to see personalized recommendations here.</string>
 
 </resources>

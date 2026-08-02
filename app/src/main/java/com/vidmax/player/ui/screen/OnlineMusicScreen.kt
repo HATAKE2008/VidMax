@@ -1,6 +1,9 @@
 package com.vidmax.player.ui.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,34 +37,61 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.vidmax.player.R
 import com.vidmax.player.data.model.SongItem
+import com.vidmax.player.data.spotify.model.SpotifyAlbum
+import com.vidmax.player.data.spotify.model.SpotifyArtist
+import com.vidmax.player.data.spotify.model.SpotifyPlaylist
+import com.vidmax.player.data.spotify.model.SpotifyTrack
+import com.vidmax.player.ui.spotify.SpotifyLoginScreen
+import com.vidmax.player.ui.spotify.spotifyHomeItems
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MusicHomeViewModel
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
 import com.vidmax.player.viewmodel.MusicSearchViewModel
+import com.vidmax.player.viewmodel.SpotifyUiState
+import com.vidmax.player.viewmodel.SpotifyViewModel
 
 @Composable
 fun OnlineMusicScreen(
     homeViewModel: MusicHomeViewModel,
     searchViewModel: MusicSearchViewModel,
     playerViewModel: MusicPlayerViewModel,
+    spotifyViewModel: SpotifyViewModel,
     onOpenFullPlayer: () -> Unit,
     libraryViewModel: LibraryViewModel? = null
 ) {
     val searchState by searchViewModel.uiState.collectAsState()
     val homeState by homeViewModel.uiState.collectAsState()
     val playerState by playerViewModel.uiState.collectAsState()
+    val spotifyState by spotifyViewModel.uiState.collectAsState()
 
     val focusManager = LocalFocusManager.current
     val isSearchActive = searchState.query.isNotBlank() || searchState.searchResults.isNotEmpty()
+
+    // Spotify লগইন ওভারলে খোলা/বন্ধ
+    var showSpotifyLogin by remember { mutableStateOf(false) }
+
+    if (showSpotifyLogin) {
+        BackHandler { showSpotifyLogin = false }
+    }
 
     val handleSongClick: (SongItem) -> Unit = { song ->
         libraryViewModel?.pauseAudio()
         playerViewModel.playSong(song)
         focusManager.clearFocus()
+    }
+
+    // Spotify ট্র্যাক ক্লিক → resolve করে প্লেয়ারে চালানো
+    val handleSpotifyTrackClick: (SpotifyTrack) -> Unit = { track ->
+        spotifyViewModel.resolveAndPlay(
+            track = track,
+            onSong = handleSongClick,
+            onError = { }
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -86,7 +116,14 @@ fun OnlineMusicScreen(
                 } else {
                     OnlineHomeContent(
                         homeState = homeState,
-                        onSongClick = handleSongClick
+                        spotifyState = spotifyState,
+                        onSongClick = handleSongClick,
+                        onSpotifyLoginClick = { showSpotifyLogin = true },
+                        onSpotifyRetry = { spotifyViewModel.loadHomeData(forceRefresh = true) },
+                        onTrackClick = handleSpotifyTrackClick,
+                        onArtistClick = { },
+                        onAlbumClick = { },
+                        onPlaylistClick = { }
                     )
                 }
             }
@@ -113,6 +150,33 @@ fun OnlineMusicScreen(
                     onNextClick = { playerViewModel.playNextOnlineSong() },
                     onToggleFavorite = { playerViewModel.toggleFavorite() },
                     onClick = onOpenFullPlayer
+                )
+            }
+        }
+
+        // Spotify লগইন ওভারলে — slide-in করে উপরে আসে
+        AnimatedVisibility(
+            visible = showSpotifyLogin,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(350, easing = FastOutSlowInEasing)
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(350, easing = FastOutSlowInEasing)
+            ),
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(20f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                SpotifyLoginScreen(
+                    viewModel = spotifyViewModel,
+                    onClose = { showSpotifyLogin = false }
                 )
             }
         }
@@ -157,17 +221,40 @@ fun OnlineSearchBar(
 @Composable
 fun OnlineHomeContent(
     homeState: com.vidmax.player.viewmodel.MusicHomeUiState,
-    onSongClick: (SongItem) -> Unit
+    spotifyState: SpotifyUiState,
+    onSongClick: (SongItem) -> Unit,
+    onSpotifyLoginClick: () -> Unit,
+    onSpotifyRetry: () -> Unit,
+    onTrackClick: (SpotifyTrack) -> Unit,
+    onArtistClick: (SpotifyArtist) -> Unit,
+    onAlbumClick: (SpotifyAlbum) -> Unit,
+    onPlaylistClick: (SpotifyPlaylist) -> Unit
 ) {
-    if (homeState.isLoading && homeState.categories.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 160.dp) // Extra padding for Mini Player
-        ) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 160.dp) // Extra padding for Mini Player
+    ) {
+        // 🔥 Spotify সাজেশন — লগইন কার্ড / shimmer / গ্রিটিং + সেকশন
+        spotifyHomeItems(
+            state = spotifyState,
+            onLoginClick = onSpotifyLoginClick,
+            onRetry = onSpotifyRetry,
+            onTrackClick = onTrackClick,
+            onArtistClick = onArtistClick,
+            onAlbumClick = onAlbumClick,
+            onPlaylistClick = onPlaylistClick
+        )
+
+        if (homeState.isLoading && homeState.categories.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier.fillParentMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+        } else {
             // Recently Played Section
             if (homeState.recentlyPlayed.isNotEmpty()) {
                 item {
