@@ -3,6 +3,11 @@ package com.vidmax.player.ui.screen
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +34,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,9 +45,13 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -47,17 +59,30 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.vidmax.player.R
+import com.vidmax.player.ui.spotify.SpotifyLoginScreen
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.viewmodel.DarkMode
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.PlayerEngine
+import com.vidmax.player.viewmodel.SpotifyUiState
+import com.vidmax.player.viewmodel.SpotifyViewModel
+
+// Spotify ব্র্যান্ড কালার
+private val SpotifyGreen = Color(0xFF1DB954)
+private val SpotifyDark = Color(0xFF191414)
 
 @Composable
-fun SettingsScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
+fun SettingsScreen(
+    viewModel: LibraryViewModel,
+    spotifyViewModel: SpotifyViewModel,
+    onBack: () -> Unit
+) {
     val resumePlayback by viewModel.resumePlayback.collectAsState()
     val autoRotate by viewModel.autoRotate.collectAsState()
     val audioBoost by viewModel.audioBoost.collectAsState()
@@ -65,6 +90,7 @@ fun SettingsScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
     val currentTheme by viewModel.appTheme.collectAsState()
     val darkMode by viewModel.darkMode.collectAsState()
     val amoledMode by viewModel.amoledMode.collectAsState()
+    val spotifyState by spotifyViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
     val isSystemDark = isSystemInDarkTheme()
@@ -74,12 +100,16 @@ fun SettingsScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
         DarkMode.System -> isSystemDark
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .systemBarsPadding()
-    ) {
+    // Spotify লগইন ওভারলে খোলা/বন্ধ
+    var showSpotifyLogin by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .systemBarsPadding()
+        ) {
 
         // ── Top Bar ──────────────────────────────────────────────────────────
         Box(
@@ -128,6 +158,16 @@ fun SettingsScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(top = 12.dp, bottom = 40.dp)
         ) {
+
+            // ── Spotify account ──────────────────────────────────────────────
+            item { SettingsSectionHeader(title = "Spotify") }
+            item {
+                SpotifySettingsSection(
+                    state = spotifyState,
+                    onLoginClick = { showSpotifyLogin = true },
+                    onLogoutClick = { spotifyViewModel.logout() }
+                )
+            }
 
             // ── Dark / Light / System toggle ──────────────────────────────
             item { SettingsSectionHeader(title = "Theme") }
@@ -327,7 +367,124 @@ fun SettingsScreen(viewModel: LibraryViewModel, onBack: () -> Unit) {
                 }
             }
         }
+
+        // Spotify লগইন ওভারলে — slide-in করে উপরে আসে
+        AnimatedVisibility(
+            visible = showSpotifyLogin,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(350, easing = FastOutSlowInEasing)
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(350, easing = FastOutSlowInEasing)
+            ),
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(10f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                SpotifyLoginScreen(
+                    viewModel = spotifyViewModel,
+                    onClose = { showSpotifyLogin = false }
+                )
+            }
+        }
+        }
     }
+}
+
+// ── Spotify account row ───────────────────────────────────────────────────────
+
+@Composable
+private fun SpotifySettingsSection(
+    state: SpotifyUiState,
+    onLoginClick: () -> Unit,
+    onLogoutClick: () -> Unit
+) {
+    val statusText = when {
+        state.checkingSession -> stringResource(R.string.spotify_status_checking)
+        state.isLoggedIn -> state.user?.displayName?.takeIf { it.isNotBlank() }
+            ?: stringResource(R.string.spotify_online_title)
+        else -> stringResource(R.string.spotify_not_logged_in)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(SpotifyDark),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_music_note),
+                contentDescription = null,
+                tint = SpotifyGreen,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Spotify",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = statusText,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        if (state.isLoggedIn) {
+            TextButton(onClick = onLogoutClick) {
+                Text(
+                    text = stringResource(R.string.spotify_logout),
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        } else {
+            Button(
+                onClick = onLoginClick,
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SpotifyGreen,
+                    contentColor = SpotifyDark
+                ),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                enabled = !state.isLoginInProgress && !state.checkingSession
+            ) {
+                if (state.isLoginInProgress) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = SpotifyDark
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.spotify_login_with_spotify),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+    Spacer(modifier = Modifier.height(8.dp))
 }
 
 // ── Theme Preview Card ────────────────────────────────────────────────────────

@@ -41,6 +41,7 @@ import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MusicHomeViewModel
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
 import com.vidmax.player.viewmodel.MusicSearchViewModel
+import com.vidmax.player.viewmodel.SpotifyViewModel
 import java.io.File
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +58,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     val homeViewModel: MusicHomeViewModel = hiltViewModel()
     val searchViewModel: MusicSearchViewModel = hiltViewModel()
     val playerViewModel: MusicPlayerViewModel = hiltViewModel()
+    val spotifyViewModel: SpotifyViewModel = hiltViewModel()
 
     // 💾 শেয়ার্ড প্রেফারেন্সেস এবং ট্যাব অর্ডার
     val sharedPrefs = remember { context.getSharedPreferences("NavPrefs", Context.MODE_PRIVATE) }
@@ -218,6 +220,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     homeViewModel = homeViewModel,
                                     searchViewModel = searchViewModel,
                                     playerViewModel = playerViewModel,
+                                    spotifyViewModel = spotifyViewModel,
                                     onOpenFullPlayer = { isMusicPlayerOpen = true },
                                     libraryViewModel = viewModel
                                 )
@@ -599,7 +602,11 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
             modifier = Modifier.fillMaxSize().zIndex(5f)
         ) {
             Box(modifier = Modifier.fillMaxSize().clickable(enabled = false) {}) {
-                SettingsScreen(viewModel = viewModel, onBack = { isSettingsOpen = false })
+                SettingsScreen(
+                    viewModel = viewModel,
+                    spotifyViewModel = spotifyViewModel,
+                    onBack = { isSettingsOpen = false }
+                )
             }
         }
 
