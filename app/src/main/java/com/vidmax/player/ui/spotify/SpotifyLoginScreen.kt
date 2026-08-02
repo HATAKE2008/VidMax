@@ -104,7 +104,8 @@ fun SpotifyLoginScreen(
 
     // লগইন ব্যর্থ হলে viewModel এর error মেসেজটিকে লোকালাইজড মেসেজে রূপান্তর করে দেখাও
     LaunchedEffect(uiState.error, uiState.isLoginInProgress, loginStarted) {
-        val currentError = uiState.error // Smart cast fix: Assign to a local variable
+        // [FIXED] Smart cast issue fixed by assigning it to a local variable first
+        val currentError = uiState.error
         if (loginStarted && !uiState.isLoginInProgress && currentError != null) {
             isProcessing = false
             statusMessage = ""
