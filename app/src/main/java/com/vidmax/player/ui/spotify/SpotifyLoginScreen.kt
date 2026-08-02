@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -85,6 +86,15 @@ fun SpotifyLoginScreen(
     // WebView instance ধরে রাখা হয় retry তে reload করার জন্য
     var webViewState by remember { mutableStateOf<WebView?>(null) }
 
+    // স্ক্রিনটি ক্লোজ হলে Memory Leak এড়াতে WebView ক্লিনআপ
+    DisposableEffect(Unit) {
+        onDispose {
+            webViewState?.stopLoading()
+            webViewState?.destroy()
+            webViewState = null
+        }
+    }
+
     // লগইন সফল হলে স্ক্রিন বন্ধ
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) {
@@ -116,7 +126,9 @@ fun SpotifyLoginScreen(
 
     // কুকি থেকে sp_dc / sp_key বের করে repository-তে লগইন শুরু করো
     fun extractAndLogin() {
-        val allCookies = CookieManager.getInstance().getCookie("https://open.spotify.com")
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.flush()
+        val allCookies = cookieManager.getCookie("https://open.spotify.com")
         val cookieMap = allCookies?.split(";")
             ?.mapNotNull { cookie ->
                 val parts = cookie.trim().split("=", limit = 2)
@@ -279,7 +291,9 @@ fun SpotifyLoginScreen(
  * open.spotify.com ডোমেইনের sp_dc কুকি পড়ে। কুকি এখনও না এলে null ফেরে।
  */
 private fun extractSpDcCookie(): String? {
-    val allCookies = CookieManager.getInstance().getCookie("https://open.spotify.com")
+    val cookieManager = CookieManager.getInstance()
+    cookieManager.flush()
+    val allCookies = cookieManager.getCookie("https://open.spotify.com")
     if (allCookies.isNullOrBlank()) return null
 
     return allCookies.split(";")
