@@ -15,7 +15,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -100,8 +99,8 @@ class SpotifyViewModel @Inject constructor(
      */
     private fun observeLoginState() {
         viewModelScope.launch {
+            // Fixed distinctUntilChanged() warning
             repository.isLoggedIn
-                .distinctUntilChanged()
                 .collect { loggedIn ->
                     _uiState.update { current ->
                         current.copy(
