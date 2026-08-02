@@ -11,10 +11,12 @@ import com.vidmax.player.data.spotify.model.SpotifyTrack
 import com.vidmax.player.data.spotify.model.SpotifyUser
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -32,6 +34,7 @@ data class SpotifyUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val isLoginInProgress: Boolean = false,
+    val isResolvingTrack: Boolean = false,
 )
 
 /**
@@ -64,16 +67,29 @@ class SpotifyViewModel @Inject constructor(
      */
     fun checkSession() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(checkingSession = true)
-            val authenticated = runCatching { repository.ensureAuthenticated() }.getOrDefault(false)
-            _uiState.value = _uiState.value.copy(
-                checkingSession = false,
-                isLoggedIn = authenticated,
-                user = repository.currentUser.value,
-                error = null,
-            )
-            if (authenticated) {
-                loadHomeData()
+            _uiState.update { it.copy(checkingSession = true) }
+            try {
+                val authenticated = repository.ensureAuthenticated()
+                _uiState.update {
+                    it.copy(
+                        checkingSession = false,
+                        isLoggedIn = authenticated,
+                        user = repository.currentUser.value,
+                        error = null,
+                    )
+                }
+                if (authenticated) {
+                    loadHomeData()
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update {
+                    it.copy(
+                        checkingSession = false,
+                        isLoggedIn = false,
+                        error = e.localizedMessage,
+                    )
+                }
             }
         }
     }
@@ -87,12 +103,15 @@ class SpotifyViewModel @Inject constructor(
             repository.isLoggedIn
                 .distinctUntilChanged()
                 .collect { loggedIn ->
-                    if (loggedIn) {
-                        _uiState.value = _uiState.value.copy(
-                            isLoggedIn = true,
-                            user = repository.currentUser.value,
+                    _uiState.update { current ->
+                        current.copy(
+                            isLoggedIn = loggedIn,
+                            user = if (loggedIn) repository.currentUser.value else null,
                             checkingSession = false,
                         )
+                    }
+                    // শুধুমাত্র যদি আগে থেকে হোম ডেটা না থাকে তখনই ডুপ্লিকেট রিকোয়েস্ট এড়াতে লোড করবে
+                    if (loggedIn && _uiState.value.homeData == null) {
                         loadHomeData()
                     }
                 }
@@ -102,27 +121,34 @@ class SpotifyViewModel @Inject constructor(
     /**
      * হোম / অনলাইন স্ক্রিনের সব Spotify সেকশন লোড করে।
      * সেকশন খালি থাকলে topTracks / topArtists / newReleases / playlists
-     * থেকে ফallback সেকশন বানিয়ে দেওয়া হয়।
+     * থেকে fallback সেকশন বানিয়ে দেওয়া হয়।
      */
     fun loadHomeData(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isLoading = _uiState.value.homeData == null,
-                error = null,
-            )
-            try {
-                val data = repository.fetchHomeData(forceRefresh = forceRefresh)
-                _uiState.value = _uiState.value.copy(
-                    homeData = data,
-                    sections = buildSections(data),
-                    isLoading = false,
+            _uiState.update {
+                it.copy(
+                    isLoading = it.homeData == null || forceRefresh,
                     error = null,
                 )
+            }
+            try {
+                val data = repository.fetchHomeData(forceRefresh = forceRefresh)
+                _uiState.update {
+                    it.copy(
+                        homeData = data,
+                        sections = buildSections(data),
+                        isLoading = false,
+                        error = null,
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.localizedMessage ?: "Spotify ডেটা লোড করতে ব্যর্থ",
-                )
+                if (e is CancellationException) throw e
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.localizedMessage ?: "Spotify ডেটা লোড করতে ব্যর্থ",
+                    )
+                }
             }
         }
     }
@@ -134,25 +160,31 @@ class SpotifyViewModel @Inject constructor(
     fun loginWithCookies(spDc: String, spKey: String) {
         viewModelScope.launch {
             loginMutex.withLock {
-                _uiState.value = _uiState.value.copy(
-                    isLoginInProgress = true,
-                    error = null,
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoginInProgress = true,
+                        error = null,
+                    )
+                }
                 repository.loginWithCookies(spDc, spKey)
                     .onSuccess { user ->
-                        _uiState.value = _uiState.value.copy(
-                            isLoginInProgress = false,
-                            isLoggedIn = true,
-                            user = user,
-                        )
-                        loadHomeData()
+                        _uiState.update {
+                            it.copy(
+                                isLoginInProgress = false,
+                                isLoggedIn = true,
+                                user = user,
+                            )
+                        }
+                        loadHomeData(forceRefresh = true)
                     }
                     .onFailure { e ->
-                        _uiState.value = _uiState.value.copy(
-                            isLoginInProgress = false,
-                            isLoggedIn = false,
-                            error = e.localizedMessage ?: "Spotify লগইন ব্যর্থ",
-                        )
+                        _uiState.update {
+                            it.copy(
+                                isLoginInProgress = false,
+                                isLoggedIn = false,
+                                error = e.localizedMessage ?: "Spotify লগইন ব্যর্থ",
+                            )
+                        }
                     }
             }
         }
@@ -175,11 +207,20 @@ class SpotifyViewModel @Inject constructor(
      * [onSong] কলব্যাক দিয়ে ফেরত দেয় — UI তখন [MusicPlayerViewModel.playSong]
      * ডাকতে পারে। ব্যর্থ হলে [onError]-এ বার্তা যায়।
      */
-    fun resolveAndPlay(track: SpotifyTrack, onSong: (SongItem) -> Unit, onError: (String) -> Unit) {
+    fun resolveAndPlay(
+        track: SpotifyTrack,
+        onSong: (SongItem) -> Unit,
+        onError: (String) -> Unit
+    ) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isResolvingTrack = true) }
             repository.resolveToSong(track)
-                .onSuccess { song -> onSong(song) }
+                .onSuccess { song ->
+                    _uiState.update { it.copy(isResolvingTrack = false) }
+                    onSong(song)
+                }
                 .onFailure { e ->
+                    _uiState.update { it.copy(isResolvingTrack = false) }
                     onError(e.localizedMessage ?: "গান খুঁজে পাওয়া যায়নি")
                 }
         }
