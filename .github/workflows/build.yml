@@ -1,6 +1,9 @@
 name: Build VidMax APK
 
 on:
+  push:
+    branches:
+      - new-feature
   workflow_dispatch:
 
 jobs:
