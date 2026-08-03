@@ -1,9 +1,6 @@
 package com.vidmax.player.ui.screen
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,48 +34,29 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.vidmax.player.R
 import com.vidmax.player.data.model.SongItem
-import com.vidmax.player.data.spotify.model.SpotifyAlbum
-import com.vidmax.player.data.spotify.model.SpotifyArtist
-import com.vidmax.player.data.spotify.model.SpotifyPlaylist
-import com.vidmax.player.data.spotify.model.SpotifyTrack
-import com.vidmax.player.ui.spotify.SpotifyLoginScreen
-import com.vidmax.player.ui.spotify.spotifyHomeItems
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MusicHomeViewModel
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
 import com.vidmax.player.viewmodel.MusicSearchViewModel
-import com.vidmax.player.viewmodel.SpotifyUiState
-import com.vidmax.player.viewmodel.SpotifyViewModel
-import kotlinx.coroutines.launch
 
 @Composable
 fun OnlineMusicScreen(
     homeViewModel: MusicHomeViewModel,
     searchViewModel: MusicSearchViewModel,
     playerViewModel: MusicPlayerViewModel,
-    spotifyViewModel: SpotifyViewModel,
     onOpenFullPlayer: () -> Unit,
     libraryViewModel: LibraryViewModel? = null
 ) {
     val searchState by searchViewModel.uiState.collectAsState()
     val homeState by homeViewModel.uiState.collectAsState()
     val playerState by playerViewModel.uiState.collectAsState()
-    val spotifyState by spotifyViewModel.uiState.collectAsState()
 
     val focusManager = LocalFocusManager.current
     val isSearchActive = searchState.query.isNotBlank() || searchState.searchResults.isNotEmpty()
-
-    // Spotify লগইন ওভারলে খোলা/বন্ধ
-    var showSpotifyLogin by remember { mutableStateOf(false) }
-
-    if (showSpotifyLogin) {
-        BackHandler { showSpotifyLogin = false }
-    }
 
     val handleSongClick: (SongItem) -> Unit = { song ->
         libraryViewModel?.pauseAudio()
@@ -86,49 +64,9 @@ fun OnlineMusicScreen(
         focusManager.clearFocus()
     }
 
-    // Spotify ট্র্যাক ক্লিক → resolve করে প্লেয়ারে চালানো
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-
-    val handleSpotifyTrackClick: (SpotifyTrack) -> Unit = { track ->
-        spotifyViewModel.resolveAndPlay(
-            track = track,
-            onSong = handleSongClick,
-            onError = { msg ->
-                scope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = msg,
-                        duration = SnackbarDuration.Short,
-                    )
-                }
-            }
-        )
-    }
-
-    // Album / Radio / Playlist → পুরো track list queue আকারে play
-    val showSnack: (String) -> Unit = { msg ->
-        scope.launch {
-            snackbarHostState.showSnackbar(message = msg, duration = SnackbarDuration.Short)
-        }
-    }
-
-    val handleSongsList: (List<SongItem>) -> Unit = { songs ->
-        libraryViewModel?.pauseAudio()
-        playerViewModel.playQueue(songs)
-        focusManager.clearFocus()
-    }
-
-    val handleAlbumClick: (SpotifyAlbum) -> Unit = { album ->
-        spotifyViewModel.playAlbum(album, onSongs = handleSongsList, onError = showSnack)
-    }
-    val handleArtistClick: (SpotifyArtist) -> Unit = { artist ->
-        spotifyViewModel.playArtistRadio(artist, onSongs = handleSongsList, onError = showSnack)
-    }
-    val handlePlaylistClick: (SpotifyPlaylist) -> Unit = { playlist ->
-        spotifyViewModel.playPlaylist(playlist, onSongs = handleSongsList, onError = showSnack)
-    }
-
     // স্ট্রিম লোড/প্লেব্যাক ব্যর্থ হলে নীরবে বসে না থেকে ব্যবহারকারীকে জানাও
+    val snackbarHostState = remember { SnackbarHostState() }
+
     LaunchedEffect(playerState.error) {
         playerState.error?.let { msg ->
             snackbarHostState.showSnackbar(
@@ -160,14 +98,7 @@ fun OnlineMusicScreen(
                 } else {
                     OnlineHomeContent(
                         homeState = homeState,
-                        spotifyState = spotifyState,
-                        onSongClick = handleSongClick,
-                        onSpotifyLoginClick = { showSpotifyLogin = true },
-                        onSpotifyRetry = { spotifyViewModel.loadHomeData(forceRefresh = true) },
-                        onTrackClick = handleSpotifyTrackClick,
-                        onArtistClick = handleArtistClick,
-                        onAlbumClick = handleAlbumClick,
-                        onPlaylistClick = handlePlaylistClick
+                        onSongClick = handleSongClick
                     )
                 }
             }
@@ -198,36 +129,7 @@ fun OnlineMusicScreen(
             }
         }
 
-        // Spotify লগইন ওভারলে — slide-in করে উপরে আসে
-        AnimatedVisibility(
-            visible = showSpotifyLogin,
-            enter = slideInVertically(
-                initialOffsetY = { it },
-                animationSpec = tween(350, easing = FastOutSlowInEasing)
-            ),
-            exit = slideOutVertically(
-                targetOffsetY = { it },
-                animationSpec = tween(350, easing = FastOutSlowInEasing)
-            ),
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(20f)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
-            ) {
-                SpotifyLoginScreen(
-                    onClose = {
-                        showSpotifyLogin = false
-                        spotifyViewModel.checkSession()
-                    }
-                )
-            }
-        }
-
-        // Spotify resolve failure হলে feedback — mini player-এর উপরে দেখায়
+        // স্ট্রিম ব্যর্থ হলে feedback — mini player-এর উপরে দেখায়
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
@@ -275,30 +177,12 @@ fun OnlineSearchBar(
 @Composable
 fun OnlineHomeContent(
     homeState: com.vidmax.player.viewmodel.MusicHomeUiState,
-    spotifyState: SpotifyUiState,
-    onSongClick: (SongItem) -> Unit,
-    onSpotifyLoginClick: () -> Unit,
-    onSpotifyRetry: () -> Unit,
-    onTrackClick: (SpotifyTrack) -> Unit,
-    onArtistClick: (SpotifyArtist) -> Unit,
-    onAlbumClick: (SpotifyAlbum) -> Unit,
-    onPlaylistClick: (SpotifyPlaylist) -> Unit
+    onSongClick: (SongItem) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 160.dp) // Extra padding for Mini Player
     ) {
-        // 🔥 Spotify সাজেশন — লগইন কার্ড / shimmer / গ্রিটিং + সেকশন
-        spotifyHomeItems(
-            state = spotifyState,
-            onLoginClick = onSpotifyLoginClick,
-            onRetry = onSpotifyRetry,
-            onTrackClick = onTrackClick,
-            onArtistClick = onArtistClick,
-            onAlbumClick = onAlbumClick,
-            onPlaylistClick = onPlaylistClick
-        )
-
         if (homeState.isLoading && homeState.categories.isEmpty()) {
             item {
                 Box(
