@@ -57,14 +57,10 @@ object SpotifyClient {
 
     /**
      * OkHttp client used for GQL + REST calls. Defaults to a browser-like client;
-     * the Hilt module replaces it at startup via [setHttpClient].
+     * the Hilt module replaces it at startup by assigning to this property.
      */
     @Volatile
     var httpClient: OkHttpClient = buildDefaultClient()
-
-    fun setHttpClient(client: OkHttpClient) {
-        httpClient = client
-    }
 
     private fun buildDefaultClient(): OkHttpClient =
         OkHttpClient.Builder()
