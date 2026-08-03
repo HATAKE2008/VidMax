@@ -1,7 +1,10 @@
 package com.vidmax.player.data.repository
 
 import com.vidmax.player.data.model.SongItem
+import com.vidmax.player.data.spotify.model.SpotifyAlbum
+import com.vidmax.player.data.spotify.model.SpotifyArtist
 import com.vidmax.player.data.spotify.model.SpotifyHomeData
+import com.vidmax.player.data.spotify.model.SpotifyPlaylist
 import com.vidmax.player.data.spotify.model.SpotifyTrack
 import com.vidmax.player.data.spotify.model.SpotifyUser
 import kotlinx.coroutines.flow.StateFlow
@@ -64,4 +67,12 @@ interface SpotifyRepository {
      * Matches are cached locally so repeat plays resolve instantly.
      */
     suspend fun resolveToSong(track: SpotifyTrack): Result<SongItem>
+
+    /** Album / Artist radio / Playlist এর track list আনে। */
+    suspend fun getAlbumTracks(album: SpotifyAlbum): Result<List<SpotifyTrack>>
+    suspend fun getArtistTopTracks(artist: SpotifyArtist): Result<List<SpotifyTrack>>
+    suspend fun getPlaylistTracks(playlist: SpotifyPlaylist): Result<List<SpotifyTrack>>
+
+    /** একাধিক Spotify track কে parallel এ YouTube SongItem-এ resolve করে। */
+    suspend fun resolveTracksToSongs(tracks: List<SpotifyTrack>): List<SongItem>
 }
