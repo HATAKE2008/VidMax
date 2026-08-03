@@ -53,8 +53,8 @@ private data class NavItem(val label: String)
 @Composable
 fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int) -> Unit) {
     val context = LocalContext.current
-  
-    // 🌐 Online Music ViewModels Initialize 
+
+    // 🌐 Online Music ViewModels Initialize
     val homeViewModel: MusicHomeViewModel = hiltViewModel()
     val searchViewModel: MusicSearchViewModel = hiltViewModel()
     val playerViewModel: MusicPlayerViewModel = hiltViewModel()
@@ -63,9 +63,9 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     // 💾 শেয়ার্ড প্রেফারেন্সেস এবং ট্যাব অর্ডার
     val sharedPrefs = remember { context.getSharedPreferences("NavPrefs", Context.MODE_PRIVATE) }
     var navItemsState by remember {
-        val defaultTabs = listOf("Videos", "Folders", "Music", "Online") 
+        val defaultTabs = listOf("Videos", "Folders", "Music", "Online")
         val savedOrderStr = sharedPrefs.getString("nav_order", "") ?: ""
-        
+
         val initialList = if (savedOrderStr.isNotBlank()) {
             val savedTabs = savedOrderStr.split(",")
             val missingTabs = defaultTabs.filter { !savedTabs.contains(it) }
@@ -154,7 +154,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         } else if (currentFolderPath.isNotEmpty()) {
             viewModel.closeFolder()
         } else if (selectedTab != 0) {
-            selectedTab = 0 // ডিফল্ট প্রথম ট্যাবে চলে যাবে
+            selectedTab = 0
         }
     }
 
@@ -189,10 +189,10 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     AnimatedContent(
                         targetState = selectedTab,
                         transitionSpec = {
-                            (fadeIn(tween(250, easing = FastOutSlowInEasing)) + 
+                            (fadeIn(tween(250, easing = FastOutSlowInEasing)) +
                              scaleIn(initialScale = 0.96f, animationSpec = tween(250, easing = FastOutSlowInEasing)))
                              .togetherWith(
-                                 fadeOut(tween(250, easing = FastOutSlowInEasing)) + 
+                                 fadeOut(tween(250, easing = FastOutSlowInEasing)) +
                                  scaleOut(targetScale = 0.96f, animationSpec = tween(250, easing = FastOutSlowInEasing))
                              )
                         },
@@ -232,7 +232,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         }
 
         Column(modifier = Modifier.align(Alignment.BottomCenter)) {
-            
+
             // MINI PLAYER BAR (Local Music)
             AnimatedVisibility(
                 visible = showMusicRecentBar && !isScrollingDown.value,
@@ -388,22 +388,14 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 }
             }
 
-            // BOTTOM NAVIGATION BAR (GNAV STYLE + DRAG TO REORDER)
+            // 🌸 BOTTOM NAVIGATION BAR — BLOOMEE STYLE EXPANDING PILL
+            // Transparent bar + stadium pill + simultaneous expand/collapse
             BoxWithConstraints(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp)
                     .fillMaxWidth()
-                    .height(68.dp)
-                    .shadow(16.dp, RoundedCornerShape(35.dp), spotColor = Color.Black.copy(alpha = 0.45f))
-                    .clip(RoundedCornerShape(35.dp))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
-                    .border(
-                        1.2.dp,
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        RoundedCornerShape(35.dp)
-                    )
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .height(64.dp)
             ) {
                 val averageTabWidthPx = with(LocalDensity.current) { (maxWidth / navItemsState.size).toPx() }
                 var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -421,28 +413,35 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                             val currentIndex = navItemsState.indexOf(item)
                             val isSelected = selectedTab == currentIndex
 
-                            // 🔥 টেক্সট বড় করার কারণে tabWeight একটু বাড়ানো হলো (2.8f)
+                            // 🌸 Pill expansion — পুরনো tab collapse + নতুন tab expand একসাথে (Bloomee)
                             val tabWeight by animateFloatAsState(
-                                targetValue = if (isSelected) 2.8f else 1.0f,
-                                animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                targetValue = if (isSelected) 2.6f else 1.0f,
+                                animationSpec = tween(350, easing = FastOutSlowInEasing),
                                 label = "tabWeight"
                             )
 
+                            // Icon/text color tween — সাদা ↔ accent pink
                             val contentColor by animateColorAsState(
-                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                animationSpec = tween(250),
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                                              else MaterialTheme.colorScheme.onSurface,
+                                animationSpec = tween(300, easing = FastOutSlowInEasing),
                                 label = "colorAnim"
                             )
 
+                            // Tinted pill background alpha
                             val tabBgAlpha by animateFloatAsState(
                                 targetValue = if (isSelected) 1f else 0f,
-                                animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                animationSpec = tween(350, easing = FastOutSlowInEasing),
                                 label = "tabBgAlpha"
                             )
 
+                            // Subtle bouncy icon scale
                             val iconScale by animateFloatAsState(
-                                targetValue = if (isSelected) 1.05f else 1.0f,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                targetValue = if (isSelected) 1.08f else 1.0f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                ),
                                 label = "scaleAnim"
                             )
 
@@ -482,7 +481,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
 
                                                     offsetX -= averageTabWidthPx
                                                     draggedItemIndex = currentActiveIndex + 1
-                                                } 
+                                                }
                                                 else if (offsetX < -offsetThreshold && currentActiveIndex > 0) {
                                                     val newList = navItemsState.toMutableList()
                                                     val temp = newList[currentActiveIndex]
@@ -500,7 +499,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                             }
                                         )
                                     }
-                                    .clip(RoundedCornerShape(26.dp))
+                                    .clip(RoundedCornerShape(32.dp))
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = ripple(),
@@ -512,79 +511,75 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                // Active pill background
+                                // 🌸 Active pill background — stadium shape, tinted accent (Bloomee)
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .clip(RoundedCornerShape(26.dp))
+                                        .clip(RoundedCornerShape(32.dp))
                                         .background(
-                                            if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
+                                            if (tabBgAlpha > 0.01f)
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
                                             else Color.Transparent
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            // 🔥 আইকনকে আরেকটু বামে চাপানোর জন্য প্যাডিং অ্যাডজাস্ট করা হলো
-                                            .padding(start = if (isSelected) 14.dp else 0.dp, end = if (isSelected) 16.dp else 0.dp),
-                                        // 🔥 সিলেক্টেড অবস্থায় Center এর বদলে Start থেকে শুরু হবে, এতে আইকন সুন্দরভাবে বামে বসে
-                                        horizontalArrangement = if (isSelected) Arrangement.Start else Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        if (item.label == "Online") {
-                                            Icon(
-                                                imageVector = Icons.Default.Search,
-                                                contentDescription = item.label,
-                                                tint = contentColor,
-                                                modifier = Modifier
-                                                    .size(24.dp) // 🔥 আইকন একটু বড় করা হলো (24.dp)
-                                                    .scale(iconScale)
-                                            )
-                                        } else {
-                                            val iconRes = when (item.label) {
-                                                "Videos" -> R.drawable.ic_video_library
-                                                "Folders" -> R.drawable.ic_folder
-                                                "Music" -> R.drawable.ic_music_note
-                                                else -> R.drawable.ic_video_library
-                                            }
-                                            Icon(
-                                                painter = painterResource(id = iconRes),
-                                                contentDescription = item.label,
-                                                tint = contentColor,
-                                                modifier = Modifier
-                                                    .size(24.dp) // 🔥 আইকন একটু বড় করা হলো (24.dp)
-                                                    .scale(iconScale)
-                                            )
-                                        }
+                                        )
+                                )
 
-                                        // Text expands and fades in
-                                        AnimatedVisibility(
-                                            visible = isSelected,
-                                            enter = expandHorizontally(
-                                                animationSpec = tween(320, easing = FastOutSlowInEasing),
-                                                expandFrom = Alignment.Start
-                                            ) + fadeIn(
-                                                animationSpec = tween(180, delayMillis = 100, easing = LinearEasing)
-                                            ),
-                                            exit = shrinkHorizontally(
-                                                animationSpec = tween(220, easing = FastOutSlowInEasing),
-                                                shrinkTowards = Alignment.Start
-                                            ) + fadeOut(
-                                                animationSpec = tween(120, easing = LinearEasing)
-                                            )
-                                        ) {
-                                            Text(
-                                                text = item.label,
-                                                fontSize = 15.sp, // 🔥 টেক্সট সাইজ বড় করা হলো (15.sp)
-                                                color = contentColor,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Clip,
-                                                // 🔥 আইকন এবং টেক্সটের মাঝখানে একটু বেশি স্পেস দেওয়া হলো
-                                                modifier = Modifier.padding(start = 8.dp)
-                                            )
+                                // সবসময় Center — icon smoothly slide করবে, কোনো jump নেই
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (item.label == "Online") {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = item.label,
+                                            tint = contentColor,
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .scale(iconScale)
+                                        )
+                                    } else {
+                                        val iconRes = when (item.label) {
+                                            "Videos" -> R.drawable.ic_video_library
+                                            "Folders" -> R.drawable.ic_folder
+                                            "Music" -> R.drawable.ic_music_note
+                                            else -> R.drawable.ic_video_library
                                         }
+                                        Icon(
+                                            painter = painterResource(id = iconRes),
+                                            contentDescription = item.label,
+                                            tint = contentColor,
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .scale(iconScale)
+                                        )
+                                    }
+
+                                    // 🌸 Label — expand + delayed fade-in / shrink + fade-out (Bloomee)
+                                    AnimatedVisibility(
+                                        visible = isSelected,
+                                        enter = expandHorizontally(
+                                            animationSpec = tween(300, easing = FastOutSlowInEasing),
+                                            expandFrom = Alignment.Start
+                                        ) + fadeIn(
+                                            animationSpec = tween(200, delayMillis = 80, easing = LinearEasing)
+                                        ),
+                                        exit = shrinkHorizontally(
+                                            animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                            shrinkTowards = Alignment.Start
+                                        ) + fadeOut(
+                                            animationSpec = tween(150, easing = LinearEasing)
+                                        )
+                                    ) {
+                                        Text(
+                                            text = item.label,
+                                            fontSize = 15.sp,
+                                            color = contentColor,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Clip,
+                                            modifier = Modifier.padding(start = 8.dp)
+                                        )
                                     }
                                 }
                             }
