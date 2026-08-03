@@ -29,11 +29,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,32 +44,38 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.vidmax.player.R
 import com.vidmax.player.data.spotify.SpotifyAuth
-import com.vidmax.player.viewmodel.SpotifyViewModel
+import com.vidmax.player.data.spotify.SpotifyClient
+import com.vidmax.player.data.spotify.SpotifyTokenManager
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Meld-স্টাইল Spotify লগইন স্ক্রিন — একটি embedded WebView দিয়ে
  * accounts.spotify.com-এর লগইন পেজ লোড হয়। লগইন সফল হলে open.spotify.com-এ
- * redirect হয়; তখন sp_dc / sp_key কুকি বের করে [SpotifyViewModel.loginWithCookies]
- * ডাকা হয়। সফল হলে [onClose] ট্রিগার হয়।
+ * redirect হয়; তখন sp_dc / sp_key কুকি বের করে token fetch করা হয় (TOTP
+ * সহ), সেশন সংরক্ষিত হয় এবং [onClose] ট্রিগার হয়।
  *
- * Desktop User-Agent ব্যবহার করা জরুরি — মোবাইল WebView-এ Facebook/Google
- * লগইন JS ঠিকমতো কাজ করে না।
+ * পুরো ফ্লো স্ক্রিনের ভেতরেই (self-contained) চলে — ViewModel-এর উপর
+ * নির্ভরশীল নয়, Meld-এর মতো। লগইন শেষে মূল স্ক্রিন নিজে session refresh
+ * করে নেয়।
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun SpotifyLoginScreen(
-    viewModel: SpotifyViewModel,
     onClose: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     // WebView পেজ লোড হচ্ছে কিনা
     var isLoading by remember { mutableStateOf(true) }
 
-    // কুকি বের করা / লগইন কল চলছে কিনা (লোকাল + viewModel মিলিয়ে)
+    // কুকি বের করা / লগইন কল চলছে কিনা
     var isProcessing by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }
 
@@ -81,7 +87,6 @@ fun SpotifyLoginScreen(
 
     // shouldOverrideUrlLoading আর onPageFinished এর মধ্যে race আটকাতে atomic guard
     val tokenFetchStarted = remember { AtomicBoolean(false) }
-    var loginStarted by remember { mutableStateOf(false) }
 
     // WebView instance ধরে রাখা হয় retry তে reload করার জন্য
     var webViewState by remember { mutableStateOf<WebView?>(null) }
@@ -95,30 +100,10 @@ fun SpotifyLoginScreen(
         }
     }
 
-    // লগইন সফল হলে স্ক্রিন বন্ধ
-    LaunchedEffect(uiState.isLoggedIn) {
-        if (uiState.isLoggedIn) {
-            onClose()
-        }
-    }
-
-    // লগইন ব্যর্থ হলে viewModel এর error মেসেজটিকে লোকালাইজড মেসেজে রূপান্তর করে দেখাও
-    LaunchedEffect(uiState.error, uiState.isLoginInProgress, loginStarted) {
-        // [FIXED] Smart cast issue fixed by assigning it to a local variable first
-        val currentError = uiState.error
-        if (loginStarted && !uiState.isLoginInProgress && currentError != null) {
-            isProcessing = false
-            statusMessage = ""
-            loginError = classifyLoginError(context, currentError)
-            tokenFetchStarted.set(false)
-        }
-    }
-
     // Retry: সব অবস্থা রিসেট করে WebView আবার লগইন পেজ লোড করো
     LaunchedEffect(retryCount) {
         if (retryCount > 0) {
             tokenFetchStarted.set(false)
-            loginStarted = false
             loginError = null
             isProcessing = false
             statusMessage = ""
@@ -126,8 +111,8 @@ fun SpotifyLoginScreen(
         }
     }
 
-    // কুকি থেকে sp_dc / sp_key বের করে repository-তে লগইন শুরু করো
-    fun extractAndLogin() {
+    // কুকি থেকে sp_dc / sp_key বের করে token fetch + session সংরক্ষণ
+    fun extractAndLogin(view: WebView?) {
         val cookieManager = CookieManager.getInstance()
         cookieManager.flush()
         val allCookies = cookieManager.getCookie("https://open.spotify.com")
@@ -144,25 +129,66 @@ fun SpotifyLoginScreen(
         val spDc = cookieMap["sp_dc"]
         if (spDc.isNullOrBlank()) {
             isProcessing = false
-            statusMessage = ""
-            loginError = context.getString(R.string.spotify_login_error_no_cookie)
+            statusMessage = context.getString(R.string.spotify_login_error_no_cookie)
+            loginError = statusMessage
             tokenFetchStarted.set(false)
             return
         }
 
         val spKey = cookieMap["sp_key"] ?: ""
-        loginStarted = true
         isProcessing = true
         loginError = null
         statusMessage = context.getString(R.string.spotify_status_verifying)
 
-        webViewState?.stopLoading()
-        webViewState?.loadUrl("about:blank")
+        view?.stopLoading()
+        view?.loadUrl("about:blank")
 
-        viewModel.loginWithCookies(spDc, spKey)
+        scope.launch(Dispatchers.IO) {
+            try {
+                // 1. কুকি সংরক্ষণ
+                val tokenManager = SpotifyTokenManager(context)
+                tokenManager.saveCookies(spDc, spKey)
+
+                // 2. TOTP সহ internal access token fetch
+                withContext(Dispatchers.Main) {
+                    statusMessage = context.getString(R.string.spotify_status_connecting)
+                }
+                val token = SpotifyAuth.fetchAccessToken(spDc, spKey).getOrThrow()
+                SpotifyClient.accessToken = token.accessToken
+
+                // 3. ইউজার প্রোফাইল লোড (নন-ফ্যাটাল)
+                withContext(Dispatchers.Main) {
+                    statusMessage = context.getString(R.string.spotify_status_loading_profile)
+                }
+                SpotifyClient.me().onSuccess { user ->
+                    tokenManager.saveProfile(user.displayName ?: "", user.id)
+                }
+
+                // 4. টোকেন + প্রোফাইল সংরক্ষণ
+                tokenManager.saveToken(token.accessToken, token.accessTokenExpirationTimestampMs)
+
+                withContext(Dispatchers.Main) {
+                    statusMessage = context.getString(R.string.spotify_login_success)
+                }
+
+                delay(300)
+
+                withContext(Dispatchers.Main) {
+                    isProcessing = false
+                    onClose()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    isProcessing = false
+                    statusMessage = classifyLoginError(context, e)
+                    loginError = statusMessage
+                }
+                tokenFetchStarted.set(false)
+            }
+        }
     }
-
-    val showProcessing = isProcessing || uiState.isLoginInProgress
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
@@ -178,7 +204,7 @@ fun SpotifyLoginScreen(
             windowInsets = WindowInsets(0.dp),
         )
 
-        if (isLoading || showProcessing) {
+        if (isLoading || isProcessing) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
@@ -215,7 +241,7 @@ fun SpotifyLoginScreen(
                                 if (url?.startsWith("https://open.spotify.com") == true &&
                                     tokenFetchStarted.compareAndSet(false, true)
                                 ) {
-                                    extractAndLogin()
+                                    extractAndLogin(view)
                                 }
                             }
 
@@ -228,10 +254,13 @@ fun SpotifyLoginScreen(
                                 if (requestUrl.startsWith("https://open.spotify.com")) {
                                     val spDc = extractSpDcCookie()
                                     if (spDc != null && tokenFetchStarted.compareAndSet(false, true)) {
-                                        extractAndLogin()
+                                        extractAndLogin(view)
                                         return true
                                     }
+                                    // sp_dc এখনও প্রস্তুত নয় — onPageFinished-এ পুনরায় চেষ্টা
+                                    return false
                                 }
+
                                 return false
                             }
                         }
@@ -242,7 +271,7 @@ fun SpotifyLoginScreen(
                 },
             )
 
-            if (showProcessing || loginError != null) {
+            if (isProcessing || loginError != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -273,7 +302,6 @@ fun SpotifyLoginScreen(
                                     loginError = null
                                     isProcessing = false
                                     statusMessage = ""
-                                    loginStarted = false
                                     tokenFetchStarted.set(false)
                                     retryCount++
                                 },
@@ -310,14 +338,16 @@ private fun extractSpDcCookie(): String? {
 /**
  * Backend-এর raw error message থেকে ব্যবহারকারী-বান্ধব এরর মেসেজ বানায়।
  */
-private fun classifyLoginError(context: Context, message: String): String {
-    val msg = message.lowercase()
+private fun classifyLoginError(context: Context, e: Exception): String {
+    val msg = e.message.orEmpty()
     return when {
         "anonymous" in msg || "expired" in msg ->
             context.getString(R.string.spotify_login_error_expired)
-        "403" in msg || "401" in msg || "rejected" in msg ->
+        "HTTP 403" in msg || "HTTP 401" in msg || "rejected" in msg ->
             context.getString(R.string.spotify_login_error_rejected)
-        "unknownhost" in msg || "timeout" in msg || "socket" in msg || "connect" in msg ->
+        "gist" in msg.lowercase() || "nuance" in msg.lowercase() ||
+            "unknownhost" in msg.lowercase() || "timeout" in msg.lowercase() ||
+            "socket" in msg.lowercase() || "connect" in msg.lowercase() ->
             context.getString(R.string.spotify_login_error_network)
         else ->
             context.getString(R.string.spotify_login_error)

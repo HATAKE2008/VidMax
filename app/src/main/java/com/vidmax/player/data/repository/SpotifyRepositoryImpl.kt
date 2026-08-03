@@ -175,16 +175,16 @@ class SpotifyRepositoryImpl @Inject constructor(
         val sections = mutableListOf<SpotifyHomeSection>()
 
         if (topTracks.isNotEmpty()) {
-            sections.add(SpotifyHomeSection(title = "Spotify Top Tracks", type = SectionType.TRACKS, tracks = topTracks))
+            sections.add(SpotifyHomeSection(title = "spotify_top_tracks", type = SectionType.TRACKS, tracks = topTracks))
         }
         if (topArtists.isNotEmpty()) {
-            sections.add(SpotifyHomeSection(title = "Spotify Top Artists", type = SectionType.ARTISTS, artists = topArtists))
+            sections.add(SpotifyHomeSection(title = "spotify_top_artists", type = SectionType.ARTISTS, artists = topArtists))
         }
         if (newReleases.isNotEmpty()) {
-            sections.add(SpotifyHomeSection(title = "New Releases", type = SectionType.ALBUMS, albums = newReleases))
+            sections.add(SpotifyHomeSection(title = "spotify_new_releases", type = SectionType.ALBUMS, albums = newReleases))
         }
         if (playlists.isNotEmpty()) {
-            sections.add(SpotifyHomeSection(title = "Your Playlists", type = SectionType.PLAYLISTS, playlists = playlists))
+            sections.add(SpotifyHomeSection(title = "spotify_your_playlists", type = SectionType.PLAYLISTS, playlists = playlists))
         }
 
         feed?.sections?.forEach { raw ->

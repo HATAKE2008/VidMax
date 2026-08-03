@@ -175,8 +175,10 @@ fun OnlineMusicScreen(
                     .background(MaterialTheme.colorScheme.background)
             ) {
                 SpotifyLoginScreen(
-                    viewModel = spotifyViewModel,
-                    onClose = { showSpotifyLogin = false }
+                    onClose = {
+                        showSpotifyLogin = false
+                        spotifyViewModel.checkSession()
+                    }
                 )
             }
         }
