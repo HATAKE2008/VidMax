@@ -66,7 +66,7 @@ class SpotifyRepositoryImpl @Inject constructor(
     private var backgroundRefreshInFlight = false
 
     init {
-        SpotifyClient.setHttpClient(okHttpClient)
+        SpotifyClient.httpClient = okHttpClient
         restoreSession()
     }
 
