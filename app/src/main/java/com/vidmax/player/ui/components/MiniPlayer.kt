@@ -51,7 +51,7 @@ fun MiniPlayer(
                 Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2C2C2C)) // Spotify-এর মতো ডার্ক থিম
+                    .background(Color(0xFF2C2C2C)) // ডার্ক থিম
                     .clickable { onExpandPlayer() } // ফুল স্ক্রিনে যাওয়ার জন্য
             ) {
               Row(
