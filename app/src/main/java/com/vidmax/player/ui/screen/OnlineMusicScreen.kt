@@ -54,6 +54,7 @@ import com.vidmax.player.viewmodel.MusicPlayerViewModel
 import com.vidmax.player.viewmodel.MusicSearchViewModel
 import com.vidmax.player.viewmodel.SpotifyUiState
 import com.vidmax.player.viewmodel.SpotifyViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun OnlineMusicScreen(
@@ -86,11 +87,21 @@ fun OnlineMusicScreen(
     }
 
     // Spotify ট্র্যাক ক্লিক → resolve করে প্লেয়ারে চালানো
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     val handleSpotifyTrackClick: (SpotifyTrack) -> Unit = { track ->
         spotifyViewModel.resolveAndPlay(
             track = track,
             onSong = handleSongClick,
-            onError = { }
+            onError = { msg ->
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = msg,
+                        duration = SnackbarDuration.Short,
+                    )
+                }
+            }
         )
     }
 
@@ -182,6 +193,14 @@ fun OnlineMusicScreen(
                 )
             }
         }
+
+        // Spotify resolve failure হলে feedback — mini player-এর উপরে দেখায়
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 170.dp, start = 16.dp, end = 16.dp)
+        )
     }
 }
 

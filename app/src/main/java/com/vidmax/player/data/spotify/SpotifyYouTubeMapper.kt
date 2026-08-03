@@ -58,6 +58,11 @@ class SpotifyYouTubeMapper(
         val bestMatch = findBestMatch(track, searchResult)
 
         if (bestMatch != null) {
+            if (bestMatch.score < MIN_MATCH_THRESHOLD) {
+                Log.w(TAG, "Weak Spotify match (score=${bestMatch.score}): ${track.name} -> ${bestMatch.youtubeId} (${bestMatch.title})")
+            } else {
+                Log.d(TAG, "Spotify match found: ${track.name} -> ${bestMatch.youtubeId} (score: ${bestMatch.score})")
+            }
             spotifyMatchDao.upsertSpotifyMatch(
                 SpotifyMatchEntity(
                     spotifyId = track.id,
@@ -68,7 +73,6 @@ class SpotifyYouTubeMapper(
                 )
             )
             memoryCache.put(track.id, CachedMatch(bestMatch.youtubeId, bestMatch.title, bestMatch.artist))
-            Log.d(TAG, "Spotify match found: ${track.name} -> ${bestMatch.youtubeId} (score: ${bestMatch.score})")
             return@withContext buildSongItem(
                 youtubeId = bestMatch.youtubeId,
                 spotifyTrack = track,
@@ -168,7 +172,9 @@ class SpotifyYouTubeMapper(
             }
         }
 
-        return bestCandidate?.takeIf { it.score >= MIN_MATCH_THRESHOLD }
+        // Best-effort: search result থাকলেই top candidate ব্যবহার করো,
+        // এমনকি score threshold-এর নিচে হলেও — যাতে home screen-এ track play হয়।
+        return bestCandidate
     }
 
     private data class MatchCandidate(
