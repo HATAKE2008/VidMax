@@ -10,16 +10,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -63,39 +60,6 @@ import kotlinx.coroutines.launch
 // Spotify ব্র্যান্ড কালার
 private val SpotifyGreen = Color(0xFF1DB954)
 private val SpotifyDark = Color(0xFF191414)
-
-/**
- * Online ট্যাবের হোম কনটেন্ট এলাকায় Spotify সাজেশন দেখানোর এন্ট্রি পয়েন্ট।
- * নিজে একটি LazyColumn ধরে [spotifyHomeItems] রেন্ডার করে — আলাদাভাবে
- * ব্যবহারের জন্য। OnlineMusicScreen এ একই LazyColumn-এর ভেতরে
- * [spotifyHomeItems] এক্সটেনশন কল করা হয় (nested LazyColumn এড়াতে)।
- */
-@Composable
-fun SpotifyHomeContent(
-    state: SpotifyUiState,
-    onLoginClick: () -> Unit,
-    onTrackClick: (SpotifyTrack) -> Unit,
-    onArtistClick: (SpotifyArtist) -> Unit,
-    onAlbumClick: (SpotifyAlbum) -> Unit,
-    onPlaylistClick: (SpotifyPlaylist) -> Unit,
-    modifier: Modifier = Modifier,
-    onRetry: () -> Unit = {},
-) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 160.dp), // মিনি প্লেয়ারের জন্য জায়গা
-    ) {
-        spotifyHomeItems(
-            state = state,
-            onLoginClick = onLoginClick,
-            onRetry = onRetry,
-            onTrackClick = onTrackClick,
-            onArtistClick = onArtistClick,
-            onAlbumClick = onAlbumClick,
-            onPlaylistClick = onPlaylistClick,
-        )
-    }
-}
 
 /**
  * Spotify হোম কনটেন্টের সব item গুলো একটি [LazyListScope]-এ ঢোকায় যাতে

@@ -8,12 +8,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,17 +52,24 @@ import com.vidmax.player.ui.spotify.ShimmerBox
 import com.vidmax.player.ui.spotify.TextPlaceholder
 
 /**
- * backend এর "spotify_top_tracks"-এর মতো স্পেশাল টাইটেল কী-গুলোকে
- * লোকালাইজড বাংলা/ইংরেজি টাইটেলে ম্যাপ করে; বাকি টাইটেল যেমন আছে তেমন দেখায়।
+ * Resolves the display title for a Spotify home section.
+ * Handles special keys like "spotify_because_you_like:ArtistName".
  */
 @Composable
 fun resolveSpotifySectionTitle(section: SpotifyHomeSection): String {
-    return when (section.title) {
-        "spotify_top_tracks" -> stringResource(R.string.spotify_top_tracks)
-        "spotify_top_artists" -> stringResource(R.string.spotify_top_artists)
-        "spotify_your_playlists" -> stringResource(R.string.spotify_your_playlists)
-        "spotify_new_releases" -> stringResource(R.string.spotify_new_releases)
-        else -> section.title
+    val title = section.title
+    return when {
+        title.startsWith("spotify_because_you_like:") -> {
+            val artistName = title.removePrefix("spotify_because_you_like:")
+            stringResource(R.string.spotify_because_you_like, artistName)
+        }
+        title == "spotify_top_tracks" -> stringResource(R.string.spotify_top_tracks)
+        title == "spotify_top_artists" -> stringResource(R.string.spotify_top_artists)
+        title == "spotify_made_for_you" -> stringResource(R.string.spotify_made_for_you)
+        title == "spotify_discover" -> stringResource(R.string.spotify_discover)
+        title == "spotify_your_playlists" -> stringResource(R.string.spotify_your_playlists)
+        title == "spotify_new_releases" -> stringResource(R.string.spotify_new_releases)
+        else -> title
     }
 }
 
@@ -131,8 +143,9 @@ private fun SectionTitle(title: String) {
 }
 
 /**
- * ট্র্যাক সেকশন — প্রতিটি কার্ড 140.dp চওড়া, CategoryRow-এর মতো।
- * থাম্বনেইলের উপর প্লে আইকন ওভারলে থাকে।
+ * ট্র্যাক সেকশন — Meld-এর মতো 4-সারির horizontal grid।
+ * প্রতিটি ঘরে কমপ্যাক্ট লিস্ট রো (ছোট থাম্বনেইল + টাইটেল + আর্টিস্ট) থাকে,
+ * যা Spotify অ্যাপের মতো দেখতে।
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -144,60 +157,23 @@ fun SpotifyTrackSectionRow(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         SectionTitle(title = title)
-        LazyRow(
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(4),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(TRACK_ROW_HEIGHT * 4),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            items(items = tracks, key = { "spotify_track_${it.id}" }) { track ->
-                val artwork = track.album?.images?.firstOrNull()?.url
-                Column(
-                    modifier = Modifier
-                        .width(140.dp)
-                        .clickable { onTrackClick(track) }
-                ) {
-                    Box {
-                        GlideImage(
-                            model = artwork,
-                            contentDescription = track.name,
-                            modifier = Modifier
-                                .size(140.dp, 100.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentScale = ContentScale.Crop
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(6.dp)
-                                .size(26.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.55f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = track.name,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = track.artistName,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+            gridItems(
+                items = tracks,
+                key = { "spotify_track_${it.id}" },
+            ) { track ->
+                SpotifyTrackGridItem(
+                    track = track,
+                    onClick = { onTrackClick(track) },
+                )
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -205,7 +181,72 @@ fun SpotifyTrackSectionRow(
 }
 
 /**
- * আর্টিস্ট সেকশন — 80.dp গোলাকার ছবি + নাম নিচে।
+ * Meld-এর YouTubeListItem-এর মতো কমপ্যাক্ট ট্র্যাক রো।
+ */
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+private fun SpotifyTrackGridItem(
+    track: SpotifyTrack,
+    onClick: () -> Unit,
+) {
+    val artwork = remember(track.id) { track.album?.images?.firstOrNull()?.url }
+    Row(
+        modifier = Modifier
+            .width(TRACK_GRID_ITEM_WIDTH)
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box {
+            GlideImage(
+                model = artwork,
+                contentDescription = track.name,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentScale = ContentScale.Crop,
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(10.dp),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = track.name,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = track.artistName,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/**
+ * আর্টিস্ট সেকশন — Meld-এর মতো বড় গোলাকার ছবি + নাম নিচে।
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -225,14 +266,14 @@ fun SpotifyArtistSectionRow(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .width(96.dp)
+                        .width(116.dp)
                         .clickable { onArtistClick(artist) }
                 ) {
                     GlideImage(
                         model = artist.bestImage(),
                         contentDescription = artist.name,
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(100.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentScale = ContentScale.Crop
@@ -382,3 +423,6 @@ fun SpotifySectionShimmer(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
+
+private val TRACK_ROW_HEIGHT = 56.dp
+private val TRACK_GRID_ITEM_WIDTH = 300.dp

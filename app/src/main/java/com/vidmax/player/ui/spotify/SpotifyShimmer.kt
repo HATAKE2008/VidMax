@@ -98,14 +98,3 @@ fun TextPlaceholder(
         shape = shape,
     )
 }
-
-/**
- * বর্গাকার/আয়তাকার ছবির জায়গায় ব্যবহারের জন্য shimmer thumbnail placeholder।
- */
-@Composable
-fun ThumbnailPlaceholder(
-    modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(12.dp),
-) {
-    ShimmerBox(modifier = modifier, shape = shape)
-}
