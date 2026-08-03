@@ -2,6 +2,7 @@ package com.vidmax.player.data.spotify
 
 import com.vidmax.player.data.spotify.model.SpotifyPlaylist
 import com.vidmax.player.data.spotify.model.SpotifyTrack
+import java.util.Collections
 
 /**
  * Utility object for creating search queries from Spotify track data
@@ -25,24 +26,30 @@ object SpotifyMapper {
      * LRU cache for normalized strings. Avoids re-running 7 regex replacements
      * on the same Spotify title/artist across multiple candidate comparisons.
      * Bounded to [NORM_CACHE_MAX_SIZE] entries to limit memory usage.
+     * Synchronized because resolutions run in parallel on [kotlinx.coroutines.Dispatchers.IO].
      */
-    private val normalizeCache = object : LinkedHashMap<String, String>(
-        NORM_CACHE_MAX_SIZE, 0.75f, true
-    ) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean =
-            size > NORM_CACHE_MAX_SIZE
-    }
+    private val normalizeCache = Collections.synchronizedMap(
+        object : LinkedHashMap<String, String>(
+            NORM_CACHE_MAX_SIZE, 0.75f, true
+        ) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean =
+                size > NORM_CACHE_MAX_SIZE
+        }
+    )
 
     /**
      * LRU cache for pre-computed bigram sets. Avoids re-creating Set<String>
      * on every stringSimilarity call for the same normalized string.
+     * Synchronized for the same reason as [normalizeCache].
      */
-    private val bigramCache = object : LinkedHashMap<String, Set<String>>(
-        NORM_CACHE_MAX_SIZE, 0.75f, true
-    ) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Set<String>>?): Boolean =
-            size > NORM_CACHE_MAX_SIZE
-    }
+    private val bigramCache = Collections.synchronizedMap(
+        object : LinkedHashMap<String, Set<String>>(
+            NORM_CACHE_MAX_SIZE, 0.75f, true
+        ) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Set<String>>?): Boolean =
+                size > NORM_CACHE_MAX_SIZE
+        }
+    )
 
     /**
      * Pre-computed data for one side of a match comparison.

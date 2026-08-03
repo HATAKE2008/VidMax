@@ -105,6 +105,16 @@ fun OnlineMusicScreen(
         )
     }
 
+    // স্ট্রিম লোড/প্লেব্যাক ব্যর্থ হলে নীরবে বসে না থেকে ব্যবহারকারীকে জানাও
+    LaunchedEffect(playerState.error) {
+        playerState.error?.let { msg ->
+            snackbarHostState.showSnackbar(
+                message = msg,
+                duration = SnackbarDuration.Short,
+            )
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             
