@@ -154,7 +154,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         } else if (currentFolderPath.isNotEmpty()) {
             viewModel.closeFolder()
         } else if (selectedTab != 0) {
-            selectedTab = 0
+            selectedTab = 0 // ডিফল্ট প্রথম ট্যাবে চলে যাবে
         }
     }
 
@@ -388,14 +388,22 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 }
             }
 
-            // 🌸 BOTTOM NAVIGATION BAR — BLOOMEE STYLE EXPANDING PILL
-            // Transparent bar + stadium pill + simultaneous expand/collapse
+            // BOTTOM NAVIGATION BAR (GNAV STYLE + DRAG TO REORDER + BLOOMEE-STYLE SMOOTH ANIMATION)
             BoxWithConstraints(
                 modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp)
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp)
-                    .height(64.dp)
+                    .height(68.dp)
+                    .shadow(16.dp, RoundedCornerShape(35.dp), spotColor = Color.Black.copy(alpha = 0.45f))
+                    .clip(RoundedCornerShape(35.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                    .border(
+                        1.2.dp,
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                        RoundedCornerShape(35.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 val averageTabWidthPx = with(LocalDensity.current) { (maxWidth / navItemsState.size).toPx() }
                 var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -413,35 +421,28 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                             val currentIndex = navItemsState.indexOf(item)
                             val isSelected = selectedTab == currentIndex
 
-                            // 🌸 Pill expansion — পুরনো tab collapse + নতুন tab expand একসাথে (Bloomee)
+                            // 🔥 টেক্সট বড় করার কারণে tabWeight একটু বাড়ানো হলো (2.8f)
                             val tabWeight by animateFloatAsState(
-                                targetValue = if (isSelected) 2.6f else 1.0f,
+                                targetValue = if (isSelected) 2.8f else 1.0f,
                                 animationSpec = tween(350, easing = FastOutSlowInEasing),
                                 label = "tabWeight"
                             )
 
-                            // Icon/text color tween — সাদা ↔ accent pink
                             val contentColor by animateColorAsState(
-                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary
-                                              else MaterialTheme.colorScheme.onSurface,
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
                                 animationSpec = tween(300, easing = FastOutSlowInEasing),
                                 label = "colorAnim"
                             )
 
-                            // Tinted pill background alpha
                             val tabBgAlpha by animateFloatAsState(
                                 targetValue = if (isSelected) 1f else 0f,
                                 animationSpec = tween(350, easing = FastOutSlowInEasing),
                                 label = "tabBgAlpha"
                             )
 
-                            // Subtle bouncy icon scale
                             val iconScale by animateFloatAsState(
-                                targetValue = if (isSelected) 1.08f else 1.0f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioLowBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                ),
+                                targetValue = if (isSelected) 1.05f else 1.0f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
                                 label = "scaleAnim"
                             )
 
@@ -499,7 +500,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                             }
                                         )
                                     }
-                                    .clip(RoundedCornerShape(32.dp))
+                                    .clip(RoundedCornerShape(26.dp))
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = ripple(),
@@ -511,19 +512,19 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                // 🌸 Active pill background — stadium shape, tinted accent (Bloomee)
+                                // Active pill background
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .clip(RoundedCornerShape(32.dp))
+                                        .clip(RoundedCornerShape(26.dp))
                                         .background(
-                                            if (tabBgAlpha > 0.01f)
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
+                                            if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
                                             else Color.Transparent
                                         )
                                 )
 
-                                // সবসময় Center — icon smoothly slide করবে, কোনো jump নেই
+                                // ✅ FIX: কোনো conditional padding/Arrangement নেই — সবসময় Center,
+                                // তাই tab switch করলে icon jump করে না, text expand হলে smoothly slide করে
                                 Row(
                                     modifier = Modifier.fillMaxSize(),
                                     horizontalArrangement = Arrangement.Center,
@@ -555,20 +556,20 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                         )
                                     }
 
-                                    // 🌸 Label — expand + delayed fade-in / shrink + fade-out (Bloomee)
+                                    // Text expands and fades in (Bloomee style)
                                     AnimatedVisibility(
                                         visible = isSelected,
                                         enter = expandHorizontally(
-                                            animationSpec = tween(300, easing = FastOutSlowInEasing),
+                                            animationSpec = tween(320, easing = FastOutSlowInEasing),
                                             expandFrom = Alignment.Start
                                         ) + fadeIn(
-                                            animationSpec = tween(200, delayMillis = 80, easing = LinearEasing)
+                                            animationSpec = tween(180, delayMillis = 100, easing = LinearEasing)
                                         ),
                                         exit = shrinkHorizontally(
-                                            animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                            animationSpec = tween(220, easing = FastOutSlowInEasing),
                                             shrinkTowards = Alignment.Start
                                         ) + fadeOut(
-                                            animationSpec = tween(150, easing = LinearEasing)
+                                            animationSpec = tween(120, easing = LinearEasing)
                                         )
                                     ) {
                                         Text(
