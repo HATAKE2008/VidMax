@@ -105,6 +105,29 @@ fun OnlineMusicScreen(
         )
     }
 
+    // Album / Radio / Playlist → পুরো track list queue আকারে play
+    val showSnack: (String) -> Unit = { msg ->
+        scope.launch {
+            snackbarHostState.showSnackbar(message = msg, duration = SnackbarDuration.Short)
+        }
+    }
+
+    val handleSongsList: (List<SongItem>) -> Unit = { songs ->
+        libraryViewModel?.pauseAudio()
+        playerViewModel.playQueue(songs)
+        focusManager.clearFocus()
+    }
+
+    val handleAlbumClick: (SpotifyAlbum) -> Unit = { album ->
+        spotifyViewModel.playAlbum(album, onSongs = handleSongsList, onError = showSnack)
+    }
+    val handleArtistClick: (SpotifyArtist) -> Unit = { artist ->
+        spotifyViewModel.playArtistRadio(artist, onSongs = handleSongsList, onError = showSnack)
+    }
+    val handlePlaylistClick: (SpotifyPlaylist) -> Unit = { playlist ->
+        spotifyViewModel.playPlaylist(playlist, onSongs = handleSongsList, onError = showSnack)
+    }
+
     // স্ট্রিম লোড/প্লেব্যাক ব্যর্থ হলে নীরবে বসে না থেকে ব্যবহারকারীকে জানাও
     LaunchedEffect(playerState.error) {
         playerState.error?.let { msg ->
@@ -142,9 +165,9 @@ fun OnlineMusicScreen(
                         onSpotifyLoginClick = { showSpotifyLogin = true },
                         onSpotifyRetry = { spotifyViewModel.loadHomeData(forceRefresh = true) },
                         onTrackClick = handleSpotifyTrackClick,
-                        onArtistClick = { },
-                        onAlbumClick = { },
-                        onPlaylistClick = { }
+                        onArtistClick = handleArtistClick,
+                        onAlbumClick = handleAlbumClick,
+                        onPlaylistClick = handlePlaylistClick
                     )
                 }
             }

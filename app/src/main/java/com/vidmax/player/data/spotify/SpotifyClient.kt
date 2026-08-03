@@ -625,6 +625,34 @@ object SpotifyClient {
             )
         }
 
+    // ── Album Tracks (REST fallback — no GQL equivalent) ────────────────
+
+    suspend fun albumTracks(
+        albumId: String,
+        limit: Int = 50,
+        offset: Int = 0,
+    ): Result<SpotifyPaging<SpotifyTrack>> =
+        runCatching {
+            val obj =
+                authenticatedGet(
+                    "albums/$albumId/tracks",
+                    params = mapOf("limit" to limit, "offset" to offset, "market" to "US"),
+                )
+            val items =
+                obj.arr("items")?.mapObjectsNotNull { raw ->
+                    val t = parseRestTrack(raw)
+                    if (t.id.isEmpty()) null else t
+                } ?: emptyList()
+            SpotifyPaging(
+                items = items,
+                total = obj.int("total") ?: 0,
+                limit = obj.int("limit") ?: limit,
+                offset = obj.int("offset") ?: offset,
+                next = obj.str("next"),
+                previous = obj.str("previous"),
+            )
+        }
+
     // ── Liked Songs (GQL: fetchLibraryTracks) ───────────────────────────
 
     suspend fun likedSongs(

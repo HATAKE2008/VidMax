@@ -108,6 +108,13 @@ class MusicPlayerViewModel @Inject constructor(
         }
     }
 
+    /** পুরো list queue হিসেবে সেট করে প্রথম গানটি বাজায়। */
+    fun playQueue(songs: List<SongItem>, startIndex: Int = 0) {
+        if (songs.isEmpty()) return
+        _uiState.value = _uiState.value.copy(queue = songs, queueIndex = startIndex)
+        playSongFromQueue(startIndex)
+    }
+
     fun playSongFromQueue(index: Int) {
         val queue = _uiState.value.queue
         if (index !in queue.indices) return

@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.vidmax.player.data.model.SongItem
 import com.vidmax.player.data.repository.SpotifyRepository
 import com.vidmax.player.data.spotify.model.SectionType
+import com.vidmax.player.data.spotify.model.SpotifyAlbum
+import com.vidmax.player.data.spotify.model.SpotifyArtist
 import com.vidmax.player.data.spotify.model.SpotifyHomeData
 import com.vidmax.player.data.spotify.model.SpotifyHomeSection
+import com.vidmax.player.data.spotify.model.SpotifyPlaylist
 import com.vidmax.player.data.spotify.model.SpotifyTrack
 import com.vidmax.player.data.spotify.model.SpotifyUser
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -227,6 +230,47 @@ class SpotifyViewModel @Inject constructor(
                 if (e is CancellationException) throw e
                 _uiState.update { it.copy(isResolvingTrack = false) }
                 onError(e.localizedMessage ?: "গান খুঁজে পাওয়া যায়নি")
+            }
+        }
+    }
+
+    /**
+     * Album / Artist radio / Playlist সেকশন ক্লিক করলে পুরো track list fetch করে
+     * YouTube-এ resolve করে queue হিসেবে play করার জন্য। [playCollection] হ্যান্ডেল করে।
+     */
+    fun playAlbum(album: SpotifyAlbum, onSongs: (List<SongItem>) -> Unit, onError: (String) -> Unit) =
+        playCollection({ repository.getAlbumTracks(album) }, onSongs, onError)
+
+    fun playArtistRadio(artist: SpotifyArtist, onSongs: (List<SongItem>) -> Unit, onError: (String) -> Unit) =
+        playCollection({ repository.getArtistTopTracks(artist) }, onSongs, onError)
+
+    fun playPlaylist(playlist: SpotifyPlaylist, onSongs: (List<SongItem>) -> Unit, onError: (String) -> Unit) =
+        playCollection({ repository.getPlaylistTracks(playlist) }, onSongs, onError)
+
+    /** Track list fetch → YouTube resolve → queue প্লে। */
+    private fun playCollection(
+        fetch: suspend () -> Result<List<SpotifyTrack>>,
+        onSongs: (List<SongItem>) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isResolvingTrack = true) }
+            try {
+                fetch()
+                    .onSuccess { tracks ->
+                        val songs = repository.resolveTracksToSongs(tracks)
+                        _uiState.update { it.copy(isResolvingTrack = false) }
+                        if (songs.isEmpty()) onError("কোনো গান play করা যায়নি")
+                        else onSongs(songs)
+                    }
+                    .onFailure { e ->
+                        _uiState.update { it.copy(isResolvingTrack = false) }
+                        onError(e.localizedMessage ?: "লোড করা যায়নি")
+                    }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(isResolvingTrack = false) }
+                onError(e.localizedMessage ?: "লোড করা যায়নি")
             }
         }
     }

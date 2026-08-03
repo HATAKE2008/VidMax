@@ -27,6 +27,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -288,6 +290,33 @@ class SpotifyRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 Result.failure(e)
             }
+        }
+
+    override suspend fun getAlbumTracks(album: SpotifyAlbum): Result<List<SpotifyTrack>> =
+        withContext(Dispatchers.IO) {
+            if (!ensureAuthenticated()) return@withContext Result.failure(IllegalStateException("Spotify login প্রয়োজন"))
+            SpotifyClient.albumTracks(album.id).map { it.items }
+        }
+
+    override suspend fun getArtistTopTracks(artist: SpotifyArtist): Result<List<SpotifyTrack>> =
+        withContext(Dispatchers.IO) {
+            if (!ensureAuthenticated()) return@withContext Result.failure(IllegalStateException("Spotify login প্রয়োজন"))
+            SpotifyClient.artistTopTracks(artist.id).map { it.tracks }
+        }
+
+    override suspend fun getPlaylistTracks(playlist: SpotifyPlaylist): Result<List<SpotifyTrack>> =
+        withContext(Dispatchers.IO) {
+            if (!ensureAuthenticated()) return@withContext Result.failure(IllegalStateException("Spotify login প্রয়োজন"))
+            SpotifyClient.playlistTracks(playlist.id, limit = 50).map { paging -> paging.items.mapNotNull { it.track } }
+        }
+
+    override suspend fun resolveTracksToSongs(tracks: List<SpotifyTrack>): List<SongItem> =
+        withContext(Dispatchers.IO) {
+            tracks
+                .take(50)
+                .map { track -> async { spotifyYouTubeMapper.mapToSongItem(track) } }
+                .awaitAll()
+                .filterNotNull()
         }
 
     // ── Home data cache (SharedPreferences, 6h TTL) ──────────────────────
