@@ -6,6 +6,7 @@ import com.vidmax.player.data.model.SongItem
 import com.vidmax.player.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +37,20 @@ class MusicHomeViewModel @Inject constructor(
     private var lastFetchTime = 0L
     private val CACHE_DURATION_MS = 2 * 60 * 60 * 1000L // 2 Hours Cache
 
+    private data class CategorySpec(
+        val title: String,
+        val query: String
+    )
+
+    private val categorySpecs = listOf(
+        CategorySpec("Trending Now", "trending songs this week"),
+        CategorySpec("Bengali Hits", "trending Bengali songs 2026"),
+        CategorySpec("Bollywood Hits", "top Bollywood hits 2026"),
+        CategorySpec("Lo-fi Vibes", "lo-fi chill music"),
+        CategorySpec("Sad Hits", "sad songs to cry"),
+        CategorySpec("Romantic Hits", "romantic songs 2026")
+    )
+
     init {
         loadHomeScreenData()
         observeHistory()
@@ -52,24 +67,13 @@ class MusicHomeViewModel @Inject constructor(
 
             try {
                 // Fetch categories in parallel
-                val bengaliDeferred = async { repository.getCategorySongs("trending Bengali songs 2026") }
-                val bollywoodDeferred = async { repository.getCategorySongs("top Bollywood hits 2026") }
-                val lofiDeferred = async { repository.getCategorySongs("lo-fi chill music") }
-
-                val bengaliSongs = bengaliDeferred.await()
-                val bollywoodSongs = bollywoodDeferred.await()
-                val lofiSongs = lofiDeferred.await()
+                val songLists = categorySpecs.map { spec -> async { repository.getCategorySongs(spec.query) } }.awaitAll()
 
                 val categoryList = mutableListOf<HomeCategory>()
-
-                if (bengaliSongs.isNotEmpty()) {
-                    categoryList.add(HomeCategory("Bengali Hits", bengaliSongs))
-                }
-                if (bollywoodSongs.isNotEmpty()) {
-                    categoryList.add(HomeCategory("Bollywood Hits", bollywoodSongs))
-                }
-                if (lofiSongs.isNotEmpty()) {
-                    categoryList.add(HomeCategory("Lo-fi Vibes", lofiSongs))
+                categorySpecs.forEachIndexed { index, spec ->
+                    if (songLists[index].isNotEmpty()) {
+                        categoryList.add(HomeCategory(spec.title, songLists[index]))
+                    }
                 }
 
                 lastFetchTime = currentTime
@@ -90,7 +94,7 @@ class MusicHomeViewModel @Inject constructor(
         viewModelScope.launch {
             repository.getRecentlyPlayed().collectLatest { history ->
                 _uiState.value = _uiState.value.copy(recentlyPlayed = history)
-                
+
                 // Fetch "For You" (Related songs) based on last played song
                 val lastPlayedSong = history.firstOrNull()
                 if (lastPlayedSong != null) {

@@ -21,25 +21,15 @@ class MusicRepository @Inject constructor(
         runCatching {
             val extractor = ServiceList.YouTube.getSearchExtractor(
                 query,
-                listOf(YoutubeSearchQueryHandlerFactory.VIDEOS), // শুধু video, channel/playlist বাদ
+                listOf(YoutubeSearchQueryHandlerFactory.MUSIC_SONGS), // শুধু songs, movie/natok/jukebox বাদ
                 ""
             )
             extractor.fetchPage()
 
             extractor.initialPage.items
                 .filterIsInstance<StreamInfoItem>()
-                .map { item ->
-                        val videoId = item.url
-                            .substringAfter("v=")
-                            .substringBefore("&")
-                        SongItem(
-                            videoId = videoId,
-                            title = item.name,
-                            artist = item.uploaderName ?: "Unknown Artist",
-                            thumbnailUrl = "https://img.youtube.com/vi/$videoId/hqdefault.jpg",
-                            duration = item.duration
-                        )
-                    }
+                .mapNotNull { item -> toSongItem(item) }
+                .filter { isLikelySong(it.title) }
         }
     }
 
@@ -66,19 +56,9 @@ class MusicRepository @Inject constructor(
 
             info.relatedItems
                 .filterIsInstance<StreamInfoItem>()
+                .mapNotNull { item -> toSongItem(item) }
+                .filter { isLikelySong(it.title) }
                 .take(10)
-                .map { item ->
-                        val relatedVideoId = item.url
-                            .substringAfter("v=")
-                            .substringBefore("&")
-                        SongItem(
-                            videoId = relatedVideoId,
-                            title = item.name,
-                            artist = item.uploaderName ?: "Unknown Artist",
-                            thumbnailUrl = "https://img.youtube.com/vi/$relatedVideoId/hqdefault.jpg",
-                            duration = item.duration
-                        )
-                    }
         }
     }
 
@@ -105,5 +85,42 @@ class MusicRepository @Inject constructor(
 
     suspend fun clearHistory() {
         historyDao.clearHistory()
+    }
+
+    private fun toSongItem(item: StreamInfoItem): SongItem? {
+        val videoId = item.url
+            .substringAfter("v=")
+            .substringBefore("&")
+        if (videoId.isEmpty()) return null
+        return SongItem(
+            videoId = videoId,
+            title = item.name,
+            artist = item.uploaderName ?: "Unknown Artist",
+            thumbnailUrl = "https://img.youtube.com/vi/$videoId/hqdefault.jpg",
+            duration = item.duration
+        )
+    }
+
+    /**
+     * Songs-only check: movie, natok (drama), jukebox ও compilation টাইটেল
+     * বাদ দেয় — YouTube search-এ এগুলো এসে পড়লে play-যোগ্য গানই থাকে।
+     */
+    private fun isLikelySong(title: String): Boolean {
+        val normalized = title.lowercase()
+        return NON_SONG_MARKERS.none { normalized.contains(it) }
+    }
+
+    companion object {
+        private val NON_SONG_MARKERS = listOf(
+            // Movies / trailers
+            "movie", "film", "মুভি", "সিনেমা", "trailer", "teaser",
+            // Bengali drama (natok) / telefilm / serials
+            "natok", "নাটক", "telefilm", "টেলিফিল্ম", "drama serial", "full episode",
+            // Jukeboxes
+            "jukebox", "জুকবক্স",
+            // Compilations / nonstop mixes
+            "nonstop", "ননস্টপ", "megamix", "মেগামিক্স", "compilation", "মিক্সড",
+            "full album", "top 10", "top 20", "top 50", "best of", "superhit songs"
+        )
     }
 }
