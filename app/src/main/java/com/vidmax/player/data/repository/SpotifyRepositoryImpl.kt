@@ -279,9 +279,15 @@ class SpotifyRepositoryImpl @Inject constructor(
 
     override suspend fun resolveToSong(track: SpotifyTrack): Result<SongItem> =
         withContext(Dispatchers.IO) {
-            val song = spotifyYouTubeMapper.mapToSongItem(track)
-                ?: return@withContext Result.failure(IllegalStateException("No YouTube match found for '${track.name}'"))
-            Result.success(song)
+            try {
+                val song = spotifyYouTubeMapper.mapToSongItem(track)
+                    ?: throw IllegalStateException("No YouTube match found for '${track.name}'")
+                Result.success(song)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
         }
 
     // ── Home data cache (SharedPreferences, 6h TTL) ──────────────────────

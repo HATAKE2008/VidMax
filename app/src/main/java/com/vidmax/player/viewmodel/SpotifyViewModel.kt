@@ -213,15 +213,21 @@ class SpotifyViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isResolvingTrack = true) }
-            repository.resolveToSong(track)
-                .onSuccess { song ->
-                    _uiState.update { it.copy(isResolvingTrack = false) }
-                    onSong(song)
-                }
-                .onFailure { e ->
-                    _uiState.update { it.copy(isResolvingTrack = false) }
-                    onError(e.localizedMessage ?: "গান খুঁজে পাওয়া যায়নি")
-                }
+            try {
+                repository.resolveToSong(track)
+                    .onSuccess { song ->
+                        _uiState.update { it.copy(isResolvingTrack = false) }
+                        onSong(song)
+                    }
+                    .onFailure { e ->
+                        _uiState.update { it.copy(isResolvingTrack = false) }
+                        onError(e.localizedMessage ?: "গান খুঁজে পাওয়া যায়নি")
+                    }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(isResolvingTrack = false) }
+                onError(e.localizedMessage ?: "গান খুঁজে পাওয়া যায়নি")
+            }
         }
     }
 
