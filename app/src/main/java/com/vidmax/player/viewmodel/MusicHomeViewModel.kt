@@ -44,10 +44,12 @@ class MusicHomeViewModel @Inject constructor(
 
     private val categorySpecs = listOf(
         CategorySpec("Trending Now", "trending songs this week"),
+        CategorySpec("New Releases", "new release songs 2026"),
         CategorySpec("Bengali Hits", "trending Bengali songs 2026"),
         CategorySpec("Bollywood Hits", "top Bollywood hits 2026"),
         CategorySpec("Lo-fi Vibes", "lo-fi chill music"),
         CategorySpec("Sad Hits", "sad songs to cry"),
+        CategorySpec("Happy Vibes", "happy feel good songs 2026"),
         CategorySpec("Romantic Hits", "romantic songs 2026")
     )
 
@@ -108,8 +110,8 @@ class MusicHomeViewModel @Inject constructor(
         viewModelScope.launch {
             repository.getRelatedSongs(lastSong.videoId).onSuccess { relatedSongs ->
                 if (relatedSongs.isNotEmpty()) {
-                    val currentCategories = _uiState.value.categories.filterNot { it.title == "আপনার জন্য" }.toMutableList()
-                    currentCategories.add(0, HomeCategory("আপনার জন্য", relatedSongs))
+                    val currentCategories = _uiState.value.categories.filterNot { it.title == "For You" }.toMutableList()
+                    currentCategories.add(0, HomeCategory("For You", relatedSongs))
                     _uiState.value = _uiState.value.copy(categories = currentCategories)
                 }
             }
