@@ -54,7 +54,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // 🌸 Playlist card specs (Bloomee-style colorful cards)
-private data class PlaylistSpec(
+internal data class PlaylistSpec(
     val title: String,
     val subtitle: String,
     val emoji: String,
