@@ -108,7 +108,7 @@ class MusicPlayerViewModel @Inject constructor(
         }
     }
 
-    /** পুরো list queue হিসেবে সেট করে প্রথম গানটি বাজায়। */
+    // 🌸 NEW: play a whole list as queue (used by playlist cards)
     fun playQueue(songs: List<SongItem>, startIndex: Int = 0) {
         if (songs.isEmpty()) return
         _uiState.value = _uiState.value.copy(queue = songs, queueIndex = startIndex)
