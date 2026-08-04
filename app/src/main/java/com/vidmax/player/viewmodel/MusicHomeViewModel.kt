@@ -22,6 +22,7 @@ data class HomeCategory(
 data class MusicHomeUiState(
     val categories: List<HomeCategory> = emptyList(),
     val recentlyPlayed: List<SongItem> = emptyList(),
+    val favorites: List<SongItem> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -56,6 +57,7 @@ class MusicHomeViewModel @Inject constructor(
     init {
         loadHomeScreenData()
         observeHistory()
+        observeFavorites()
     }
 
     fun loadHomeScreenData(forceRefresh: Boolean = false) {
@@ -121,6 +123,15 @@ class MusicHomeViewModel @Inject constructor(
                     currentCategories.add(0, HomeCategory("For You", relatedSongs))
                     _uiState.value = _uiState.value.copy(categories = currentCategories)
                 }
+            }
+        }
+    }
+
+    // 🌸 Live favorites feed — updates whenever a song is favorited/unfavorited
+    private fun observeFavorites() {
+        viewModelScope.launch {
+            repository.getFavorites().collectLatest { favorites ->
+                _uiState.value = _uiState.value.copy(favorites = favorites)
             }
         }
     }
