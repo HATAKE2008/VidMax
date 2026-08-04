@@ -1,6 +1,9 @@
 package com.vidmax.player.ui.screen
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -23,6 +27,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -43,6 +48,30 @@ import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MusicHomeViewModel
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
 import com.vidmax.player.viewmodel.MusicSearchViewModel
+import kotlinx.coroutines.delay
+
+// 🌸 Staggered enter animation — rows/items fade + slide in one by one
+@Composable
+private fun Modifier.enterAnimation(index: Int): Modifier {
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(80L + index * 90L)
+        entered = true
+    }
+    val alpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(450, easing = FastOutSlowInEasing),
+        label = "enterAlpha"
+    )
+    val offsetY by animateFloatAsState(
+        targetValue = if (entered) 0f else 24f,
+        animationSpec = tween(450, easing = FastOutSlowInEasing),
+        label = "enterOffset"
+    )
+    return this
+        .alpha(alpha)
+        .offset(y = offsetY.dp)
+}
 
 @Composable
 fun OnlineMusicScreen(
@@ -65,7 +94,7 @@ fun OnlineMusicScreen(
         focusManager.clearFocus()
     }
 
-    // স্ট্রিম লোড/প্লেব্যাক ব্যর্থ হলে নীরবে বসে না থেকে ব্যবহারকারীকে জানাও
+    // Tell the user when stream load / playback fails (no silent failure)
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(playerState.error) {
@@ -79,18 +108,22 @@ fun OnlineMusicScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            
+
             OnlineSearchBar(
                 query = searchState.query,
                 onQueryChange = { searchViewModel.onQueryChange(it) },
-                onClearClick = { 
+                onClearClick = {
                     searchViewModel.clearSearch()
                     focusManager.clearFocus()
                 },
                 onSearchAction = { focusManager.clearFocus() }
             )
 
-            Crossfade(targetState = isSearchActive, label = "ScreenTransition") { showSearch ->
+            Crossfade(
+                targetState = isSearchActive,
+                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                label = "ScreenTransition"
+            ) { showSearch ->
                 if (showSearch) {
                     OnlineSearchContent(
                         searchState = searchState,
@@ -107,8 +140,14 @@ fun OnlineMusicScreen(
 
         AnimatedVisibility(
             visible = playerState.currentSong != null,
-            enter = slideInVertically(initialOffsetY = { it }),
-            exit = slideOutVertically(targetOffsetY = { it }),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(350, easing = FastOutSlowInEasing)
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 90.dp, start = 16.dp, end = 16.dp)
@@ -130,7 +169,7 @@ fun OnlineMusicScreen(
             }
         }
 
-        // স্ট্রিম ব্যর্থ হলে feedback — mini player-এর উপরে দেখায়
+        // Stream failure feedback — shown above the mini player
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
@@ -154,7 +193,7 @@ fun OnlineSearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        placeholder = { Text("গান খুঁজুন...") },
+        placeholder = { Text("Search songs...") },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
         trailingIcon = {
             if (query.isNotEmpty()) {
@@ -164,7 +203,6 @@ fun OnlineSearchBar(
             }
         },
         shape = RoundedCornerShape(24.dp),
-        // 🔥 এখানে OutlinedTextFieldDefaults.colors ব্যবহার করে আপডেট করা হলো
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
             focusedBorderColor = MaterialTheme.colorScheme.primary
@@ -185,7 +223,7 @@ fun OnlineHomeContent(
         contentPadding = PaddingValues(bottom = 160.dp) // Extra padding for Mini Player
     ) {
         if (homeState.isLoading && homeState.categories.isEmpty()) {
-            // Skeleton shimmer rows — spinner-এর বদলে
+            // Skeleton shimmer rows instead of a spinner
             items(count = 3) {
                 CategorySkeletonRow()
             }
@@ -194,19 +232,21 @@ fun OnlineHomeContent(
             if (homeState.recentlyPlayed.isNotEmpty()) {
                 item {
                     CategoryRow(
-                        title = "সম্প্রতি শোনা",
+                        title = "Recently Played",
                         songs = homeState.recentlyPlayed,
-                        onSongClick = onSongClick
+                        onSongClick = onSongClick,
+                        index = 0
                     )
                 }
             }
 
-            // Other Categories (For You, Bengali Hits, etc.)
-            items(homeState.categories) { category ->
+            // Other Categories (For You, Trending, New, Sad, Happy, Romantic, Lofi)
+            itemsIndexed(homeState.categories) { idx, category ->
                 CategoryRow(
                     title = category.title,
                     songs = category.songs,
-                    onSongClick = onSongClick
+                    onSongClick = onSongClick,
+                    index = idx + 1
                 )
             }
         }
@@ -227,8 +267,12 @@ fun OnlineSearchContent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            items(searchState.searchResults) { song ->
-                SongListItem(song = song, onClick = { onSongClick(song) })
+            itemsIndexed(searchState.searchResults) { index, song ->
+                SongListItem(
+                    song = song,
+                    onClick = { onSongClick(song) },
+                    modifier = Modifier.enterAnimation(index)
+                )
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
@@ -243,9 +287,14 @@ fun OnlineSearchContent(
 fun CategoryRow(
     title: String,
     songs: List<SongItem>,
-    onSongClick: (SongItem) -> Unit
+    onSongClick: (SongItem) -> Unit,
+    index: Int = 0
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .enterAnimation(index)
+    ) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -268,9 +317,13 @@ fun CategoryRow(
 }
 
 @Composable
-fun SongListItem(song: SongItem, onClick: () -> Unit) {
+fun SongListItem(
+    song: SongItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
