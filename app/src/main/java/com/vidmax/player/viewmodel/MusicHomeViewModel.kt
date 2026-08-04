@@ -92,6 +92,13 @@ class MusicHomeViewModel @Inject constructor(
         }
     }
 
+    // 🌸 Playlist card → fetch songs for the query (used by Online screen)
+    fun fetchPlaylist(query: String, onSongs: (List<SongItem>) -> Unit) {
+        viewModelScope.launch {
+            onSongs(repository.getCategorySongs(query))
+        }
+    }
+
     private fun observeHistory() {
         viewModelScope.launch {
             repository.getRecentlyPlayed().collectLatest { history ->
