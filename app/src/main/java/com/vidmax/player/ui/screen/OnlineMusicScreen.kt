@@ -2,17 +2,23 @@ package com.vidmax.player.ui.screen
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,11 +31,13 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -38,6 +46,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,14 +55,18 @@ import com.vidmax.player.data.model.SongItem
 import com.vidmax.player.ui.components.ArtworkImage
 import com.vidmax.player.ui.components.CategorySkeletonRow
 import com.vidmax.player.ui.components.SongCard
+import com.vidmax.player.ui.components.shimmer
 import com.vidmax.player.viewmodel.LibraryViewModel
+import com.vidmax.player.viewmodel.MusicHomeUiState
 import com.vidmax.player.viewmodel.MusicHomeViewModel
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
 import com.vidmax.player.viewmodel.MusicSearchViewModel
+import com.vidmax.player.viewmodel.SearchUiState
+import java.util.Calendar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// 🌸 Playlist card specs (Bloomee-style colorful cards)
+// 🌸 Mood / Genre specs (Meld-style colorful gradient buttons)
 data class PlaylistSpec(
     val title: String,
     val subtitle: String,
@@ -120,7 +133,7 @@ fun OnlineMusicScreen(
         focusManager.clearFocus()
     }
 
-    // 🌸 Playlist card click → fetch songs → play whole queue
+    // 🌸 Mood / Genre button click → fetch songs → play whole queue
     val handlePlaylistClick: (PlaylistSpec) -> Unit = { spec ->
         scope.launch {
             snackbarHostState.showSnackbar("Loading ${spec.title}...")
@@ -133,6 +146,15 @@ fun OnlineMusicScreen(
                 playerViewModel.playQueue(songs)
                 focusManager.clearFocus()
             }
+        }
+    }
+
+    // 🌸 Play-all for a whole section
+    val handlePlayQueue: (List<SongItem>) -> Unit = { songs ->
+        if (songs.isNotEmpty()) {
+            libraryViewModel?.pauseAudio()
+            playerViewModel.playQueue(songs)
+            focusManager.clearFocus()
         }
     }
 
@@ -149,30 +171,8 @@ fun OnlineMusicScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // 🌸 Bloomee-style header: title + settings gear
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)
-                    .enterAnimation(0),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Discover",
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = onSettingsClick) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-            }
+            // 🌸 Meld-style greeting header: time-based greeting + app title
+            OnlineHeader(onSettingsClick = onSettingsClick)
 
             OnlineSearchBar(
                 query = searchState.query,
@@ -195,10 +195,12 @@ fun OnlineMusicScreen(
                         onSongClick = handleSongClick
                     )
                 } else {
-                    OnlineHomeContent(
+                    MeldOnlineHomeContent(
                         homeState = homeState,
                         onSongClick = handleSongClick,
-                        onPlaylistClick = handlePlaylistClick
+                        onPlaylistClick = handlePlaylistClick,
+                        onPlayQueue = handlePlayQueue,
+                        onRefresh = { homeViewModel.loadHomeScreenData(forceRefresh = true) }
                     )
                 }
             }
@@ -245,6 +247,546 @@ fun OnlineMusicScreen(
     }
 }
 
+// 🌸 Meld-style greeting header (animated scale + fade + slide)
+@Composable
+private fun OnlineHeader(onSettingsClick: () -> Unit) {
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(80L)
+        entered = true
+    }
+    val alpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = tween(500, easing = FastOutSlowInEasing),
+        label = "headerAlpha"
+    )
+    val offsetY by animateFloatAsState(
+        targetValue = if (entered) 0f else -14f,
+        animationSpec = tween(500, easing = FastOutSlowInEasing),
+        label = "headerOffset"
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (entered) 1f else 0.92f,
+        animationSpec = tween(500, easing = FastOutSlowInEasing),
+        label = "headerScale"
+    )
+
+    val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+    val greeting = when (hour) {
+        in 5..11 -> "Good Morning"
+        in 12..16 -> "Good Afternoon"
+        in 17..21 -> "Good Evening"
+        else -> "Good Night"
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 2.dp)
+            .alpha(alpha)
+            .offset(y = offsetY.dp)
+            .scale(scale),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = greeting,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "VidMax",
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        IconButton(onClick = onSettingsClick) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(26.dp)
+            )
+        }
+    }
+}
+
+// 🌸 Meld-style home feed: Quick Picks → Mood & Genres → Recently Played → categories
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MeldOnlineHomeContent(
+    homeState: MusicHomeUiState,
+    onSongClick: (SongItem) -> Unit,
+    onPlaylistClick: (PlaylistSpec) -> Unit,
+    onPlayQueue: (List<SongItem>) -> Unit,
+    onRefresh: () -> Unit
+) {
+    val quickPicks = remember(homeState.categories) {
+        val source = homeState.categories.firstOrNull { it.title == "For You" }
+            ?: homeState.categories.firstOrNull { it.songs.isNotEmpty() }
+        source?.songs?.distinctBy { it.videoId }?.take(8) ?: emptyList()
+    }
+    val hasError = homeState.error != null && homeState.categories.isEmpty()
+
+    PullToRefreshBox(
+        isRefreshing = homeState.isLoading,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 160.dp) // Extra padding for Mini Player
+        ) {
+            when {
+                homeState.isLoading && homeState.categories.isEmpty() -> {
+                    // 🌸 Meld-style shimmer (title + quick picks grid + moods + rows)
+                    item { MeldHomeShimmer() }
+                }
+                hasError -> {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 32.dp, vertical = 48.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Something went wrong",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = homeState.error ?: "Unable to load music suggestions",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Button(onClick = onRefresh) {
+                                Text("Try again")
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    if (quickPicks.isNotEmpty()) {
+                        item(key = "quick_picks") {
+                            QuickPicksSection(
+                                songs = quickPicks,
+                                onSongClick = onSongClick,
+                                onPlayAllClick = { onPlayQueue(quickPicks) },
+                                index = 0
+                            )
+                        }
+                    }
+
+                    item(key = "mood_and_genres") {
+                        MoodAndGenresRow(
+                            onMoodClick = onPlaylistClick,
+                            index = 1
+                        )
+                    }
+
+                    if (homeState.recentlyPlayed.isNotEmpty()) {
+                        item(key = "recently_played") {
+                            MusicSectionRow(
+                                title = "Recently Played",
+                                songs = homeState.recentlyPlayed,
+                                onSongClick = onSongClick,
+                                onPlayAllClick = { onPlayQueue(homeState.recentlyPlayed) },
+                                index = 2
+                            )
+                        }
+                    }
+
+                    itemsIndexed(homeState.categories, key = { _, category -> category.title }) { idx, category ->
+                        MusicSectionRow(
+                            title = category.title,
+                            songs = category.songs,
+                            onSongClick = onSongClick,
+                            onPlayAllClick = { onPlayQueue(category.songs) },
+                            index = idx + 3
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 🌸 Meld-style section header: bold title + animated play-all button
+@Composable
+fun NavigationTitle(
+    title: String,
+    onPlayAllClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
+        if (onPlayAllClick != null) {
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+            val scale by animateFloatAsState(
+                targetValue = if (isPressed) 0.82f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                label = "playAllScale"
+            )
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .scale(scale)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onPlayAllClick
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play all",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+// 🌸 Quick Picks: 2-row horizontal grid of big artwork cards
+@Composable
+fun QuickPicksSection(
+    songs: List<SongItem>,
+    onSongClick: (SongItem) -> Unit,
+    onPlayAllClick: () -> Unit,
+    index: Int
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .enterAnimation(index)
+    ) {
+        NavigationTitle(
+            title = "Quick Picks",
+            onPlayAllClick = onPlayAllClick,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(2),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp)
+        ) {
+            items(songs, key = { it.videoId }) { song ->
+                QuickPickCard(
+                    song = song,
+                    onClick = { onSongClick(song) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+    }
+}
+
+@Composable
+fun QuickPickCard(
+    song: SongItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        label = "quickPickScale"
+    )
+
+    Column(
+        modifier = modifier
+            .width(150.dp)
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            ArtworkImage(
+                videoId = song.videoId,
+                fallbackUrl = song.thumbnailUrl,
+                contentDescription = song.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                loadingPlaceholder = {
+                    Box(modifier = Modifier.fillMaxSize().shimmer())
+                }
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f))
+                        )
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = song.title,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = song.artist,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+// 🌸 Mood & Genres: horizontal row of colorful gradient buttons (Meld-style)
+@Composable
+fun MoodAndGenresRow(
+    onMoodClick: (PlaylistSpec) -> Unit,
+    index: Int
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .enterAnimation(index)
+    ) {
+        NavigationTitle(
+            title = "Mood & Genres",
+            onPlayAllClick = null,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(playlistSpecs) { spec ->
+                MoodAndGenresButton(
+                    spec = spec,
+                    onClick = { onMoodClick(spec) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun MoodAndGenresButton(
+    spec: PlaylistSpec,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
+        label = "moodScale"
+    )
+
+    Row(
+        modifier = Modifier
+            .scale(scale)
+            .clip(RoundedCornerShape(22.dp))
+            .background(Brush.linearGradient(spec.colors))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = spec.emoji, fontSize = 16.sp)
+        Spacer(modifier = Modifier.width(7.dp))
+        Text(
+            text = spec.title,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+// 🌸 Generic section row: title + play-all + horizontal song cards
+@Composable
+fun MusicSectionRow(
+    title: String,
+    songs: List<SongItem>,
+    onSongClick: (SongItem) -> Unit,
+    onPlayAllClick: (() -> Unit)?,
+    index: Int
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .enterAnimation(index)
+    ) {
+        NavigationTitle(
+            title = title,
+            onPlayAllClick = onPlayAllClick,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(songs.distinctBy { it.videoId }) { song ->
+                SongCard(
+                    song = song,
+                    onClick = { onSongClick(song) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+// 🌸 Meld-style shimmer while the home feed loads
+@Composable
+fun MeldHomeShimmer() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .size(width = 90.dp, height = 16.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .shimmer()
+        )
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .size(width = 140.dp, height = 30.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .shimmer()
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Quick picks grid placeholder
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(2),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp)
+        ) {
+            items(count = 8) {
+                QuickPickSkeleton()
+            }
+        }
+
+        CategorySkeletonRow()
+
+        // Mood & Genres placeholder
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .size(width = 130.dp, height = 18.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .shimmer()
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(count = 6) {
+                Box(
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .shimmer()
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        CategorySkeletonRow()
+    }
+}
+
+@Composable
+fun QuickPickSkeleton(modifier: Modifier = Modifier) {
+    Column(modifier = modifier.width(150.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(16.dp))
+                .shimmer()
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.7f)
+                .height(13.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .shimmer()
+        )
+        Spacer(modifier = Modifier.height(5.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.45f)
+                .height(11.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .shimmer()
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnlineSearchBar(
@@ -280,120 +822,8 @@ fun OnlineSearchBar(
 }
 
 @Composable
-fun OnlineHomeContent(
-    homeState: com.vidmax.player.viewmodel.MusicHomeUiState,
-    onSongClick: (SongItem) -> Unit,
-    onPlaylistClick: (PlaylistSpec) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 160.dp) // Extra padding for Mini Player
-    ) {
-        if (homeState.isLoading && homeState.categories.isEmpty()) {
-            // Skeleton shimmer rows instead of a spinner
-            items(count = 3) {
-                CategorySkeletonRow()
-            }
-        } else {
-            // 🌸 Trending Playlists (Bloomee-style colorful cards)
-            item {
-                PlaylistRow(onPlaylistClick = onPlaylistClick, index = 0)
-            }
-
-            // Recently Played Section
-            if (homeState.recentlyPlayed.isNotEmpty()) {
-                item {
-                    CategoryRow(
-                        title = "Recently Played",
-                        songs = homeState.recentlyPlayed,
-                        onSongClick = onSongClick,
-                        index = 1
-                    )
-                }
-            }
-
-            // Other Categories (For You, Trending, New, Sad, Happy, Romantic, Lofi)
-            itemsIndexed(homeState.categories) { idx, category ->
-                CategoryRow(
-                    title = category.title,
-                    songs = category.songs,
-                    onSongClick = onSongClick,
-                    index = idx + 2
-                )
-            }
-        }
-    }
-}
-
-// 🌸 Colorful playlist cards row
-@Composable
-fun PlaylistRow(
-    onPlaylistClick: (PlaylistSpec) -> Unit,
-    index: Int = 0
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .enterAnimation(index)
-    ) {
-        Text(
-            text = "Trending Playlists",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(playlistSpecs) { spec ->
-                PlaylistCard(spec = spec, onClick = { onPlaylistClick(spec) })
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-    }
-}
-
-@Composable
-fun PlaylistCard(
-    spec: PlaylistSpec,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .width(170.dp)
-            .height(110.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Brush.linearGradient(spec.colors))
-            .clickable(onClick = onClick)
-            .padding(14.dp)
-    ) {
-        Column {
-            Text(text = spec.emoji, fontSize = 26.sp)
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = spec.title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = spec.subtitle,
-                fontSize = 11.sp,
-                color = Color.White.copy(alpha = 0.85f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
 fun OnlineSearchContent(
-    searchState: com.vidmax.player.viewmodel.SearchUiState,
+    searchState: SearchUiState,
     onSongClick: (SongItem) -> Unit
 ) {
     if (searchState.isSearching) {
@@ -418,39 +848,6 @@ fun OnlineSearchContent(
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(text = searchState.error, color = MaterialTheme.colorScheme.error)
         }
-    }
-}
-
-@Composable
-fun CategoryRow(
-    title: String,
-    songs: List<SongItem>,
-    onSongClick: (SongItem) -> Unit,
-    index: Int = 0
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .enterAnimation(index)
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(songs) { song ->
-                SongCard(
-                    song = song,
-                    onClick = { onSongClick(song) }
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
