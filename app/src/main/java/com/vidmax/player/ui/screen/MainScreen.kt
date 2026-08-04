@@ -219,6 +219,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     searchViewModel = searchViewModel,
                                     playerViewModel = playerViewModel,
                                     onOpenFullPlayer = { isMusicPlayerOpen = true },
+                                    onSettingsClick = { isSettingsOpen = true },
                                     libraryViewModel = viewModel
                                 )
                             }
