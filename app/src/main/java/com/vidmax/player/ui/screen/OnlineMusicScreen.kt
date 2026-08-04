@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
@@ -49,6 +51,26 @@ import com.vidmax.player.viewmodel.MusicHomeViewModel
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
 import com.vidmax.player.viewmodel.MusicSearchViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+// 🌸 Playlist card specs (Bloomee-style colorful cards)
+private data class PlaylistSpec(
+    val title: String,
+    val subtitle: String,
+    val emoji: String,
+    val query: String,
+    val colors: List<Color>
+)
+
+private val playlistSpecs = listOf(
+    PlaylistSpec("Bengali Chill", "Relax & unwind", "🌙", "bengali chill songs playlist", listOf(Color(0xFF667EEA), Color(0xFF764BA2))),
+    PlaylistSpec("Late Night Vibes", "Sleepy mood", "🌃", "late night vibes playlist", listOf(Color(0xFF0F2027), Color(0xFF2C5364))),
+    PlaylistSpec("Romantic Evening", "Love songs", "❤️", "romantic hindi songs 2026", listOf(Color(0xFFE96443), Color(0xFF904E95))),
+    PlaylistSpec("Workout Energy", "Gym motivation", "💪", "workout gym songs 2026", listOf(Color(0xFFF7971E), Color(0xFFFFD200))),
+    PlaylistSpec("Road Trip", "Travel beats", "🚗", "hindi road trip songs", listOf(Color(0xFF11998E), Color(0xFF38EF7D))),
+    PlaylistSpec("Study Focus", "No distractions", "📚", "study music instrumental", listOf(Color(0xFF4568DC), Color(0xFFB06AB3))),
+    PlaylistSpec("Party Mix", "Dance floor", "🎉", "party dance songs 2026", listOf(Color(0xFFFC466B), Color(0xFF3F5EFB))),
+)
 
 // 🌸 Staggered enter animation — rows/items fade + slide in one by one
 @Composable
@@ -79,6 +101,7 @@ fun OnlineMusicScreen(
     searchViewModel: MusicSearchViewModel,
     playerViewModel: MusicPlayerViewModel,
     onOpenFullPlayer: () -> Unit,
+    onSettingsClick: () -> Unit,
     libraryViewModel: LibraryViewModel? = null
 ) {
     val searchState by searchViewModel.uiState.collectAsState()
@@ -88,15 +111,32 @@ fun OnlineMusicScreen(
     val focusManager = LocalFocusManager.current
     val isSearchActive = searchState.query.isNotBlank() || searchState.searchResults.isNotEmpty()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     val handleSongClick: (SongItem) -> Unit = { song ->
         libraryViewModel?.pauseAudio()
         playerViewModel.playSong(song)
         focusManager.clearFocus()
     }
 
-    // Tell the user when stream load / playback fails (no silent failure)
-    val snackbarHostState = remember { SnackbarHostState() }
+    // 🌸 Playlist card click → fetch songs → play whole queue
+    val handlePlaylistClick: (PlaylistSpec) -> Unit = { spec ->
+        scope.launch {
+            snackbarHostState.showSnackbar("Loading ${spec.title}...")
+        }
+        homeViewModel.fetchPlaylist(spec.query) { songs ->
+            if (songs.isEmpty()) {
+                scope.launch { snackbarHostState.showSnackbar("Playlist is empty") }
+            } else {
+                libraryViewModel?.pauseAudio()
+                playerViewModel.playQueue(songs)
+                focusManager.clearFocus()
+            }
+        }
+    }
 
+    // Tell the user when stream load / playback fails (no silent failure)
     LaunchedEffect(playerState.error) {
         playerState.error?.let { msg ->
             snackbarHostState.showSnackbar(
@@ -108,6 +148,31 @@ fun OnlineMusicScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
+
+            // 🌸 Bloomee-style header: title + settings gear
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)
+                    .enterAnimation(0),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Discover",
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = onSettingsClick) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
 
             OnlineSearchBar(
                 query = searchState.query,
@@ -132,7 +197,8 @@ fun OnlineMusicScreen(
                 } else {
                     OnlineHomeContent(
                         homeState = homeState,
-                        onSongClick = handleSongClick
+                        onSongClick = handleSongClick,
+                        onPlaylistClick = handlePlaylistClick
                     )
                 }
             }
@@ -216,7 +282,8 @@ fun OnlineSearchBar(
 @Composable
 fun OnlineHomeContent(
     homeState: com.vidmax.player.viewmodel.MusicHomeUiState,
-    onSongClick: (SongItem) -> Unit
+    onSongClick: (SongItem) -> Unit,
+    onPlaylistClick: (PlaylistSpec) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -228,6 +295,11 @@ fun OnlineHomeContent(
                 CategorySkeletonRow()
             }
         } else {
+            // 🌸 Trending Playlists (Bloomee-style colorful cards)
+            item {
+                PlaylistRow(onPlaylistClick = onPlaylistClick, index = 0)
+            }
+
             // Recently Played Section
             if (homeState.recentlyPlayed.isNotEmpty()) {
                 item {
@@ -235,7 +307,7 @@ fun OnlineHomeContent(
                         title = "Recently Played",
                         songs = homeState.recentlyPlayed,
                         onSongClick = onSongClick,
-                        index = 0
+                        index = 1
                     )
                 }
             }
@@ -246,9 +318,75 @@ fun OnlineHomeContent(
                     title = category.title,
                     songs = category.songs,
                     onSongClick = onSongClick,
-                    index = idx + 1
+                    index = idx + 2
                 )
             }
+        }
+    }
+}
+
+// 🌸 Colorful playlist cards row
+@Composable
+fun PlaylistRow(
+    onPlaylistClick: (PlaylistSpec) -> Unit,
+    index: Int = 0
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .enterAnimation(index)
+    ) {
+        Text(
+            text = "Trending Playlists",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(playlistSpecs) { spec ->
+                PlaylistCard(spec = spec, onClick = { onPlaylistClick(spec) })
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun PlaylistCard(
+    spec: PlaylistSpec,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .width(170.dp)
+            .height(110.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Brush.linearGradient(spec.colors))
+            .clickable(onClick = onClick)
+            .padding(14.dp)
+    ) {
+        Column {
+            Text(text = spec.emoji, fontSize = 26.sp)
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = spec.title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = spec.subtitle,
+                fontSize = 11.sp,
+                color = Color.White.copy(alpha = 0.85f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
