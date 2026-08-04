@@ -17,6 +17,15 @@ android {
         targetSdk 35
         versionCode 1
         versionName "1.0"
+
+        // 🔥 Last.fm API key — CI env → local.properties → empty (empty = iTunes charts fallback)
+        def localProps = new Properties()
+        def localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) {
+            localPropsFile.withInputStream { localProps.load(it) }
+        }
+        def lastfmKey = System.getenv("LASTFM_API_KEY") ?: localProps.getProperty("LASTFM_API_KEY") ?: ""
+        buildConfigField "String", "LASTFM_API_KEY", "\"$lastfmKey\""
     }
 
     // 🔥 GitHub Action ক্র্যাশ বন্ধ করার ম্যাজিক ব্লক
@@ -57,6 +66,7 @@ android {
 
     buildFeatures {
         compose true
+        buildConfig true
     }
 
     packagingOptions {
