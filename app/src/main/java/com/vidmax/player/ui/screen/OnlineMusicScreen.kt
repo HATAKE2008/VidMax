@@ -34,10 +34,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
-import com.bumptech.glide.integration.compose.GlideImage
 import com.vidmax.player.R
 import com.vidmax.player.data.model.SongItem
+import com.vidmax.player.ui.components.ArtworkImage
+import com.vidmax.player.ui.components.CategorySkeletonRow
+import com.vidmax.player.ui.components.SongCard
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MusicHomeViewModel
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
@@ -184,13 +185,9 @@ fun OnlineHomeContent(
         contentPadding = PaddingValues(bottom = 160.dp) // Extra padding for Mini Player
     ) {
         if (homeState.isLoading && homeState.categories.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier.fillParentMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+            // Skeleton shimmer rows — spinner-এর বদলে
+            items(count = 3) {
+                CategorySkeletonRow()
             }
         } else {
             // Recently Played Section
@@ -242,7 +239,6 @@ fun OnlineSearchContent(
     }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun CategoryRow(
     title: String,
@@ -261,43 +257,16 @@ fun CategoryRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(songs) { song ->
-                Column(
-                    modifier = Modifier
-                        .width(140.dp)
-                        .clickable { onSongClick(song) }
-                ) {
-                    GlideImage(
-                        model = song.thumbnailUrl,
-                        contentDescription = song.title,
-                        modifier = Modifier
-                            .size(140.dp, 100.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = song.title,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = song.artist,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                SongCard(
+                    song = song,
+                    onClick = { onSongClick(song) }
+                )
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun SongListItem(song: SongItem, onClick: () -> Unit) {
     Row(
@@ -308,8 +277,9 @@ fun SongListItem(song: SongItem, onClick: () -> Unit) {
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        GlideImage(
-            model = song.thumbnailUrl,
+        ArtworkImage(
+            videoId = song.videoId,
+            fallbackUrl = song.thumbnailUrl,
             contentDescription = null,
             modifier = Modifier
                 .size(60.dp)
@@ -342,7 +312,6 @@ fun SongListItem(song: SongItem, onClick: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun OnlineMiniPlayer(
     song: SongItem,
@@ -402,8 +371,9 @@ fun OnlineMiniPlayer(
                         .background(MaterialTheme.colorScheme.surface),
                     contentAlignment = Alignment.Center
                 ) {
-                    GlideImage(
-                        model = song.thumbnailUrl,
+                    ArtworkImage(
+                        videoId = song.videoId,
+                        fallbackUrl = song.thumbnailUrl,
                         contentDescription = "Album Art",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
