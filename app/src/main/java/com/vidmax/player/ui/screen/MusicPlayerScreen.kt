@@ -117,6 +117,7 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.signature.ObjectKey
 import com.vidmax.player.R
+import com.vidmax.player.ui.components.ArtworkImage
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.LoopMode
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
@@ -351,7 +352,9 @@ fun DefaultPlayerUI(
   var showQueueSheet by remember { mutableStateOf(false) }
 
   val currentPath = offlinePath
-  val onlineThumbnailUrl = if (isOnlineMode) onlineState?.value?.currentSong?.thumbnailUrl else null
+  val onlineCurrentSong = if (isOnlineMode) onlineState?.value?.currentSong else null
+  val onlineThumbnailUrl = onlineCurrentSong?.thumbnailUrl
+  val onlineVideoId = onlineCurrentSong?.videoId
 
   // Volume Controller
   var showVolumeIndicator by remember { mutableStateOf(false) }
@@ -543,19 +546,19 @@ fun DefaultPlayerUI(
         // 🔥 GLIDE: Blurred Background
         Crossfade(targetState = isArtLoaded, label = "bgFade", animationSpec = tween(600)) { loaded ->
             if (isOnlineMode && onlineThumbnailUrl != null) {
-                GlideImage(
-                    model = onlineThumbnailUrl,
+                ArtworkImage(
+                    videoId = onlineVideoId,
+                    fallbackUrl = onlineThumbnailUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
                         .blur(radius = 80.dp)
-                        .graphicsLayer { alpha = 0.12f }
-                ) { requestBuilder ->
-                    requestBuilder
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .override(100)
-                }
+                        .graphicsLayer { alpha = 0.12f },
+                    requestBuilder = {
+                        it.diskCacheStrategy(DiskCacheStrategy.ALL).override(100)
+                    }
+                )
             } else if (loaded && artByteArray != null) {
                 GlideImage(
                     model = artByteArray,
@@ -739,16 +742,16 @@ fun DefaultPlayerUI(
                 
                 // 🔥 GLIDE: Main Album Art
                 if (isOnlineMode && onlineThumbnailUrl != null) {
-                    GlideImage(
-                        model = onlineThumbnailUrl,
+                    ArtworkImage(
+                        videoId = onlineVideoId,
+                        fallbackUrl = onlineThumbnailUrl,
                         contentDescription = "Album Art",
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    ) { requestBuilder ->
-                        requestBuilder
-                            .diskCacheStrategy(DiskCacheStrategy.ALL)
-                            .override(500)
-                    }
+                        modifier = Modifier.fillMaxSize(),
+                        requestBuilder = {
+                            it.diskCacheStrategy(DiskCacheStrategy.ALL).override(500)
+                        }
+                    )
                 } else if (isArtLoaded && artByteArray != null) {
                     GlideImage(
                         model = artByteArray,
