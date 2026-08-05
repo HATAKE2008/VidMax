@@ -14,9 +14,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -67,18 +69,18 @@ import com.vidmax.player.viewmodel.MusicSearchViewModel
 import com.vidmax.player.viewmodel.SearchUiState
 import java.util.Calendar
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-// 🌸 Mood / Genre specs (Meld-style colorful gradient buttons)
+// 🌸 Mood / Genre specs (Spotify-style without emojis)
 data class PlaylistSpec(
     val title: String,
     val subtitle: String,
-    val emoji: String,
     val query: String,
     val colors: List<Color>
 )
 
-// 🌸 Mood / Genre playlist opened from a Mood & Genres button
+// 🌸 Mood / Genre playlist state
 data class PlaylistDetailState(
     val spec: PlaylistSpec,
     val songs: List<SongItem> = emptyList(),
@@ -86,16 +88,16 @@ data class PlaylistDetailState(
 )
 
 private val playlistSpecs = listOf(
-    PlaylistSpec("Bengali Chill", "Relax & unwind", "🌙", "bengali chill songs playlist", listOf(Color(0xFF667EEA), Color(0xFF764BA2))),
-    PlaylistSpec("Late Night Vibes", "Sleepy mood", "🌃", "late night vibes playlist", listOf(Color(0xFF0F2027), Color(0xFF2C5364))),
-    PlaylistSpec("Romantic Evening", "Love songs", "❤️", "romantic hindi songs 2026", listOf(Color(0xFFE96443), Color(0xFF904E95))),
-    PlaylistSpec("Workout Energy", "Gym motivation", "💪", "workout gym songs 2026", listOf(Color(0xFFF7971E), Color(0xFFFFD200))),
-    PlaylistSpec("Road Trip", "Travel beats", "🚗", "hindi road trip songs", listOf(Color(0xFF11998E), Color(0xFF38EF7D))),
-    PlaylistSpec("Study Focus", "No distractions", "📚", "study music instrumental", listOf(Color(0xFF4568DC), Color(0xFFB06AB3))),
-    PlaylistSpec("Party Mix", "Dance floor", "🎉", "party dance songs 2026", listOf(Color(0xFFFC466B), Color(0xFF3F5EFB))),
+    PlaylistSpec("Bengali Chill", "Relax & unwind", "bengali chill songs playlist", listOf(Color(0xFF667EEA), Color(0xFF764BA2))),
+    PlaylistSpec("Late Night Vibes", "Sleepy mood", "late night vibes playlist", listOf(Color(0xFF0F2027), Color(0xFF2C5364))),
+    PlaylistSpec("Romantic Evening", "Love songs", "romantic hindi songs 2026", listOf(Color(0xFFE96443), Color(0xFF904E95))),
+    PlaylistSpec("Workout Energy", "Gym motivation", "workout gym songs 2026", listOf(Color(0xFFF7971E), Color(0xFFFFD200))),
+    PlaylistSpec("Road Trip", "Travel beats", "hindi road trip songs", listOf(Color(0xFF11998E), Color(0xFF38EF7D))),
+    PlaylistSpec("Study Focus", "No distractions", "study music instrumental", listOf(Color(0xFF4568DC), Color(0xFFB06AB3))),
+    PlaylistSpec("Party Mix", "Dance floor", "party dance songs 2026", listOf(Color(0xFFFC466B), Color(0xFF3F5EFB))),
 )
 
-// 🌸 Staggered enter animation — rows/items fade + slide in one by one
+// 🌸 Staggered enter animation
 @Composable
 private fun Modifier.enterAnimation(index: Int): Modifier {
     var entered by remember { mutableStateOf(false) }
@@ -136,8 +138,29 @@ fun OnlineMusicScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    
+    val listState = rememberLazyListState()
+    var isTopBarVisible by remember { mutableStateOf(true) }
+    var previousIndex by remember { mutableIntStateOf(0) }
+    var previousScrollOffset by remember { mutableIntStateOf(0) }
 
-    // 🌸 Mood / Genre playlist currently open (null = home feed visible)
+    // Scroll listener to hide/show top bar
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collectLatest { (index, offset) ->
+                if (index > previousIndex || (index == previousIndex && offset > previousScrollOffset + 15)) {
+                    isTopBarVisible = false // Scrolling down -> Hide
+                } else if (index < previousIndex || (index == previousIndex && offset < previousScrollOffset - 15)) {
+                    isTopBarVisible = true // Scrolling up -> Show
+                }
+                if (index == 0 && offset == 0) {
+                    isTopBarVisible = true
+                }
+                previousIndex = index
+                previousScrollOffset = offset
+            }
+    }
+
     var playlistState by remember { mutableStateOf<PlaylistDetailState?>(null) }
 
     BackHandler(enabled = playlistState != null) {
@@ -150,8 +173,6 @@ fun OnlineMusicScreen(
         focusManager.clearFocus()
     }
 
-    // 🌸 Mood / Genre button click → open a playlist screen (YouTube/Spotify style),
-    // showing the fetched songs with thumbnails instead of playing immediately
     val handleMoodClick: (PlaylistSpec) -> Unit = { spec ->
         playlistState = PlaylistDetailState(spec = spec, isLoading = true)
         homeViewModel.fetchPlaylist(spec.query) { songs ->
@@ -164,7 +185,6 @@ fun OnlineMusicScreen(
         }
     }
 
-    // 🌸 Play-all for a whole section
     val handlePlayQueue: (List<SongItem>) -> Unit = { songs ->
         if (songs.isNotEmpty()) {
             libraryViewModel?.pauseAudio()
@@ -173,7 +193,6 @@ fun OnlineMusicScreen(
         }
     }
 
-    // Tell the user when stream load / playback fails (no silent failure)
     LaunchedEffect(playerState.error) {
         playerState.error?.let { msg ->
             snackbarHostState.showSnackbar(
@@ -185,19 +204,26 @@ fun OnlineMusicScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-
-            // 🌸 Meld-style greeting header: time-based greeting + app title
-            OnlineHeader(onSettingsClick = onSettingsClick)
-
-            OnlineSearchBar(
-                query = searchState.query,
-                onQueryChange = { searchViewModel.onQueryChange(it) },
-                onClearClick = {
-                    searchViewModel.clearSearch()
-                    focusManager.clearFocus()
-                },
-                onSearchAction = { focusManager.clearFocus() }
-            )
+            
+            // 🌸 Animated Hide/Show Header and Search Bar
+            AnimatedVisibility(
+                visible = isTopBarVisible || isSearchActive,
+                enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
+                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
+            ) {
+                Column {
+                    OnlineHeader(onSettingsClick = onSettingsClick)
+                    OnlineSearchBar(
+                        query = searchState.query,
+                        onQueryChange = { searchViewModel.onQueryChange(it) },
+                        onClearClick = {
+                            searchViewModel.clearSearch()
+                            focusManager.clearFocus()
+                        },
+                        onSearchAction = { focusManager.clearFocus() }
+                    )
+                }
+            }
 
             Crossfade(
                 targetState = isSearchActive,
@@ -212,6 +238,7 @@ fun OnlineMusicScreen(
                 } else {
                     MeldOnlineHomeContent(
                         homeState = homeState,
+                        listState = listState,
                         onSongClick = handleSongClick,
                         onPlaylistClick = handleMoodClick,
                         onPlayQueue = handlePlayQueue,
@@ -221,7 +248,7 @@ fun OnlineMusicScreen(
             }
         }
 
-        // 🌸 Mood / Genre playlist overlay — slides in like YouTube/Spotify
+        // Playlist Overlay
         AnimatedVisibility(
             visible = playlistState != null,
             enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(300)),
@@ -282,7 +309,6 @@ fun OnlineMusicScreen(
             }
         }
 
-        // Stream failure feedback — shown above the mini player
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier
@@ -292,30 +318,8 @@ fun OnlineMusicScreen(
     }
 }
 
-// 🌸 Meld-style greeting header (animated scale + fade + slide)
 @Composable
 private fun OnlineHeader(onSettingsClick: () -> Unit) {
-    var entered by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(80L)
-        entered = true
-    }
-    val alpha by animateFloatAsState(
-        targetValue = if (entered) 1f else 0f,
-        animationSpec = tween(500, easing = FastOutSlowInEasing),
-        label = "headerAlpha"
-    )
-    val offsetY by animateFloatAsState(
-        targetValue = if (entered) 0f else -14f,
-        animationSpec = tween(500, easing = FastOutSlowInEasing),
-        label = "headerOffset"
-    )
-    val scale by animateFloatAsState(
-        targetValue = if (entered) 1f else 0.92f,
-        animationSpec = tween(500, easing = FastOutSlowInEasing),
-        label = "headerScale"
-    )
-
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greeting = when (hour) {
         in 5..11 -> "Good Morning"
@@ -327,10 +331,7 @@ private fun OnlineHeader(onSettingsClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 2.dp)
-            .alpha(alpha)
-            .offset(y = offsetY.dp)
-            .scale(scale),
+            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -358,11 +359,11 @@ private fun OnlineHeader(onSettingsClick: () -> Unit) {
     }
 }
 
-// 🌸 Meld-style home feed: Quick Picks → Mood & Genres → Recently Played → categories
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MeldOnlineHomeContent(
     homeState: MusicHomeUiState,
+    listState: LazyListState,
     onSongClick: (SongItem) -> Unit,
     onPlaylistClick: (PlaylistSpec) -> Unit,
     onPlayQueue: (List<SongItem>) -> Unit,
@@ -381,12 +382,12 @@ fun MeldOnlineHomeContent(
         modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 160.dp) // Extra padding for Mini Player
+            contentPadding = PaddingValues(bottom = 160.dp, top = 8.dp) 
         ) {
             when {
                 homeState.isLoading && homeState.categories.isEmpty() -> {
-                    // 🌸 Meld-style shimmer (title + quick picks grid + moods + rows)
                     item { MeldHomeShimmer() }
                 }
                 hasError -> {
@@ -474,7 +475,6 @@ fun MeldOnlineHomeContent(
     }
 }
 
-// 🌸 Meld-style section header: bold title + animated play-all button
 @Composable
 fun NavigationTitle(
     title: String,
@@ -523,7 +523,6 @@ fun NavigationTitle(
     }
 }
 
-// 🌸 Quick Picks: 2-row horizontal grid of big artwork cards
 @Composable
 fun QuickPicksSection(
     songs: List<SongItem>,
@@ -548,7 +547,7 @@ fun QuickPicksSection(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(400.dp)
+                .height(380.dp)
         ) {
             items(songs, key = { it.videoId }) { song ->
                 QuickPickCard(
@@ -577,7 +576,7 @@ fun QuickPickCard(
 
     Column(
         modifier = modifier
-            .width(150.dp)
+            .width(140.dp)
             .scale(scale)
             .clickable(
                 interactionSource = interactionSource,
@@ -589,7 +588,7 @@ fun QuickPickCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
@@ -614,7 +613,7 @@ fun QuickPickCard(
             )
             Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(Color.Black.copy(alpha = 0.45f)),
                 contentAlignment = Alignment.Center
@@ -623,7 +622,7 @@ fun QuickPickCard(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Play",
                     tint = Color.White,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -646,7 +645,7 @@ fun QuickPickCard(
     }
 }
 
-// 🌸 Mood & Genres: horizontal row of colorful gradient buttons (Meld-style)
+// 🌸 Mood & Genres Spotify Style
 @Composable
 fun MoodAndGenresRow(
     onMoodClick: (PlaylistSpec) -> Unit,
@@ -664,7 +663,7 @@ fun MoodAndGenresRow(
         )
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(playlistSpecs) { spec ->
                 MoodAndGenresButton(
@@ -685,38 +684,37 @@ fun MoodAndGenresButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
         label = "moodScale"
     )
 
-    Row(
+    Box(
         modifier = Modifier
             .scale(scale)
-            .clip(RoundedCornerShape(22.dp))
+            .width(130.dp)
+            .height(75.dp)
+            .clip(RoundedCornerShape(8.dp))
             .background(Brush.linearGradient(spec.colors))
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(12.dp)
     ) {
-        Text(text = spec.emoji, fontSize = 16.sp)
-        Spacer(modifier = Modifier.width(7.dp))
         Text(
             text = spec.title,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.align(Alignment.TopStart)
         )
     }
 }
 
-// 🌸 Generic section row: title + play-all + horizontal song cards
 @Composable
 fun MusicSectionRow(
     title: String,
@@ -750,7 +748,6 @@ fun MusicSectionRow(
     }
 }
 
-// 🌸 Meld-style shimmer while the home feed loads
 @Composable
 fun MeldHomeShimmer() {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -770,7 +767,6 @@ fun MeldHomeShimmer() {
         )
         Spacer(modifier = Modifier.height(6.dp))
 
-        // Quick picks grid placeholder
         LazyHorizontalGrid(
             rows = GridCells.Fixed(2),
             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -778,7 +774,7 @@ fun MeldHomeShimmer() {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(400.dp)
+                .height(380.dp)
         ) {
             items(count = 8) {
                 QuickPickSkeleton()
@@ -787,7 +783,6 @@ fun MeldHomeShimmer() {
 
         CategorySkeletonRow()
 
-        // Mood & Genres placeholder
         Box(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -797,14 +792,14 @@ fun MeldHomeShimmer() {
         )
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(count = 6) {
                 Box(
                     modifier = Modifier
-                        .width(120.dp)
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(22.dp))
+                        .width(130.dp)
+                        .height(75.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .shimmer()
                 )
             }
@@ -817,12 +812,12 @@ fun MeldHomeShimmer() {
 
 @Composable
 fun QuickPickSkeleton(modifier: Modifier = Modifier) {
-    Column(modifier = modifier.width(150.dp)) {
+    Column(modifier = modifier.width(140.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .shimmer()
         )
         Spacer(modifier = Modifier.height(6.dp))
@@ -844,7 +839,6 @@ fun QuickPickSkeleton(modifier: Modifier = Modifier) {
     }
 }
 
-// 🌸 YouTube / Spotify-style playlist screen for a Mood & Genres button
 @Composable
 fun MeldPlaylistDetailScreen(
     state: PlaylistDetailState,
@@ -904,7 +898,7 @@ fun MeldPlaylistDetailScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 160.dp) // Mini Player space
+                contentPadding = PaddingValues(bottom = 160.dp) 
             ) {
                 item {
                     Box(
@@ -916,17 +910,15 @@ fun MeldPlaylistDetailScreen(
                         contentAlignment = Alignment.BottomStart
                     ) {
                         Column {
-                            Text(text = state.spec.emoji, fontSize = 34.sp)
-                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = state.spec.title,
-                                fontSize = 24.sp,
+                                fontSize = 26.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "${state.spec.subtitle} • ${state.songs.size} songs",
                                 fontSize = 13.sp,
@@ -1079,6 +1071,7 @@ fun PlaylistSongRowSkeleton(modifier: Modifier = Modifier) {
     }
 }
 
+// 🌸 Redesigned Compact Search Bar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnlineSearchBar(
@@ -1092,22 +1085,26 @@ fun OnlineSearchBar(
         onValueChange = onQueryChange,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        placeholder = { Text("Search songs...") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .height(52.dp), // Makes it noticeably smaller & cleaner
+        placeholder = { Text("Search songs...", fontSize = 14.sp) },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(20.dp)) },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = onClearClick) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(20.dp))
                 }
             }
         },
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(26.dp),
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-            focusedBorderColor = MaterialTheme.colorScheme.primary
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            focusedContainerColor = MaterialTheme.colorScheme.surface
         ),
         singleLine = true,
+        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSearchAction() })
     )
@@ -1125,15 +1122,23 @@ fun OnlineSearchContent(
     } else if (searchState.searchResults.isNotEmpty()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp, bottom = 160.dp)
         ) {
+            item {
+                Text(
+                    text = "Suggested Results",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
+                )
+            }
             itemsIndexed(searchState.searchResults) { index, song ->
                 SongListItem(
                     song = song,
                     onClick = { onSongClick(song) },
                     modifier = Modifier.enterAnimation(index)
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
             }
         }
     } else if (!searchState.error.isNullOrBlank()) {
@@ -1152,7 +1157,7 @@ fun SongListItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .clickable { onClick() }
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1162,8 +1167,8 @@ fun SongListItem(
             fallbackUrl = song.thumbnailUrl,
             contentDescription = null,
             modifier = Modifier
-                .size(60.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(54.dp)
+                .clip(RoundedCornerShape(6.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentScale = ContentScale.Crop
         )
@@ -1176,6 +1181,7 @@ fun SongListItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = song.artist,
                 fontSize = 12.sp,
@@ -1187,7 +1193,8 @@ fun SongListItem(
         Icon(
             imageVector = Icons.Default.PlayArrow,
             contentDescription = "Play",
-            tint = MaterialTheme.colorScheme.primary
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp)
         )
     }
 }
