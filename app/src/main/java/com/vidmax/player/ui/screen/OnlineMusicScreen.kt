@@ -132,10 +132,8 @@ fun OnlineMusicScreen(
     val searchState by searchViewModel.uiState.collectAsState()
     val homeState by homeViewModel.uiState.collectAsState()
     val playerState by playerViewModel.uiState.collectAsState()
-
     val focusManager = LocalFocusManager.current
     val isSearchActive = searchState.query.isNotBlank() || searchState.searchResults.isNotEmpty()
-
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     
@@ -162,7 +160,6 @@ fun OnlineMusicScreen(
     }
 
     var playlistState by remember { mutableStateOf<PlaylistDetailState?>(null) }
-
     BackHandler(enabled = playlistState != null) {
         playlistState = null
     }
@@ -327,7 +324,6 @@ private fun OnlineHeader(onSettingsClick: () -> Unit) {
         in 17..21 -> "Good Evening"
         else -> "Good Night"
     }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -384,7 +380,7 @@ fun MeldOnlineHomeContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 160.dp, top = 8.dp) 
+            contentPadding = PaddingValues(bottom = 160.dp, top = 8.dp)
         ) {
             when {
                 homeState.isLoading && homeState.categories.isEmpty() -> {
@@ -428,14 +424,12 @@ fun MeldOnlineHomeContent(
                             )
                         }
                     }
-
                     item(key = "mood_and_genres") {
                         MoodAndGenresRow(
                             onMoodClick = onPlaylistClick,
                             index = 1
                         )
                     }
-
                     if (homeState.recentlyPlayed.isNotEmpty()) {
                         item(key = "recently_played") {
                             MusicSectionRow(
@@ -447,7 +441,6 @@ fun MeldOnlineHomeContent(
                             )
                         }
                     }
-
                     if (homeState.favorites.isNotEmpty()) {
                         item(key = "favorites") {
                             MusicSectionRow(
@@ -459,7 +452,6 @@ fun MeldOnlineHomeContent(
                             )
                         }
                     }
-
                     itemsIndexed(homeState.categories, key = { _, category -> category.title }) { idx, category ->
                         MusicSectionRow(
                             title = category.title,
@@ -573,7 +565,6 @@ fun QuickPickCard(
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
         label = "quickPickScale"
     )
-
     Column(
         modifier = modifier
             .width(140.dp)
@@ -688,7 +679,6 @@ fun MoodAndGenresButton(
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
         label = "moodScale"
     )
-
     Box(
         modifier = Modifier
             .scale(scale)
@@ -766,7 +756,6 @@ fun MeldHomeShimmer() {
                 .shimmer()
         )
         Spacer(modifier = Modifier.height(6.dp))
-
         LazyHorizontalGrid(
             rows = GridCells.Fixed(2),
             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -780,9 +769,7 @@ fun MeldHomeShimmer() {
                 QuickPickSkeleton()
             }
         }
-
         CategorySkeletonRow()
-
         Box(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -805,7 +792,6 @@ fun MeldHomeShimmer() {
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
-
         CategorySkeletonRow()
     }
 }
@@ -873,7 +859,6 @@ fun MeldPlaylistDetailScreen(
                 overflow = TextOverflow.Ellipsis
             )
         }
-
         if (state.isLoading) {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 item {
@@ -898,7 +883,7 @@ fun MeldPlaylistDetailScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 160.dp) 
+                contentPadding = PaddingValues(bottom = 160.dp)
             ) {
                 item {
                     Box(
@@ -1086,7 +1071,7 @@ fun OnlineSearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .height(52.dp), // Makes it noticeably smaller & cleaner
+            .height(52.dp),
         placeholder = { Text("Search songs...", fontSize = 14.sp) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(20.dp)) },
         trailingIcon = {
@@ -1122,7 +1107,7 @@ fun OnlineSearchContent(
     } else if (searchState.searchResults.isNotEmpty()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 160.dp) // Fixed here
+            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 160.dp)
         ) {
             item {
                 Text(
@@ -1147,7 +1132,6 @@ fun OnlineSearchContent(
         }
     }
 }
-
 
 @Composable
 fun SongListItem(
@@ -1291,9 +1275,7 @@ fun OnlineMiniPlayer(
                     }
                 }
             }
-
             Spacer(modifier = Modifier.width(12.dp))
-
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = song.title,
@@ -1312,9 +1294,7 @@ fun OnlineMiniPlayer(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-
             Spacer(modifier = Modifier.width(8.dp))
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1334,7 +1314,6 @@ fun OnlineMiniPlayer(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-
                 Box(
                     modifier = Modifier
                         .size(40.dp)
