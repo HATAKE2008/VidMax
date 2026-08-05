@@ -1122,7 +1122,7 @@ fun OnlineSearchContent(
     } else if (searchState.searchResults.isNotEmpty()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp, bottom = 160.dp)
+            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 160.dp) // Fixed here
         ) {
             item {
                 Text(
@@ -1147,6 +1147,7 @@ fun OnlineSearchContent(
         }
     }
 }
+
 
 @Composable
 fun SongListItem(
