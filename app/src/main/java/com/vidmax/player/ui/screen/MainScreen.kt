@@ -1,6 +1,7 @@
 package com.vidmax.player.ui.screen
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
@@ -37,6 +38,8 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vidmax.player.R
 import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.ui.components.UpdateResultDialog
+import com.vidmax.player.utils.UpdateChecker
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MusicHomeViewModel
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
@@ -77,6 +80,20 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     var selectedTab by remember { mutableIntStateOf(0) }
     var isSettingsOpen by remember { mutableStateOf(false) }
     var isMusicPlayerOpen by remember { mutableStateOf(false) }
+
+    // 🔄 Automatic update check on launch (GitHub releases), only when enabled
+    var updateResult by remember { mutableStateOf<UpdateChecker.CheckResult?>(null) }
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("update_notifications", true)) {
+            val result = UpdateChecker.checkForUpdate()
+            if (result is UpdateChecker.CheckResult.Success &&
+                UpdateChecker.isNewerVersion(result.info)
+            ) {
+                updateResult = result
+            }
+        }
+    }
 
     val currentFolderPath by viewModel.currentFolderPath.collectAsState()
     val openedPlaylistTitle by viewModel.openedPlaylistTitle.collectAsState()
@@ -617,6 +634,19 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     onBack = { isMusicPlayerOpen = false }
                 )
             }
+        }
+
+        // 🔄 UPDATE AVAILABLE DIALOG (auto-check result)
+        updateResult?.let { result ->
+            UpdateResultDialog(
+                result = result,
+                onDismiss = { updateResult = null },
+                onOpenUrl = { url ->
+                    updateResult = null
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    context.startActivity(intent)
+                }
+            )
         }
     }
 }

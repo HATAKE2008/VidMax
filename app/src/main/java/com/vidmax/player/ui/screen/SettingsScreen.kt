@@ -1,5 +1,6 @@
 package com.vidmax.player.ui.screen
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -29,6 +30,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +43,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -50,11 +57,15 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.BuildConfig
 import com.vidmax.player.R
+import com.vidmax.player.ui.components.UpdateResultDialog
 import com.vidmax.player.ui.theme.AppTheme
+import com.vidmax.player.utils.UpdateChecker
 import com.vidmax.player.viewmodel.DarkMode
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.PlayerEngine
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -69,6 +80,25 @@ fun SettingsScreen(
     val darkMode by viewModel.darkMode.collectAsState()
     val amoledMode by viewModel.amoledMode.collectAsState()
     val context = LocalContext.current
+
+    val appPrefs = remember { context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
+    var updateNotifications by remember {
+        mutableStateOf(appPrefs.getBoolean("update_notifications", true))
+    }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var updateResult by remember { mutableStateOf<UpdateChecker.CheckResult?>(null) }
+    val scope = rememberCoroutineScope()
+
+    val checkForUpdates: () -> Unit = {
+        if (!isCheckingUpdate) {
+            isCheckingUpdate = true
+            scope.launch {
+                val result = UpdateChecker.checkForUpdate()
+                isCheckingUpdate = false
+                updateResult = result
+            }
+        }
+    }
 
     val isSystemDark = isSystemInDarkTheme()
     val isCurrentlyDark = when (darkMode) {
@@ -282,6 +312,56 @@ fun SettingsScreen(
                 )
             }
 
+            // ── Updates ───────────────────────────────────────────────────
+            item {
+                SettingsDivider()
+                SettingsSectionHeader(title = "Updates", paddingTop = 4.dp)
+            }
+            item {
+                SettingsToggleRow(
+                    title = "Update Notifications",
+                    subtitle = "Notify me when a new version is released",
+                    iconId = R.drawable.ic_github,
+                    checked = updateNotifications,
+                    onCheckedChange = { on ->
+                        updateNotifications = on
+                        appPrefs.edit().putBoolean("update_notifications", on).apply()
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsItemPill(
+                    title = "Check for Updates",
+                    subtitle = if (isCheckingUpdate)
+                        "Checking GitHub…"
+                    else
+                        "VidMax v${BuildConfig.VERSION_NAME} · Latest release",
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_github),
+                            contentDescription = null,
+                            modifier = Modifier.size(19.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailing = {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    onClick = checkForUpdates
+                )
+            }
+
             // ── About / Links ─────────────────────────────────────────────
             item { SettingsDivider() }
             item {
@@ -330,6 +410,18 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+
+        updateResult?.let { result ->
+            UpdateResultDialog(
+                result = result,
+                onDismiss = { updateResult = null },
+                onOpenUrl = { url ->
+                    updateResult = null
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    context.startActivity(intent)
+                }
+            )
         }
     }
 }
