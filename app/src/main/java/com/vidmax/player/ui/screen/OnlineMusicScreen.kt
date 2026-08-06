@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -59,6 +61,8 @@ import com.vidmax.player.R
 import com.vidmax.player.data.model.SongItem
 import com.vidmax.player.ui.components.ArtworkImage
 import com.vidmax.player.ui.components.CategorySkeletonRow
+import com.vidmax.player.ui.components.MeldChipsRow
+import com.vidmax.player.ui.components.MeldSpeedDialSection
 import com.vidmax.player.ui.components.SongCard
 import com.vidmax.player.ui.components.shimmer
 import com.vidmax.player.viewmodel.LibraryViewModel
@@ -160,8 +164,12 @@ fun OnlineMusicScreen(
     }
 
     var playlistState by remember { mutableStateOf<PlaylistDetailState?>(null) }
-    BackHandler(enabled = playlistState != null) {
-        playlistState = null
+    var selectedChip by rememberSaveable { mutableStateOf<String?>(null) }
+    BackHandler(enabled = playlistState != null || selectedChip != null) {
+        when {
+            playlistState != null -> playlistState = null
+            selectedChip != null -> selectedChip = null
+        }
     }
 
     val handleSongClick: (SongItem) -> Unit = { song ->
@@ -236,9 +244,21 @@ fun OnlineMusicScreen(
                     MeldOnlineHomeContent(
                         homeState = homeState,
                         listState = listState,
+                        selectedChip = selectedChip,
+                        onChipSelect = { selectedChip = it },
                         onSongClick = handleSongClick,
                         onPlaylistClick = handleMoodClick,
                         onPlayQueue = handlePlayQueue,
+                        onRandomize = {
+                            val pool =
+                                homeState.categories.flatMap { it.songs } +
+                                    homeState.recentlyPlayed +
+                                    homeState.favorites
+                            val distinct = pool.distinctBy { it.videoId }
+                            if (distinct.isNotEmpty()) {
+                                handleSongClick(distinct.random())
+                            }
+                        },
                         onRefresh = { homeViewModel.loadHomeScreenData(forceRefresh = true) }
                     )
                 }
@@ -312,6 +332,52 @@ fun OnlineMusicScreen(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 170.dp, start = 16.dp, end = 16.dp)
         )
+
+        // 🌸 Meld-style Shuffle FAB
+        androidx.compose.animation.AnimatedVisibility(
+            visible = playerState.currentSong == null && playlistState == null,
+            enter = androidx.compose.animation.scaleIn(animationSpec = tween(250)) +
+                androidx.compose.animation.fadeIn(animationSpec = tween(250)),
+            exit = androidx.compose.animation.scaleOut(animationSpec = tween(200)) +
+                androidx.compose.animation.fadeOut(animationSpec = tween(200)),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 165.dp, end = 20.dp)
+        ) {
+            var fabPressed by remember { mutableStateOf(false) }
+            val fabScale by animateFloatAsState(
+                targetValue = if (fabPressed) 0.85f else 1f,
+                animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
+                label = "fabScale"
+            )
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .scale(fabScale)
+                    .shadow(12.dp, CircleShape, spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        fabPressed = true
+                        val pool = homeState.categories.flatMap { it.songs } + homeState.recentlyPlayed
+                        val distinct = pool.distinctBy { it.videoId }
+                        if (distinct.isNotEmpty()) {
+                            handleSongClick(distinct.random())
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_shuffle),
+                    contentDescription = "Shuffle",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+        }
     }
 }
 
@@ -355,14 +421,17 @@ private fun OnlineHeader(onSettingsClick: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MeldOnlineHomeContent(
     homeState: MusicHomeUiState,
     listState: LazyListState,
+    selectedChip: String?,
+    onChipSelect: (String?) -> Unit,
     onSongClick: (SongItem) -> Unit,
     onPlaylistClick: (PlaylistSpec) -> Unit,
     onPlayQueue: (List<SongItem>) -> Unit,
+    onRandomize: () -> Unit,
     onRefresh: () -> Unit
 ) {
     val quickPicks = remember(homeState.categories) {
@@ -370,6 +439,15 @@ fun MeldOnlineHomeContent(
             ?: homeState.categories.firstOrNull { it.songs.isNotEmpty() }
         source?.songs?.distinctBy { it.videoId }?.take(8) ?: emptyList()
     }
+    val speedDialSongs = remember(homeState.categories, homeState.recentlyPlayed, homeState.favorites) {
+        (quickPicks + homeState.favorites + homeState.recentlyPlayed)
+            .distinctBy { it.videoId }
+            .take(18)
+    }
+    val allCategories = homeState.categories.filter { it.title != "For You" }
+    val visibleCategories =
+        if (selectedChip == null) allCategories
+        else allCategories.filter { it.title == selectedChip }
     val hasError = homeState.error != null && homeState.categories.isEmpty()
 
     PullToRefreshBox(
@@ -414,45 +492,81 @@ fun MeldOnlineHomeContent(
                     }
                 }
                 else -> {
-                    if (quickPicks.isNotEmpty()) {
-                        item(key = "quick_picks") {
-                            QuickPicksSection(
-                                songs = quickPicks,
-                                onSongClick = onSongClick,
-                                onPlayAllClick = { onPlayQueue(quickPicks) },
-                                index = 0
-                            )
-                        }
-                    }
-                    item(key = "mood_and_genres") {
-                        MoodAndGenresRow(
-                            onMoodClick = onPlaylistClick,
-                            index = 1
+                    // 🌸 Meld-style chips row
+                    item(key = "chips") {
+                        MeldChipsRow(
+                            chips = allCategories.map { it.title },
+                            selectedChip = selectedChip,
+                            onChipSelect = onChipSelect,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
-                    if (homeState.recentlyPlayed.isNotEmpty()) {
-                        item(key = "recently_played") {
-                            MusicSectionRow(
-                                title = "Recently Played",
-                                songs = homeState.recentlyPlayed,
-                                onSongClick = onSongClick,
-                                onPlayAllClick = { onPlayQueue(homeState.recentlyPlayed) },
-                                index = 2
+
+                    // 🌸 Meld-style Speed Dial (shown only on the "For You" feed)
+                    if (selectedChip == null && speedDialSongs.isNotEmpty()) {
+                        item(key = "speed_dial_title") {
+                            Text(
+                                text = "Speed Dial",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                             )
                         }
-                    }
-                    if (homeState.favorites.isNotEmpty()) {
-                        item(key = "favorites") {
-                            MusicSectionRow(
-                                title = "Favorites",
-                                songs = homeState.favorites,
+                        item(key = "speed_dial") {
+                            MeldSpeedDialSection(
+                                songs = speedDialSongs,
                                 onSongClick = onSongClick,
-                                onPlayAllClick = { onPlayQueue(homeState.favorites) },
-                                index = 3
+                                onRandomizeClick = onRandomize,
+                                modifier = Modifier.animateItem()
                             )
                         }
+                        item(key = "speed_dial_spacer") {
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
                     }
-                    itemsIndexed(homeState.categories, key = { _, category -> category.title }) { idx, category ->
+
+                    if (selectedChip == null) {
+                        if (quickPicks.isNotEmpty()) {
+                            item(key = "quick_picks") {
+                                QuickPicksSection(
+                                    songs = quickPicks,
+                                    onSongClick = onSongClick,
+                                    onPlayAllClick = { onPlayQueue(quickPicks) },
+                                    index = 0
+                                )
+                            }
+                        }
+                        item(key = "mood_and_genres") {
+                            MoodAndGenresRow(
+                                onMoodClick = onPlaylistClick,
+                                index = 1
+                            )
+                        }
+                        if (homeState.recentlyPlayed.isNotEmpty()) {
+                            item(key = "recently_played") {
+                                MusicSectionRow(
+                                    title = "Recently Played",
+                                    songs = homeState.recentlyPlayed,
+                                    onSongClick = onSongClick,
+                                    onPlayAllClick = { onPlayQueue(homeState.recentlyPlayed) },
+                                    index = 2
+                                )
+                            }
+                        }
+                        if (homeState.favorites.isNotEmpty()) {
+                            item(key = "favorites") {
+                                MusicSectionRow(
+                                    title = "Favorites",
+                                    songs = homeState.favorites,
+                                    onSongClick = onSongClick,
+                                    onPlayAllClick = { onPlayQueue(homeState.favorites) },
+                                    index = 3
+                                )
+                            }
+                        }
+                    }
+
+                    itemsIndexed(visibleCategories, key = { _, category -> category.title }) { idx, category ->
                         MusicSectionRow(
                             title = category.title,
                             songs = category.songs,
