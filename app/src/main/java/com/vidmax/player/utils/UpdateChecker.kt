@@ -66,58 +66,110 @@ object UpdateChecker {
      * - [CheckResult.Success] when a release exists (even if it is not newer)
      * - [CheckResult.NoRelease] when the repo has no releases yet (HTTP 404)
      * - [CheckResult.Failed] on any network / parse error
+     *
+     * Strategy: try the GitHub API first. If that is unavailable (rate limit,
+     * blocked region, timeout), fall back to the public releases page and read
+     * the latest tag from the redirect URL, which is far more reliable on
+     * restricted networks.
      */
     suspend fun checkForUpdate(): CheckResult = withContext(Dispatchers.IO) {
-        try {
-            val request = Request.Builder()
-                .url(API_LATEST)
-                .header("Accept", "application/vnd.github+json")
-                .build()
+        tryFetchFromApi() ?: fetchFromReleasePage()
+    }
 
-            client.newCall(request).execute().use { response ->
-                val code = response.code
-                if (code == 404) return@withContext CheckResult.NoRelease
-                if (!response.isSuccessful) return@withContext CheckResult.Failed
-                val body = response.body?.string() ?: return@withContext CheckResult.Failed
+    /** Returns null when the API is unreachable / rate-limited, so the caller can fall back. */
+    private fun tryFetchFromApi(): CheckResult? = try {
+        val request = Request.Builder()
+            .url(API_LATEST)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "VidMax-Android")
+            .build()
 
-                val json = JSONObject(body)
-                val tag = json.optString("tag_name", "")
-                val versionName = tag.removePrefix("v").removePrefix("V")
-                    .substringBefore("+")
-                val buildNumber = tag.substringAfter("+", "")
-                    .toIntOrNull()
-                val releaseNotes = json.optString("body", "").trim()
-                val releasePageUrl = json.optString("html_url", "").ifEmpty { RELEASES_URL }
-                val publishedAt = json.optString("published_at", "")
+        client.newCall(request).execute().use { response ->
+            val code = response.code
+            when {
+                code == 404 -> CheckResult.NoRelease
+                !response.isSuccessful -> null
+                else -> {
+                    val body = response.body?.string() ?: return@use null
+                    val json = JSONObject(body)
+                    val tag = json.optString("tag_name", "")
+                    if (tag.isBlank()) return@use null
+                    val versionName = tag.removePrefix("v").removePrefix("V")
+                        .substringBefore("+")
+                    val buildNumber = tag.substringAfter("+", "")
+                        .toIntOrNull()
+                    val releaseNotes = json.optString("body", "").trim()
+                    val releasePageUrl = json.optString("html_url", "").ifEmpty { RELEASES_URL }
+                    val publishedAt = json.optString("published_at", "")
 
-                var downloadUrl = ""
-                val assets = json.optJSONArray("assets")
-                if (assets != null) {
-                    for (i in 0 until assets.length()) {
-                        val asset = assets.optJSONObject(i) ?: continue
-                        val name = asset.optString("name", "").lowercase()
-                        if (name.endsWith(".apk")) {
-                            downloadUrl = asset.optString("browser_download_url", "")
-                            break
+                    var downloadUrl = ""
+                    val assets = json.optJSONArray("assets")
+                    if (assets != null) {
+                        for (i in 0 until assets.length()) {
+                            val asset = assets.optJSONObject(i) ?: continue
+                            val name = asset.optString("name", "").lowercase()
+                            if (name.endsWith(".apk")) {
+                                downloadUrl = asset.optString("browser_download_url", "")
+                                break
+                            }
                         }
                     }
-                }
 
-                CheckResult.Success(
-                    AppUpdateInfo(
-                        tagName = tag,
-                        versionName = versionName,
-                        buildNumber = buildNumber,
-                        releaseNotes = releaseNotes,
-                        downloadUrl = downloadUrl,
-                        releasePageUrl = releasePageUrl,
-                        publishedAt = publishedAt,
+                    CheckResult.Success(
+                        AppUpdateInfo(
+                            tagName = tag,
+                            versionName = versionName,
+                            buildNumber = buildNumber,
+                            releaseNotes = releaseNotes,
+                            downloadUrl = downloadUrl,
+                            releasePageUrl = releasePageUrl,
+                            publishedAt = publishedAt,
+                        )
                     )
-                )
+                }
             }
-        } catch (e: Exception) {
-            CheckResult.Failed
         }
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * Fallback: `https://github.com/<repo>/releases/latest` redirects to the
+     * actual release page (e.g. .../releases/tag/v1.1.0). We read the tag from
+     * the final URL and build a matching APK download URL (VidMax-<tag>-release.apk).
+     */
+    private fun fetchFromReleasePage(): CheckResult = try {
+        val request = Request.Builder()
+            .url("https://github.com/$REPO/releases/latest")
+            .header("User-Agent", "VidMax-Android")
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            val code = response.code
+            if (code == 404) return@use CheckResult.NoRelease
+            if (!response.isSuccessful) return@use CheckResult.Failed
+            val finalUrl = response.request.url.toString()
+            val tag = finalUrl.substringAfter("/releases/tag/", "")
+                .ifBlank { return@use CheckResult.Failed }
+            val versionName = tag.removePrefix("v").removePrefix("V")
+                .substringBefore("+")
+            val buildNumber = tag.substringAfter("+", "")
+                .toIntOrNull()
+            val apkUrl = "https://github.com/$REPO/releases/download/$tag/VidMax-$tag-release.apk"
+            CheckResult.Success(
+                AppUpdateInfo(
+                    tagName = tag,
+                    versionName = versionName,
+                    buildNumber = buildNumber,
+                    releaseNotes = "",
+                    downloadUrl = apkUrl,
+                    releasePageUrl = "https://github.com/$REPO/releases/tag/$tag",
+                    publishedAt = "",
+                )
+            )
+        }
+    } catch (e: Exception) {
+        CheckResult.Failed
     }
 
     /** Parses "1.2.3" (or "v1.2", "1.0-beta") into comparable int parts. */
