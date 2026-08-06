@@ -81,6 +81,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -117,7 +118,10 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.signature.ObjectKey
 import com.vidmax.player.R
+import com.vidmax.player.ui.components.AnimatedPlayerSlider
 import com.vidmax.player.ui.components.ArtworkImage
+import com.vidmax.player.ui.components.SliderStyle
+import com.vidmax.player.ui.components.SliderStylePrefs
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.LoopMode
 import com.vidmax.player.viewmodel.MusicPlayerViewModel
@@ -347,6 +351,7 @@ fun DefaultPlayerUI(
   // Dialog state
   var showMoreMenu by remember { mutableStateOf(false) }
   var showPropertiesDialog by remember { mutableStateOf(false) }
+  var sliderStyle by remember { mutableStateOf(SliderStylePrefs.get(context)) }
   var showDeleteConfirmDialog by remember { mutableStateOf(false) }
   var showTimerDialog by remember { mutableStateOf(false) }
   var showQueueSheet by remember { mutableStateOf(false) }
@@ -697,6 +702,56 @@ fun DefaultPlayerUI(
                               showMoreMenu = false
                               onThemeChange(PlayerTheme.WAVY)
                             })
+                        Box(
+                            modifier =
+                                Modifier.fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .height(1.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)))
+                        // 🔥 SLIDER STYLE SELECTION MENU ITEMS
+                        DropdownMenuItem(
+                            text = {
+                              Text(
+                                  "Slider: ${SliderStyle.CLASSIC.label}",
+                                  color =
+                                      if (sliderStyle == SliderStyle.CLASSIC)
+                                          MaterialTheme.colorScheme.primary
+                                      else MaterialTheme.colorScheme.onSurface)
+                            },
+                            onClick = {
+                              showMoreMenu = false
+                              sliderStyle = SliderStyle.CLASSIC
+                              SliderStylePrefs.set(context, SliderStyle.CLASSIC)
+                            })
+                        DropdownMenuItem(
+                            text = {
+                              Text(
+                                  "Slider: ${SliderStyle.SQUIGGLY.label}",
+                                  color =
+                                      if (sliderStyle == SliderStyle.SQUIGGLY)
+                                          MaterialTheme.colorScheme.primary
+                                      else MaterialTheme.colorScheme.onSurface)
+                            },
+                            onClick = {
+                              showMoreMenu = false
+                              sliderStyle = SliderStyle.SQUIGGLY
+                              SliderStylePrefs.set(context, SliderStyle.SQUIGGLY)
+                            })
+                        DropdownMenuItem(
+                            text = {
+                              Text(
+                                  "Slider: ${SliderStyle.WAVY.label}",
+                                  color =
+                                      if (sliderStyle == SliderStyle.WAVY)
+                                          MaterialTheme.colorScheme.primary
+                                      else MaterialTheme.colorScheme.onSurface)
+                            },
+                            onClick = {
+                              showMoreMenu = false
+                              sliderStyle = SliderStyle.WAVY
+                              SliderStylePrefs.set(context, SliderStyle.WAVY)
+                            })
                       }
                 }
               }
@@ -886,84 +941,32 @@ fun DefaultPlayerUI(
                   modifier = Modifier.width(44.dp)
               )
 
-              // Seekbar Line
-              BoxWithConstraints(
-                  modifier = Modifier
-                      .weight(1f)
-                      .height(36.dp)
-                      .padding(horizontal = 12.dp)
-                      .pointerInput(safeDuration) {
-                        detectTapGestures(
-                            onPress = { offset ->
-                              isDraggingSlider = true
-                              sliderDragValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                              onSeekTo((sliderDragValue * safeDuration).toLong())
-                              tryAwaitRelease()
-                              coroutineScope.launch {
-                                delay(200)
-                                isDraggingSlider = false
-                              }
-                            })
+              // 🔥 ANIMATED MELD-STYLE SLIDER (Classic / Squiggly / Wavy)
+              AnimatedPlayerSlider(
+                  value = displayProgress,
+                  onValueChange = { newValue ->
+                      isDraggingSlider = true
+                      sliderDragValue = newValue
+                      onSeekTo((newValue * safeDuration).toLong())
+                  },
+                  onValueChangeFinished = {
+                      coroutineScope.launch {
+                          delay(200)
+                          isDraggingSlider = false
                       }
-                      .pointerInput(safeDuration) {
-                        detectDragGestures(
-                            onDragStart = { offset ->
-                              isDraggingSlider = true
-                              sliderDragValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                            },
-                            onDragEnd = {
-                              onSeekTo((sliderDragValue * safeDuration).toLong())
-                              coroutineScope.launch {
-                                delay(200)
-                                isDraggingSlider = false
-                              }
-                            },
-                            onDragCancel = { isDraggingSlider = false },
-                            onDrag = { change, _ ->
-                              change.consume()
-                              sliderDragValue = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
-                              onSeekTo((sliderDragValue * safeDuration).toLong())
-                            })
-                      }
-              ) {
-                  val thumbWidth = 4.dp
-                  val thumbHeight = 20.dp
-                  val trackHeight = 8.dp
-
-                  val thumbX = maxWidth * displayProgress
-                  val thumbOffset = (thumbX - (thumbWidth / 2)).coerceIn(0.dp, maxWidth - thumbWidth)
-
-                  // Background Track
-                  Box(
-                      modifier = Modifier
-                          .align(Alignment.Center)
-                          .fillMaxWidth()
-                          .height(trackHeight)
-                          .clip(CircleShape)
-                          .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                  )
-
-                  // Active Track (Colored)
-                  Box(
-                      modifier = Modifier
-                          .align(Alignment.CenterStart)
-                          .width(thumbX)
-                          .height(trackHeight)
-                          .clip(CircleShape)
-                          .background(MaterialTheme.colorScheme.primary)
-                  )
-
-                  // Vertical Thumb
-                  Box(
-                      modifier = Modifier
-                          .align(Alignment.CenterStart)
-                          .offset(x = thumbOffset)
-                          .width(thumbWidth)
-                          .height(thumbHeight)
-                          .clip(RoundedCornerShape(50))
-                          .background(MaterialTheme.colorScheme.primary)
-                  )
-              }
+                  },
+                  isPlaying = isPlaying,
+                  colors = SliderDefaults.colors(
+                      activeTrackColor = MaterialTheme.colorScheme.primary,
+                      inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                      thumbColor = MaterialTheme.colorScheme.primary,
+                      disabledThumbColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                      disabledActiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                      disabledInactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                  ),
+                  style = sliderStyle,
+                  modifier = Modifier.weight(1f),
+              )
 
               // Total Duration
               Text(
