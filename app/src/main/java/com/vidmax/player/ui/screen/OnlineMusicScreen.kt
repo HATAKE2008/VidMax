@@ -371,7 +371,7 @@ fun OnlineMusicScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_shuffle),
+                    painter = androidx.compose.ui.res.painterResource(R.drawable.ic_shuffle),
                     contentDescription = "Shuffle",
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(26.dp)
