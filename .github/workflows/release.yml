@@ -56,16 +56,6 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > vidmax.keystore
 
-      - name: Build Signed APK
-        run: ./gradlew assembleRelease
-        env:
-          GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
-          KEYSTORE_PATH: ${{ github.workspace }}/vidmax.keystore
-          STORE_PASS: vidmax123
-          KEY_ALIAS: vidmax
-          KEY_PASS: vidmax123
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-
       - name: Resolve release version
         id: version
         run: |
@@ -76,8 +66,27 @@ jobs:
           else
             VERSION="v$(date +%Y%m%d.%H%M%S)"
           fi
-          echo "Resolved version: $VERSION"
+          VERSION_NAME="${VERSION#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${VERSION_NAME}"
+          MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
+          VERSION_CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+          if [ "$VERSION_CODE" -gt 2147483647 ]; then VERSION_CODE=2147483647; fi
+          echo "Resolved: version=$VERSION version_name=$VERSION_NAME version_code=$VERSION_CODE"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Build Signed APK
+        run: ./gradlew assembleRelease
+        env:
+          GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
+          KEYSTORE_PATH: ${{ github.workspace }}/vidmax.keystore
+          STORE_PASS: vidmax123
+          KEY_ALIAS: vidmax
+          KEY_PASS: vidmax123
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
 
       - name: Rename APK with version
         run: |

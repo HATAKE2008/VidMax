@@ -12,8 +12,10 @@ android {
         applicationId "com.vidmax.player"
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName "1.0"
+        // 🔥 Version from CI env (release.yml) → auto-updates on each release.
+        // Local builds without the env vars fall back to 1 / "1.0".
+        versionCode = System.getenv("VERSION_CODE")?.toInt() ?: 1
+        versionName = System.getenv("VERSION_NAME") ?: "1.0"
     }
 
     // 🔥 GitHub Action ক্র্যাশ বন্ধ করার ম্যাজিক ব্লক
