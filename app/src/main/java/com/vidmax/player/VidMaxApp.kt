@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Process
 import android.util.Log
 import com.vidmax.player.ui.crash.CrashActivity
+import com.vidmax.player.utils.YoutubeCookie
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -26,6 +27,8 @@ class VidMaxApp : Application() {
         Log.d("VidMaxApp", "VidMax Player initialized successfully!")
 
         // NewPipe init — OkHttp downloader দিয়ে
+        YoutubeCookie.value = getSharedPreferences("AppPrefs", MODE_PRIVATE)
+            .getString("youtube_cookie", "") ?: ""
         NewPipe.init(getDownloader())
 
         // Crash handler
@@ -63,15 +66,21 @@ class VidMaxApp : Application() {
             .followSslRedirects(true)
             .addInterceptor { chain ->
                 // YouTube User-Agent না থাকলে request block হয়
-                val req = chain.request().newBuilder()
+                val reqBuilder = chain.request().newBuilder()
                     .header(
                         "User-Agent",
                         "Mozilla/5.0 (Linux; Android 12; Pixel 5) " +
                         "AppleWebKit/537.36 (KHTML, like Gecko) " +
                         "Chrome/120.0.0.0 Mobile Safari/537.36"
                     )
-                    .build()
-                chain.proceed(req)
+
+                // Optional YouTube cookie — anonymous "not a bot" block এড়াতে
+                val host = chain.request().url.host
+                if (YoutubeCookie.value.isNotBlank() && isYouTubeHost(host)) {
+                    reqBuilder.header("Cookie", YoutubeCookie.value)
+                }
+
+                chain.proceed(reqBuilder.build())
             }
             .build()
 
@@ -103,5 +112,13 @@ class VidMaxApp : Application() {
                 )
             }
         }
+    }
+
+    private fun isYouTubeHost(host: String): Boolean {
+        return host == "youtube.com" ||
+            host.endsWith(".youtube.com") ||
+            host.endsWith("youtube-nocookie.com") ||
+            host.endsWith("youtu.be") ||
+            host.endsWith("youtubei.googleapis.com")
     }
 }
