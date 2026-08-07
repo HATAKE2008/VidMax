@@ -19,10 +19,21 @@ data class HomeCategory(
     val songs: List<SongItem>
 )
 
+// 🌸 Meld-style "Similar to <seed>" recommendation row
+data class SimilarRecommendation(
+    val seed: SongItem,
+    val items: List<SongItem>
+)
+
 data class MusicHomeUiState(
     val categories: List<HomeCategory> = emptyList(),
     val recentlyPlayed: List<SongItem> = emptyList(),
     val favorites: List<SongItem> = emptyList(),
+    val quickPicks: List<SongItem> = emptyList(),
+    val dailyDiscover: List<SongItem> = emptyList(),
+    val keepListening: List<SongItem> = emptyList(),
+    val forgottenFavorites: List<SongItem> = emptyList(),
+    val similarRecommendations: List<SimilarRecommendation> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -37,6 +48,7 @@ class MusicHomeViewModel @Inject constructor(
 
     private var lastFetchTime = 0L
     private val CACHE_DURATION_MS = 2 * 60 * 60 * 1000L // 2 Hours Cache
+    private val FORGOTTEN_CUTOFF_MS = 30L * 24 * 60 * 60 * 1000 // 30 days
 
     private data class CategorySpec(
         val title: String,
@@ -85,6 +97,10 @@ class MusicHomeViewModel @Inject constructor(
                     categories = categoryList,
                     isLoading = false
                 )
+
+                // 🌸 Meld-style personal sections (Quick Picks, Daily Discover,
+                // Keep Listening, Forgotten Favorites, Similar Recommendations)
+                loadPersonalSections()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -92,6 +108,61 @@ class MusicHomeViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    /**
+     * Builds the Meld-style personal feed purely from the on-device listening
+     * profile + YouTube's public related signal. No login, no account.
+     */
+    private suspend fun loadPersonalSections() {
+        val favorites = repository.getFavoritesSnapshot()
+        val recent = repository.getRecentlyPlayedSnapshot(40)
+        val mostPlayed = repository.getMostPlayedSongs(40)
+        val cutoff = System.currentTimeMillis() - FORGOTTEN_CUTOFF_MS
+        val forgotten = repository.getForgottenFavorites(cutoff, 20)
+
+        // 🌸 Quick Picks: favorites + forgotten + recent, shuffled for freshness
+        val quickPicks = (favorites + forgotten + recent)
+            .distinctBy { it.videoId }
+            .shuffled()
+            .take(20)
+        _uiState.value = _uiState.value.copy(
+            favorites = favorites,
+            quickPicks = quickPicks,
+            forgottenFavorites = forgotten.shuffled().take(10)
+        )
+
+        // 🌸 Daily Discover: random favorite/most-played seeds -> related song
+        val discoverSeeds = (favorites + mostPlayed)
+            .distinctBy { it.videoId }
+            .shuffled()
+            .take(5)
+        val discovered = discoverSeeds.mapNotNull { seed ->
+            repository.getRelatedSongs(seed.videoId)
+                .getOrNull()
+                ?.shuffled()
+                ?.firstOrNull { it.videoId != seed.videoId }
+        }.distinctBy { it.videoId }.take(8)
+        _uiState.value = _uiState.value.copy(dailyDiscover = discovered)
+
+        // 🌸 Keep Listening: most played (heavy rotation), shuffled
+        val keepListening = mostPlayed.shuffled().take(12)
+        _uiState.value = _uiState.value.copy(keepListening = keepListening)
+
+        // 🌸 Similar Recommendations: seeds from most-played -> related rows
+        val simSeeds = mostPlayed
+            .filter { it.artist.isNotBlank() }
+            .shuffled()
+            .take(3)
+        val similar = simSeeds.mapNotNull { seed ->
+            val items = repository.getRelatedSongs(seed.videoId)
+                .getOrNull()
+                ?.shuffled()
+                ?.take(12)
+                .orEmpty()
+            if (items.isEmpty()) null else SimilarRecommendation(seed = seed, items = items)
+        }
+        _uiState.value = _uiState.value.copy(similarRecommendations = similar)
     }
 
     // 🌸 Playlist card → fetch songs for the query (used by Online screen)

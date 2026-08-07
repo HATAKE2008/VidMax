@@ -13,5 +13,6 @@ data class SongItem(
     val streamUrl: String? = null,
     val duration: Long = 0L,
     val playedAt: Long = System.currentTimeMillis(),
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val playCount: Int = 1
 )

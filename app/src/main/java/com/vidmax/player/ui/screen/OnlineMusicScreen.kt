@@ -434,13 +434,15 @@ fun MeldOnlineHomeContent(
     onRandomize: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    val quickPicks = remember(homeState.categories) {
-        val source = homeState.categories.firstOrNull { it.title == "For You" }
+    val quickPicks = remember(homeState.categories, homeState.quickPicks) {
+        val forYou = homeState.categories.firstOrNull { it.title == "For You" }
             ?: homeState.categories.firstOrNull { it.songs.isNotEmpty() }
-        source?.songs?.distinctBy { it.videoId }?.take(8) ?: emptyList()
+        (forYou?.songs.orEmpty() + homeState.quickPicks)
+            .distinctBy { it.videoId }
+            .take(8)
     }
-    val speedDialSongs = remember(homeState.categories, homeState.recentlyPlayed, homeState.favorites) {
-        (quickPicks + homeState.favorites + homeState.recentlyPlayed)
+    val speedDialSongs = remember(homeState.quickPicks, homeState.recentlyPlayed, homeState.favorites) {
+        (homeState.quickPicks + homeState.favorites + homeState.recentlyPlayed)
             .distinctBy { it.videoId }
             .take(18)
     }
@@ -553,6 +555,50 @@ fun MeldOnlineHomeContent(
                                 )
                             }
                         }
+                        if (homeState.dailyDiscover.isNotEmpty()) {
+                            item(key = "daily_discover") {
+                                MusicSectionRow(
+                                    title = "Daily Discover",
+                                    songs = homeState.dailyDiscover,
+                                    onSongClick = onSongClick,
+                                    onPlayAllClick = { onPlayQueue(homeState.dailyDiscover) },
+                                    index = 3
+                                )
+                            }
+                        }
+                        if (homeState.keepListening.isNotEmpty()) {
+                            item(key = "keep_listening") {
+                                MusicSectionRow(
+                                    title = "Keep Listening",
+                                    songs = homeState.keepListening,
+                                    onSongClick = onSongClick,
+                                    onPlayAllClick = { onPlayQueue(homeState.keepListening) },
+                                    index = 4
+                                )
+                            }
+                        }
+                        homeState.similarRecommendations.forEachIndexed { simIdx, rec ->
+                            item(key = "similar_${rec.seed.videoId}") {
+                                MusicSectionRow(
+                                    title = "Similar to ${rec.seed.title}",
+                                    songs = rec.items,
+                                    onSongClick = onSongClick,
+                                    onPlayAllClick = { onPlayQueue(rec.items) },
+                                    index = 5 + simIdx
+                                )
+                            }
+                        }
+                        if (homeState.forgottenFavorites.isNotEmpty()) {
+                            item(key = "forgotten_favorites") {
+                                MusicSectionRow(
+                                    title = "Forgotten Favorites",
+                                    songs = homeState.forgottenFavorites,
+                                    onSongClick = onSongClick,
+                                    onPlayAllClick = { onPlayQueue(homeState.forgottenFavorites) },
+                                    index = 6
+                                )
+                            }
+                        }
                         if (homeState.favorites.isNotEmpty()) {
                             item(key = "favorites") {
                                 MusicSectionRow(
@@ -560,7 +606,7 @@ fun MeldOnlineHomeContent(
                                     songs = homeState.favorites,
                                     onSongClick = onSongClick,
                                     onPlayAllClick = { onPlayQueue(homeState.favorites) },
-                                    index = 3
+                                    index = 7
                                 )
                             }
                         }
@@ -572,7 +618,7 @@ fun MeldOnlineHomeContent(
                             songs = category.songs,
                             onSongClick = onSongClick,
                             onPlayAllClick = { onPlayQueue(category.songs) },
-                            index = idx + 4
+                            index = idx + 8
                         )
                     }
                 }

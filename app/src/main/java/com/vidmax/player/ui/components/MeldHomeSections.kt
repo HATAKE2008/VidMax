@@ -131,8 +131,15 @@ fun MeldSpeedDialSection(
     val columns = 3
     val rows = 2
     val itemsPerPage = columns * rows
+    // Page 0's last cell is taken by the "Surprise Me" randomize tile, so it can
+    // only hold itemsPerPage - 1 songs; every page after that holds a full page.
+    val firstPageCapacity = itemsPerPage - 1
 
-    val pagerState = rememberPagerState(pageCount = { (songs.size + itemsPerPage - 1) / itemsPerPage })
+    val pageCount = remember(songs.size) {
+        if (songs.size <= firstPageCapacity) 1
+        else 1 + (songs.size - firstPageCapacity + itemsPerPage - 1) / itemsPerPage
+    }
+    val pagerState = rememberPagerState(pageCount = { pageCount })
 
     Column(modifier = modifier.fillMaxWidth()) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -149,8 +156,12 @@ fun MeldSpeedDialSection(
                     .fillMaxWidth()
                     .height(pagerHeight),
             ) { page ->
-                val pageStartIndex = page * itemsPerPage
-                val pageItems = songs.drop(pageStartIndex).take(itemsPerPage)
+                val pageStartIndex = when (page) {
+                    0 -> 0
+                    else -> firstPageCapacity + (page - 1) * itemsPerPage
+                }
+                val pageSize = if (page == 0) firstPageCapacity else itemsPerPage
+                val pageItems = songs.drop(pageStartIndex).take(pageSize)
 
                 Column(modifier = Modifier.fillMaxSize()) {
                     for (row in 0 until rows) {
