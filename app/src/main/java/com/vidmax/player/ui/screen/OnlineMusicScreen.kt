@@ -745,7 +745,7 @@ fun QuickPicksSection(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(380.dp)
+                .height(430.dp)   // ✅ age chilo 380.dp — ekhon text ar katbe na
         ) {
             items(songs, key = { it.videoId }) { song ->
                 QuickPickCard(
@@ -827,6 +827,7 @@ fun QuickPickCard(
         Text(
             text = song.title,
             fontSize = 13.sp,
+            lineHeight = 16.sp,          // ✅ add
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -835,6 +836,7 @@ fun QuickPickCard(
         Text(
             text = song.artist,
             fontSize = 11.sp,
+            lineHeight = 14.sp,          // ✅ add
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -969,7 +971,7 @@ fun MeldHomeShimmer() {
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(380.dp)
+                .height(430.dp)   // ✅ shimmer o match koro
         ) {
             items(count = 8) {
                 QuickPickSkeleton()
