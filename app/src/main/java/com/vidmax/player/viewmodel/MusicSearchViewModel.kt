@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vidmax.player.data.model.SongItem
 import com.vidmax.player.data.repository.MusicRepository
+import com.vidmax.player.utils.ErrorMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -62,7 +63,7 @@ class MusicSearchViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isSearching = false,
-                        error = error.localizedMessage ?: "Search failed"
+                        error = ErrorMessages.friendly(error.localizedMessage)
                     )
                 }
         }

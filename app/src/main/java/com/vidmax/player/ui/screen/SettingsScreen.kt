@@ -31,15 +31,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,6 +65,7 @@ import com.vidmax.player.R
 import com.vidmax.player.ui.components.UpdateResultDialog
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.utils.UpdateChecker
+import com.vidmax.player.utils.YoutubeCookie
 import com.vidmax.player.viewmodel.DarkMode
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.PlayerEngine
@@ -87,6 +91,10 @@ fun SettingsScreen(
     }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateResult by remember { mutableStateOf<UpdateChecker.CheckResult?>(null) }
+    var youtubeCookie by remember {
+        mutableStateOf(appPrefs.getString("youtube_cookie", "") ?: "")
+    }
+    var showCookieDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     val checkForUpdates: () -> Unit = {
@@ -312,6 +320,37 @@ fun SettingsScreen(
                 )
             }
 
+            // ── YouTube ───────────────────────────────────────────────────
+            item {
+                SettingsDivider()
+                SettingsSectionHeader(title = "YouTube", paddingTop = 4.dp)
+            }
+            item {
+                SettingsItemPill(
+                    title = "YouTube Cookie",
+                    subtitle = if (youtubeCookie.isBlank())
+                        "Optional — helps avoid “not a bot” blocks"
+                    else
+                        "Cookie set — anonymous block bypass active",
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_github),
+                            contentDescription = null,
+                            modifier = Modifier.size(19.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailing = {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    onClick = { showCookieDialog = true }
+                )
+            }
+
             // ── Updates ───────────────────────────────────────────────────
             item {
                 SettingsDivider()
@@ -421,6 +460,19 @@ fun SettingsScreen(
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                     context.startActivity(intent)
                 }
+            )
+        }
+
+        if (showCookieDialog) {
+            YoutubeCookieDialog(
+                initialValue = youtubeCookie,
+                onSave = { value ->
+                    youtubeCookie = value
+                    appPrefs.edit().putString("youtube_cookie", value).apply()
+                    YoutubeCookie.value = value
+                    showCookieDialog = false
+                },
+                onDismiss = { showCookieDialog = false }
             )
         }
     }
@@ -724,5 +776,71 @@ private fun SettingsDivider() {
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
         thickness = 0.5.dp,
         modifier = Modifier.padding(vertical = 20.dp)
+    )
+}
+
+// ── YouTube Cookie dialog ─────────────────────────────────────────────────────
+
+@Composable
+private fun YoutubeCookieDialog(
+    initialValue: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var value by remember { mutableStateOf(initialValue) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "YouTube Cookie",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "If YouTube shows “Sign in to confirm you're not a bot”, paste a cookie from your logged-in YouTube session. This lets the app use your session instead of anonymous access.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = { value = it.trim() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    placeholder = {
+                        Text(
+                            text = "VISITOR_INFO1_LIVE=...; SID=...; HSID=...",
+                            fontSize = 12.sp
+                        )
+                    },
+                    singleLine = false
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "To get it: open YouTube in a logged-in browser → DevTools → Network → copy the full Cookie header.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(value) },
+                enabled = value.isNotBlank()
+            ) {
+                Text(text = "Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cancel")
+            }
+        }
     )
 }

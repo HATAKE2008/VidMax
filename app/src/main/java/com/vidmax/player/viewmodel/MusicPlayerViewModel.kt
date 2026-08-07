@@ -9,6 +9,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.vidmax.player.data.model.SongItem
 import com.vidmax.player.data.repository.MusicRepository
+import com.vidmax.player.utils.ErrorMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,7 +65,7 @@ class MusicPlayerViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             isLoadingStream = false,
                             isPlaying = false,
-                            error = error.localizedMessage ?: "Playback error"
+                            error = ErrorMessages.friendly(error.localizedMessage)
                         )
                     }
                 })
@@ -102,7 +103,7 @@ class MusicPlayerViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoadingStream = false,
-                        error = error.localizedMessage ?: "Unable to stream song"
+                        error = ErrorMessages.friendly(error.localizedMessage)
                     )
                 }
         }
@@ -144,7 +145,7 @@ class MusicPlayerViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoadingStream = false,
-                        error = error.localizedMessage ?: "Unable to stream song"
+                        error = ErrorMessages.friendly(error.localizedMessage)
                     )
                 }
         }
