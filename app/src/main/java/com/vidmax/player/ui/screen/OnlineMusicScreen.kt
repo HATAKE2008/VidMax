@@ -45,6 +45,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -146,6 +148,10 @@ fun OnlineMusicScreen(
     var previousIndex by remember { mutableIntStateOf(0) }
     var previousScrollOffset by remember { mutableIntStateOf(0) }
 
+    // 🌸 Expandable search state (small header icon -> expandable search bar)
+    var isSearchOpen by remember { mutableStateOf(false) }
+    val searchFocusRequester = remember { FocusRequester() }
+
     // Scroll listener to hide/show top bar
     LaunchedEffect(listState) {
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
@@ -165,10 +171,15 @@ fun OnlineMusicScreen(
 
     var playlistState by remember { mutableStateOf<PlaylistDetailState?>(null) }
     var selectedChip by rememberSaveable { mutableStateOf<String?>(null) }
-    BackHandler(enabled = playlistState != null || selectedChip != null) {
+    BackHandler(enabled = playlistState != null || selectedChip != null || isSearchOpen) {
         when {
             playlistState != null -> playlistState = null
             selectedChip != null -> selectedChip = null
+            else -> {
+                isSearchOpen = false
+                searchViewModel.clearSearch()
+                focusManager.clearFocus()
+            }
         }
     }
 
@@ -210,23 +221,46 @@ fun OnlineMusicScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             
-            // 🌸 Animated Hide/Show Header and Search Bar
+            // 🌸 Animated Hide/Show Header (small search icon) + Expandable Search Bar
             AnimatedVisibility(
-                visible = isTopBarVisible || isSearchActive,
+                visible = isTopBarVisible || isSearchActive || isSearchOpen,
                 enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
                 exit = shrinkVertically(animationSpec = tween(300)) + fadeOut(animationSpec = tween(300))
             ) {
                 Column {
-                    OnlineHeader(onSettingsClick = onSettingsClick)
-                    OnlineSearchBar(
-                        query = searchState.query,
-                        onQueryChange = { searchViewModel.onQueryChange(it) },
-                        onClearClick = {
-                            searchViewModel.clearSearch()
-                            focusManager.clearFocus()
-                        },
-                        onSearchAction = { focusManager.clearFocus() }
-                    )
+                    Crossfade(
+                        targetState = isSearchOpen || isSearchActive,
+                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                        label = "headerSearchToggle"
+                    ) { showSearchBar ->
+                        if (showSearchBar) {
+                            OnlineSearchBar(
+                                query = searchState.query,
+                                onQueryChange = { searchViewModel.onQueryChange(it) },
+                                onClearClick = { searchViewModel.clearSearch() },
+                                onSearchAction = { focusManager.clearFocus() },
+                                onBackClick = {
+                                    isSearchOpen = false
+                                    searchViewModel.clearSearch()
+                                    focusManager.clearFocus()
+                                },
+                                focusRequester = searchFocusRequester
+                            )
+                        } else {
+                            OnlineHeader(
+                                onSearchClick = { isSearchOpen = true },
+                                onSettingsClick = onSettingsClick
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 🌸 Search bar kholar shomoy keyboard auto-open
+            LaunchedEffect(isSearchOpen) {
+                if (isSearchOpen) {
+                    delay(250)
+                    runCatching { searchFocusRequester.requestFocus() }
                 }
             }
 
@@ -382,7 +416,10 @@ fun OnlineMusicScreen(
 }
 
 @Composable
-private fun OnlineHeader(onSettingsClick: () -> Unit) {
+private fun OnlineHeader(
+    onSearchClick: () -> Unit,
+    onSettingsClick: () -> Unit
+) {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greeting = when (hour) {
         in 5..11 -> "Good Morning"
@@ -408,6 +445,15 @@ private fun OnlineHeader(onSettingsClick: () -> Unit) {
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        // 🌸 Choto search icon
+        IconButton(onClick = onSearchClick) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Search",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(24.dp)
             )
         }
         IconButton(onClick = onSettingsClick) {
@@ -1223,7 +1269,9 @@ fun OnlineSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     onClearClick: () -> Unit,
-    onSearchAction: () -> Unit
+    onSearchAction: () -> Unit,
+    onBackClick: (() -> Unit)? = null,
+    focusRequester: FocusRequester? = null
 ) {
     OutlinedTextField(
         value = query,
@@ -1231,9 +1279,22 @@ fun OnlineSearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .height(52.dp),
+            .height(52.dp)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
         placeholder = { Text("Search songs...", fontSize = 14.sp) },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(20.dp)) },
+        leadingIcon = {
+            if (onBackClick != null) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Close search",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else {
+                Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(20.dp))
+            }
+        },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = onClearClick) {
