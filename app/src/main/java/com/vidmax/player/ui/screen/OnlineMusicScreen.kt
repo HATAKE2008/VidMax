@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -77,12 +79,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-// 🌸 Mood / Genre specs (Spotify/Meld-style)
+// 🌸 Mood / Genre specs (Updated to match the screenshot)
 data class PlaylistSpec(
     val title: String,
     val subtitle: String,
-    val query: String,
-    val colors: List<Color>
+    val query: String
 )
 
 data class PlaylistDetailState(
@@ -92,13 +93,14 @@ data class PlaylistDetailState(
 )
 
 private val playlistSpecs = listOf(
-    PlaylistSpec("Bengali Chill", "Relax & unwind", "bengali chill songs playlist", listOf(Color(0xFF667EEA), Color(0xFF764BA2))),
-    PlaylistSpec("Late Night Vibes", "Sleepy mood", "late night vibes playlist", listOf(Color(0xFF0F2027), Color(0xFF2C5364))),
-    PlaylistSpec("Romantic Evening", "Love songs", "romantic hindi songs 2026", listOf(Color(0xFFE96443), Color(0xFF904E95))),
-    PlaylistSpec("Workout Energy", "Gym motivation", "workout gym songs 2026", listOf(Color(0xFFF7971E), Color(0xFFFFD200))),
-    PlaylistSpec("Road Trip", "Travel beats", "hindi road trip songs", listOf(Color(0xFF11998E), Color(0xFF38EF7D))),
-    PlaylistSpec("Study Focus", "No distractions", "study music instrumental", listOf(Color(0xFF4568DC), Color(0xFFB06AB3))),
-    PlaylistSpec("Party Mix", "Dance floor", "party dance songs 2026", listOf(Color(0xFFFC466B), Color(0xFF3F5EFB))),
+    PlaylistSpec("Chill", "Relax & unwind", "chill music playlist"),
+    PlaylistSpec("Focus", "Deep work", "focus music instrumental"),
+    PlaylistSpec("Commute", "On the go", "commute travel songs"),
+    PlaylistSpec("Gaming", "Level up", "gaming music mix"),
+    PlaylistSpec("Energize", "Boost your day", "energizing workout songs"),
+    PlaylistSpec("Party", "Dance floor", "party dance songs"),
+    PlaylistSpec("Feel good", "Happy vibes", "feel good happy songs"),
+    PlaylistSpec("Romance", "Love songs", "romantic love songs")
 )
 
 // 🌸 Staggered enter animation
@@ -541,13 +543,46 @@ fun MeldOnlineHomeContent(
                         )
                     }
 
+                    // 🌸 Recently Played Section (Moved to top, styled as list per screenshot)
+                    if (selectedChip == null && homeState.recentlyPlayed.isNotEmpty()) {
+                        item(key = "recently_played") {
+                            RecentlyPlayedSection(
+                                songs = homeState.recentlyPlayed,
+                                onSongClick = onSongClick,
+                                onPlayAllClick = { onPlayQueue(homeState.recentlyPlayed) },
+                                index = 0
+                            )
+                        }
+                    }
+
+                    // Quick Picks
+                    if (selectedChip == null && quickPicks.isNotEmpty()) {
+                        item(key = "quick_picks") {
+                            QuickPicksSection(
+                                songs = quickPicks,
+                                onSongClick = onSongClick,
+                                onPlayAllClick = { onPlayQueue(quickPicks) },
+                                index = 1
+                            )
+                        }
+                    }
+                    
+                    // Mood and Genres
+                    if (selectedChip == null) {
+                        item(key = "mood_and_genres") {
+                            MoodAndGenresRow(
+                                onMoodClick = onPlaylistClick,
+                                index = 2
+                            )
+                        }
+                    }
+
+                    // Speed Dial
                     if (selectedChip == null && speedDialSongs.isNotEmpty()) {
                         item(key = "speed_dial_title") {
-                            Text(
-                                text = "Speed Dial",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            NavigationTitle(
+                                title = "Speed Dial",
+                                onPlayAllClick = null
                             )
                         }
                         item(key = "speed_dial") {
@@ -555,42 +590,18 @@ fun MeldOnlineHomeContent(
                                 songs = speedDialSongs,
                                 onSongClick = onSongClick,
                                 onRandomizeClick = onRandomize,
-                                modifier = Modifier.animateItem()
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .animateItem()
                             )
                         }
                         item(key = "speed_dial_spacer") {
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(24.dp))
                         }
                     }
 
+                    // Other Sections
                     if (selectedChip == null) {
-                        if (quickPicks.isNotEmpty()) {
-                            item(key = "quick_picks") {
-                                QuickPicksSection(
-                                    songs = quickPicks,
-                                    onSongClick = onSongClick,
-                                    onPlayAllClick = { onPlayQueue(quickPicks) },
-                                    index = 0
-                                )
-                            }
-                        }
-                        item(key = "mood_and_genres") {
-                            MoodAndGenresRow(
-                                onMoodClick = onPlaylistClick,
-                                index = 1
-                            )
-                        }
-                        if (homeState.recentlyPlayed.isNotEmpty()) {
-                            item(key = "recently_played") {
-                                MusicSectionRow(
-                                    title = "Recently Played",
-                                    songs = homeState.recentlyPlayed,
-                                    onSongClick = onSongClick,
-                                    onPlayAllClick = { onPlayQueue(homeState.recentlyPlayed) },
-                                    index = 2
-                                )
-                            }
-                        }
                         if (homeState.dailyDiscover.isNotEmpty()) {
                             item(key = "daily_discover") {
                                 MusicSectionRow(
@@ -663,7 +674,129 @@ fun MeldOnlineHomeContent(
     }
 }
 
-// 🌸 Meld-Style Navigation Title
+// 🌸 Recently Played Section (Top Position, List Style)
+@Composable
+fun RecentlyPlayedSection(
+    songs: List<SongItem>,
+    onSongClick: (SongItem) -> Unit,
+    onPlayAllClick: () -> Unit,
+    index: Int
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .enterAnimation(index)
+    ) {
+        // Custom Header for Recently Played to match screenshot
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recently Played",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedButton(
+                onClick = onPlayAllClick,
+                shape = RoundedCornerShape(50),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                modifier = Modifier.height(34.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Text(
+                    text = "Play all", 
+                    fontSize = 13.sp, 
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        // Vertical list of up to 4 recent items
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            songs.take(4).forEach { song ->
+                MeldRecentListItem(
+                    song = song,
+                    onClick = { onSongClick(song) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// 🌸 List Item for Recently Played
+@Composable
+fun MeldRecentListItem(
+    song: SongItem,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        label = "recentScale"
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ArtworkImage(
+            videoId = song.videoId,
+            fallbackUrl = song.thumbnailUrl,
+            contentDescription = null,
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = song.title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = song.artist,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        IconButton(onClick = { /* Handle options menu */ }) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "Options",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// 🌸 Standard Navigation Title
 @Composable
 fun NavigationTitle(
     title: String,
@@ -720,7 +853,6 @@ fun NavigationTitle(
     }
 }
 
-// 🌸 Meld-Style Song Card 
 @Composable
 fun MeldSongCard(
     song: SongItem,
@@ -794,6 +926,7 @@ fun MeldSongCard(
         Text(
             text = song.title,
             fontSize = 14.sp,
+            lineHeight = 18.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground,
             maxLines = 1,
@@ -803,6 +936,7 @@ fun MeldSongCard(
         Text(
             text = song.artist,
             fontSize = 12.sp,
+            lineHeight = 16.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -833,7 +967,7 @@ fun QuickPicksSection(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(390.dp) // Adjusted height for 136dp wide items
+                .height(420.dp) 
         ) {
             items(songs, key = { it.videoId }) { song ->
                 MeldSongCard(
@@ -846,7 +980,6 @@ fun QuickPicksSection(
     }
 }
 
-// 🌸 Mood & Genres (Meld/Spotify Grid Style)
 @Composable
 fun MoodAndGenresRow(
     onMoodClick: (PlaylistSpec) -> Unit,
@@ -862,13 +995,13 @@ fun MoodAndGenresRow(
             onPlayAllClick = null
         )
         LazyHorizontalGrid(
-            rows = GridCells.Fixed(2),
+            rows = GridCells.Fixed(4),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(170.dp) 
+                .height(220.dp)
         ) {
             items(playlistSpecs) { spec ->
                 MeldMoodCard(
@@ -897,24 +1030,25 @@ fun MeldMoodCard(
     Box(
         modifier = Modifier
             .scale(scale)
-            .width(160.dp)
+            .width(170.dp)
+            .height(48.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Brush.linearGradient(spec.colors))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             )
-            .padding(16.dp)
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         Text(
             text = spec.title,
             fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.align(Alignment.TopStart)
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -954,6 +1088,22 @@ fun MusicSectionRow(
 @Composable
 fun MeldHomeShimmer() {
     Column(modifier = Modifier.fillMaxWidth()) {
+        
+        // 🌸 Shimmer for Recently Played (Now at the top)
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .size(width = 140.dp, height = 24.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .shimmer()
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Column {
+            repeat(3) { PlaylistSongRowSkeleton() }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 🌸 Shimmer for Quick Picks
         Box(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 6.dp)
@@ -969,16 +1119,15 @@ fun MeldHomeShimmer() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(390.dp)
+                .height(420.dp)
         ) {
             items(count = 8) {
                 QuickPickSkeleton()
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
-        CategorySkeletonRow()
-        Spacer(modifier = Modifier.height(24.dp))
         
+        // 🌸 Shimmer for Mood & Genres
         Box(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -988,19 +1137,19 @@ fun MeldHomeShimmer() {
         )
         Spacer(modifier = Modifier.height(12.dp))
         LazyHorizontalGrid(
-            rows = GridCells.Fixed(2),
+            rows = GridCells.Fixed(4),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(170.dp)
+                .height(220.dp)
         ) {
-            items(count = 6) {
+            items(count = 8) {
                 Box(
                     modifier = Modifier
-                        .width(160.dp)
-                        .fillMaxHeight()
+                        .width(170.dp)
+                        .height(48.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .shimmer()
                 )
@@ -1105,7 +1254,14 @@ fun MeldPlaylistDetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
-                            .background(Brush.verticalGradient(state.spec.colors))
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        MaterialTheme.colorScheme.background
+                                    )
+                                )
+                            )
                             .padding(24.dp),
                         contentAlignment = Alignment.BottomStart
                     ) {
@@ -1114,7 +1270,7 @@ fun MeldPlaylistDetailScreen(
                                 text = state.spec.title,
                                 fontSize = 32.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onBackground,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -1122,7 +1278,7 @@ fun MeldPlaylistDetailScreen(
                             Text(
                                 text = "${state.spec.subtitle} • ${state.songs.size} songs",
                                 fontSize = 14.sp,
-                                color = Color.White.copy(alpha = 0.9f),
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
