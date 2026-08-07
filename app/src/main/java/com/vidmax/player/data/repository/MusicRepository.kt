@@ -64,7 +64,19 @@ class MusicRepository @Inject constructor(
 
     // Room Operations
     suspend fun saveToHistory(song: SongItem) {
-        historyDao.insertSong(song.copy(playedAt = System.currentTimeMillis()))
+        val now = System.currentTimeMillis()
+        val updated = song.copy(playedAt = now)
+        val inserted = historyDao.insertIfAbsent(updated)
+        if (inserted == -1L) {
+            // Already in history -> bump play count + refresh metadata
+            historyDao.bumpSong(
+                videoId = updated.videoId,
+                title = updated.title,
+                artist = updated.artist,
+                thumbnailUrl = updated.thumbnailUrl,
+                playedAt = now
+            )
+        }
     }
 
     fun getRecentlyPlayed(): Flow<List<SongItem>> {
@@ -74,6 +86,43 @@ class MusicRepository @Inject constructor(
     fun getFavorites(): Flow<List<SongItem>> {
         return historyDao.getFavoriteSongs()
     }
+
+    suspend fun getRecentlyPlayedSnapshot(limit: Int = 40): List<SongItem> {
+        return historyDao.getRecentSongsSnapshot(limit)
+    }
+
+    suspend fun getFavoritesSnapshot(): List<SongItem> {
+        return historyDao.getFavoriteSongsSnapshot()
+    }
+
+    suspend fun getMostPlayedSongs(limit: Int = 40): List<SongItem> {
+        return historyDao.getMostPlayedSongsSnapshot(limit)
+    }
+
+    suspend fun getForgottenFavorites(cutoff: Long, limit: Int = 20): List<SongItem> {
+        return historyDao.getForgottenFavoritesSnapshot(cutoff, limit)
+    }
+
+    /**
+     * Meld-style radio queue: seed song's related tracks mixed with the user's
+     * most-played and favorite tracks, diversified so no artist dominates.
+     * No login required — everything comes from the device's listening history.
+     */
+    suspend fun getRadioQueue(seedVideoId: String, limit: Int = 30): Result<List<SongItem>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val related = getRelatedSongs(seedVideoId).getOrDefault(emptyList())
+                val history = getMostPlayedSongs(30)
+                val favorites = getFavoritesSnapshot()
+                RecommendationEngine.buildQueue(
+                    seedVideoId = seedVideoId,
+                    related = related,
+                    history = history,
+                    favorites = favorites,
+                    limit = limit
+                )
+            }
+        }
 
     suspend fun isFavorite(videoId: String): Boolean {
         return historyDao.isFavorite(videoId) ?: false

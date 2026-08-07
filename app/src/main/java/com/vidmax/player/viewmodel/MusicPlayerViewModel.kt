@@ -168,13 +168,14 @@ class MusicPlayerViewModel @Inject constructor(
 
     private fun loadRelatedSongs(videoId: String) {
         viewModelScope.launch {
-            repository.getRelatedSongs(videoId)
-                .onSuccess { related ->
+            // 🌸 Meld-style radio: seed related tracks + user's most-played/favorites,
+            // diversified so the queue feels fresh and keeps playing on its own.
+            repository.getRadioQueue(videoId, limit = 30)
+                .onSuccess { radio ->
                     val currentSong = _uiState.value.currentSong
                     val current = currentSong?.let { listOf(it) } ?: emptyList()
-                    val queue = current + related
                     _uiState.value = _uiState.value.copy(
-                        queue = queue,
+                        queue = current + radio,
                         queueIndex = 0
                     )
                 }
