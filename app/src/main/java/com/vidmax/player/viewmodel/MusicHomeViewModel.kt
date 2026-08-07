@@ -47,7 +47,7 @@ class MusicHomeViewModel @Inject constructor(
     val uiState: StateFlow<MusicHomeUiState> = _uiState.asStateFlow()
 
     private var lastFetchTime = 0L
-    private val CACHE_DURATION_MS = 2 * 60 * 60 * 1000L // 2 Hours Cache
+    private val CACHE_DURATION_MS = 30 * 60 * 1000L // 30 minutes (fresh suggestions more often)
     private val FORGOTTEN_CUTOFF_MS = 30L * 24 * 60 * 60 * 1000 // 30 days
 
     private data class CategorySpec(
@@ -56,14 +56,75 @@ class MusicHomeViewModel @Inject constructor(
     )
 
     private val categorySpecs = listOf(
-        CategorySpec("Trending Now", "trending songs this week"),
-        CategorySpec("New Releases", "new release songs 2026"),
-        CategorySpec("Bengali Hits", "trending Bengali songs 2026"),
-        CategorySpec("Bollywood Hits", "top Bollywood hits 2026"),
-        CategorySpec("Lo-fi Vibes", "lo-fi chill music"),
-        CategorySpec("Sad Hits", "sad songs to cry"),
-        CategorySpec("Happy Vibes", "happy feel good songs 2026"),
-        CategorySpec("Romantic Hits", "romantic songs 2026")
+        CategorySpec("Trending Now", "trending songs 2026"),
+        CategorySpec("New Releases", "new hindi songs 2026"),
+        CategorySpec("Bengali Hits", "bangla new songs"),
+        CategorySpec("Bollywood Hits", "bollywood romantic hits"),
+        CategorySpec("Lo-fi Vibes", "lofi chill beats"),
+        CategorySpec("Sad Hits", "sad emotional songs"),
+        CategorySpec("Happy Vibes", "happy mood songs"),
+        CategorySpec("Romantic Hits", "love songs 2026")
+    )
+
+    // 🌸 Query variations for randomization — প্রতিবার refresh-এ আলাদা query,
+    // তাই একই গান বারবার না এসে নতুন নতুন suggestion আসে।
+    private val queryVariants = mapOf(
+        "Trending Now" to listOf(
+            "trending songs this week",
+            "viral music 2026",
+            "popular songs right now",
+            "trending hindi songs",
+            "hit songs 2026"
+        ),
+        "New Releases" to listOf(
+            "new release songs 2026",
+            "latest bollywood songs",
+            "new music this week",
+            "fresh songs 2026",
+            "just released songs"
+        ),
+        "Bengali Hits" to listOf(
+            "trending Bengali songs 2026",
+            "bangla new songs",
+            "bangla hit songs",
+            "bengali romantic songs",
+            "bangla latest songs"
+        ),
+        "Bollywood Hits" to listOf(
+            "top Bollywood hits 2026",
+            "bollywood romantic hits",
+            "hindi hit songs",
+            "bollywood dance songs",
+            "bollywood latest hits"
+        ),
+        "Lo-fi Vibes" to listOf(
+            "lo-fi chill music",
+            "lofi beats relax",
+            "chill lofi mix",
+            "lofi study music",
+            "aesthetic lofi songs"
+        ),
+        "Sad Hits" to listOf(
+            "sad songs to cry",
+            "emotional songs hindi",
+            "heartbreak songs",
+            "sad romantic songs",
+            "sad music 2026"
+        ),
+        "Happy Vibes" to listOf(
+            "happy feel good songs 2026",
+            "upbeat songs",
+            "positive vibes music",
+            "happy dance songs",
+            "feel good hits"
+        ),
+        "Romantic Hits" to listOf(
+            "romantic songs 2026",
+            "love songs hindi",
+            "romantic melodies",
+            "love ballads",
+            "romantic hits 2026"
+        )
     )
 
     init {
@@ -82,8 +143,15 @@ class MusicHomeViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
             try {
-                // Fetch categories in parallel
-                val songLists = categorySpecs.map { spec -> async { repository.getCategorySongs(spec.query) } }.awaitAll()
+                // 🌸 Fetch with randomized queries — প্রতি ক্যাটাগরিতে random variant +
+                // shuffle, তাই প্রতিবার refresh-এ নতুন গান আসে।
+                val songLists = categorySpecs.map { spec ->
+                    async {
+                        val variants = queryVariants[spec.title] ?: listOf(spec.query)
+                        val randomQuery = variants.random()
+                        repository.getCategorySongs(randomQuery).shuffled().take(20)
+                    }
+                }.awaitAll()
 
                 val categoryList = mutableListOf<HomeCategory>()
                 categorySpecs.forEachIndexed { index, spec ->
@@ -121,11 +189,27 @@ class MusicHomeViewModel @Inject constructor(
         val cutoff = System.currentTimeMillis() - FORGOTTEN_CUTOFF_MS
         val forgotten = repository.getForgottenFavorites(cutoff, 20)
 
-        // 🌸 Quick Picks: favorites + forgotten + recent, shuffled for freshness
-        val quickPicks = (favorites + forgotten + recent)
-            .distinctBy { it.videoId }
-            .shuffled()
-            .take(20)
+        // 🌸 Quick Picks: Mix of personal + trending for variety
+        val quickPicks = run {
+            val personal = (favorites + forgotten + recent)
+                .distinctBy { it.videoId }
+                .shuffled()
+                .take(10)
+
+            // Add some trending/category songs for freshness
+            val trending = _uiState.value.categories
+                .flatMap { it.songs }
+                .distinctBy { it.videoId }
+                .filter { it !in personal }
+                .shuffled()
+                .take(10)
+
+            (personal + trending)
+                .distinctBy { it.videoId }
+                .shuffled()
+                .take(20)
+        }
+
         _uiState.value = _uiState.value.copy(
             favorites = favorites,
             quickPicks = quickPicks,
