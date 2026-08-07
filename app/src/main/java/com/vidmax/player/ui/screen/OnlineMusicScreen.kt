@@ -65,7 +65,6 @@ import com.vidmax.player.ui.components.ArtworkImage
 import com.vidmax.player.ui.components.CategorySkeletonRow
 import com.vidmax.player.ui.components.MeldChipsRow
 import com.vidmax.player.ui.components.MeldSpeedDialSection
-import com.vidmax.player.ui.components.SongCard
 import com.vidmax.player.ui.components.shimmer
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MusicHomeUiState
@@ -78,7 +77,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-// 🌸 Mood / Genre specs (Spotify-style without emojis)
+// 🌸 Mood / Genre specs (Spotify/Meld-style)
 data class PlaylistSpec(
     val title: String,
     val subtitle: String,
@@ -86,7 +85,6 @@ data class PlaylistSpec(
     val colors: List<Color>
 )
 
-// 🌸 Mood / Genre playlist state
 data class PlaylistDetailState(
     val spec: PlaylistSpec,
     val songs: List<SongItem> = emptyList(),
@@ -148,18 +146,16 @@ fun OnlineMusicScreen(
     var previousIndex by remember { mutableIntStateOf(0) }
     var previousScrollOffset by remember { mutableIntStateOf(0) }
 
-    // 🌸 Expandable search state (small header icon -> expandable search bar)
     var isSearchOpen by remember { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
 
-    // Scroll listener to hide/show top bar
     LaunchedEffect(listState) {
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
             .collectLatest { (index, offset) ->
                 if (index > previousIndex || (index == previousIndex && offset > previousScrollOffset + 15)) {
-                    isTopBarVisible = false // Scrolling down -> Hide
+                    isTopBarVisible = false
                 } else if (index < previousIndex || (index == previousIndex && offset < previousScrollOffset - 15)) {
-                    isTopBarVisible = true // Scrolling up -> Show
+                    isTopBarVisible = true
                 }
                 if (index == 0 && offset == 0) {
                     isTopBarVisible = true
@@ -171,6 +167,7 @@ fun OnlineMusicScreen(
 
     var playlistState by remember { mutableStateOf<PlaylistDetailState?>(null) }
     var selectedChip by rememberSaveable { mutableStateOf<String?>(null) }
+    
     BackHandler(enabled = playlistState != null || selectedChip != null || isSearchOpen) {
         when {
             playlistState != null -> playlistState = null
@@ -221,7 +218,6 @@ fun OnlineMusicScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             
-            // 🌸 Animated Hide/Show Header (small search icon) + Expandable Search Bar
             AnimatedVisibility(
                 visible = isTopBarVisible || isSearchActive || isSearchOpen,
                 enter = expandVertically(animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
@@ -256,7 +252,6 @@ fun OnlineMusicScreen(
                 }
             }
 
-            // 🌸 Search bar kholar shomoy keyboard auto-open
             LaunchedEffect(isSearchOpen) {
                 if (isSearchOpen) {
                     delay(250)
@@ -299,7 +294,6 @@ fun OnlineMusicScreen(
             }
         }
 
-        // Playlist Overlay
         AnimatedVisibility(
             visible = playlistState != null,
             enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(300)),
@@ -367,7 +361,6 @@ fun OnlineMusicScreen(
                 .padding(bottom = 170.dp, start = 16.dp, end = 16.dp)
         )
 
-        // 🌸 Meld-style Shuffle FAB
         androidx.compose.animation.AnimatedVisibility(
             visible = playerState.currentSong == null && playlistState == null,
             enter = androidx.compose.animation.scaleIn(animationSpec = tween(250)) +
@@ -443,17 +436,16 @@ private fun OnlineHeader(
             Text(
                 text = "VidMax",
                 fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        // 🌸 Choto search icon
         IconButton(onClick = onSearchClick) {
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = "Search",
                 tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(26.dp)
             )
         }
         IconButton(onClick = onSettingsClick) {
@@ -540,7 +532,6 @@ fun MeldOnlineHomeContent(
                     }
                 }
                 else -> {
-                    // 🌸 Meld-style chips row
                     item(key = "chips") {
                         MeldChipsRow(
                             chips = allCategories.map { it.title },
@@ -550,14 +541,13 @@ fun MeldOnlineHomeContent(
                         )
                     }
 
-                    // 🌸 Meld-style Speed Dial (shown only on the "For You" feed)
                     if (selectedChip == null && speedDialSongs.isNotEmpty()) {
                         item(key = "speed_dial_title") {
                             Text(
                                 text = "Speed Dial",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
                         item(key = "speed_dial") {
@@ -673,6 +663,7 @@ fun MeldOnlineHomeContent(
     }
 }
 
+// 🌸 Meld-Style Navigation Title
 @Composable
 fun NavigationTitle(
     title: String,
@@ -680,29 +671,37 @@ fun NavigationTitle(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f)
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
         if (onPlayAllClick != null) {
             val interactionSource = remember { MutableInteractionSource() }
             val isPressed by interactionSource.collectIsPressedAsState()
             val scale by animateFloatAsState(
-                targetValue = if (isPressed) 0.82f else 1f,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                targetValue = if (isPressed) 0.85f else 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy, 
+                    stiffness = Spring.StiffnessMedium
+                ),
                 label = "playAllScale"
             )
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(36.dp)
                     .scale(scale)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
@@ -713,53 +712,17 @@ fun NavigationTitle(
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Play all",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
     }
 }
 
+// 🌸 Meld-Style Song Card 
 @Composable
-fun QuickPicksSection(
-    songs: List<SongItem>,
-    onSongClick: (SongItem) -> Unit,
-    onPlayAllClick: () -> Unit,
-    index: Int
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .enterAnimation(index)
-    ) {
-        NavigationTitle(
-            title = "Quick Picks",
-            onPlayAllClick = onPlayAllClick,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        LazyHorizontalGrid(
-            rows = GridCells.Fixed(2),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(430.dp)   // ✅ age chilo 380.dp — ekhon text ar katbe na
-        ) {
-            items(songs, key = { it.videoId }) { song ->
-                QuickPickCard(
-                    song = song,
-                    onClick = { onSongClick(song) }
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(14.dp))
-    }
-}
-
-@Composable
-fun QuickPickCard(
+fun MeldSongCard(
     song: SongItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -767,13 +730,14 @@ fun QuickPickCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
+        targetValue = if (isPressed) 0.95f else 1f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
-        label = "quickPickScale"
+        label = "cardScale"
     )
+    
     Column(
         modifier = modifier
-            .width(140.dp)
+            .width(136.dp)
             .scale(scale)
             .clickable(
                 interactionSource = interactionSource,
@@ -804,7 +768,8 @@ fun QuickPickCard(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f))
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.4f)),
+                            startY = 100f
                         )
                     )
             )
@@ -823,20 +788,21 @@ fun QuickPickCard(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        
+        Spacer(modifier = Modifier.height(10.dp))
+        
         Text(
             text = song.title,
-            fontSize = 13.sp,
-            lineHeight = 16.sp,          // ✅ add
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = song.artist,
-            fontSize = 11.sp,
-            lineHeight = 14.sp,          // ✅ add
+            fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -844,7 +810,43 @@ fun QuickPickCard(
     }
 }
 
-// 🌸 Mood & Genres Spotify Style
+@Composable
+fun QuickPicksSection(
+    songs: List<SongItem>,
+    onSongClick: (SongItem) -> Unit,
+    onPlayAllClick: () -> Unit,
+    index: Int
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .enterAnimation(index)
+    ) {
+        NavigationTitle(
+            title = "Quick Picks",
+            onPlayAllClick = onPlayAllClick
+        )
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(2),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(390.dp) // Adjusted height for 136dp wide items
+        ) {
+            items(songs, key = { it.videoId }) { song ->
+                MeldSongCard(
+                    song = song,
+                    onClick = { onSongClick(song) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// 🌸 Mood & Genres (Meld/Spotify Grid Style)
 @Composable
 fun MoodAndGenresRow(
     onMoodClick: (PlaylistSpec) -> Unit,
@@ -857,41 +859,45 @@ fun MoodAndGenresRow(
     ) {
         NavigationTitle(
             title = "Mood & Genres",
-            onPlayAllClick = null,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            onPlayAllClick = null
         )
-        LazyRow(
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(2),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(170.dp) 
         ) {
             items(playlistSpecs) { spec ->
-                MoodAndGenresButton(
+                MeldMoodCard(
                     spec = spec,
                     onClick = { onMoodClick(spec) }
                 )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
-fun MoodAndGenresButton(
+fun MeldMoodCard(
     spec: PlaylistSpec,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.94f else 1f,
+        targetValue = if (isPressed) 0.92f else 1f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
         label = "moodScale"
     )
+    
     Box(
         modifier = Modifier
             .scale(scale)
-            .width(130.dp)
-            .height(75.dp)
+            .width(160.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(Brush.linearGradient(spec.colors))
             .clickable(
@@ -899,11 +905,11 @@ fun MoodAndGenresButton(
                 indication = null,
                 onClick = onClick
             )
-            .padding(12.dp)
+            .padding(16.dp)
     ) {
         Text(
             text = spec.title,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
             maxLines = 2,
@@ -928,21 +934,20 @@ fun MusicSectionRow(
     ) {
         NavigationTitle(
             title = title,
-            onPlayAllClick = onPlayAllClick,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            onPlayAllClick = onPlayAllClick
         )
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(songs.distinctBy { it.videoId }) { song ->
-                SongCard(
+                MeldSongCard(
                     song = song,
                     onClick = { onSongClick(song) }
                 )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -952,61 +957,63 @@ fun MeldHomeShimmer() {
         Box(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 6.dp)
-                .size(width = 90.dp, height = 16.dp)
+                .size(width = 120.dp, height = 24.dp)
                 .clip(RoundedCornerShape(6.dp))
                 .shimmer()
         )
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .size(width = 140.dp, height = 30.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .shimmer()
-        )
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         LazyHorizontalGrid(
             rows = GridCells.Fixed(2),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(430.dp)   // ✅ shimmer o match koro
+                .height(390.dp)
         ) {
             items(count = 8) {
                 QuickPickSkeleton()
             }
         }
+        Spacer(modifier = Modifier.height(24.dp))
         CategorySkeletonRow()
+        Spacer(modifier = Modifier.height(24.dp))
+        
         Box(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                .size(width = 130.dp, height = 18.dp)
+                .size(width = 140.dp, height = 24.dp)
                 .clip(RoundedCornerShape(6.dp))
                 .shimmer()
         )
-        LazyRow(
+        Spacer(modifier = Modifier.height(12.dp))
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(2),
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(170.dp)
         ) {
             items(count = 6) {
                 Box(
                     modifier = Modifier
-                        .width(130.dp)
-                        .height(75.dp)
+                        .width(160.dp)
+                        .fillMaxHeight()
                         .clip(RoundedCornerShape(8.dp))
                         .shimmer()
                 )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         CategorySkeletonRow()
     }
 }
 
 @Composable
 fun QuickPickSkeleton(modifier: Modifier = Modifier) {
-    Column(modifier = modifier.width(140.dp)) {
+    Column(modifier = modifier.width(136.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1014,19 +1021,19 @@ fun QuickPickSkeleton(modifier: Modifier = Modifier) {
                 .clip(RoundedCornerShape(12.dp))
                 .shimmer()
         )
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.7f)
-                .height(13.dp)
+                .fillMaxWidth(0.8f)
+                .height(14.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .shimmer()
         )
-        Spacer(modifier = Modifier.height(5.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.45f)
-                .height(11.dp)
+                .fillMaxWidth(0.5f)
+                .height(12.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .shimmer()
         )
@@ -1097,25 +1104,25 @@ fun MeldPlaylistDetailScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp)
-                            .background(Brush.linearGradient(state.spec.colors))
-                            .padding(20.dp),
+                            .height(200.dp)
+                            .background(Brush.verticalGradient(state.spec.colors))
+                            .padding(24.dp),
                         contentAlignment = Alignment.BottomStart
                     ) {
                         Column {
                             Text(
                                 text = state.spec.title,
-                                fontSize = 26.sp,
+                                fontSize = 32.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = "${state.spec.subtitle} • ${state.songs.size} songs",
-                                fontSize = 13.sp,
-                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.9f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -1126,20 +1133,21 @@ fun MeldPlaylistDetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Button(
                             onClick = onPlayAll,
-                            shape = RoundedCornerShape(24.dp)
+                            shape = RoundedCornerShape(24.dp),
+                            modifier = Modifier.height(48.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(22.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Play all")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Play all", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1170,7 +1178,7 @@ fun PlaylistSongRow(
                 else Color.Transparent
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         ArtworkImage(
@@ -1183,20 +1191,20 @@ fun PlaylistSongRow(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentScale = ContentScale.Crop
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
-                fontSize = 14.sp,
-                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 15.sp,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
                 color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = song.artist,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -1206,7 +1214,7 @@ fun PlaylistSongRow(
         if (isActive) {
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
@@ -1215,7 +1223,7 @@ fun PlaylistSongRow(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Playing",
                     tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
         } else {
@@ -1223,7 +1231,7 @@ fun PlaylistSongRow(
                 imageVector = Icons.Default.PlayArrow,
                 contentDescription = "Play",
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
     }
@@ -1234,7 +1242,7 @@ fun PlaylistSongRowSkeleton(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -1243,12 +1251,12 @@ fun PlaylistSongRowSkeleton(modifier: Modifier = Modifier) {
                 .clip(RoundedCornerShape(8.dp))
                 .shimmer()
         )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.6f)
-                    .height(14.dp)
+                    .fillMaxWidth(0.7f)
+                    .height(15.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .shimmer()
             )
@@ -1256,7 +1264,7 @@ fun PlaylistSongRowSkeleton(modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.4f)
-                    .height(11.dp)
+                    .height(12.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .shimmer()
             )
@@ -1264,7 +1272,6 @@ fun PlaylistSongRowSkeleton(modifier: Modifier = Modifier) {
     }
 }
 
-// 🌸 Redesigned Compact Search Bar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnlineSearchBar(
@@ -1281,30 +1288,30 @@ fun OnlineSearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .height(52.dp)
+            .height(56.dp)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-        placeholder = { Text("Search songs...", fontSize = 14.sp) },
+        placeholder = { Text("Search songs, artists...", fontSize = 15.sp) },
         leadingIcon = {
             if (onBackClick != null) {
                 IconButton(onClick = onBackClick) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Close search",
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             } else {
-                Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(24.dp))
             }
         },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = onClearClick) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(24.dp))
                 }
             }
         },
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
             focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1312,7 +1319,7 @@ fun OnlineSearchBar(
             focusedContainerColor = MaterialTheme.colorScheme.surface
         ),
         singleLine = true,
-        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp),
+        textStyle = LocalTextStyle.current.copy(fontSize = 15.sp),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSearchAction() })
     )
@@ -1335,9 +1342,10 @@ fun OnlineSearchContent(
             item {
                 Text(
                     text = "Suggested Results",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 16.dp, start = 4.dp)
                 )
             }
             itemsIndexed(searchState.searchResults) { index, song ->
@@ -1346,7 +1354,6 @@ fun OnlineSearchContent(
                     onClick = { onSongClick(song) },
                     modifier = Modifier.enterAnimation(index)
                 )
-                Spacer(modifier = Modifier.height(10.dp))
             }
         }
     } else if (!searchState.error.isNullOrBlank()) {
@@ -1365,7 +1372,7 @@ fun SongListItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1375,24 +1382,24 @@ fun SongListItem(
             fallbackUrl = song.thumbnailUrl,
             contentDescription = null,
             modifier = Modifier
-                .size(54.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .size(56.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentScale = ContentScale.Crop
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = song.artist,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -1402,7 +1409,7 @@ fun SongListItem(
             imageVector = Icons.Default.PlayArrow,
             contentDescription = "Play",
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(26.dp)
         )
     }
 }
@@ -1422,14 +1429,13 @@ fun OnlineMiniPlayer(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp)
+            .padding(horizontal = 8.dp)
             .padding(bottom = 8.dp)
-            .shadow(12.dp, RoundedCornerShape(50), spotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+            .shadow(16.dp, RoundedCornerShape(50), spotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1492,18 +1498,18 @@ fun OnlineMiniPlayer(
                                 ),
                                 contentDescription = "Play/Pause",
                                 tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = song.title,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1512,7 +1518,7 @@ fun OnlineMiniPlayer(
                 Text(
                     text = song.artist,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1524,9 +1530,8 @@ fun OnlineMiniPlayer(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(42.dp)
                         .clip(CircleShape)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                         .clickable { onNextClick() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -1534,14 +1539,13 @@ fun OnlineMiniPlayer(
                         painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_skip_next),
                         contentDescription = "Next Track",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(42.dp)
                         .clip(CircleShape)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                         .clickable { onToggleFavorite() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -1549,7 +1553,7 @@ fun OnlineMiniPlayer(
                         imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
                         tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
