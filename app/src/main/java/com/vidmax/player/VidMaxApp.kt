@@ -6,7 +6,6 @@ import android.os.Build
 import android.os.Process
 import android.util.Log
 import com.vidmax.player.ui.crash.CrashActivity
-import com.vidmax.player.utils.YoutubeCookie
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -14,6 +13,7 @@ import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
+import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.util.concurrent.TimeUnit
@@ -27,9 +27,11 @@ class VidMaxApp : Application() {
         Log.d("VidMaxApp", "VidMax Player initialized successfully!")
 
         // NewPipe init — OkHttp downloader দিয়ে
-        YoutubeCookie.value = getSharedPreferences("AppPrefs", MODE_PRIVATE)
-            .getString("youtube_cookie", "") ?: ""
         NewPipe.init(getDownloader())
+
+        // 🍎 iOS client ব্যবহার করি — WEB client-এর "Sign in to confirm you're
+        // not a bot" (LOGIN_REQUIRED) wall বাইপাস করে anonymous playback চলে।
+        YoutubeStreamExtractor.setFetchIosClient(true)
 
         // Crash handler
         Thread.setDefaultUncaughtExceptionHandler { _, exception ->
@@ -66,21 +68,15 @@ class VidMaxApp : Application() {
             .followSslRedirects(true)
             .addInterceptor { chain ->
                 // YouTube User-Agent না থাকলে request block হয়
-                val reqBuilder = chain.request().newBuilder()
+                val request = chain.request().newBuilder()
                     .header(
                         "User-Agent",
                         "Mozilla/5.0 (Linux; Android 12; Pixel 5) " +
                         "AppleWebKit/537.36 (KHTML, like Gecko) " +
                         "Chrome/120.0.0.0 Mobile Safari/537.36"
                     )
-
-                // Optional YouTube cookie — anonymous "not a bot" block এড়াতে
-                val host = chain.request().url.host
-                if (YoutubeCookie.value.isNotBlank() && isYouTubeHost(host)) {
-                    reqBuilder.header("Cookie", YoutubeCookie.value)
-                }
-
-                chain.proceed(reqBuilder.build())
+                    .build()
+                chain.proceed(request)
             }
             .build()
 
@@ -112,13 +108,5 @@ class VidMaxApp : Application() {
                 )
             }
         }
-    }
-
-    private fun isYouTubeHost(host: String): Boolean {
-        return host == "youtube.com" ||
-            host.endsWith(".youtube.com") ||
-            host.endsWith("youtube-nocookie.com") ||
-            host.endsWith("youtu.be") ||
-            host.endsWith("youtubei.googleapis.com")
     }
 }

@@ -1,8 +1,11 @@
 package com.vidmax.player.data.repository
 
 import com.vidmax.player.data.local.SongHistoryDao
+import com.vidmax.player.data.model.ArtistItem
 import com.vidmax.player.data.model.SongItem
 import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.channel.ChannelInfo
+import org.schabi.newpipe.extractor.channel.ChannelInfoItem
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
@@ -30,6 +33,45 @@ class MusicRepository @Inject constructor(
                 .filterIsInstance<StreamInfoItem>()
                 .mapNotNull { item -> toSongItem(item) }
                 .filter { isLikelySong(it.title) }
+                .distinctBy { it.videoId }
+        }
+    }
+
+    /**
+     * Artist (channel) খোঁজে — YouTube search-এর CHANNELS filter দিয়ে।
+     * MUSIC_ARTISTS filter-টা music.youtube.com-এ যায় যেখানে artist হিসেবে
+     * channelRenderer আসে না, তাই নরমাল CHANNELS filter-ই নির্ভরযোগ্য।
+     */
+    suspend fun searchChannels(query: String): Result<List<ArtistItem>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val extractor = ServiceList.YouTube.getSearchExtractor(
+                query,
+                listOf(YoutubeSearchQueryHandlerFactory.CHANNELS),
+                ""
+            )
+            extractor.fetchPage()
+
+            extractor.initialPage.items
+                .filterIsInstance<ChannelInfoItem>()
+                .mapNotNull { item -> toArtistItem(item) }
+                .distinctBy { it.channelId }
+        }
+    }
+
+    /**
+     * কোনো artist-এর (channel) latest গানগুলো আনে।
+     */
+    suspend fun getArtistSongs(channelId: String): Result<List<SongItem>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val channelUrl = "https://www.youtube.com/channel/$channelId"
+            val info = ChannelInfo.getInfo(ServiceList.YouTube, channelUrl)
+
+            info.relatedItems
+                .filterIsInstance<StreamInfoItem>()
+                .mapNotNull { item -> toSongItem(item) }
+                .filter { isLikelySong(it.title) }
+                .distinctBy { it.videoId }
+                .take(30)
         }
     }
 
@@ -58,7 +100,8 @@ class MusicRepository @Inject constructor(
                 .filterIsInstance<StreamInfoItem>()
                 .mapNotNull { item -> toSongItem(item) }
                 .filter { isLikelySong(it.title) }
-                .take(10)
+                .distinctBy { it.videoId }
+                .take(25)
         }
     }
 
@@ -150,6 +193,19 @@ class MusicRepository @Inject constructor(
         )
     }
 
+    private fun toArtistItem(item: ChannelInfoItem): ArtistItem? {
+        val channelId = item.url
+            .substringAfter("/channel/")
+            .substringBefore("/")
+        if (channelId.isBlank()) return null
+        return ArtistItem(
+            channelId = channelId,
+            name = item.name,
+            avatarUrl = item.avatars.firstOrNull()?.url ?: "",
+            subscriberCount = item.subscriberCount
+        )
+    }
+
     /**
      * Songs-only check: movie, natok (drama), jukebox ও compilation টাইটেল
      * বাদ দেয় — YouTube search-এ এগুলো এসে পড়লে play-যোগ্য গানই থাকে।
@@ -163,8 +219,15 @@ class MusicRepository @Inject constructor(
         private val NON_SONG_MARKERS = listOf(
             // Movies / trailers
             "movie", "film", "মুভি", "সিনেমা", "trailer", "teaser",
+            "movie song", "film song", "full movie", "মুভি গান",
+            // OST / soundtracks (সিনেমা/নাটকের গান)
+            "ost", "soundtrack", "title song", "title track",
             // Bengali drama (natok) / telefilm / serials
             "natok", "নাটক", "telefilm", "টেলিফিল্ম", "drama serial", "full episode",
+            "সিরিয়াল", "সিরিজ", "ধারাবাহিক", "পর্ব", "ওয়েব সিরিজ", "ওয়েবসিরিজ",
+            "বায়োস্কোপ", "অডিও নাটক", "নাটকের গান", "সিনেমার গান", "টাইটেল গান",
+            // Hindi serials / movies
+            "धारावाहिक", "सीरियल", "एपिसोड", "फिल्म", "सिनेमा", "मूवी",
             // Jukeboxes
             "jukebox", "জুকবক্স",
             // Compilations / nonstop mixes

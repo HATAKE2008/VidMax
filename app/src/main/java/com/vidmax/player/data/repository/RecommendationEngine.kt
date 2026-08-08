@@ -17,7 +17,7 @@ import com.vidmax.player.data.model.SongItem
  */
 object RecommendationEngine {
 
-    const val MAX_TRACKS_PER_ARTIST = 2
+    const val MAX_TRACKS_PER_ARTIST = 3
 
     /**
      * Generates a diversified queue of [limit] songs around [seedVideoId].
