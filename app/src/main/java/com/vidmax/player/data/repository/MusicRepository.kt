@@ -6,6 +6,8 @@ import com.vidmax.player.data.model.SongItem
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.channel.ChannelInfoItem
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
+import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler
 import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
@@ -65,8 +67,12 @@ class MusicRepository @Inject constructor(
         runCatching {
             val channelUrl = "https://www.youtube.com/channel/$channelId"
             val info = ChannelInfo.getInfo(ServiceList.YouTube, channelUrl)
+            val videosTab = info.tabs
+                .filterIsInstance<ListLinkHandler>()
+                .firstOrNull { it.url.contains("/videos") }
+                ?: return@runCatching emptyList()
 
-            info.relatedItems
+            ChannelTabInfo.getInfo(ServiceList.YouTube, videosTab).relatedItems
                 .filterIsInstance<StreamInfoItem>()
                 .mapNotNull { item -> toSongItem(item) }
                 .filter { isLikelySong(it.title) }
@@ -201,7 +207,7 @@ class MusicRepository @Inject constructor(
         return ArtistItem(
             channelId = channelId,
             name = item.name,
-            avatarUrl = item.avatars.firstOrNull()?.url ?: "",
+            avatarUrl = item.thumbnails.firstOrNull()?.url ?: "",
             subscriberCount = item.subscriberCount
         )
     }
