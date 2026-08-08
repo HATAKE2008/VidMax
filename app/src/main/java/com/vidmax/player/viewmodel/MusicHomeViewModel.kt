@@ -8,6 +8,7 @@ import com.vidmax.player.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -260,13 +261,15 @@ class MusicHomeViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(similarRecommendations = similar)
 
         // 🌸 Popular Artists — parallel CHANNELS search, random subset each refresh
-        val artistResults = artistQueries.shuffled().take(6).map { query ->
-            async { repository.searchChannels(query).getOrDefault(emptyList()) }
-        }.awaitAll()
-        val artists = artistResults.flatten()
-            .distinctBy { it.channelId }
-            .filter { it.name.isNotBlank() }
-            .take(12)
+        val artists = coroutineScope {
+            artistQueries.shuffled().take(6).map { query ->
+                async { repository.searchChannels(query).getOrDefault(emptyList()) }
+            }.awaitAll()
+                .flatten()
+                .distinctBy { it.channelId }
+                .filter { it.name.isNotBlank() }
+                .take(12)
+        }
         _uiState.value = _uiState.value.copy(artists = artists)
     }
 
