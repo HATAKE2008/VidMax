@@ -30,6 +30,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -61,7 +62,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
+import com.bumptech.glide.integration.compose.GlideImage
+import com.bumptech.glide.integration.compose.placeholder
 import com.vidmax.player.R
+import com.vidmax.player.data.model.ArtistItem
 import com.vidmax.player.data.model.SongItem
 import com.vidmax.player.ui.components.ArtworkImage
 import com.vidmax.player.ui.components.CategorySkeletonRow
@@ -88,6 +93,12 @@ data class PlaylistSpec(
 
 data class PlaylistDetailState(
     val spec: PlaylistSpec,
+    val songs: List<SongItem> = emptyList(),
+    val isLoading: Boolean = false
+)
+
+data class ArtistDetailState(
+    val artist: ArtistItem,
     val songs: List<SongItem> = emptyList(),
     val isLoading: Boolean = false
 )
@@ -168,11 +179,14 @@ fun OnlineMusicScreen(
     }
 
     var playlistState by remember { mutableStateOf<PlaylistDetailState?>(null) }
+    var artistState by remember { mutableStateOf<ArtistDetailState?>(null) }
     var selectedChip by rememberSaveable { mutableStateOf<String?>(null) }
+    var showProfileSheet by remember { mutableStateOf(false) }
     
-    BackHandler(enabled = playlistState != null || selectedChip != null || isSearchOpen) {
+    BackHandler(enabled = playlistState != null || artistState != null || selectedChip != null || isSearchOpen) {
         when {
             playlistState != null -> playlistState = null
+            artistState != null -> artistState = null
             selectedChip != null -> selectedChip = null
             else -> {
                 isSearchOpen = false
@@ -196,6 +210,17 @@ fun OnlineMusicScreen(
                 scope.launch { snackbarHostState.showSnackbar("Playlist is empty") }
             } else {
                 playlistState = PlaylistDetailState(spec = spec, songs = songs)
+            }
+        }
+    }
+
+    val handleArtistClick: (ArtistItem) -> Unit = { artist ->
+        artistState = ArtistDetailState(artist = artist, isLoading = true)
+        homeViewModel.fetchArtistSongs(artist.channelId) { songs ->
+            artistState = if (songs.isEmpty()) {
+                null
+            } else {
+                ArtistDetailState(artist = artist, songs = songs)
             }
         }
     }
@@ -246,6 +271,7 @@ fun OnlineMusicScreen(
                             )
                         } else {
                             OnlineHeader(
+                                onProfileClick = { showProfileSheet = true },
                                 onSearchClick = { isSearchOpen = true },
                                 onSettingsClick = onSettingsClick
                             )
@@ -279,6 +305,7 @@ fun OnlineMusicScreen(
                         onChipSelect = { selectedChip = it },
                         onSongClick = handleSongClick,
                         onPlaylistClick = handleMoodClick,
+                        onArtistClick = handleArtistClick,
                         onPlayQueue = handlePlayQueue,
                         onRandomize = {
                             val pool =
@@ -309,6 +336,35 @@ fun OnlineMusicScreen(
                     state = state,
                     activeVideoId = playerState.currentSong?.videoId,
                     onBack = { playlistState = null },
+                    onPlayAll = {
+                        if (state.songs.isNotEmpty()) {
+                            libraryViewModel?.pauseAudio()
+                            playerViewModel.playQueue(state.songs)
+                            focusManager.clearFocus()
+                        }
+                    },
+                    onSongClick = { index ->
+                        libraryViewModel?.pauseAudio()
+                        playerViewModel.playQueue(state.songs, index)
+                        focusManager.clearFocus()
+                    }
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = artistState != null,
+            enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeIn(tween(300)),
+            exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(280, easing = FastOutSlowInEasing)) + fadeOut(tween(280)),
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(6f)
+        ) {
+            artistState?.let { state ->
+                MeldArtistDetailScreen(
+                    state = state,
+                    activeVideoId = playerState.currentSong?.videoId,
+                    onBack = { artistState = null },
                     onPlayAll = {
                         if (state.songs.isNotEmpty()) {
                             libraryViewModel?.pauseAudio()
@@ -407,11 +463,20 @@ fun OnlineMusicScreen(
                 )
             }
         }
+
+        if (showProfileSheet) {
+            ProfileSheet(
+                favoriteCount = homeState.favorites.size,
+                recentlyPlayedCount = homeState.recentlyPlayed.size,
+                onDismiss = { showProfileSheet = false }
+            )
+        }
     }
 }
 
 @Composable
 private fun OnlineHeader(
+    onProfileClick: () -> Unit,
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
@@ -442,6 +507,14 @@ private fun OnlineHeader(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
+        IconButton(onClick = onProfileClick) {
+            Icon(
+                imageVector = Icons.Default.AccountCircle,
+                contentDescription = "Account",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(26.dp)
+            )
+        }
         IconButton(onClick = onSearchClick) {
             Icon(
                 imageVector = Icons.Default.Search,
@@ -461,6 +534,74 @@ private fun OnlineHeader(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfileSheet(
+    favoriteCount: Int,
+    recentlyPlayedCount: Int,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccountCircle,
+                contentDescription = null,
+                modifier = Modifier.size(72.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "You",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "VidMax is account-free — no YouTube login needed.",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                StatCard(label = "Favorites", value = favoriteCount.toString(), modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(12.dp))
+                StatCard(label = "Recently Played", value = recentlyPlayedCount.toString(), modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(vertical = 18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MeldOnlineHomeContent(
@@ -470,6 +611,7 @@ fun MeldOnlineHomeContent(
     onChipSelect: (String?) -> Unit,
     onSongClick: (SongItem) -> Unit,
     onPlaylistClick: (PlaylistSpec) -> Unit,
+    onArtistClick: (ArtistItem) -> Unit,
     onPlayQueue: (List<SongItem>) -> Unit,
     onRandomize: () -> Unit,
     onRefresh: () -> Unit
@@ -573,6 +715,17 @@ fun MeldOnlineHomeContent(
                             MoodAndGenresRow(
                                 onMoodClick = onPlaylistClick,
                                 index = 2
+                            )
+                        }
+                    }
+
+                    // Popular Artists
+                    if (selectedChip == null && homeState.artists.isNotEmpty()) {
+                        item(key = "popular_artists") {
+                            PopularArtistsRow(
+                                artists = homeState.artists,
+                                onArtistClick = onArtistClick,
+                                index = 3
                             )
                         }
                     }
@@ -1054,6 +1207,117 @@ fun MeldMoodCard(
 }
 
 @Composable
+fun PopularArtistsRow(
+    artists: List<ArtistItem>,
+    onArtistClick: (ArtistItem) -> Unit,
+    index: Int
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .enterAnimation(index)
+    ) {
+        NavigationTitle(
+            title = "Popular Artists",
+            onPlayAllClick = null
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(artists, key = { it.channelId }) { artist ->
+                ArtistCard(
+                    artist = artist,
+                    onClick = { onArtistClick(artist) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+fun ArtistCard(
+    artist: ArtistItem,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 600f),
+        label = "artistScale"
+    )
+    Column(
+        modifier = Modifier
+            .width(110.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            if (artist.avatarUrl.isNotBlank()) {
+                GlideImage(
+                    model = artist.avatarUrl,
+                    contentDescription = artist.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    loading = placeholder {
+                        Box(modifier = Modifier.fillMaxSize().shimmer())
+                    }
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = artist.name,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(3.dp))
+        Text(
+            text = formatSubscribers(artist.subscriberCount),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+    }
+}
+
+private fun formatSubscribers(count: Long): String {
+    return when {
+        count < 0 -> "Artist"
+        count >= 1_000_000_000 -> String.format("%.1fB", count / 1_000_000_000.0)
+        count >= 1_000_000 -> String.format("%.1fM", count / 1_000_000.0)
+        count >= 1_000 -> String.format("%.1fK", count / 1_000.0)
+        else -> count.toString()
+    }
+}
+
+@Composable
 fun MusicSectionRow(
     title: String,
     songs: List<SongItem>,
@@ -1277,6 +1541,160 @@ fun MeldPlaylistDetailScreen(
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = "${state.spec.subtitle} • ${state.songs.size} songs",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = onPlayAll,
+                            shape = RoundedCornerShape(24.dp),
+                            modifier = Modifier.height(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Play all", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                itemsIndexed(state.songs, key = { _, song -> song.videoId }) { index, song ->
+                    PlaylistSongRow(
+                        song = song,
+                        isActive = song.videoId == activeVideoId,
+                        onClick = { onSongClick(index) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+fun MeldArtistDetailScreen(
+    state: ArtistDetailState,
+    activeVideoId: String?,
+    onBack: () -> Unit,
+    onPlayAll: () -> Unit,
+    onSongClick: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                text = state.artist.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (state.isLoading) {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .shimmer()
+                    )
+                }
+                items(count = 8) {
+                    PlaylistSongRowSkeleton()
+                }
+            }
+        } else if (state.songs.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "No songs found",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 160.dp)
+            ) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        MaterialTheme.colorScheme.background
+                                    )
+                                )
+                            )
+                            .padding(24.dp),
+                        contentAlignment = Alignment.BottomStart
+                    ) {
+                        Column {
+                            Box(
+                                modifier = Modifier
+                                    .size(88.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (state.artist.avatarUrl.isNotBlank()) {
+                                    GlideImage(
+                                        model = state.artist.avatarUrl,
+                                        contentDescription = state.artist.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.AccountCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = state.artist.name,
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "${formatSubscribers(state.artist.subscriberCount)} • ${state.songs.size} songs",
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                                 maxLines = 1,

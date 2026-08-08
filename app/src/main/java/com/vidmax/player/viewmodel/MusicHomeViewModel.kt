@@ -2,6 +2,7 @@ package com.vidmax.player.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vidmax.player.data.model.ArtistItem
 import com.vidmax.player.data.model.SongItem
 import com.vidmax.player.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -34,6 +35,7 @@ data class MusicHomeUiState(
     val keepListening: List<SongItem> = emptyList(),
     val forgottenFavorites: List<SongItem> = emptyList(),
     val similarRecommendations: List<SimilarRecommendation> = emptyList(),
+    val artists: List<ArtistItem> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -127,6 +129,15 @@ class MusicHomeViewModel @Inject constructor(
         )
     )
 
+    // 🌸 Artist discovery — CHANNELS search query pool (প্রতিবার refresh-এ বদলায়)
+    private val artistQueries = listOf(
+        "arijit singh", "atif aslam", "neha kakkar", "shreya ghoshal",
+        "kishore kumar", "lata mangeshkar", "arnob", "habib wahid",
+        "jubin nautiyal", "darshan raval", "asif akbar", "ahmed humayun",
+        "nalam mahbub", "tahsan", "ayub bachchu", "james",
+        "rafi", "asha bhosle", "sonu nigam", "kumar sanu"
+    )
+
     init {
         loadHomeScreenData()
         observeHistory()
@@ -149,7 +160,7 @@ class MusicHomeViewModel @Inject constructor(
                     async {
                         val variants = queryVariants[spec.title] ?: listOf(spec.query)
                         val randomQuery = variants.random()
-                        repository.getCategorySongs(randomQuery).shuffled().take(20)
+                        repository.getCategorySongs(randomQuery).shuffled().take(30)
                     }
                 }.awaitAll()
 
@@ -230,23 +241,42 @@ class MusicHomeViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(dailyDiscover = discovered)
 
         // 🌸 Keep Listening: most played (heavy rotation), shuffled
-        val keepListening = mostPlayed.shuffled().take(12)
+        val keepListening = mostPlayed.shuffled().take(15)
         _uiState.value = _uiState.value.copy(keepListening = keepListening)
 
         // 🌸 Similar Recommendations: seeds from most-played -> related rows
         val simSeeds = mostPlayed
             .filter { it.artist.isNotBlank() }
             .shuffled()
-            .take(3)
+            .take(4)
         val similar = simSeeds.mapNotNull { seed ->
             val items = repository.getRelatedSongs(seed.videoId)
                 .getOrNull()
                 ?.shuffled()
-                ?.take(12)
+                ?.take(15)
                 .orEmpty()
             if (items.isEmpty()) null else SimilarRecommendation(seed = seed, items = items)
         }
         _uiState.value = _uiState.value.copy(similarRecommendations = similar)
+
+        // 🌸 Popular Artists — parallel CHANNELS search, random subset each refresh
+        val artistResults = artistQueries.shuffled().take(6).map { query ->
+            async { repository.searchChannels(query).getOrDefault(emptyList()) }
+        }.awaitAll()
+        val artists = artistResults.flatten()
+            .distinctBy { it.channelId }
+            .filter { it.name.isNotBlank() }
+            .take(12)
+        _uiState.value = _uiState.value.copy(artists = artists)
+    }
+
+    // 🌸 Artist detail → channel-এর latest গান (used by Online screen)
+    fun fetchArtistSongs(channelId: String, onSongs: (List<SongItem>) -> Unit) {
+        viewModelScope.launch {
+            repository.getArtistSongs(channelId)
+                .onSuccess { songs -> onSongs(songs) }
+                .onFailure { onSongs(emptyList()) }
+        }
     }
 
     // 🌸 Playlist card → fetch songs for the query (used by Online screen)
