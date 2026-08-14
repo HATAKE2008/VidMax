@@ -84,7 +84,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-// 🌸 Mood / Genre specs (Updated to match the screenshot)
+// 🌸 Mood / Genre specs
 data class PlaylistSpec(
     val title: String,
     val subtitle: String,
@@ -242,7 +242,11 @@ fun OnlineMusicScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
             
             AnimatedVisibility(
@@ -490,47 +494,50 @@ private fun OnlineHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 2.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = greeting,
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = "VidMax",
-                fontSize = 30.sp,
+                fontSize = 32.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.primary
             )
         }
-        IconButton(onClick = onProfileClick) {
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Account",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(26.dp)
-            )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            HeaderIconButton(icon = Icons.Default.AccountCircle, onClick = onProfileClick)
+            HeaderIconButton(icon = Icons.Default.Search, onClick = onSearchClick)
+            HeaderIconButton(icon = Icons.Default.Settings, onClick = onSettingsClick)
         }
-        IconButton(onClick = onSearchClick) {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = "Search",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(26.dp)
-            )
-        }
-        IconButton(onClick = onSettingsClick) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Settings",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(26.dp)
-            )
-        }
+    }
+}
+
+@Composable
+private fun HeaderIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }
 
@@ -541,7 +548,10 @@ private fun ProfileSheet(
     recentlyPlayedCount: Int,
     onDismiss: () -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -559,7 +569,8 @@ private fun ProfileSheet(
             Text(
                 text = "You",
                 fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -590,7 +601,8 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
         Text(
             text = value,
             fontSize = 24.sp,
-            fontWeight = FontWeight.ExtraBold
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
@@ -659,7 +671,8 @@ fun MeldOnlineHomeContent(
                             Text(
                                 text = "Something went wrong",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
@@ -685,7 +698,7 @@ fun MeldOnlineHomeContent(
                         )
                     }
 
-                    // 🌸 Recently Played Section (Moved to top, styled as list per screenshot)
+                    // 🌸 Recently Played Section (Top Position, styled with Outlined Pill button)
                     if (selectedChip == null && homeState.recentlyPlayed.isNotEmpty()) {
                         item(key = "recently_played") {
                             RecentlyPlayedSection(
@@ -704,6 +717,7 @@ fun MeldOnlineHomeContent(
                                 songs = quickPicks,
                                 onSongClick = onSongClick,
                                 onPlayAllClick = { onPlayQueue(quickPicks) },
+                                onShuffleClick = onRandomize,
                                 index = 1
                             )
                         }
@@ -753,7 +767,7 @@ fun MeldOnlineHomeContent(
                         }
                     }
 
-                    // Other Sections
+                    // Other Dynamic Sections
                     if (selectedChip == null) {
                         if (homeState.dailyDiscover.isNotEmpty()) {
                             item(key = "daily_discover") {
@@ -827,7 +841,7 @@ fun MeldOnlineHomeContent(
     }
 }
 
-// 🌸 Recently Played Section (Top Position, List Style)
+// 🌸 Recently Played Section (Matching Screenshot)
 @Composable
 fun RecentlyPlayedSection(
     songs: List<SongItem>,
@@ -840,7 +854,6 @@ fun RecentlyPlayedSection(
             .fillMaxWidth()
             .enterAnimation(index)
     ) {
-        // Custom Header for Recently Played to match screenshot
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -861,16 +874,22 @@ fun RecentlyPlayedSection(
                 modifier = Modifier.height(34.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play all",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = "Play all", 
                     fontSize = 13.sp, 
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
 
-        // Vertical list of up to 4 recent items
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             songs.take(4).forEach { song ->
                 MeldRecentListItem(
@@ -915,8 +934,8 @@ fun MeldRecentListItem(
             fallbackUrl = song.thumbnailUrl,
             contentDescription = null,
             modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .size(56.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentScale = ContentScale.Crop
         )
@@ -949,7 +968,89 @@ fun MeldRecentListItem(
     }
 }
 
-// 🌸 Standard Navigation Title
+// 🌸 Quick Picks Section (With Play & Shuffle Buttons)
+@Composable
+fun QuickPicksSection(
+    songs: List<SongItem>,
+    onSongClick: (SongItem) -> Unit,
+    onPlayAllClick: () -> Unit,
+    onShuffleClick: () -> Unit,
+    index: Int
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .enterAnimation(index)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Quick Picks",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f)
+            )
+            
+            // Play Button
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable(onClick = onPlayAllClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play all",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            // Shuffle Button
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable(onClick = onShuffleClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_shuffle),
+                    contentDescription = "Shuffle",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(2),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(420.dp) 
+        ) {
+            items(songs, key = { it.videoId }) { song ->
+                MeldSongCard(
+                    song = song,
+                    onClick = { onSongClick(song) }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// 🌸 Standard Section Navigation Title
 @Composable
 fun NavigationTitle(
     title: String,
@@ -987,7 +1088,7 @@ fun NavigationTitle(
                     .size(36.dp)
                     .scale(scale)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
@@ -998,7 +1099,7 @@ fun NavigationTitle(
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Play all",
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -1053,7 +1154,7 @@ fun MeldSongCard(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.4f)),
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f)),
                             startY = 100f
                         )
                     )
@@ -1094,42 +1195,6 @@ fun MeldSongCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-    }
-}
-
-@Composable
-fun QuickPicksSection(
-    songs: List<SongItem>,
-    onSongClick: (SongItem) -> Unit,
-    onPlayAllClick: () -> Unit,
-    index: Int
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .enterAnimation(index)
-    ) {
-        NavigationTitle(
-            title = "Quick Picks",
-            onPlayAllClick = onPlayAllClick
-        )
-        LazyHorizontalGrid(
-            rows = GridCells.Fixed(2),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(420.dp) 
-        ) {
-            items(songs, key = { it.videoId }) { song ->
-                MeldSongCard(
-                    song = song,
-                    onClick = { onSongClick(song) }
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -1353,7 +1418,7 @@ fun MusicSectionRow(
 fun MeldHomeShimmer() {
     Column(modifier = Modifier.fillMaxWidth()) {
         
-        // 🌸 Shimmer for Recently Played (Now at the top)
+        // 🌸 Shimmer for Recently Played
         Box(
             modifier = Modifier
                 .padding(horizontal = 16.dp, vertical = 6.dp)
@@ -1483,6 +1548,7 @@ fun MeldPlaylistDetailScreen(
                 text = state.spec.title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1559,7 +1625,11 @@ fun MeldPlaylistDetailScreen(
                         Button(
                             onClick = onPlayAll,
                             shape = RoundedCornerShape(24.dp),
-                            modifier = Modifier.height(48.dp)
+                            modifier = Modifier.height(48.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
@@ -1614,6 +1684,7 @@ fun MeldArtistDetailScreen(
                 text = state.artist.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1713,7 +1784,11 @@ fun MeldArtistDetailScreen(
                         Button(
                             onClick = onPlayAll,
                             shape = RoundedCornerShape(24.dp),
-                            modifier = Modifier.height(48.dp)
+                            modifier = Modifier.height(48.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
@@ -1871,17 +1946,28 @@ fun OnlineSearchBar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Close search",
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             } else {
-                Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(24.dp))
+                Icon(
+                    Icons.Default.Search, 
+                    contentDescription = "Search", 
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
             }
         },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = onClearClick) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(24.dp))
+                    Icon(
+                        Icons.Default.Clear, 
+                        contentDescription = "Clear", 
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         },
@@ -1893,7 +1979,7 @@ fun OnlineSearchBar(
             focusedContainerColor = MaterialTheme.colorScheme.surface
         ),
         singleLine = true,
-        textStyle = LocalTextStyle.current.copy(fontSize = 15.sp),
+        textStyle = LocalTextStyle.current.copy(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSearchAction() })
     )
@@ -1906,7 +1992,7 @@ fun OnlineSearchContent(
 ) {
     if (searchState.isSearching) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
     } else if (searchState.searchResults.isNotEmpty()) {
         LazyColumn(
@@ -1967,6 +2053,7 @@ fun SongListItem(
                 text = song.title,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -2126,7 +2213,7 @@ fun OnlineMiniPlayer(
                     Icon(
                         imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = "Favorite",
-                        tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurface,
+                        tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(24.dp)
                     )
                 }
