@@ -12,6 +12,7 @@ import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.provider.MediaStore
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
@@ -137,8 +138,14 @@ fun PlayerControls(
     val currentBrightnessPercent by viewModel.currentBrightnessPercent.collectAsState()
 
     // ---- MPVEx preference switches (stored in vidmax_settings) ----
-    var verticalGesturesEnabled by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("gesture_vertical_enabled", true))
+    var brightnessGestureEnabled by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("gesture_brightness_enabled", true))
+    }
+    var volumeGestureEnabled by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("gesture_volume_enabled", true))
+    }
+    var pinchZoomEnabled by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("pinch_to_zoom_enabled", true))
     }
     var horizontalSeekEnabled by remember {
         mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("gesture_horizontal_seek_enabled", true))
@@ -146,8 +153,56 @@ fun PlayerControls(
     var doubleTapSeekSeconds by remember {
         mutableIntStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getInt("double_tap_seek_seconds", 10))
     }
+    var reverseDoubleTap by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("reverse_double_tap", false))
+    }
+    var seekGestureSensitivity by remember {
+        mutableIntStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getInt("seek_gesture_sensitivity", 60000))
+    }
+    var singleTapAction by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getString("single_tap_action", "toggle_controls") ?: "toggle_controls")
+    }
+    var preventSeekbarTap by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("prevent_seekbar_tap", false))
+    }
     var autoHideControls by remember {
         mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("auto_hide_controls", true))
+    }
+    var controlsHideDelayMs by remember {
+        mutableIntStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getInt("controls_hide_delay_ms", 3000))
+    }
+    var showControlsOnPlay by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("show_controls_on_play", true))
+    }
+    var bottomControlsBelowSeekbar by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("bottom_controls_below_seekbar", false))
+    }
+    var ambientMode by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("ambient_mode", false))
+    }
+    var keepScreenOn by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("keep_screen_on", false))
+    }
+    var hideButtonBackground by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("hide_button_background", false))
+    }
+    var reduceMotion by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("reduce_motion", false))
+    }
+    var whiteSeekbar by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("white_seekbar", false))
+    }
+    var showDoubleTapIndicator by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("show_double_tap_indicator", true))
+    }
+    var mpvVideoSync by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getString("mpv_video_sync", "audio") ?: "audio")
+    }
+    var mpvInterpolation by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("mpv_interpolation", false))
+    }
+    var mpvAudioPitchCorrection by remember {
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("mpv_audio_pitch_correction", true))
     }
 
     val savePrefs: (String, Any) -> Unit = { key, value ->
@@ -232,10 +287,41 @@ fun PlayerControls(
     var currentMpvAudioId by remember { mutableStateOf("1") }
 
     // Auto-hide controls (MPVEx style)
-    LaunchedEffect(controlsVisible, isLocked, autoHideControls) {
-        if (controlsVisible && !isLocked && autoHideControls) {
-            delay(3000)
+    LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs) {
+        if (controlsVisible && !isLocked && autoHideControls && controlsHideDelayMs > 0) {
+            delay(controlsHideDelayMs.toLong())
             viewModel.setControlsVisible(false)
+        }
+    }
+
+    // Show controls when playback starts
+    LaunchedEffect(isPlaying, showControlsOnPlay) {
+        if (isPlaying && showControlsOnPlay && !isLocked) {
+            viewModel.setControlsVisible(true)
+        }
+    }
+
+    // Ambient mode + keep screen on
+    LaunchedEffect(ambientMode, keepScreenOn) {
+        val act = activity ?: return@LaunchedEffect
+        val attributes = act.window.attributes
+        attributes.screenDimAmount = if (ambientMode) 0.85f else 0f
+        act.window.attributes = attributes
+        if (keepScreenOn) {
+            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    // Apply MPV advanced options on engine load / when toggled
+    LaunchedEffect(currentEngine, mpvVideoSync, mpvInterpolation, mpvAudioPitchCorrection) {
+        if (currentEngine == PlayerEngine.MPV) {
+            try {
+                MPVLib.setPropertyString("video-sync", mpvVideoSync)
+                MPVLib.setPropertyBoolean("interpolation", mpvInterpolation)
+                MPVLib.setPropertyBoolean("audio-pitch-correction", mpvAudioPitchCorrection)
+            } catch (e: Exception) {}
         }
     }
 
@@ -698,20 +784,70 @@ fun PlayerControls(
     if (showSettingsPanel) {
         PlayerSettingsSheet(
             viewModel = viewModel,
-            currentPath = currentPath,
-            audioBoostEnabled = localBoostEnabled,
-            currentPlaybackSpeed = currentPlaybackSpeed,
-            onSpeedChange = onSpeedChange,
-            videoScale = videoScale,
-            onVideoScaleChange = onVideoScaleChange,
-            exoPlayer = exoPlayer,
-            bgPlayEnabled = bgPlayEnabled,
-            onBgPlayToggle = onBgPlayToggle,
-            onPickSubtitle = onPickSubtitle,
-            verticalGesturesEnabled = verticalGesturesEnabled,
-            onVerticalGesturesChange = {
-                verticalGesturesEnabled = it
-                savePrefs("gesture_vertical_enabled", it)
+            autoHideControls = autoHideControls,
+            onAutoHideControlsChange = {
+                autoHideControls = it
+                savePrefs("auto_hide_controls", it)
+            },
+            controlsHideDelayMs = controlsHideDelayMs,
+            onControlsHideDelayChange = {
+                controlsHideDelayMs = it
+                savePrefs("controls_hide_delay_ms", it)
+            },
+            showControlsOnPlay = showControlsOnPlay,
+            onShowControlsOnPlayChange = {
+                showControlsOnPlay = it
+                savePrefs("show_controls_on_play", it)
+            },
+            bottomControlsBelowSeekbar = bottomControlsBelowSeekbar,
+            onBottomControlsBelowSeekbarChange = {
+                bottomControlsBelowSeekbar = it
+                savePrefs("bottom_controls_below_seekbar", it)
+            },
+            ambientMode = ambientMode,
+            onAmbientModeChange = {
+                ambientMode = it
+                savePrefs("ambient_mode", it)
+            },
+            keepScreenOn = keepScreenOn,
+            onKeepScreenOnChange = {
+                keepScreenOn = it
+                savePrefs("keep_screen_on", it)
+            },
+            hideButtonBackground = hideButtonBackground,
+            onHideButtonBackgroundChange = {
+                hideButtonBackground = it
+                savePrefs("hide_button_background", it)
+            },
+            reduceMotion = reduceMotion,
+            onReduceMotionChange = {
+                reduceMotion = it
+                savePrefs("reduce_motion", it)
+            },
+            whiteSeekbar = whiteSeekbar,
+            onWhiteSeekbarChange = {
+                whiteSeekbar = it
+                savePrefs("white_seekbar", it)
+            },
+            showDoubleTapIndicator = showDoubleTapIndicator,
+            onShowDoubleTapIndicatorChange = {
+                showDoubleTapIndicator = it
+                savePrefs("show_double_tap_indicator", it)
+            },
+            brightnessGestureEnabled = brightnessGestureEnabled,
+            onBrightnessGestureChange = {
+                brightnessGestureEnabled = it
+                savePrefs("gesture_brightness_enabled", it)
+            },
+            volumeGestureEnabled = volumeGestureEnabled,
+            onVolumeGestureChange = {
+                volumeGestureEnabled = it
+                savePrefs("gesture_volume_enabled", it)
+            },
+            pinchZoomEnabled = pinchZoomEnabled,
+            onPinchZoomChange = {
+                pinchZoomEnabled = it
+                savePrefs("pinch_to_zoom_enabled", it)
             },
             horizontalSeekEnabled = horizontalSeekEnabled,
             onHorizontalSeekChange = {
@@ -723,21 +859,42 @@ fun PlayerControls(
                 doubleTapSeekSeconds = it
                 savePrefs("double_tap_seek_seconds", it)
             },
-            autoHideControls = autoHideControls,
-            onAutoHideControlsChange = {
-                autoHideControls = it
-                savePrefs("auto_hide_controls", it)
+            reverseDoubleTap = reverseDoubleTap,
+            onReverseDoubleTapChange = {
+                reverseDoubleTap = it
+                savePrefs("reverse_double_tap", it)
             },
-            onEngineChange = toggleEngine,
+            seekGestureSensitivity = seekGestureSensitivity,
+            onSeekGestureSensitivityChange = {
+                seekGestureSensitivity = it
+                savePrefs("seek_gesture_sensitivity", it)
+            },
+            singleTapAction = singleTapAction,
+            onSingleTapActionChange = {
+                singleTapAction = it
+                savePrefs("single_tap_action", it)
+            },
+            preventSeekbarTap = preventSeekbarTap,
+            onPreventSeekbarTapChange = {
+                preventSeekbarTap = it
+                savePrefs("prevent_seekbar_tap", it)
+            },
+            mpvVideoSync = mpvVideoSync,
+            onMpvVideoSyncChange = {
+                mpvVideoSync = it
+                savePrefs("mpv_video_sync", it)
+            },
+            mpvInterpolation = mpvInterpolation,
+            onMpvInterpolationChange = {
+                mpvInterpolation = it
+                savePrefs("mpv_interpolation", it)
+            },
+            mpvAudioPitchCorrection = mpvAudioPitchCorrection,
+            onMpvAudioPitchCorrectionChange = {
+                mpvAudioPitchCorrection = it
+                savePrefs("mpv_audio_pitch_correction", it)
+            },
             onOpenDecoder = { showSettingsPanel = false; showDecoderMenu = true },
-            onOpenTimer = { showSettingsPanel = false; showTimerDialog = true },
-            onOpenZoom = { showSettingsPanel = false; showZoomSheet = true },
-            onOpenAspect = { showSettingsPanel = false; showAspectSheet = true },
-            onOpenSpeedSync = { showSettingsPanel = false; showSyncMenu = true },
-            onOpenAudio = { showSettingsPanel = false; showAudioMenu = true },
-            onOpenSubtitle = { showSettingsPanel = false; showSubtitleMenu = true },
-            onRotateScreen = toggleScreenRotation,
-            onToggleImmersive = toggleImmersive,
             onDismiss = { showSettingsPanel = false }
         )
     }
@@ -779,7 +936,7 @@ fun PlayerControls(
                         val pressed = event.changes.filter { it.pressed }
 
                         // ---- Two finger pinch / pan (smooth zoom) ----
-                        if (pressed.size >= 2) {
+                        if (pressed.size >= 2 && pinchZoomEnabled) {
                             if (isDraggingLocal) {
                                 isDraggingLocal = false
                                 isDragging = false
@@ -859,7 +1016,7 @@ fun PlayerControls(
 
                                 when (dragType) {
                                     1 -> {
-                                        if (verticalGesturesEnabled) {
+                                        if (brightnessGestureEnabled) {
                                             if (activity != null) {
                                                 val attributes = activity.window.attributes
                                                 var currentBrightness = attributes.screenBrightness
@@ -873,7 +1030,7 @@ fun PlayerControls(
                                         }
                                     }
                                     2 -> {
-                                        if (verticalGesturesEnabled) {
+                                        if (volumeGestureEnabled) {
                                             val dragSensitivity = 150f
                                             volumeAccumulator += (-dragAmount.y / size.height) * dragSensitivity
                                             val maxAllowedVol = if (localBoostEnabled) 200f else 100f
@@ -905,7 +1062,7 @@ fun PlayerControls(
                                     4 -> {
                                         if (horizontalSeekEnabled) {
                                             seekAccumulator += dragAmount.x
-                                            val seekSensitivity = 60000f
+                                            val seekSensitivity = seekGestureSensitivity.toFloat()
                                             val msPerPixel = seekSensitivity / size.width
                                             targetSeekPosition = (currentPosition + (seekAccumulator * msPerPixel).toLong()).coerceIn(0L, duration)
                                             viewModel.setGestureIndicator(4, targetSeekPosition.toFloat())
@@ -951,32 +1108,40 @@ fun PlayerControls(
                 if (!isLocked) {
                     detectTapGestures(
                         onDoubleTap = { offset ->
-                            if (offset.y > size.height - bottomDeadZonePx) return@detectTapGestures
+                            if (preventSeekbarTap && offset.y > size.height - bottomDeadZonePx) return@detectTapGestures
                             val third = size.width / 3f
                             val seekMs = doubleTapSeekSeconds * 1000L
-                            when {
-                                offset.x < third -> {
-                                    val target = (currentPosition - seekMs).coerceAtLeast(0L)
-                                    onSeek(target)
-                                    viewModel.setCurrentPosition(target)
-                                    showDoubleTapRipple = -1
-                                }
-                                offset.x > third * 2f -> {
-                                    val target = (currentPosition + seekMs).coerceAtMost(duration)
-                                    onSeek(target)
-                                    viewModel.setCurrentPosition(target)
-                                    showDoubleTapRipple = 1
-                                }
-                                else -> onPlayPause()
+                            val targetPosition = when {
+                                offset.x < third -> (currentPosition - seekMs).coerceAtLeast(0L)
+                                offset.x > third * 2f -> (currentPosition + seekMs).coerceAtMost(duration)
+                                else -> -1L
                             }
-                            if (offset.x < third || offset.x > third * 2f) {
-                                coroutineScope.launch {
-                                    delay(600)
-                                    showDoubleTapRipple = 0
+                            if (targetPosition >= 0L) {
+                                val target = targetPosition
+                                onSeek(target)
+                                viewModel.setCurrentPosition(target)
+                                if (showDoubleTapIndicator) {
+                                    showDoubleTapRipple = if (offset.x < third) -1 else 1
+                                    coroutineScope.launch {
+                                        delay(600)
+                                        showDoubleTapRipple = 0
+                                    }
+                                }
+                            } else {
+                                if (reverseDoubleTap) {
+                                    onPlayPause()
+                                } else {
+                                    viewModel.setControlsVisible(!controlsVisible)
                                 }
                             }
                         },
-                        onTap = { viewModel.setControlsVisible(!controlsVisible) }
+                        onTap = {
+                            if (preventSeekbarTap && it.y > size.height - bottomDeadZonePx) return@detectTapGestures
+                            when (singleTapAction) {
+                                "play_pause" -> onPlayPause()
+                                else -> viewModel.setControlsVisible(!controlsVisible)
+                            }
+                        }
                     )
                 } else {
                     detectTapGestures(onTap = { viewModel.setControlsVisible(true) })
@@ -1317,189 +1482,305 @@ fun PlayerControls(
                             .padding(bottom = 20.dp, start = leftSafePadding, end = rightSafePadding),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Scrollable MPVEx-style bottom button row
-                        val scrollState = rememberScrollState()
-                        LaunchedEffect(scrollState.isScrollInProgress) {
-                            if (scrollState.isScrollInProgress) {
-                                while (scrollState.isScrollInProgress) {
-                                    viewModel.setControlsVisible(true)
-                                    delay(1000)
-                                }
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            MpvCircleButton(
-                                icon = if (isLocked) Icons.Default.Lock else Icons.Outlined.LockOpen,
-                                contentDescription = "Lock",
-                                onClick = { viewModel.toggleLock() },
-                                size = 42.dp,
-                                active = isLocked
+                        if (bottomControlsBelowSeekbar) {
+                            SeekBarRow(
+                                currentPosition = currentPosition,
+                                duration = duration,
+                                whiteSeekbar = whiteSeekbar,
+                                reduceMotion = reduceMotion,
+                                onSeek = onSeek,
+                                onPositionChange = viewModel::setCurrentPosition
                             )
-                            MpvCircleButton(
-                                icon = if (bgPlayEnabled) Icons.Outlined.HeadsetOff else Icons.Outlined.Headset,
-                                contentDescription = "Background playback",
-                                onClick = { onBgPlayToggle(!bgPlayEnabled) },
-                                size = 42.dp,
-                                active = bgPlayEnabled
+                            BottomControlsScrollRow(
+                                isLocked = isLocked,
+                                bgPlayEnabled = bgPlayEnabled,
+                                videoScale = videoScale,
+                                currentPlaybackSpeed = currentPlaybackSpeed,
+                                loopMode = loopMode,
+                                localBoostEnabled = localBoostEnabled,
+                                sleepTimerMinutes = sleepTimerMinutes,
+                                showImmersive = showImmersive,
+                                hideBackground = hideButtonBackground,
+                                onToggleLock = { viewModel.toggleLock() },
+                                onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
+                                onRotate = toggleScreenRotation,
+                                onZoom = { showZoomSheet = true },
+                                onAspect = { showAspectSheet = true },
+                                onSpeed = { showSyncMenu = true },
+                                onRepeat = { viewModel.cycleLoopMode() },
+                                onBoost = toggleAudioBoost,
+                                onTimer = { showTimerDialog = true },
+                                onImmersive = toggleImmersive,
+                                onKeepVisible = { viewModel.setControlsVisible(true) }
                             )
-                            MpvCircleButton(
-                                icon = Icons.Outlined.ScreenRotation,
-                                contentDescription = "Rotate",
-                                onClick = toggleScreenRotation,
-                                size = 42.dp
+                        } else {
+                            BottomControlsScrollRow(
+                                isLocked = isLocked,
+                                bgPlayEnabled = bgPlayEnabled,
+                                videoScale = videoScale,
+                                currentPlaybackSpeed = currentPlaybackSpeed,
+                                loopMode = loopMode,
+                                localBoostEnabled = localBoostEnabled,
+                                sleepTimerMinutes = sleepTimerMinutes,
+                                showImmersive = showImmersive,
+                                hideBackground = hideButtonBackground,
+                                onToggleLock = { viewModel.toggleLock() },
+                                onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
+                                onRotate = toggleScreenRotation,
+                                onZoom = { showZoomSheet = true },
+                                onAspect = { showAspectSheet = true },
+                                onSpeed = { showSyncMenu = true },
+                                onRepeat = { viewModel.cycleLoopMode() },
+                                onBoost = toggleAudioBoost,
+                                onTimer = { showTimerDialog = true },
+                                onImmersive = toggleImmersive,
+                                onKeepVisible = { viewModel.setControlsVisible(true) }
                             )
-                            MpvCircleButton(
-                                icon = Icons.Outlined.ZoomIn,
-                                contentDescription = "Zoom",
-                                onClick = { showZoomSheet = true },
-                                size = 42.dp,
-                                active = videoScale != 1f
-                            )
-                            MpvCircleButton(
-                                icon = Icons.Outlined.AspectRatio,
-                                contentDescription = "Aspect ratio",
-                                onClick = { showAspectSheet = true },
-                                size = 42.dp
-                            )
-                            MpvCircleButton(
-                                icon = Icons.Outlined.Speed,
-                                contentDescription = "Playback speed",
-                                onClick = { showSyncMenu = true },
-                                size = 42.dp,
-                                active = currentPlaybackSpeed != 1f
-                            )
-                            MpvCircleButton(
-                                icon = if (loopMode == LoopMode.ONE) Icons.Default.RepeatOne else Icons.Outlined.Repeat,
-                                contentDescription = "Repeat",
-                                onClick = { viewModel.cycleLoopMode() },
-                                size = 42.dp,
-                                active = loopMode != LoopMode.NONE
-                            )
-                            MpvCircleButton(
-                                icon = Icons.Outlined.VolumeUp,
-                                contentDescription = "Volume boost",
-                                onClick = toggleAudioBoost,
-                                size = 42.dp,
-                                active = localBoostEnabled
-                            )
-                            MpvCircleButton(
-                                icon = Icons.Outlined.Timer,
-                                contentDescription = "Sleep timer",
-                                onClick = { showTimerDialog = true },
-                                size = 42.dp,
-                                active = sleepTimerMinutes > 0
-                            )
-                            MpvCircleButton(
-                                icon = if (showImmersive) Icons.Default.Fullscreen else Icons.Default.FullscreenExit,
-                                contentDescription = "Fullscreen",
-                                onClick = toggleImmersive,
-                                size = 42.dp
-                            )
-                        }
-
-                        // ==================== SEEK BAR ====================
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            var isDraggingSlider by remember { mutableStateOf(false) }
-                            var sliderDragValue by remember { mutableFloatStateOf(0f) }
-                            val safeDuration = if (duration > 0) duration else 1L
-                            val actualProgress = (currentPosition.toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
-                            val displayProgress = if (isDraggingSlider) sliderDragValue else actualProgress
-                            val displayPosition = if (isDraggingSlider) (sliderDragValue * safeDuration).toLong() else currentPosition
-                            val animatedProgress by animateFloatAsState(
-                                targetValue = displayProgress,
-                                animationSpec = if (isDraggingSlider) snap() else tween(100, easing = LinearEasing),
-                                label = "seekProgress"
-                            )
-
-                            Text(
-                                formatTimeHelper(displayPosition),
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-
-                            val primaryAccentColor = MaterialTheme.colorScheme.primary
-                            val primaryTrackBgColor = primaryAccentColor.copy(alpha = 0.3f)
-
-                            BoxWithConstraints(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 12.dp)
-                                    .height(36.dp)
-                                    .pointerInput(safeDuration) {
-                                        detectHorizontalDragGestures(
-                                            onDragStart = { offset ->
-                                                isDraggingSlider = true
-                                                sliderDragValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                            },
-                                            onDragEnd = {
-                                                val targetPos = (sliderDragValue * safeDuration).toLong()
-                                                onSeek(targetPos)
-                                                viewModel.setCurrentPosition(targetPos)
-                                                isDraggingSlider = false
-                                            },
-                                            onDragCancel = { isDraggingSlider = false },
-                                            onHorizontalDrag = { change, _ ->
-                                                change.consume()
-                                                sliderDragValue = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                            }
-                                        )
-                                    }
-                                    .pointerInput(safeDuration) {
-                                        detectTapGestures(onTap = { offset ->
-                                            val tapValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                                            val targetPos = (tapValue * safeDuration).toLong()
-                                            onSeek(targetPos)
-                                            viewModel.setCurrentPosition(targetPos)
-                                        })
-                                    },
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                val thumbWidth = 4.dp
-                                val thumbHeight = 18.dp
-                                val trackHeight = 8.dp
-                                val thumbCenter = maxWidth * animatedProgress
-                                val thumbOffset = (thumbCenter - (thumbWidth / 2)).coerceIn(0.dp, maxWidth - thumbWidth)
-
-                                Box(
-                                    modifier = Modifier.align(Alignment.Center)
-                                        .fillMaxWidth()
-                                        .height(trackHeight)
-                                        .clip(CircleShape)
-                                        .background(primaryTrackBgColor)
-                                )
-                                val activeTrackWidth = (thumbCenter - 4.dp).coerceAtLeast(0.dp)
-                                Box(
-                                    modifier = Modifier.align(Alignment.CenterStart)
-                                        .width(activeTrackWidth)
-                                        .height(trackHeight)
-                                        .clip(CircleShape)
-                                        .background(primaryAccentColor)
-                                )
-                                Box(
-                                    modifier = Modifier.align(Alignment.CenterStart)
-                                        .offset(x = thumbOffset)
-                                        .width(thumbWidth)
-                                        .height(thumbHeight)
-                                        .clip(CircleShape)
-                                        .background(primaryAccentColor)
-                                )
-                            }
-                            Text(
-                                formatTimeHelper(duration),
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
+                            SeekBarRow(
+                                currentPosition = currentPosition,
+                                duration = duration,
+                                whiteSeekbar = whiteSeekbar,
+                                reduceMotion = reduceMotion,
+                                onSeek = onSeek,
+                                onPositionChange = viewModel::setCurrentPosition
                             )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+// ============================================================
+// Scrollable bottom button row (MPVEx-style)
+// ============================================================
+@Composable
+private fun BottomControlsScrollRow(
+    isLocked: Boolean,
+    bgPlayEnabled: Boolean,
+    videoScale: Float,
+    currentPlaybackSpeed: Float,
+    loopMode: LoopMode,
+    localBoostEnabled: Boolean,
+    sleepTimerMinutes: Int,
+    showImmersive: Boolean,
+    hideBackground: Boolean,
+    onToggleLock: () -> Unit,
+    onToggleBgPlay: () -> Unit,
+    onRotate: () -> Unit,
+    onZoom: () -> Unit,
+    onAspect: () -> Unit,
+    onSpeed: () -> Unit,
+    onRepeat: () -> Unit,
+    onBoost: () -> Unit,
+    onTimer: () -> Unit,
+    onImmersive: () -> Unit,
+    onKeepVisible: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+    LaunchedEffect(scrollState.isScrollInProgress) {
+        if (scrollState.isScrollInProgress) {
+            while (scrollState.isScrollInProgress) {
+                onKeepVisible()
+                delay(1000)
+            }
+        }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        MpvCircleButton(
+            icon = if (isLocked) Icons.Default.Lock else Icons.Outlined.LockOpen,
+            contentDescription = "Lock",
+            onClick = onToggleLock,
+            size = 42.dp,
+            active = isLocked,
+            hideBackground = hideBackground
+        )
+        MpvCircleButton(
+            icon = if (bgPlayEnabled) Icons.Outlined.HeadsetOff else Icons.Outlined.Headset,
+            contentDescription = "Background playback",
+            onClick = onToggleBgPlay,
+            size = 42.dp,
+            active = bgPlayEnabled,
+            hideBackground = hideBackground
+        )
+        MpvCircleButton(
+            icon = Icons.Outlined.ScreenRotation,
+            contentDescription = "Rotate",
+            onClick = onRotate,
+            size = 42.dp,
+            hideBackground = hideBackground
+        )
+        MpvCircleButton(
+            icon = Icons.Outlined.ZoomIn,
+            contentDescription = "Zoom",
+            onClick = onZoom,
+            size = 42.dp,
+            active = videoScale != 1f,
+            hideBackground = hideBackground
+        )
+        MpvCircleButton(
+            icon = Icons.Outlined.AspectRatio,
+            contentDescription = "Aspect ratio",
+            onClick = onAspect,
+            size = 42.dp,
+            hideBackground = hideBackground
+        )
+        MpvCircleButton(
+            icon = Icons.Outlined.Speed,
+            contentDescription = "Playback speed",
+            onClick = onSpeed,
+            size = 42.dp,
+            active = currentPlaybackSpeed != 1f,
+            hideBackground = hideBackground
+        )
+        MpvCircleButton(
+            icon = if (loopMode == LoopMode.ONE) Icons.Default.RepeatOne else Icons.Outlined.Repeat,
+            contentDescription = "Repeat",
+            onClick = onRepeat,
+            size = 42.dp,
+            active = loopMode != LoopMode.NONE,
+            hideBackground = hideBackground
+        )
+        MpvCircleButton(
+            icon = Icons.Outlined.VolumeUp,
+            contentDescription = "Volume boost",
+            onClick = onBoost,
+            size = 42.dp,
+            active = localBoostEnabled,
+            hideBackground = hideBackground
+        )
+        MpvCircleButton(
+            icon = Icons.Outlined.Timer,
+            contentDescription = "Sleep timer",
+            onClick = onTimer,
+            size = 42.dp,
+            active = sleepTimerMinutes > 0,
+            hideBackground = hideBackground
+        )
+        MpvCircleButton(
+            icon = if (showImmersive) Icons.Default.Fullscreen else Icons.Default.FullscreenExit,
+            contentDescription = "Fullscreen",
+            onClick = onImmersive,
+            size = 42.dp,
+            hideBackground = hideBackground
+        )
+    }
+}
+
+// ============================================================
+// Seek bar row
+// ============================================================
+@Composable
+private fun SeekBarRow(
+    currentPosition: Long,
+    duration: Long,
+    whiteSeekbar: Boolean,
+    reduceMotion: Boolean,
+    onSeek: (Long) -> Unit,
+    onPositionChange: (Long) -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        var isDraggingSlider by remember { mutableStateOf(false) }
+        var sliderDragValue by remember { mutableFloatStateOf(0f) }
+        val safeDuration = if (duration > 0) duration else 1L
+        val actualProgress = (currentPosition.toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
+        val displayProgress = if (isDraggingSlider) sliderDragValue else actualProgress
+        val displayPosition = if (isDraggingSlider) (sliderDragValue * safeDuration).toLong() else currentPosition
+        val animatedProgress by animateFloatAsState(
+            targetValue = displayProgress,
+            animationSpec = when {
+                reduceMotion -> snap()
+                isDraggingSlider -> snap()
+                else -> tween(100, easing = LinearEasing)
+            },
+            label = "seekProgress"
+        )
+
+        Text(
+            formatTimeHelper(displayPosition),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
+
+        val primaryAccentColor = if (whiteSeekbar) Color.White else MaterialTheme.colorScheme.primary
+        val primaryTrackBgColor = primaryAccentColor.copy(alpha = 0.3f)
+
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp)
+                .height(36.dp)
+                .pointerInput(safeDuration) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { offset ->
+                            isDraggingSlider = true
+                            sliderDragValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                        },
+                        onDragEnd = {
+                            val targetPos = (sliderDragValue * safeDuration).toLong()
+                            onSeek(targetPos)
+                            onPositionChange(targetPos)
+                            isDraggingSlider = false
+                        },
+                        onDragCancel = { isDraggingSlider = false },
+                        onHorizontalDrag = { change, _ ->
+                            change.consume()
+                            sliderDragValue = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                        }
+                    )
+                }
+                .pointerInput(safeDuration) {
+                    detectTapGestures(onTap = { offset ->
+                        val tapValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                        val targetPos = (tapValue * safeDuration).toLong()
+                        onSeek(targetPos)
+                        onPositionChange(targetPos)
+                    })
+                },
+            contentAlignment = Alignment.CenterStart
+        ) {
+            val thumbWidth = 4.dp
+            val thumbHeight = 18.dp
+            val trackHeight = 8.dp
+            val thumbCenter = maxWidth * animatedProgress
+            val thumbOffset = (thumbCenter - (thumbWidth / 2)).coerceIn(0.dp, maxWidth - thumbWidth)
+
+            Box(
+                modifier = Modifier.align(Alignment.Center)
+                    .fillMaxWidth()
+                    .height(trackHeight)
+                    .clip(CircleShape)
+                    .background(primaryTrackBgColor)
+            )
+            val activeTrackWidth = (thumbCenter - 4.dp).coerceAtLeast(0.dp)
+            Box(
+                modifier = Modifier.align(Alignment.CenterStart)
+                    .width(activeTrackWidth)
+                    .height(trackHeight)
+                    .clip(CircleShape)
+                    .background(primaryAccentColor)
+            )
+            Box(
+                modifier = Modifier.align(Alignment.CenterStart)
+                    .offset(x = thumbOffset)
+                    .width(thumbWidth)
+                    .height(thumbHeight)
+                    .clip(CircleShape)
+                    .background(primaryAccentColor)
+            )
+        }
+        Text(
+            formatTimeHelper(duration),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -1514,7 +1795,8 @@ fun MpvCircleButton(
     modifier: Modifier = Modifier,
     size: Dp = 42.dp,
     active: Boolean = false,
-    tint: Color = Color.White
+    tint: Color = Color.White,
+    hideBackground: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -1528,9 +1810,13 @@ fun MpvCircleButton(
         onClick = onClick,
         modifier = modifier.size(size).scale(scale),
         shape = CircleShape,
-        color = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.12f),
+        color = when {
+            active -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+            hideBackground -> Color.Transparent
+            else -> Color.White.copy(alpha = 0.12f)
+        },
         contentColor = if (active) MaterialTheme.colorScheme.onPrimary else tint,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        border = if (hideBackground && !active) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
         interactionSource = interactionSource
     ) {
         Box(contentAlignment = Alignment.Center) {
