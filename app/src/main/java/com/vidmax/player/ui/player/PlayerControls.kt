@@ -24,6 +24,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -63,7 +64,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.roundToPx
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -71,6 +71,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.vidmax.player.R
+import com.vidmax.player.viewmodel.AspectRatioMode
 import com.vidmax.player.viewmodel.LoopMode
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
@@ -1530,8 +1531,7 @@ fun MpvCircleButton(
         color = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.12f),
         contentColor = if (active) MaterialTheme.colorScheme.onPrimary else tint,
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-        interactionSource = interactionSource,
-        indication = LocalIndication.current
+        interactionSource = interactionSource
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
@@ -1630,6 +1630,7 @@ fun CombiningChevronsAnimation(isRight: Boolean, trigger: Int, modifier: Modifie
 @Composable
 fun MovingChevron(isRight: Boolean, onFinished: () -> Unit) {
     val progress = remember { Animatable(0f) }
+    val density = LocalDensity.current
     LaunchedEffect(Unit) {
         progress.animateTo(targetValue = 1f, animationSpec = tween(250, easing = LinearEasing))
         onFinished()
@@ -1643,8 +1644,9 @@ fun MovingChevron(isRight: Boolean, onFinished: () -> Unit) {
         tint = Color.White,
         modifier = Modifier.size(48.dp).alpha(alpha).layout { measurable, constraints ->
             val placeable = measurable.measure(constraints)
+            val offsetPx = with(density) { currentOffset.dp.roundToPx() }
             layout(placeable.width, placeable.height) {
-                placeable.placeRelative(x = currentOffset.dp.roundToPx(), y = 0)
+                placeable.placeRelative(x = offsetPx, y = 0)
             }
         }
     )

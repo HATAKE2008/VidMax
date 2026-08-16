@@ -19,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -131,7 +132,7 @@ fun PlayerSettingsSheet(
                 )
             }
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Video ----------------
             SettingsSectionHeader("Video", Icons.Outlined.Movie)
@@ -144,7 +145,7 @@ fun PlayerSettingsSheet(
                 onEngineChange(if (index == 0) PlayerEngine.EXO else PlayerEngine.MPV)
             }
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Zoom ----------------
             SettingsSectionHeader("Zoom", Icons.Outlined.ZoomIn)
@@ -170,7 +171,7 @@ fun PlayerSettingsSheet(
                 }
             }
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Scaling / Aspect Ratio ----------------
             SettingsSectionHeader("Scaling & Aspect Ratio", Icons.Outlined.AspectRatio)
@@ -191,7 +192,7 @@ fun PlayerSettingsSheet(
                 }
             }
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Audio ----------------
             SettingsSectionHeader("Audio", Icons.Outlined.Audiotrack)
@@ -209,7 +210,7 @@ fun PlayerSettingsSheet(
                 onClick = onOpenAudio
             )
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Subtitle ----------------
             SettingsSectionHeader("Subtitle", Icons.Outlined.Subtitles)
@@ -246,7 +247,7 @@ fun PlayerSettingsSheet(
                 )
             }
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Speed ----------------
             SettingsSectionHeader("Speed", Icons.Outlined.Speed)
@@ -265,7 +266,7 @@ fun PlayerSettingsSheet(
                 onClick = onOpenSpeedSync
             )
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Gestures ----------------
             SettingsSectionHeader("Gestures", Icons.Default.TouchApp)
@@ -303,7 +304,7 @@ fun PlayerSettingsSheet(
                 onCheckedChange = onAutoHideControlsChange
             )
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Screen / Orientation ----------------
             SettingsSectionHeader("Screen / Orientation", Icons.Outlined.ScreenRotation)
@@ -334,7 +335,7 @@ fun PlayerSettingsSheet(
                 onClick = onToggleImmersive
             )
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Controls ----------------
             SettingsSectionHeader("Controls", Icons.Outlined.Tune)
@@ -351,7 +352,7 @@ fun PlayerSettingsSheet(
                 onClick = onOpenAspect
             )
 
-            HorizontalDivider(Color.White.copy(alpha = 0.08f))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Performance ----------------
             SettingsSectionHeader("Performance", Icons.Outlined.Memory)
