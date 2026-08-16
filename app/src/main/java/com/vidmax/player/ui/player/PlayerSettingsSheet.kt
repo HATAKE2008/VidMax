@@ -1,18 +1,14 @@
-@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-
 package com.vidmax.player.ui.player
 
 import android.content.Context
-import android.content.pm.ActivityInfo
-import android.content.res.Configuration
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.SwapHoriz
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -20,17 +16,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.media3.common.Player
-import com.vidmax.player.viewmodel.AspectRatioMode
-import com.vidmax.player.viewmodel.LoopMode
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
 import `is`.xyz.mpv.MPVLib
@@ -39,48 +30,63 @@ import `is`.xyz.mpv.MPVLib
 @Composable
 fun PlayerSettingsSheet(
     viewModel: PlayerViewModel,
-    currentPath: String,
-    audioBoostEnabled: Boolean,
-    currentPlaybackSpeed: Float,
-    onSpeedChange: (Float) -> Unit,
-    videoScale: Float,
-    onVideoScaleChange: (Float, Offset) -> Unit,
-    exoPlayer: Player?,
-    bgPlayEnabled: Boolean,
-    onBgPlayToggle: (Boolean) -> Unit,
-    onPickSubtitle: () -> Unit,
-    verticalGesturesEnabled: Boolean,
-    onVerticalGesturesChange: (Boolean) -> Unit,
+    // ---- Controls ----
+    autoHideControls: Boolean,
+    onAutoHideControlsChange: (Boolean) -> Unit,
+    controlsHideDelayMs: Int,
+    onControlsHideDelayChange: (Int) -> Unit,
+    showControlsOnPlay: Boolean,
+    onShowControlsOnPlayChange: (Boolean) -> Unit,
+    bottomControlsBelowSeekbar: Boolean,
+    onBottomControlsBelowSeekbarChange: (Boolean) -> Unit,
+    ambientMode: Boolean,
+    onAmbientModeChange: (Boolean) -> Unit,
+    keepScreenOn: Boolean,
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    // ---- Aesthetics ----
+    hideButtonBackground: Boolean,
+    onHideButtonBackgroundChange: (Boolean) -> Unit,
+    reduceMotion: Boolean,
+    onReduceMotionChange: (Boolean) -> Unit,
+    whiteSeekbar: Boolean,
+    onWhiteSeekbarChange: (Boolean) -> Unit,
+    showDoubleTapIndicator: Boolean,
+    onShowDoubleTapIndicatorChange: (Boolean) -> Unit,
+    // ---- Gestures ----
+    brightnessGestureEnabled: Boolean,
+    onBrightnessGestureChange: (Boolean) -> Unit,
+    volumeGestureEnabled: Boolean,
+    onVolumeGestureChange: (Boolean) -> Unit,
+    pinchZoomEnabled: Boolean,
+    onPinchZoomChange: (Boolean) -> Unit,
     horizontalSeekEnabled: Boolean,
     onHorizontalSeekChange: (Boolean) -> Unit,
     doubleTapSeekSeconds: Int,
     onDoubleTapSeekSecondsChange: (Int) -> Unit,
-    autoHideControls: Boolean,
-    onAutoHideControlsChange: (Boolean) -> Unit,
-    onEngineChange: (PlayerEngine) -> Unit,
+    reverseDoubleTap: Boolean,
+    onReverseDoubleTapChange: (Boolean) -> Unit,
+    seekGestureSensitivity: Int,
+    onSeekGestureSensitivityChange: (Int) -> Unit,
+    singleTapAction: String,
+    onSingleTapActionChange: (String) -> Unit,
+    preventSeekbarTap: Boolean,
+    onPreventSeekbarTapChange: (Boolean) -> Unit,
+    // ---- Settings / Advanced ----
+    mpvVideoSync: String,
+    onMpvVideoSyncChange: (String) -> Unit,
+    mpvInterpolation: Boolean,
+    onMpvInterpolationChange: (Boolean) -> Unit,
+    mpvAudioPitchCorrection: Boolean,
+    onMpvAudioPitchCorrectionChange: (Boolean) -> Unit,
     onOpenDecoder: () -> Unit,
-    onOpenTimer: () -> Unit,
-    onOpenZoom: () -> Unit,
-    onOpenAspect: () -> Unit,
-    onOpenSpeedSync: () -> Unit,
-    onOpenAudio: () -> Unit,
-    onOpenSubtitle: () -> Unit,
-    onRotateScreen: () -> Unit,
-    onToggleImmersive: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val prefs = remember { context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE) }
-
     val currentEngine by viewModel.currentEngine.collectAsState()
-    val loopMode by viewModel.loopMode.collectAsState()
-    val aspect by viewModel.aspectRatio.collectAsState()
     val subtitleSize by viewModel.subtitleSize.collectAsState()
 
-    var autoRotate by remember { mutableStateOf(prefs.getBoolean("auto_rotate", true)) }
-
     val primary = MaterialTheme.colorScheme.primary
+    val isMpv = currentEngine == PlayerEngine.MPV
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF1E1E1E)) {
         Column(
@@ -98,172 +104,89 @@ fun PlayerSettingsSheet(
                 modifier = Modifier.padding(vertical = 8.dp)
             )
 
-            // ---------------- Playback ----------------
-            SettingsSectionHeader("Playback", Icons.Default.PlayArrow)
+            // ---------------- Controls ----------------
+            SettingsSectionHeader("Controls", Icons.Outlined.Tune)
             SettingsSwitchRow(
-                title = "Background Playback",
-                subtitle = "Continue audio when app is backgrounded",
-                icon = Icons.Outlined.Headset,
-                checked = bgPlayEnabled,
-                onCheckedChange = onBgPlayToggle
+                title = "Auto-hide Controls",
+                subtitle = "Fade out controls after a delay",
+                icon = Icons.Outlined.MoreVert,
+                checked = autoHideControls,
+                onCheckedChange = onAutoHideControlsChange
             )
-            SettingsNavRow(
-                title = "Sleep Timer",
-                subtitle = "Auto-pause after a set time",
+            SettingsChipRow(
+                title = "Auto-hide Delay",
                 icon = Icons.Outlined.Timer,
-                onClick = onOpenTimer
-            )
-            SettingsChipRow(
-                title = "Repeat Mode",
-                icon = Icons.Outlined.Repeat,
-                options = listOf("Off", "One", "All"),
-                selectedIndex = when (loopMode) {
-                    LoopMode.NONE -> 0
-                    LoopMode.ONE -> 1
-                    LoopMode.ALL -> 2
+                options = listOf("2s", "3s", "5s", "Never"),
+                selectedIndex = when (controlsHideDelayMs) {
+                    2000 -> 0
+                    5000 -> 2
+                    0 -> 3
+                    else -> 1
                 }
             ) { index ->
-                viewModel.setLoopMode(
-                    when (index) {
-                        0 -> LoopMode.NONE
-                        1 -> LoopMode.ONE
-                        else -> LoopMode.ALL
-                    }
-                )
+                onControlsHideDelayChange(listOf(2000, 3000, 5000, 0)[index])
             }
-
-            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-
-            // ---------------- Video ----------------
-            SettingsSectionHeader("Video", Icons.Outlined.Movie)
-            SettingsChipRow(
-                title = "Player Engine",
-                icon = Icons.Outlined.Memory,
-                options = listOf("ExoPlayer", "MPV (HW)"),
-                selectedIndex = if (currentEngine == PlayerEngine.EXO) 0 else 1
-            ) { index ->
-                onEngineChange(if (index == 0) PlayerEngine.EXO else PlayerEngine.MPV)
-            }
-
-            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-
-            // ---------------- Zoom ----------------
-            SettingsSectionHeader("Zoom", Icons.Outlined.ZoomIn)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text("${(videoScale * 100).toInt()}%", color = primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Slider(
-                    value = videoScale,
-                    onValueChange = { newZoom -> onVideoScaleChange(newZoom / videoScale, Offset.Zero) },
-                    valueRange = 1f..4f,
-                    modifier = Modifier.weight(1f),
-                    colors = SliderDefaults.colors(
-                        thumbColor = primary,
-                        activeTrackColor = primary,
-                        inactiveTrackColor = primary.copy(alpha = 0.3f)
-                    )
-                )
-                TextButton(onClick = { onVideoScaleChange(1f / videoScale, Offset.Zero) }) {
-                    Text("Reset", color = Color.White)
-                }
-            }
-
-            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-
-            // ---------------- Scaling / Aspect Ratio ----------------
-            SettingsSectionHeader("Scaling & Aspect Ratio", Icons.Outlined.AspectRatio)
-            SettingsChipRow(
-                title = "Aspect Ratio",
-                icon = Icons.Outlined.AspectRatio,
-                options = listOf("Fit", "Crop", "Stretch"),
-                selectedIndex = when (aspect) {
-                    AspectRatioMode.FIT -> 0
-                    AspectRatioMode.FILL -> 1
-                    AspectRatioMode.STRETCH -> 2
-                }
-            ) { index ->
-                when (index) {
-                    0 -> viewModel.setAspectRatio(AspectRatioMode.FIT)
-                    1 -> viewModel.setAspectRatio(AspectRatioMode.FILL)
-                    else -> viewModel.setAspectRatio(AspectRatioMode.STRETCH)
-                }
-            }
-
-            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-
-            // ---------------- Audio ----------------
-            SettingsSectionHeader("Audio", Icons.Outlined.Audiotrack)
             SettingsSwitchRow(
-                title = "Volume Boost",
-                subtitle = "Boost volume above 100%",
-                icon = Icons.Outlined.VolumeUp,
-                checked = audioBoostEnabled,
-                onCheckedChange = { /* toggled from the player bottom bar */ }
+                title = "Show Controls on Play",
+                subtitle = "Reveal controls when playback starts",
+                icon = Icons.Outlined.PlayArrow,
+                checked = showControlsOnPlay,
+                onCheckedChange = onShowControlsOnPlayChange
             )
-            SettingsNavRow(
-                title = "Audio Tracks",
-                subtitle = "Choose the active audio track",
-                icon = Icons.Outlined.Audiotrack,
-                onClick = onOpenAudio
+            SettingsSwitchRow(
+                title = "Controls Below Seek Bar",
+                subtitle = "Place the button row under the progress bar",
+                icon = Icons.Outlined.UnfoldMore,
+                checked = bottomControlsBelowSeekbar,
+                onCheckedChange = onBottomControlsBelowSeekbarChange
+            )
+            SettingsSwitchRow(
+                title = "Ambient Mode",
+                subtitle = "Dim the screen to reduce eye strain",
+                icon = Icons.Outlined.BrightnessLow,
+                checked = ambientMode,
+                onCheckedChange = onAmbientModeChange
+            )
+            SettingsSwitchRow(
+                title = "Keep Screen On",
+                subtitle = "Prevent the screen from sleeping",
+                icon = Icons.Outlined.ScreenLockRotation,
+                checked = keepScreenOn,
+                onCheckedChange = onKeepScreenOnChange
             )
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
-            // ---------------- Subtitle ----------------
-            SettingsSectionHeader("Subtitle", Icons.Outlined.Subtitles)
-            SettingsNavRow(
-                title = "Open Local Subtitle",
-                subtitle = "Load a subtitle file",
-                icon = Icons.Outlined.FolderOpen,
-                onClick = onPickSubtitle
-            )
-            SettingsNavRow(
-                title = "Subtitle Tracks",
-                subtitle = "Choose the active subtitle track",
-                icon = Icons.Outlined.Subtitles,
-                onClick = onOpenSubtitle
-            )
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text("Subtitle Size", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Slider(
-                    value = subtitleSize,
-                    onValueChange = { size ->
-                        viewModel.setSubtitleSize(size)
-                        if (currentEngine == PlayerEngine.MPV) {
-                            try {
-                                MPVLib.setPropertyDouble("sub-scale", size / 16.0)
-                            } catch (e: Exception) {}
-                        }
-                    },
-                    valueRange = 10f..40f,
-                    colors = SliderDefaults.colors(
-                        thumbColor = primary,
-                        activeTrackColor = primary,
-                        inactiveTrackColor = primary.copy(alpha = 0.3f)
-                    )
-                )
-            }
-
-            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-
-            // ---------------- Speed ----------------
-            SettingsSectionHeader("Speed", Icons.Outlined.Speed)
+            // ---------------- Aesthetics ----------------
+            SettingsSectionHeader("Aesthetics", Icons.Outlined.Palette)
             SettingsChipRow(
-                title = "Playback Speed",
-                icon = Icons.Outlined.Speed,
-                options = listOf("0.5x", "0.75x", "1x", "1.25x", "1.5x", "2x"),
-                selectedIndex = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).indexOf(currentPlaybackSpeed).coerceAtLeast(0)
+                title = "Control Style",
+                icon = Icons.Outlined.Circle,
+                options = listOf("Translucent", "Flat"),
+                selectedIndex = if (hideButtonBackground) 1 else 0
             ) { index ->
-                onSpeedChange(listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)[index])
+                onHideButtonBackgroundChange(index == 1)
             }
-            SettingsNavRow(
-                title = "Speed & Sync",
-                subtitle = "Audio / subtitle delay",
-                icon = Icons.Outlined.Tune,
-                onClick = onOpenSpeedSync
+            SettingsSwitchRow(
+                title = "Reduce Motion",
+                subtitle = "Use simpler animations for the controls",
+                icon = Icons.Outlined.MotionPhotosOff,
+                checked = reduceMotion,
+                onCheckedChange = onReduceMotionChange
+            )
+            SettingsSwitchRow(
+                title = "White Progress Bar",
+                subtitle = "Render the progress bar in white",
+                icon = Icons.Outlined.ProgressActivity,
+                checked = whiteSeekbar,
+                onCheckedChange = onWhiteSeekbarChange
+            )
+            SettingsSwitchRow(
+                title = "Double-tap Seek Indicator",
+                subtitle = "Show the ripple when seeking by double-tap",
+                icon = Icons.Outlined.AspectRatio,
+                checked = showDoubleTapIndicator,
+                onCheckedChange = onShowDoubleTapIndicatorChange
             )
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
@@ -271,11 +194,25 @@ fun PlayerSettingsSheet(
             // ---------------- Gestures ----------------
             SettingsSectionHeader("Gestures", Icons.Default.TouchApp)
             SettingsSwitchRow(
-                title = "Vertical Gestures",
-                subtitle = "Brightness (left) / Volume (right)",
+                title = "Brightness Gesture",
+                subtitle = "Swipe up / down on the left edge",
                 icon = Icons.Outlined.BrightnessHigh,
-                checked = verticalGesturesEnabled,
-                onCheckedChange = onVerticalGesturesChange
+                checked = brightnessGestureEnabled,
+                onCheckedChange = onBrightnessGestureChange
+            )
+            SettingsSwitchRow(
+                title = "Volume Gesture",
+                subtitle = "Swipe up / down on the right edge",
+                icon = Icons.Outlined.VolumeUp,
+                checked = volumeGestureEnabled,
+                onCheckedChange = onVolumeGestureChange
+            )
+            SettingsSwitchRow(
+                title = "Pinch to Zoom",
+                subtitle = "Pinch to zoom the video in / out",
+                icon = Icons.Outlined.ZoomIn,
+                checked = pinchZoomEnabled,
+                onCheckedChange = onPinchZoomChange
             )
             SettingsSwitchRow(
                 title = "Horizontal Swipe Seek",
@@ -297,71 +234,99 @@ fun PlayerSettingsSheet(
                 onDoubleTapSeekSecondsChange(listOf(10, 30, 60)[index])
             }
             SettingsSwitchRow(
-                title = "Auto-hide Controls",
-                subtitle = "Fade out controls after 3s",
-                icon = Icons.Outlined.MoreVert,
-                checked = autoHideControls,
-                onCheckedChange = onAutoHideControlsChange
+                title = "Reverse Double-tap",
+                subtitle = "Swap the left and right seek directions",
+                icon = Icons.AutoMirrored.Outlined.SwapHoriz,
+                checked = reverseDoubleTap,
+                onCheckedChange = onReverseDoubleTapChange
             )
-
-            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-
-            // ---------------- Screen / Orientation ----------------
-            SettingsSectionHeader("Screen / Orientation", Icons.Outlined.ScreenRotation)
-            SettingsSwitchRow(
-                title = "Auto-rotate",
-                subtitle = "Follow the sensor orientation",
-                icon = Icons.Outlined.ScreenRotation,
-                checked = autoRotate,
-                onCheckedChange = {
-                    autoRotate = it
-                    context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
-                        .edit().putBoolean("auto_rotate", it).apply()
-                    if (it) {
-                        (context as? android.app.Activity)?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
-                    }
+            SettingsChipRow(
+                title = "Seek Gesture Sensitivity",
+                icon = Icons.Outlined.Speed,
+                options = listOf("Low", "Medium", "High"),
+                selectedIndex = when (seekGestureSensitivity) {
+                    30000 -> 0
+                    120000 -> 2
+                    else -> 1
                 }
-            )
-            SettingsNavRow(
-                title = "Rotate Screen",
-                subtitle = if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) "Switch to portrait" else "Switch to landscape",
-                icon = Icons.Outlined.ScreenRotation,
-                onClick = onRotateScreen
-            )
-            SettingsNavRow(
-                title = "Fullscreen",
-                subtitle = "Toggle system bars",
-                icon = Icons.Outlined.Fullscreen,
-                onClick = onToggleImmersive
-            )
-
-            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-
-            // ---------------- Controls ----------------
-            SettingsSectionHeader("Controls", Icons.Outlined.Tune)
-            SettingsNavRow(
-                title = "Video Zoom",
-                subtitle = "Pinch or use the zoom sheet",
-                icon = Icons.Outlined.ZoomIn,
-                onClick = onOpenZoom
-            )
-            SettingsNavRow(
-                title = "Aspect Ratio",
-                subtitle = "Fit / Crop / Stretch",
-                icon = Icons.Outlined.AspectRatio,
-                onClick = onOpenAspect
+            ) { index ->
+                onSeekGestureSensitivityChange(listOf(30000, 60000, 120000)[index])
+            }
+            SettingsChipRow(
+                title = "Single-tap Action",
+                icon = Icons.Default.TouchApp,
+                options = listOf("Toggle Controls", "Play / Pause"),
+                selectedIndex = if (singleTapAction == "play_pause") 1 else 0
+            ) { index ->
+                onSingleTapActionChange(listOf("toggle_controls", "play_pause")[index])
+            }
+            SettingsSwitchRow(
+                title = "Prevent Seek Bar Tap",
+                subtitle = "Require dragging the seek bar to seek",
+                icon = Icons.Outlined.Lock,
+                checked = preventSeekbarTap,
+                onCheckedChange = onPreventSeekbarTapChange
             )
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
-            // ---------------- Performance ----------------
-            SettingsSectionHeader("Performance", Icons.Outlined.Memory)
+            // ---------------- Settings / Advanced ----------------
+            SettingsSectionHeader("Settings / Advanced", Icons.Outlined.Settings)
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Text("Subtitle Size", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Slider(
+                    value = subtitleSize,
+                    onValueChange = { size ->
+                        viewModel.setSubtitleSize(size)
+                        if (isMpv) {
+                            try {
+                                MPVLib.setPropertyDouble("sub-scale", size / 16.0)
+                            } catch (e: Exception) {}
+                        }
+                    },
+                    valueRange = 10f..40f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = primary,
+                        activeTrackColor = primary,
+                        inactiveTrackColor = primary.copy(alpha = 0.3f)
+                    )
+                )
+            }
             SettingsNavRow(
                 title = "Hardware Decoder",
                 subtitle = "Auto / SW / HW / HW+",
                 icon = Icons.Outlined.Memory,
                 onClick = onOpenDecoder
             )
+            if (isMpv) {
+                SettingsChipRow(
+                    title = "Video Sync",
+                    icon = Icons.Outlined.Sync,
+                    options = listOf("Audio", "Display Resample"),
+                    selectedIndex = if (mpvVideoSync == "display-resample") 1 else 0
+                ) { index ->
+                    onMpvVideoSyncChange(listOf("audio", "display-resample")[index])
+                }
+                SettingsSwitchRow(
+                    title = "Interpolation",
+                    subtitle = "Smooth motion by frame blending",
+                    icon = Icons.Outlined.AutoAwesomeMotion,
+                    checked = mpvInterpolation,
+                    onCheckedChange = onMpvInterpolationChange
+                )
+                SettingsSwitchRow(
+                    title = "Audio Pitch Correction",
+                    subtitle = "Keep pitch stable when changing speed",
+                    icon = Icons.Outlined.MusicNote,
+                    checked = mpvAudioPitchCorrection,
+                    onCheckedChange = onMpvAudioPitchCorrectionChange
+                )
+            } else {
+                SettingsInfoRow(
+                    title = "MPV Advanced",
+                    value = "Switch to MPV (HW) to configure"
+                )
+            }
             SettingsInfoRow(
                 title = "Current Engine",
                 value = if (currentEngine == PlayerEngine.EXO) "ExoPlayer (Media3)" else "MPV (HW Decode)"
