@@ -191,6 +191,10 @@ class PlayerViewModel : ViewModel() {
         }
   }
 
+  fun setLoopMode(mode: LoopMode) {
+    _loopMode.value = mode
+  }
+
   fun cycleAspectRatio() {
     _aspectRatio.value =
         when (_aspectRatio.value) {
@@ -198,6 +202,10 @@ class PlayerViewModel : ViewModel() {
           AspectRatioMode.FILL -> AspectRatioMode.STRETCH
           AspectRatioMode.STRETCH -> AspectRatioMode.FIT
         }
+  }
+
+  fun setAspectRatio(mode: AspectRatioMode) {
+    _aspectRatio.value = mode
   }
 
   fun setVideoTitle(title: String) {

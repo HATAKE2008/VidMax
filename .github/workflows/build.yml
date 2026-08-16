@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - new-feature
+      - video-screeen-new
   workflow_dispatch:
 
 jobs:
