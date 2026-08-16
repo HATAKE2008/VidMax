@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.SwapHoriz
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -136,21 +135,21 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = "Controls Below Seek Bar",
                 subtitle = "Place the button row under the progress bar",
-                icon = Icons.Outlined.UnfoldMore,
+                icon = Icons.Outlined.FitScreen,
                 checked = bottomControlsBelowSeekbar,
                 onCheckedChange = onBottomControlsBelowSeekbarChange
             )
             SettingsSwitchRow(
                 title = "Ambient Mode",
                 subtitle = "Dim the screen to reduce eye strain",
-                icon = Icons.Outlined.BrightnessLow,
+                icon = Icons.Outlined.BrightnessHigh,
                 checked = ambientMode,
                 onCheckedChange = onAmbientModeChange
             )
             SettingsSwitchRow(
                 title = "Keep Screen On",
                 subtitle = "Prevent the screen from sleeping",
-                icon = Icons.Outlined.ScreenLockRotation,
+                icon = Icons.Outlined.LockOpen,
                 checked = keepScreenOn,
                 onCheckedChange = onKeepScreenOnChange
             )
@@ -158,10 +157,10 @@ fun PlayerSettingsSheet(
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Aesthetics ----------------
-            SettingsSectionHeader("Aesthetics", Icons.Outlined.Palette)
+            SettingsSectionHeader("Aesthetics", Icons.Default.Settings)
             SettingsChipRow(
                 title = "Control Style",
-                icon = Icons.Outlined.Circle,
+                icon = Icons.Outlined.ZoomOut,
                 options = listOf("Translucent", "Flat"),
                 selectedIndex = if (hideButtonBackground) 1 else 0
             ) { index ->
@@ -170,14 +169,14 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = "Reduce Motion",
                 subtitle = "Use simpler animations for the controls",
-                icon = Icons.Outlined.MotionPhotosOff,
+                icon = Icons.Outlined.Fullscreen,
                 checked = reduceMotion,
                 onCheckedChange = onReduceMotionChange
             )
             SettingsSwitchRow(
                 title = "White Progress Bar",
                 subtitle = "Render the progress bar in white",
-                icon = Icons.Outlined.ProgressActivity,
+                icon = Icons.Outlined.Speed,
                 checked = whiteSeekbar,
                 onCheckedChange = onWhiteSeekbarChange
             )
@@ -236,7 +235,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = "Reverse Double-tap",
                 subtitle = "Swap the left and right seek directions",
-                icon = Icons.AutoMirrored.Outlined.SwapHoriz,
+                icon = Icons.Outlined.SwapHoriz,
                 checked = reverseDoubleTap,
                 onCheckedChange = onReverseDoubleTapChange
             )
@@ -263,7 +262,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = "Prevent Seek Bar Tap",
                 subtitle = "Require dragging the seek bar to seek",
-                icon = Icons.Outlined.Lock,
+                icon = Icons.Default.Lock,
                 checked = preventSeekbarTap,
                 onCheckedChange = onPreventSeekbarTapChange
             )
@@ -271,7 +270,7 @@ fun PlayerSettingsSheet(
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
             // ---------------- Settings / Advanced ----------------
-            SettingsSectionHeader("Settings / Advanced", Icons.Outlined.Settings)
+            SettingsSectionHeader("Settings / Advanced", Icons.Default.Settings)
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Text("Subtitle Size", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Slider(
@@ -301,7 +300,7 @@ fun PlayerSettingsSheet(
             if (isMpv) {
                 SettingsChipRow(
                     title = "Video Sync",
-                    icon = Icons.Outlined.Sync,
+                    icon = Icons.Outlined.Repeat,
                     options = listOf("Audio", "Display Resample"),
                     selectedIndex = if (mpvVideoSync == "display-resample") 1 else 0
                 ) { index ->
@@ -310,14 +309,14 @@ fun PlayerSettingsSheet(
                 SettingsSwitchRow(
                     title = "Interpolation",
                     subtitle = "Smooth motion by frame blending",
-                    icon = Icons.Outlined.AutoAwesomeMotion,
+                    icon = Icons.Outlined.Movie,
                     checked = mpvInterpolation,
                     onCheckedChange = onMpvInterpolationChange
                 )
                 SettingsSwitchRow(
                     title = "Audio Pitch Correction",
                     subtitle = "Keep pitch stable when changing speed",
-                    icon = Icons.Outlined.MusicNote,
+                    icon = Icons.Outlined.Audiotrack,
                     checked = mpvAudioPitchCorrection,
                     onCheckedChange = onMpvAudioPitchCorrectionChange
                 )

@@ -304,9 +304,7 @@ fun PlayerControls(
     // Ambient mode + keep screen on
     LaunchedEffect(ambientMode, keepScreenOn) {
         val act = activity ?: return@LaunchedEffect
-        val attributes = act.window.attributes
-        attributes.screenDimAmount = if (ambientMode) 0.85f else 0f
-        act.window.attributes = attributes
+        act.window.setDimAmount(if (ambientMode) 0.85f else 0f)
         if (keepScreenOn) {
             act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
