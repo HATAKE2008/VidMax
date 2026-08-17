@@ -138,11 +138,13 @@ fun PlayerControls(
     val currentBrightnessPercent by viewModel.currentBrightnessPercent.collectAsState()
 
     // ---- MPVEx preference switches (stored in vidmax_settings) ----
+    val settingsPrefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
+    val legacyVerticalGestures = settingsPrefs.getBoolean("gesture_vertical_enabled", true)
     var brightnessGestureEnabled by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("gesture_brightness_enabled", true))
+        mutableStateOf(settingsPrefs.getBoolean("gesture_brightness_enabled", legacyVerticalGestures))
     }
     var volumeGestureEnabled by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("gesture_volume_enabled", true))
+        mutableStateOf(settingsPrefs.getBoolean("gesture_volume_enabled", legacyVerticalGestures))
     }
     var pinchZoomEnabled by remember {
         mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("pinch_to_zoom_enabled", true))
@@ -181,7 +183,7 @@ fun PlayerControls(
         mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("ambient_mode", false))
     }
     var keepScreenOn by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("keep_screen_on", false))
+        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("keep_screen_on", true))
     }
     var hideButtonBackground by remember {
         mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("hide_button_background", false))
@@ -1106,35 +1108,32 @@ fun PlayerControls(
                 if (!isLocked) {
                     detectTapGestures(
                         onDoubleTap = { offset ->
-                            if (preventSeekbarTap && offset.y > size.height - bottomDeadZonePx) return@detectTapGestures
+                            if (offset.y > size.height - bottomDeadZonePx) return@detectTapGestures
                             val third = size.width / 3f
                             val seekMs = doubleTapSeekSeconds * 1000L
-                            val targetPosition = when {
-                                offset.x < third -> (currentPosition - seekMs).coerceAtLeast(0L)
-                                offset.x > third * 2f -> (currentPosition + seekMs).coerceAtMost(duration)
-                                else -> -1L
+                            val isLeftSide = offset.x < third
+                            val isRightSide = offset.x > third * 2f
+                            if (!isLeftSide && !isRightSide) {
+                                onPlayPause()
+                                return@detectTapGestures
                             }
-                            if (targetPosition >= 0L) {
-                                val target = targetPosition
-                                onSeek(target)
-                                viewModel.setCurrentPosition(target)
-                                if (showDoubleTapIndicator) {
-                                    showDoubleTapRipple = if (offset.x < third) -1 else 1
-                                    coroutineScope.launch {
-                                        delay(600)
-                                        showDoubleTapRipple = 0
-                                    }
-                                }
+                            val seekBackward = if (reverseDoubleTap) isRightSide else isLeftSide
+                            val target = if (seekBackward) {
+                                (currentPosition - seekMs).coerceAtLeast(0L)
                             } else {
-                                if (reverseDoubleTap) {
-                                    onPlayPause()
-                                } else {
-                                    viewModel.setControlsVisible(!controlsVisible)
+                                (currentPosition + seekMs).coerceAtMost(duration)
+                            }
+                            onSeek(target)
+                            viewModel.setCurrentPosition(target)
+                            if (showDoubleTapIndicator) {
+                                showDoubleTapRipple = if (seekBackward) -1 else 1
+                                coroutineScope.launch {
+                                    delay(600)
+                                    showDoubleTapRipple = 0
                                 }
                             }
                         },
                         onTap = {
-                            if (preventSeekbarTap && it.y > size.height - bottomDeadZonePx) return@detectTapGestures
                             when (singleTapAction) {
                                 "play_pause" -> onPlayPause()
                                 else -> viewModel.setControlsVisible(!controlsVisible)
@@ -1486,6 +1485,7 @@ fun PlayerControls(
                                 duration = duration,
                                 whiteSeekbar = whiteSeekbar,
                                 reduceMotion = reduceMotion,
+                                preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
                                 onPositionChange = viewModel::setCurrentPosition
                             )
@@ -1539,6 +1539,7 @@ fun PlayerControls(
                                 duration = duration,
                                 whiteSeekbar = whiteSeekbar,
                                 reduceMotion = reduceMotion,
+                                preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
                                 onPositionChange = viewModel::setCurrentPosition
                             )
@@ -1679,6 +1680,7 @@ private fun SeekBarRow(
     duration: Long,
     whiteSeekbar: Boolean,
     reduceMotion: Boolean,
+    preventTap: Boolean,
     onSeek: (Long) -> Unit,
     onPositionChange: (Long) -> Unit
 ) {
@@ -1733,7 +1735,8 @@ private fun SeekBarRow(
                         }
                     )
                 }
-                .pointerInput(safeDuration) {
+                .pointerInput(safeDuration, preventTap) {
+                    if (preventTap) return@pointerInput
                     detectTapGestures(onTap = { offset ->
                         val tapValue = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
                         val targetPos = (tapValue * safeDuration).toLong()
