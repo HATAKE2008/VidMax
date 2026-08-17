@@ -61,6 +61,14 @@ fun PlayerScreen(
   var videoOffsetY by remember { mutableFloatStateOf(0f) }
   var currentPlaybackSpeed by remember { mutableFloatStateOf(1f) }
 
+  // Reset zoom / pan whenever a new video is loaded so the video starts
+  // cleanly fitted and centered instead of carrying over the previous scale.
+  LaunchedEffect(currentPath) {
+    videoScale = 1f
+    videoOffsetX = 0f
+    videoOffsetY = 0f
+  }
+
   LaunchedEffect(bgPlayEnabled, currentEngine) {
     if (bgPlayEnabled) {
       if (currentEngine == PlayerEngine.EXO) {
@@ -81,24 +89,7 @@ fun PlayerScreen(
 
   LaunchedEffect(aspectRatio, currentEngine) {
     if (currentEngine == PlayerEngine.MPV) {
-      try {
-        when (aspectRatio) {
-          AspectRatioMode.FIT -> {
-            MPVLib.setPropertyString("keepaspect", "yes")
-            MPVLib.setPropertyDouble("panscan", 0.0)
-            MPVLib.setPropertyString("video-aspect-override", "no")
-          }
-          AspectRatioMode.FILL -> {
-            MPVLib.setPropertyString("keepaspect", "yes")
-            MPVLib.setPropertyDouble("panscan", 1.0)
-            MPVLib.setPropertyString("video-aspect-override", "no")
-          }
-          AspectRatioMode.STRETCH -> {
-            MPVLib.setPropertyString("keepaspect", "no")
-            MPVLib.setPropertyDouble("panscan", 0.0)
-          }
-        }
-      } catch (e: Exception) {}
+      applyMpvAspectMode(aspectRatio)
     }
   }
 
@@ -110,6 +101,9 @@ fun PlayerScreen(
               PlayerView(ctx).apply {
                 useController = false
                 player = exoPlayer
+                // Fit the video inside the view, preserving its aspect ratio
+                // and centering it (professional player default).
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
               }
             },
             update = { view: PlayerView ->
@@ -145,6 +139,12 @@ fun PlayerScreen(
                         MPVLib.attachSurface(holder.surface)
                         try {
                           MPVLib.setPropertyString("vid", "auto")
+                          // Push the real surface geometry and aspect mode as early as
+                          // possible so the very first frame is fitted and centered instead
+                          // of being rendered at a default size (which leaves black space).
+                          val frame = holder.surfaceFrame
+                          setMpvSurfaceSize(frame.width(), frame.height())
+                          applyMpvAspectMode(viewModel.aspectRatio.value)
                         } catch (e: Exception) {}
                         onMpvLayoutReady()
                       }
@@ -155,21 +155,12 @@ fun PlayerScreen(
                           w: Int,
                           h: Int
                       ) {
-                        try {
-                          MPVLib.setPropertyString("android-surface-size", "${w}x${h}")
-                          val currentMode = viewModel.aspectRatio.value
-                          if (currentMode == AspectRatioMode.STRETCH) {
-                            MPVLib.setPropertyString("keepaspect", "no")
-                            MPVLib.setPropertyDouble("panscan", 0.0)
-                          } else {
-                            MPVLib.setPropertyString("keepaspect", "yes")
-                            MPVLib.setPropertyDouble(
-                                "panscan", if (currentMode == AspectRatioMode.FILL) 1.0 else 0.0)
-                            MPVLib.setPropertyString("video-aspect-override", "no")
-                          }
-                        } catch (e: Exception) {
-                          e.printStackTrace()
-                        }
+                        // After the surface is resized (e.g. screen rotation) the previous
+                        // buffer gets stretched and uninitialized regions show artifacts;
+                        // applyMpvAspectMode forces a repaint of the current frame while
+                        // paused, so the video is re-fitted to the new geometry.
+                        setMpvSurfaceSize(w, h)
+                        applyMpvAspectMode(viewModel.aspectRatio.value)
                       }
 
                       override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -277,4 +268,45 @@ fun PlayerScreen(
         onPickSubtitle = onPickSubtitle,
         modifier = Modifier.fillMaxSize())
   }
+}
+
+// Tells mpv the pixel dimensions of the video surface so it fits/centers the
+// video correctly. Setting this late or wrong is what causes unnecessary black
+// space around the video.
+private fun setMpvSurfaceSize(w: Int, h: Int) {
+  if (w <= 0 || h <= 0) return
+  try {
+    MPVLib.setPropertyString("android-surface-size", "${w}x${h}")
+  } catch (e: Exception) {}
+}
+
+// Applies the current aspect-ratio mode to mpv. FIT keeps the original aspect
+// ratio and letterboxes (video centered, as large as possible). FILL keeps the
+// aspect ratio but zooms/crops to cover the surface. STRETCH ignores the aspect
+// ratio and fills the surface (distorts).
+private fun applyMpvAspectMode(mode: AspectRatioMode) {
+  try {
+    when (mode) {
+      AspectRatioMode.FIT -> {
+        MPVLib.setPropertyString("keepaspect", "yes")
+        MPVLib.setPropertyDouble("panscan", 0.0)
+        MPVLib.setPropertyString("video-aspect-override", "no")
+      }
+      AspectRatioMode.FILL -> {
+        MPVLib.setPropertyString("keepaspect", "yes")
+        MPVLib.setPropertyDouble("panscan", 1.0)
+        MPVLib.setPropertyString("video-aspect-override", "no")
+      }
+      AspectRatioMode.STRETCH -> {
+        MPVLib.setPropertyString("keepaspect", "no")
+        MPVLib.setPropertyDouble("panscan", 0.0)
+      }
+    }
+    // When paused mpv's render loop is idle, so explicitly repaint the current
+    // frame at the new geometry.
+    val paused = MPVLib.getPropertyBoolean("pause") ?: false
+    if (paused) {
+      MPVLib.command(arrayOf("seek", "0", "relative+exact"))
+    }
+  } catch (e: Exception) {}
 }
