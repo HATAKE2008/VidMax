@@ -3,6 +3,7 @@
 package com.vidmax.player.ui.player
 
 import android.content.Context
+import android.view.LayoutInflater
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -98,20 +99,18 @@ fun PlayerScreen(
       if (currentEngine == PlayerEngine.EXO) {
         AndroidView(
             factory = { ctx: Context ->
-              PlayerView(ctx).apply {
-                useController = false
-                // Use a TextureView instead of the default SurfaceView. A SurfaceView
-                // lives in its own window, so Compose's graphicsLayer zoom/pan (used by
-                // pinch zoom and the zoom sheet) is not applied to the rendered video -
-                // zooming then never fills the screen. TextureView is drawn in the normal
-                // view hierarchy, so zoom/crop and the fitted letterboxing behave like a
-                // professional player. Must be set before the view is attached.
-                setSurfaceType(PlayerView.SURFACE_TYPE_TEXTURE_VIEW)
-                player = exoPlayer
-                // Fit the video inside the view, preserving its aspect ratio
-                // and centering it (professional player default).
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-              }
+              // Inflated from view_player_texture.xml which sets surface_type =
+              // "texture_view". A TextureView is drawn in the normal view hierarchy so
+              // Compose's graphicsLayer zoom/pan (pinch zoom, zoom sheet) is applied to the
+              // rendered video - with the default SurfaceView the zoom never fills the
+              // screen. In media3 1.4.x the surface type is only settable via XML.
+              (LayoutInflater.from(ctx).inflate(R.layout.view_player_texture, null) as PlayerView)
+                  .apply {
+                    player = exoPlayer
+                    // Fit the video inside the view, preserving its aspect ratio
+                    // and centering it (professional player default).
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                  }
             },
             update = { view: PlayerView ->
               view.player = exoPlayer
