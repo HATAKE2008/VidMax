@@ -100,6 +100,13 @@ fun PlayerScreen(
             factory = { ctx: Context ->
               PlayerView(ctx).apply {
                 useController = false
+                // Use a TextureView instead of the default SurfaceView. A SurfaceView
+                // lives in its own window, so Compose's graphicsLayer zoom/pan (used by
+                // pinch zoom and the zoom sheet) is not applied to the rendered video -
+                // zooming then never fills the screen. TextureView is drawn in the normal
+                // view hierarchy, so zoom/crop and the fitted letterboxing behave like a
+                // professional player. Must be set before the view is attached.
+                setSurfaceType(PlayerView.SURFACE_TYPE_TEXTURE_VIEW)
                 player = exoPlayer
                 // Fit the video inside the view, preserving its aspect ratio
                 // and centering it (professional player default).
