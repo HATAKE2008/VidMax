@@ -97,7 +97,7 @@ fun PlayerControls(
     currentPlaybackSpeed: Float,
     onSpeedChange: (Float) -> Unit,
     videoScale: Float,
-    onVideoScaleChange: (Float, Offset) -> Unit,
+    onVideoScaleChange: (Float, Offset, Offset?) -> Unit,
     exoPlayer: Player? = null,
     bgPlayEnabled: Boolean,
     onBgPlayToggle: (Boolean) -> Unit,
@@ -466,7 +466,7 @@ fun PlayerControls(
                         contentDescription = "Zoom out",
                         onClick = {
                             val newZoom = (videoScale - 0.1f).coerceAtLeast(1f)
-                            onVideoScaleChange(newZoom / videoScale, Offset.Zero)
+                            onVideoScaleChange(newZoom / videoScale, Offset.Zero, null)
                         },
                         size = 44.dp
                     )
@@ -483,7 +483,7 @@ fun PlayerControls(
 
                     Slider(
                         value = videoScale,
-                        onValueChange = { newZoom -> onVideoScaleChange(newZoom / videoScale, Offset.Zero) },
+                        onValueChange = { newZoom -> onVideoScaleChange(newZoom / videoScale, Offset.Zero, null) },
                         valueRange = 1f..4f,
                         modifier = Modifier.weight(1f),
                         colors = SliderDefaults.colors(
@@ -498,7 +498,7 @@ fun PlayerControls(
                         contentDescription = "Zoom in",
                         onClick = {
                             val newZoom = (videoScale + 0.1f).coerceAtMost(4f)
-                            onVideoScaleChange(newZoom / videoScale, Offset.Zero)
+                            onVideoScaleChange(newZoom / videoScale, Offset.Zero, null)
                         },
                         size = 44.dp
                     )
@@ -514,7 +514,7 @@ fun PlayerControls(
                         Text("Set as default", fontSize = 14.sp)
                     }
                     Button(
-                        onClick = { onVideoScaleChange(1f / videoScale, Offset.Zero) },
+                        onClick = { onVideoScaleChange(1f / videoScale, Offset.Zero, null) },
                         modifier = Modifier.weight(1f).height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                     ) {
@@ -954,7 +954,7 @@ fun PlayerControls(
                             } else if (lastPinchDistance > 0f) {
                                 val zoom = currentDistance / lastPinchDistance
                                 val pan = currentCentroid - lastPinchCentroid
-                                onVideoScaleChange(zoom, pan)
+                                onVideoScaleChange(zoom, pan, currentCentroid)
                                 lastPinchDistance = currentDistance
                                 lastPinchCentroid = currentCentroid
                             }
