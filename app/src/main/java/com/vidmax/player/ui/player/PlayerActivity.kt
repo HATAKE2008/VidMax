@@ -144,6 +144,12 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         MPVLib.setOptionString("vo", "gpu")           
         MPVLib.setOptionString("gpu-context", "android")
         MPVLib.setOptionString("vd-lavc-fast", "yes") 
+        // Default scaling behavior: fit the video (preserve aspect ratio, no
+        // stretching/distortion), centered, as large as possible. These are the
+        // defaults in mpv too, but set explicitly so no profile/option overrides them.
+        MPVLib.setOptionString("keepaspect", "yes")
+        MPVLib.setOptionString("panscan", "0")
+        MPVLib.setOptionString("video-aspect-override", "no")
         MPVLib.init()
 
         MPVLib.addObserver(this)
@@ -297,14 +303,28 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
     override fun eventProperty(property: String, value: String) {}
 
     override fun event(eventId: Int) {
-        if (eventId == 7 && playerViewModel.currentEngine.value == PlayerEngine.MPV) {
-            if (isTrackChanging) return 
+        if (playerViewModel.currentEngine.value != PlayerEngine.MPV) return
 
-            playerViewModel.setPlaying(false)
-            if (currentPlayingPath.isNotEmpty()) {
-                prefs.edit().putLong("resume_pos_$currentPlayingPath", 0L).apply()
+        when (eventId) {
+            // New file loaded, or rotation/aspect metadata changed -> re-apply the
+            // fitted/centered geometry so the video never renders too small or with
+            // unnecessary black space (it has already been applied once in
+            // PlayerScreen's surface callbacks, this reinforces it at the right time).
+            MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED,
+            MPVLib.MpvEvent.MPV_EVENT_VIDEO_RECONFIG -> {
+                val mode = playerViewModel.aspectRatio.value
+                handler.post { MpvScaling.reapply(mode) }
             }
-            handler.post { handlePlaybackCompleted() }
+
+            MPVLib.MpvEvent.MPV_EVENT_END_FILE -> {
+                if (isTrackChanging) return
+
+                playerViewModel.setPlaying(false)
+                if (currentPlayingPath.isNotEmpty()) {
+                    prefs.edit().putLong("resume_pos_$currentPlayingPath", 0L).apply()
+                }
+                handler.post { handlePlaybackCompleted() }
+            }
         }
     }
 
