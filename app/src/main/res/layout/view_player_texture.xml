@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ExoPlayer surface host for full-screen video.
+
+    Uses a TextureView instead of the default SurfaceView so that Compose's
+    graphicsLayer zoom/pan (pinch zoom / zoom sheet) is applied to the rendered
+    video. A SurfaceView lives in its own window, so graphicsLayer transforms are
+    not applied to it - zooming then never fills the screen. In media3 1.4.x the
+    surface type can only be selected via this XML attribute (the code API was
+    made private), hence this tiny layout.
+-->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/player_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:surface_type="texture_view"
+    app:use_controller="false" />
