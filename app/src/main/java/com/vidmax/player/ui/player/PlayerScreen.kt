@@ -89,7 +89,7 @@ fun PlayerScreen(
 
   LaunchedEffect(aspectRatio, currentEngine) {
     if (currentEngine == PlayerEngine.MPV) {
-      applyMpvAspectMode(aspectRatio)
+      MpvScaling.applyAspectMode(aspectRatio)
     }
   }
 
@@ -143,8 +143,8 @@ fun PlayerScreen(
                           // possible so the very first frame is fitted and centered instead
                           // of being rendered at a default size (which leaves black space).
                           val frame = holder.surfaceFrame
-                          setMpvSurfaceSize(frame.width(), frame.height())
-                          applyMpvAspectMode(viewModel.aspectRatio.value)
+                          MpvScaling.applySurfaceSize(frame.width(), frame.height())
+                          MpvScaling.applyAspectMode(viewModel.aspectRatio.value)
                         } catch (e: Exception) {}
                         onMpvLayoutReady()
                       }
@@ -157,10 +157,10 @@ fun PlayerScreen(
                       ) {
                         // After the surface is resized (e.g. screen rotation) the previous
                         // buffer gets stretched and uninitialized regions show artifacts;
-                        // applyMpvAspectMode forces a repaint of the current frame while
+                        // applyAspectMode forces a repaint of the current frame while
                         // paused, so the video is re-fitted to the new geometry.
-                        setMpvSurfaceSize(w, h)
-                        applyMpvAspectMode(viewModel.aspectRatio.value)
+                        MpvScaling.applySurfaceSize(w, h)
+                        MpvScaling.applyAspectMode(viewModel.aspectRatio.value)
                       }
 
                       override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -270,43 +270,73 @@ fun PlayerScreen(
   }
 }
 
-// Tells mpv the pixel dimensions of the video surface so it fits/centers the
-// video correctly. Setting this late or wrong is what causes unnecessary black
-// space around the video.
-private fun setMpvSurfaceSize(w: Int, h: Int) {
-  if (w <= 0 || h <= 0) return
-  try {
-    MPVLib.setPropertyString("android-surface-size", "${w}x${h}")
-  } catch (e: Exception) {}
-}
+// Shared helper for keeping mpv's video fitted and centered with no unnecessary
+// black space. Used by both PlayerScreen (surface callbacks) and PlayerActivity
+// (mpv FILE_LOADED / VIDEO_RECONFIG events), so the geometry is always pushed at
+// the right moment no matter what triggered the change.
+object MpvScaling {
+  private var lastWidth = 0
+  private var lastHeight = 0
 
-// Applies the current aspect-ratio mode to mpv. FIT keeps the original aspect
-// ratio and letterboxes (video centered, as large as possible). FILL keeps the
-// aspect ratio but zooms/crops to cover the surface. STRETCH ignores the aspect
-// ratio and fills the surface (distorts).
-private fun applyMpvAspectMode(mode: AspectRatioMode) {
-  try {
-    when (mode) {
-      AspectRatioMode.FIT -> {
-        MPVLib.setPropertyString("keepaspect", "yes")
-        MPVLib.setPropertyDouble("panscan", 0.0)
-        MPVLib.setPropertyString("video-aspect-override", "no")
+  // Tells mpv the pixel dimensions of the video surface so it fits/centers the
+  // video correctly. Setting this late or wrong is what causes unnecessary black
+  // space around the video.
+  fun applySurfaceSize(w: Int, h: Int) {
+    if (w <= 0 || h <= 0) return
+    lastWidth = w
+    lastHeight = h
+    try {
+      MPVLib.setPropertyString("android-surface-size", "${w}x${h}")
+    } catch (e: Exception) {}
+  }
+
+  // Applies the current aspect-ratio mode to mpv. FIT keeps the original aspect
+  // ratio and letterboxes (video centered, as large as possible). FILL keeps the
+  // aspect ratio but zooms/crops to cover the surface. STRETCH ignores the aspect
+  // ratio and fills the surface (distorts).
+  fun applyAspectMode(mode: AspectRatioMode) {
+    try {
+      when (mode) {
+        AspectRatioMode.FIT -> {
+          MPVLib.setPropertyString("keepaspect", "yes")
+          MPVLib.setPropertyDouble("panscan", 0.0)
+          MPVLib.setPropertyString("video-aspect-override", "no")
+        }
+        AspectRatioMode.FILL -> {
+          MPVLib.setPropertyString("keepaspect", "yes")
+          MPVLib.setPropertyDouble("panscan", 1.0)
+          MPVLib.setPropertyString("video-aspect-override", "no")
+        }
+        AspectRatioMode.STRETCH -> {
+          MPVLib.setPropertyString("keepaspect", "no")
+          MPVLib.setPropertyDouble("panscan", 0.0)
+        }
       }
-      AspectRatioMode.FILL -> {
-        MPVLib.setPropertyString("keepaspect", "yes")
-        MPVLib.setPropertyDouble("panscan", 1.0)
-        MPVLib.setPropertyString("video-aspect-override", "no")
-      }
-      AspectRatioMode.STRETCH -> {
-        MPVLib.setPropertyString("keepaspect", "no")
-        MPVLib.setPropertyDouble("panscan", 0.0)
-      }
+      nudgeRepaintIfPaused()
+    } catch (e: Exception) {}
+  }
+
+  // Re-pushes the last known surface geometry plus the aspect mode. Called when
+  // mpv reconfigures its video output (new file loaded, or rotation/aspect
+  // metadata changed) so the new video is fitted/centered right away.
+  fun reapply(mode: AspectRatioMode) {
+    if (lastWidth > 0 && lastHeight > 0) {
+      try {
+        MPVLib.setPropertyString("android-surface-size", "${lastWidth}x${lastHeight}")
+      } catch (e: Exception) {}
     }
-    // When paused mpv's render loop is idle, so explicitly repaint the current
-    // frame at the new geometry.
-    val paused = MPVLib.getPropertyBoolean("pause") ?: false
-    if (paused) {
-      MPVLib.command(arrayOf("seek", "0", "relative+exact"))
-    }
-  } catch (e: Exception) {}
+    applyAspectMode(mode)
+  }
+
+  // While paused mpv's render loop is idle, so the current frame won't be
+  // redrawn at the new size/geometry. A zero-distance exact seek forces a
+  // repaint of the current frame without moving the playback position.
+  private fun nudgeRepaintIfPaused() {
+    try {
+      val paused = MPVLib.getPropertyBoolean("pause") ?: false
+      if (paused) {
+        MPVLib.command(arrayOf("seek", "0", "relative+exact"))
+      }
+    } catch (e: Exception) {}
+  }
 }
