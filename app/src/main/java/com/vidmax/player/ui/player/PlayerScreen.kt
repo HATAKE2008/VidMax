@@ -3,9 +3,10 @@
 package com.vidmax.player.ui.player
 
 import android.content.Context
+import android.graphics.SurfaceTexture
 import android.view.LayoutInflater
-import android.view.SurfaceHolder
-import android.view.SurfaceView
+import android.view.Surface
+import android.view.TextureView
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
@@ -21,9 +22,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -31,6 +34,7 @@ import androidx.media3.common.Player
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.vidmax.player.R
+import kotlin.math.max
 import com.vidmax.player.viewmodel.AspectRatioMode
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
@@ -62,6 +66,53 @@ fun PlayerScreen(
   var videoOffsetY by remember { mutableFloatStateOf(0f) }
   var currentPlaybackSpeed by remember { mutableFloatStateOf(1f) }
 
+  // Real size of the video surface view (px), kept in sync via onSizeChanged on
+  // both engine AndroidViews. Used to anchor pinch zoom and to clamp the pan so
+  // no one-sided black space can ever appear.
+  var viewSizePx by remember { mutableStateOf(IntSize.Zero) }
+
+  // Aspect ratio (width / height) of the currently loaded video. 0 means unknown
+  // (not loaded yet), in which case clamping falls back to the view aspect.
+  var videoAspectRatio by remember { mutableFloatStateOf(0f) }
+
+  // Max pan offset that keeps the scaled video covering the viewport. Positive
+  // only when the scaled content is larger than the view in that dimension;
+  // otherwise the offset is forced to 0 (perfectly centered).
+  fun clampVideoOffset() {
+    val vw = viewSizePx.width.toFloat()
+    val vh = viewSizePx.height.toFloat()
+    if (vw <= 0f || vh <= 0f) return
+    val (contentW, contentH) = contentSizePx(vw, vh, videoAspectRatio, aspectRatio)
+    val maxX = max(0f, (contentW * videoScale - vw) / 2f)
+    val maxY = max(0f, (contentH * videoScale - vh) / 2f)
+    videoOffsetX = if (maxX <= 0f) 0f else videoOffsetX.coerceIn(-maxX, maxX)
+    videoOffsetY = if (maxY <= 0f) 0f else videoOffsetY.coerceIn(-maxY, maxY)
+  }
+
+  // Keep the known video aspect ratio up to date and re-clamp whenever the video,
+  // the aspect mode or the engine changes.
+  LaunchedEffect(currentPath, aspectRatio, currentEngine) {
+    videoAspectRatio =
+        when (currentEngine) {
+          PlayerEngine.EXO -> {
+            val vs = exoPlayer?.videoSize
+            if (vs != null && vs.width > 0 && vs.height > 0) {
+              vs.width.toFloat() * vs.pixelWidthHeightRatio / vs.height.toFloat()
+            } else {
+              0f
+            }
+          }
+          PlayerEngine.MPV -> {
+            try {
+              MPVLib.getPropertyDouble("video-params/aspect")?.toFloat() ?: 0f
+            } catch (e: Exception) {
+              0f
+            }
+          }
+        }
+    clampVideoOffset()
+  }
+
   // Reset zoom / pan whenever a new video is loaded so the video starts
   // cleanly fitted and centered instead of carrying over the previous scale.
   LaunchedEffect(currentPath) {
@@ -92,6 +143,7 @@ fun PlayerScreen(
     if (currentEngine == PlayerEngine.MPV) {
       MpvScaling.applyAspectMode(aspectRatio)
     }
+    clampVideoOffset()
   }
 
   Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -123,6 +175,7 @@ fun PlayerScreen(
             },
             modifier =
                 Modifier.fillMaxSize()
+                    .onSizeChanged { viewSizePx = it; clampVideoOffset() }
                     .graphicsLayer(
                         scaleX = videoScale,
                         scaleY = videoScale,
@@ -133,31 +186,37 @@ fun PlayerScreen(
             factory = { ctx: Context ->
               FrameLayout(ctx).apply {
                 layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                val surfaceView =
-                    SurfaceView(ctx).apply {
+                // TextureView instead of SurfaceView so Compose's graphicsLayer
+                // zoom/pan (pinch zoom, zoom sheet) is applied to the rendered
+                // video. A SurfaceView lives in its own window, so graphicsLayer
+                // transforms are ignored for it and zoom never fills the screen.
+                val textureView =
+                    TextureView(ctx).apply {
                       layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                     }
-                addView(surfaceView)
+                addView(textureView)
 
-                surfaceView.holder.addCallback(
-                    object : SurfaceHolder.Callback {
-                      override fun surfaceCreated(holder: SurfaceHolder) {
-                        MPVLib.attachSurface(holder.surface)
+                textureView.surfaceTextureListener =
+                    object : TextureView.SurfaceTextureListener {
+                      override fun onSurfaceTextureAvailable(
+                          surface: SurfaceTexture,
+                          w: Int,
+                          h: Int
+                      ) {
+                        MPVLib.attachSurface(Surface(surface))
                         try {
                           MPVLib.setPropertyString("vid", "auto")
                           // Push the real surface geometry and aspect mode as early as
                           // possible so the very first frame is fitted and centered instead
                           // of being rendered at a default size (which leaves black space).
-                          val frame = holder.surfaceFrame
-                          MpvScaling.applySurfaceSize(frame.width(), frame.height())
+                          MpvScaling.applySurfaceSize(w, h)
                           MpvScaling.applyAspectMode(viewModel.aspectRatio.value)
                         } catch (e: Exception) {}
                         onMpvLayoutReady()
                       }
 
-                      override fun surfaceChanged(
-                          holder: SurfaceHolder,
-                          format: Int,
+                      override fun onSurfaceTextureSizeChanged(
+                          surface: SurfaceTexture,
                           w: Int,
                           h: Int
                       ) {
@@ -169,15 +228,19 @@ fun PlayerScreen(
                         MpvScaling.applyAspectMode(viewModel.aspectRatio.value)
                       }
 
-                      override fun surfaceDestroyed(holder: SurfaceHolder) {
+                      override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                         MPVLib.detachSurface()
+                        return true
                       }
-                    })
+
+                      override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+                    }
               }
             },
             update = { frameLayout -> frameLayout.requestLayout() },
             modifier =
                 Modifier.fillMaxSize()
+                    .onSizeChanged { viewSizePx = it; clampVideoOffset() }
                     .graphicsLayer(
                         scaleX = videoScale,
                         scaleY = videoScale,
@@ -230,15 +293,23 @@ fun PlayerScreen(
           }
         },
         videoScale = videoScale,
-        onVideoScaleChange = { zoom, pan ->
-          videoScale = (videoScale * zoom).coerceIn(1f, 4f)
-          if (videoScale > 1f) {
-            videoOffsetX += pan.x * videoScale
-            videoOffsetY += pan.y * videoScale
-          } else {
-            videoOffsetX = 0f
-            videoOffsetY = 0f
-          }
+        onVideoScaleChange = { zoom, pan, anchor ->
+          val vw = viewSizePx.width.toFloat()
+          val vh = viewSizePx.height.toFloat()
+          if (vw <= 0f || vh <= 0f) return@PlayerControls
+          // Anchor-based zoom: scale about the pinch centroid (or view center when
+          // anchor is null) instead of always about the view center, which is what
+          // caused the video to drift sideways after a pinch. Pan is applied in raw
+          // pixels (NOT multiplied by scale) and then clamped so the scaled content
+          // always covers the viewport.
+          val newScale = (videoScale * zoom).coerceIn(1f, 4f)
+          val k = newScale / videoScale
+          val ax = (anchor?.x ?: vw / 2f) - vw / 2f
+          val ay = (anchor?.y ?: vh / 2f) - vh / 2f
+          videoOffsetX = ax - (ax - videoOffsetX) * k + pan.x
+          videoOffsetY = ay - (ay - videoOffsetY) * k + pan.y
+          videoScale = newScale
+          clampVideoOffset()
         },
         exoPlayer = exoPlayer,
         bgPlayEnabled = bgPlayEnabled,
@@ -273,6 +344,28 @@ fun PlayerScreen(
         onBack = onBack,
         onPickSubtitle = onPickSubtitle,
         modifier = Modifier.fillMaxSize())
+  }
+}
+
+// Computes the on-screen size (px) of the video content inside a view of
+// viewW x viewH for the given aspect-ratio mode, preserving the video's real
+// aspect ratio (never stretching/distorting):
+//  - FIT: content fits inside the view, centered (letterboxed), no cropping.
+//  - FILL: content covers the view (cropped symmetrically), aspect preserved.
+//  - STRETCH: content fills the whole view (aspect not preserved).
+private fun contentSizePx(
+    viewW: Float,
+    viewH: Float,
+    videoAR: Float,
+    mode: AspectRatioMode
+): Pair<Float, Float> {
+  val ar = if (videoAR > 0f) videoAR else viewW / viewH
+  return when (mode) {
+    AspectRatioMode.STRETCH -> viewW to viewH
+    AspectRatioMode.FILL ->
+        if (viewW / viewH > ar) viewW to viewW / ar else viewH * ar to viewH
+    AspectRatioMode.FIT ->
+        if (viewW / viewH > ar) viewH * ar to viewH else viewW to viewW / ar
   }
 }
 
