@@ -344,8 +344,8 @@ fun SubtitleAudioPanel(
         }
     }
 
-    LaunchedEffect(exoPlayer) {
-        val player = exoPlayer ?: return@LaunchedEffect
+    DisposableEffect(exoPlayer) {
+        val player = exoPlayer ?: return@DisposableEffect onDispose {}
         val listener =
             object : Player.Listener {
                 override fun onTracksChanged(tracks: Tracks) {
