@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vidmax.player.viewmodel.PlayerEngine
@@ -267,12 +268,12 @@ fun SubtitleAudioPanel(
             // ==================== LEFT ICON RAIL ====================
             Column(
                 modifier = Modifier
-                    .width(76.dp)
+                    .width(52.dp)
                     .fillMaxHeight()
                     .background(Color.Black.copy(alpha = 0.45f))
-                    .padding(top = 96.dp),
+                    .padding(top = 60.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 RailButton(Icons.Outlined.FolderOpen, selected = false) { onPickSubtitle() }
                 RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
@@ -294,10 +295,10 @@ fun SubtitleAudioPanel(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .widthIn(max = 520.dp)
+                        .widthIn(max = 480.dp)
                         .verticalScroll(rememberScrollState())
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (tab == SubtitleAudioTab.SUBTITLE) {
                         SubtitleTab(
@@ -728,30 +729,27 @@ private fun AudioTab(
 @Composable
 private fun RailButton(icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .size(56.dp)
-            .clip(RoundedCornerShape(16.dp))
+        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
             .background(if (selected) RailSelectedBg else Color.Transparent)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, contentDescription = null, tint = if (selected) Color.White else RailUnselectedIcon, modifier = Modifier.size(26.dp))
+        Icon(icon, null, tint = if (selected) Color.White else RailUnselectedIcon,
+            modifier = Modifier.size(20.dp))
     }
 }
 
 @Composable
 private fun PanelTopBar(title: String, onBack: () -> Unit, onClose: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(96.dp)
-            .padding(start = 24.dp, end = 24.dp),
+        modifier = Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         CircleIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
-        Spacer(Modifier.width(24.dp))
-        Text(title, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.width(10.dp))
+        Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f))
         CircleIconButton(Icons.Outlined.Close, "Close", onClose)
     }
 }
@@ -759,32 +757,17 @@ private fun PanelTopBar(title: String, onBack: () -> Unit, onClose: () -> Unit) 
 @Composable
 private fun CircleIconButton(icon: ImageVector, contentDescription: String?, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .size(56.dp)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.08f))
-            .clickable(onClick = onClick),
+        modifier = Modifier.size(40.dp).clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
-    ) {
-        Icon(icon, contentDescription, tint = Color.White, modifier = Modifier.size(24.dp))
-    }
+    ) { Icon(icon, contentDescription, tint = Color.White, modifier = Modifier.size(20.dp)) }
 }
 
 @Composable
 private fun PanelCard(header: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(CardBackground)
-    ) {
-        Text(
-            header,
-            color = Color.White,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(16.dp)
-        )
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground)) {
+        Text(header, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 6.dp))
         content()
     }
 }
@@ -798,76 +781,52 @@ private fun PanelRow(
     onClick: (() -> Unit)? = null
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 60.dp)
-            .padding(horizontal = 16.dp)
+        modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
+            .padding(horizontal = 12.dp)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        if (leading != null) {
-            leading()
-        }
+        if (leading != null) leading()
         Column(Modifier.weight(1f)) {
-            Text(label, color = Color.White, fontSize = 16.sp)
-            if (secondary != null) {
-                Text(secondary, color = SecondaryText, fontSize = 13.sp)
-            }
+            Text(label, color = Color.White, fontSize = 14.sp,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (secondary != null)
+                Text(secondary, color = SecondaryText, fontSize = 12.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        if (trailing != null) {
-            trailing()
-        }
+        if (trailing != null) trailing()
     }
 }
 
 @Composable
 private fun LeadingIcon(icon: ImageVector) {
-    Icon(icon, contentDescription = null, tint = LeadingIconTint, modifier = Modifier.size(24.dp))
+    Icon(icon, null, tint = LeadingIconTint, modifier = Modifier.size(20.dp))
 }
 
 @Composable
 private fun CardDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp),
-        thickness = 1.dp,
-        color = CardDividerColor
-    )
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp),
+        thickness = 1.dp, color = CardDividerColor)
 }
 
 @Composable
-private fun PanelStepper(
-    valueText: String,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+private fun PanelStepper(valueText: String, onDecrease: () -> Unit, onIncrease: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         StepButton(Icons.Default.Remove, onDecrease)
-        Text(
-            valueText,
-            color = ValueText,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.width(64.dp)
-        )
+        Text(valueText, color = ValueText, fontSize = 13.sp, textAlign = TextAlign.Center,
+            maxLines = 1, modifier = Modifier.width(44.dp))
         StepButton(Icons.Default.Add, onIncrease)
     }
 }
 
 @Composable
 private fun StepButton(icon: ImageVector, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(32.dp)
-            .clip(CircleShape)
-            .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+    Box(modifier = Modifier.size(26.dp).clip(CircleShape)
+        .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(12.dp))
     }
 }
 
@@ -887,19 +846,11 @@ private fun PanelSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
 
 @Composable
 private fun ColorCircle(color: Color, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .border(2.dp, Color.White, CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        if (color.alpha < 0.01f) {
-            Checkerboard()
-        } else {
-            Box(Modifier.fillMaxSize().clip(CircleShape).background(color))
-        }
+    Box(modifier = Modifier.size(30.dp).clip(CircleShape)
+        .border(2.dp, Color.White, CircleShape).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center) {
+        if (color.alpha < 0.01f) Checkerboard()
+        else Box(Modifier.fillMaxSize().clip(CircleShape).background(color))
     }
 }
 
@@ -923,40 +874,32 @@ private fun Checkerboard() {
 
 @Composable
 private fun PanelRadio(selected: Boolean) {
-    Box(
-        modifier = Modifier
-            .size(24.dp)
-            .clip(CircleShape)
-            .border(2.dp, if (selected) ValueText else Color(0xFF9AA0A6), CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        if (selected) {
-            Box(Modifier.size(12.dp).clip(CircleShape).background(ValueText))
-        }
+    Box(modifier = Modifier.size(20.dp).clip(CircleShape)
+        .border(2.dp, if (selected) ValueText else Color(0xFF9AA0A6), CircleShape),
+        contentAlignment = Alignment.Center) {
+        if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(ValueText))
     }
 }
 
 @Composable
 private fun ValueChevron(value: String, accent: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.clickable(onClick = onClick),
+    Row(modifier = Modifier.clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(value, color = if (accent) ValueText else Color(0xFF9AA0A6), fontSize = 14.sp)
-        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Color(0xFF9AA0A6), modifier = Modifier.size(18.dp))
+        horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(value, color = if (accent) ValueText else Color(0xFF9AA0A6), fontSize = 13.sp,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = 110.dp))
+        Icon(Icons.Default.KeyboardArrowRight, null, tint = Color(0xFF9AA0A6),
+            modifier = Modifier.size(16.dp))
     }
 }
 
 @Composable
 private fun DefaultBadge() {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(RailSelectedBg.copy(alpha = 0.2f))
-            .padding(horizontal = 6.dp, vertical = 3.dp)
-    ) {
-        Text("Default", color = ValueText, fontSize = 12.sp)
+    Box(modifier = Modifier.clip(RoundedCornerShape(6.dp))
+        .background(RailSelectedBg.copy(alpha = 0.2f))
+        .padding(horizontal = 5.dp, vertical = 2.dp)) {
+        Text("Default", color = ValueText, fontSize = 11.sp)
     }
 }
 
