@@ -305,7 +305,7 @@ fun PlayerScreen(
               onOpenSettings = { viewModel.setPanelMode(PanelMode.SETTINGS) },
               onOpenSync = {
                 viewModel.setPanelMode(PanelMode.NONE)
-                viewModel.setSyncMenuVisible(true)
+                viewModel.setShowSyncSheet(true)
               })
         PanelMode.SETTINGS ->
           PlayerSettingsSheet(

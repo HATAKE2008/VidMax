@@ -131,7 +131,11 @@ fun PlayerControls(
     val videoTitle by viewModel.videoTitle.collectAsState()
 
     val currentEngine by viewModel.currentEngine.collectAsState()
-    val showSyncMenu by viewModel.syncMenuVisible.collectAsState()
+    val showSyncSheet by viewModel.showSyncSheet.collectAsState()
+    val showZoomSheet by viewModel.showZoomSheet.collectAsState()
+    val showAspectSheet by viewModel.showAspectSheet.collectAsState()
+    val showEngineMenu by viewModel.showEngineMenu.collectAsState()
+    val showDecoderMenu by viewModel.showDecoderMenu.collectAsState()
 
     val isGestureOverlayVisible by viewModel.isGestureOverlayVisible.collectAsState()
     val gestureIndicatorType by viewModel.gestureIndicatorType.collectAsState()
@@ -222,16 +226,10 @@ fun PlayerControls(
             .apply()
     }
 
-    var showEngineMenu by remember { mutableStateOf(false) }
-
-    var showDecoderMenu by remember { mutableStateOf(false) }
     var currentMpvDecoder by remember { mutableStateOf("auto-copy") }
 
     var audioDelayMs by remember { mutableLongStateOf(0L) }
     var subtitleDelayMs by remember { mutableLongStateOf(0L) }
-
-    var showZoomSheet by remember { mutableStateOf(false) }
-    var showAspectSheet by remember { mutableStateOf(false) }
 
     var localBoostEnabled by remember { mutableStateOf(audioBoostEnabled) }
     var sleepTimerMinutes by remember { mutableIntStateOf(0) }
@@ -396,7 +394,7 @@ fun PlayerControls(
     // Zoom bottom sheet
     // ============================================================
     if (showZoomSheet) {
-        ModalBottomSheet(onDismissRequest = { showZoomSheet = false }, containerColor = Color(0xFF1E1E1E)) {
+        ModalBottomSheet(onDismissRequest = { viewModel.setShowZoomSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
             val primaryColor = MaterialTheme.colorScheme.primary
             val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
             val primaryFaded = primaryColor.copy(alpha = 0.2f)
@@ -456,7 +454,7 @@ fun PlayerControls(
 
                 Row(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedButton(
-                        onClick = { showZoomSheet = false },
+                        onClick = { viewModel.setShowZoomSheet(false) },
                         modifier = Modifier.weight(1f).height(48.dp),
                         border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.5f)),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
@@ -480,7 +478,7 @@ fun PlayerControls(
     // ============================================================
     if (showAspectSheet) {
         val aspect by viewModel.aspectRatio.collectAsState()
-        ModalBottomSheet(onDismissRequest = { showAspectSheet = false }, containerColor = Color(0xFF1E1E1E)) {
+        ModalBottomSheet(onDismissRequest = { viewModel.setShowAspectSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Aspect Ratio", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 listOf(
@@ -491,7 +489,7 @@ fun PlayerControls(
                     val isSelected = aspect == mode
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .clickable { viewModel.setAspectRatio(mode); showAspectSheet = false }
+                            .clickable { viewModel.setAspectRatio(mode); viewModel.setShowAspectSheet(false) }
                             .padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -511,7 +509,7 @@ fun PlayerControls(
     // Decoder bottom sheet
     // ============================================================
     if (showDecoderMenu) {
-        ModalBottomSheet(onDismissRequest = { showDecoderMenu = false }, containerColor = Color(0xFF1E1E1E)) {
+        ModalBottomSheet(onDismissRequest = { viewModel.setShowDecoderMenu(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Hardware Decoder", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 val decoderOptions = listOf(
@@ -525,7 +523,7 @@ fun PlayerControls(
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable {
                             try { MPVLib.setPropertyString("hwdec", value); currentMpvDecoder = value } catch (e: Exception) {}
-                            showDecoderMenu = false
+                            viewModel.setShowDecoderMenu(false)
                         }.padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -602,8 +600,8 @@ fun PlayerControls(
     // ============================================================
     // Speed & Sync bottom sheet
     // ============================================================
-    if (showSyncMenu) {
-        LaunchedEffect(showSyncMenu) {
+    if (showSyncSheet) {
+        LaunchedEffect(showSyncSheet) {
             if (currentEngine == PlayerEngine.MPV) {
                 try {
                     audioDelayMs = ((MPVLib.getPropertyDouble("audio-delay") ?: 0.0) * 1000).toLong()
@@ -611,7 +609,7 @@ fun PlayerControls(
                 } catch (e: Exception) {}
             }
         }
-        ModalBottomSheet(onDismissRequest = { viewModel.setSyncMenuVisible(false) }, containerColor = Color(0xFF1E1E1E)) {
+        ModalBottomSheet(onDismissRequest = { viewModel.setShowSyncSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 Text("Speed & Sync", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Column {
@@ -671,10 +669,11 @@ fun PlayerControls(
     // ============================================================
     // Main overlay layout
     // ============================================================
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -687,6 +686,7 @@ fun PlayerControls(
 
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    if (down.isConsumed) return@awaitEachGesture
 
                     var isDraggingLocal = false
                     var dragAccumulatorX = 0f
@@ -913,7 +913,7 @@ fun PlayerControls(
                     detectTapGestures(onTap = { viewModel.setControlsVisible(true) })
                 }
             }
-    ) {
+        )
 
         // ---- Zoom % meter ----
         AnimatedVisibility(
@@ -1086,32 +1086,32 @@ fun PlayerControls(
                         // Engine badge
                         Box {
                             Box(
-                                modifier = Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable { showEngineMenu = true },
+                                modifier = Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable { viewModel.setShowEngineMenu(true) },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(if (currentEngine == PlayerEngine.EXO) "EXO" else "HW", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                             DropdownMenu(
                                 expanded = showEngineMenu,
-                                onDismissRequest = { showEngineMenu = false },
+                                onDismissRequest = { viewModel.setShowEngineMenu(false) },
                                 modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("Engine: ExoPlayer", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showEngineMenu = false; toggleEngine(PlayerEngine.EXO) }
+                                    onClick = { viewModel.setShowEngineMenu(false); toggleEngine(PlayerEngine.EXO) }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Engine: MPV (HW)", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showEngineMenu = false; toggleEngine(PlayerEngine.MPV) }
+                                    onClick = { viewModel.setShowEngineMenu(false); toggleEngine(PlayerEngine.MPV) }
                                 )
                                 if (currentEngine == PlayerEngine.MPV) {
                                     Divider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
                                     DropdownMenuItem(
                                         text = { Text("MPV Decoder Settings", color = MaterialTheme.colorScheme.onSurface) },
                                         leadingIcon = { Icon(Icons.Outlined.Memory, null, tint = MaterialTheme.colorScheme.primary) },
-                                        onClick = { showEngineMenu = false; showDecoderMenu = true }
+                                        onClick = { viewModel.setShowEngineMenu(false); viewModel.setShowDecoderMenu(true) }
                                     )
                                 }
                             }
@@ -1158,7 +1158,7 @@ fun PlayerControls(
                                 DropdownMenuItem(
                                     text = { Text("Speed & Sync", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; viewModel.setSyncMenuVisible(true) }
+                                    onClick = { showMoreMenu = false; viewModel.setShowSyncSheet(true) }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Share", color = MaterialTheme.colorScheme.onSurface) },
@@ -1277,9 +1277,9 @@ fun PlayerControls(
                                 onToggleLock = { viewModel.toggleLock() },
                                 onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
                                 onRotate = toggleScreenRotation,
-                                onZoom = { showZoomSheet = true },
-                                onAspect = { showAspectSheet = true },
-                                onSpeed = { viewModel.setSyncMenuVisible(true) },
+                                onZoom = { viewModel.setShowZoomSheet(true) },
+                                onAspect = { viewModel.setShowAspectSheet(true) },
+                                onSpeed = { viewModel.setShowSyncSheet(true) },
                                 onRepeat = { viewModel.cycleLoopMode() },
                                 onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
@@ -1300,9 +1300,9 @@ fun PlayerControls(
                                 onToggleLock = { viewModel.toggleLock() },
                                 onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
                                 onRotate = toggleScreenRotation,
-                                onZoom = { showZoomSheet = true },
-                                onAspect = { showAspectSheet = true },
-                                onSpeed = { viewModel.setSyncMenuVisible(true) },
+                                onZoom = { viewModel.setShowZoomSheet(true) },
+                                onAspect = { viewModel.setShowAspectSheet(true) },
+                                onSpeed = { viewModel.setShowSyncSheet(true) },
                                 onRepeat = { viewModel.cycleLoopMode() },
                                 onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
