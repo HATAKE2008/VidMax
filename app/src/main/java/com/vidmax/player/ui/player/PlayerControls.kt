@@ -66,6 +66,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -220,8 +222,7 @@ fun PlayerControls(
             .apply()
     }
 
-    var showSubtitleMenu by remember { mutableStateOf(false) }
-    var showAudioMenu by remember { mutableStateOf(false) }
+    var showSubtitleAudioPanel by remember { mutableStateOf<SubtitleAudioTab?>(null) }
     var showEngineMenu by remember { mutableStateOf(false) }
 
     var showDecoderMenu by remember { mutableStateOf(false) }
@@ -282,12 +283,6 @@ fun PlayerControls(
     var showMoreMenu by remember { mutableStateOf(false) }
     var showPropertiesDialog by remember { mutableStateOf(false) }
 
-    var mpvSubTracks by remember { mutableStateOf<List<MpvTrackInfo>>(emptyList()) }
-    var currentMpvSubId by remember { mutableStateOf("no") }
-
-    var mpvAudioTracks by remember { mutableStateOf<List<MpvTrackInfo>>(emptyList()) }
-    var currentMpvAudioId by remember { mutableStateOf("1") }
-
     // Auto-hide controls (MPVEx style)
     LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs) {
         if (controlsVisible && !isLocked && autoHideControls && controlsHideDelayMs > 0) {
@@ -337,48 +332,6 @@ fun PlayerControls(
     LaunchedEffect(showDecoderMenu) {
         if (showDecoderMenu && currentEngine == PlayerEngine.MPV) {
             try { currentMpvDecoder = MPVLib.getPropertyString("hwdec") ?: "auto-copy" } catch (e: Exception) {}
-        }
-    }
-
-    LaunchedEffect(showSubtitleMenu) {
-        if (showSubtitleMenu && currentEngine == PlayerEngine.MPV) {
-            try {
-                val tracks = mutableListOf<MpvTrackInfo>()
-                val count = MPVLib.getPropertyInt("track-list/count") ?: 0
-                for (i in 0 until count) {
-                    val type = MPVLib.getPropertyString("track-list/$i/type")
-                    if (type == "sub") {
-                        val id = MPVLib.getPropertyInt("track-list/$i/id") ?: -1
-                        val title = MPVLib.getPropertyString("track-list/$i/title") ?: ""
-                        val lang = MPVLib.getPropertyString("track-list/$i/lang") ?: ""
-                        val name = if (title.isNotEmpty()) title else if (lang.isNotEmpty()) lang else "Subtitle Track $id"
-                        if (id != -1) tracks.add(MpvTrackInfo(id, name))
-                    }
-                }
-                mpvSubTracks = tracks
-                currentMpvSubId = MPVLib.getPropertyString("sid") ?: "no"
-            } catch (e: Exception) {}
-        }
-    }
-
-    LaunchedEffect(showAudioMenu) {
-        if (showAudioMenu && currentEngine == PlayerEngine.MPV) {
-            try {
-                val tracks = mutableListOf<MpvTrackInfo>()
-                val count = MPVLib.getPropertyInt("track-list/count") ?: 0
-                for (i in 0 until count) {
-                    val type = MPVLib.getPropertyString("track-list/$i/type")
-                    if (type == "audio") {
-                        val id = MPVLib.getPropertyInt("track-list/$i/id") ?: -1
-                        val title = MPVLib.getPropertyString("track-list/$i/title") ?: ""
-                        val lang = MPVLib.getPropertyString("track-list/$i/lang") ?: ""
-                        val name = if (title.isNotEmpty()) title else if (lang.isNotEmpty()) lang else "Audio Track $id"
-                        if (id != -1) tracks.add(MpvTrackInfo(id, name))
-                    }
-                }
-                mpvAudioTracks = tracks
-                currentMpvAudioId = MPVLib.getPropertyString("aid") ?: "1"
-            } catch (e: Exception) {}
         }
     }
 
@@ -714,66 +667,6 @@ fun PlayerControls(
                     Text("Sync delays are automatically handled by ExoPlayer.", color = Color.Gray, fontSize = 14.sp)
                 }
                 Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
-    }
-
-    // ============================================================
-    // Subtitle bottom sheet
-    // ============================================================
-    if (showSubtitleMenu) {
-        ModalBottomSheet(onDismissRequest = { showSubtitleMenu = false }, containerColor = Color(0xFF1E1E1E)) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Subtitles", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                Row(modifier = Modifier.fillMaxWidth().clickable { showSubtitleMenu = false; onPickSubtitle() }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(imageVector = Icons.Outlined.FolderOpen, contentDescription = null, tint = Color.White)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text("Open Local Subtitle", color = Color.White, fontSize = 16.sp)
-                }
-                Divider(color = Color.White.copy(alpha = 0.1f))
-                if (currentEngine == PlayerEngine.MPV) {
-                    val isOff = currentMpvSubId == "no" || currentMpvSubId == "false" || currentMpvSubId == "0"
-                    Row(modifier = Modifier.fillMaxWidth().clickable { try { MPVLib.setPropertyString("sid", "no") } catch (e: Exception) {}; showSubtitleMenu = false }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = if (isOff) MaterialTheme.colorScheme.primary else Color.Transparent)
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text("Off / Disable", color = Color.White, fontSize = 16.sp)
-                    }
-                    mpvSubTracks.forEach { track ->
-                        val isSelected = currentMpvSubId == track.id.toString()
-                        Row(modifier = Modifier.fillMaxWidth().clickable { try { MPVLib.setPropertyInt("sid", track.id) } catch (e: Exception) {}; showSubtitleMenu = false }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(track.name, color = Color.White, fontSize = 16.sp)
-                        }
-                    }
-                } else {
-                    Text("Track selection is not available in ExoPlayer. Please switch to MPV (HW) Engine to change subtitles.", color = Color.Gray, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
-                }
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-        }
-    }
-
-    // ============================================================
-    // Audio track bottom sheet
-    // ============================================================
-    if (showAudioMenu) {
-        ModalBottomSheet(onDismissRequest = { showAudioMenu = false }, containerColor = Color(0xFF1E1E1E)) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Audio Tracks", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                if (currentEngine == PlayerEngine.MPV) {
-                    mpvAudioTracks.forEach { track ->
-                        val isSelected = currentMpvAudioId == track.id.toString()
-                        Row(modifier = Modifier.fillMaxWidth().clickable { try { MPVLib.setPropertyInt("aid", track.id) } catch (e: Exception) {}; showAudioMenu = false }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(track.name, color = Color.White, fontSize = 16.sp)
-                        }
-                    }
-                } else {
-                    Text("Track selection is not available in ExoPlayer. Please switch to MPV (HW) Engine to change audio tracks.", color = Color.Gray, fontSize = 14.sp)
-                }
-                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -1351,14 +1244,14 @@ fun PlayerControls(
                         MpvCircleButton(
                             icon = Icons.Outlined.Audiotrack,
                             contentDescription = "Audio tracks",
-                            onClick = { showAudioMenu = true },
+                            onClick = { showSubtitleAudioPanel = SubtitleAudioTab.AUDIO },
                             size = 42.dp
                         )
 
                         MpvCircleButton(
                             icon = Icons.Outlined.Subtitles,
                             contentDescription = "Subtitles",
-                            onClick = { showSubtitleMenu = true },
+                            onClick = { showSubtitleAudioPanel = SubtitleAudioTab.SUBTITLE },
                             size = 42.dp
                         )
 
@@ -1547,6 +1440,29 @@ fun PlayerControls(
                     }
                 }
             }
+        }
+    }
+
+    // ============================================================
+    // Subtitle / Audio track panel overlay
+    // ============================================================
+    showSubtitleAudioPanel?.let { panelTab ->
+        Dialog(
+            onDismissRequest = { showSubtitleAudioPanel = null },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
+        ) {
+            SubtitleAudioPanel(
+                initialTab = panelTab,
+                currentEngine = currentEngine,
+                viewModel = viewModel,
+                onClose = { showSubtitleAudioPanel = null },
+                onPickSubtitle = onPickSubtitle,
+                onOpenSettings = { showSettingsPanel = true },
+                onOpenSync = { showSyncMenu = true }
+            )
         }
     }
 }
