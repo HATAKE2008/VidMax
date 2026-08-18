@@ -38,6 +38,7 @@ import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -191,7 +192,7 @@ fun SubtitleAudioPanel(
         val size = p / 100f * 16f
         viewModel.setSubtitleSize(size)
         if (isMpv) {
-            try { MPVLib.setPropertyDouble("sub-scale", p / 100f) } catch (e: Exception) {}
+            try { MPVLib.setPropertyDouble("sub-scale", p / 100f.toDouble()) } catch (e: Exception) {}
         }
     }
 
@@ -207,8 +208,14 @@ fun SubtitleAudioPanel(
         subOutline = value.coerceIn(0f, 4f)
         prefs.edit().putFloat("sub_outline", subOutline).apply()
         if (isMpv) {
-            try { MPVLib.setPropertyDouble("sub-outline", subOutline) } catch (e: Exception) {}
+            try { MPVLib.setPropertyDouble("sub-outline", subOutline.toDouble()) } catch (e: Exception) {}
         }
+    }
+
+    fun pushSubBg() {
+        if (!isMpv) return
+        val argb = if (subBgEnabled) subBgColor else Color.Transparent.toArgb()
+        try { MPVLib.setPropertyString("sub-back-color", mpvColorString(argb)) } catch (e: Exception) {}
     }
 
     fun applySubBgEnabled(enabled: Boolean) {
@@ -221,12 +228,6 @@ fun SubtitleAudioPanel(
         subBgColor = color.toArgb()
         prefs.edit().putInt("sub_bg_color", subBgColor).apply()
         pushSubBg()
-    }
-
-    fun pushSubBg() {
-        if (!isMpv) return
-        val argb = if (subBgEnabled) subBgColor else Color.Transparent.toArgb()
-        try { MPVLib.setPropertyString("sub-back-color", mpvColorString(argb)) } catch (e: Exception) {}
     }
 
     fun applySubMargin(value: Float) {
