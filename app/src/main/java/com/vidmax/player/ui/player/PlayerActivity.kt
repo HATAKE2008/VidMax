@@ -25,9 +25,15 @@ import androidx.compose.runtime.getValue
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.source.SingleSampleMediaSource
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.ui.theme.VidMaxTheme
 import com.vidmax.player.viewmodel.LoopMode
@@ -35,6 +41,7 @@ import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
 import `is`.xyz.mpv.MPVLib
 import java.io.File
+import java.util.Locale
 
 class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
@@ -56,21 +63,25 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
     private var subtitlePfd: ParcelFileDescriptor? = null
 
+    private var externalSubUri: Uri? = null
+
     private val subtitlePickerLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             if (uri != null) {
                 try {
-                    subtitlePfd?.close()
-                    subtitlePfd = contentResolver.openFileDescriptor(uri, "r")
-                    val fd = subtitlePfd?.fd
-                    if (fd != null) {
-                        val fdUri = "fd://$fd"
-                        if (playerViewModel.currentEngine.value == PlayerEngine.MPV) {
+                    if (playerViewModel.currentEngine.value == PlayerEngine.MPV) {
+                        subtitlePfd?.close()
+                        subtitlePfd = contentResolver.openFileDescriptor(uri, "r")
+                        val fd = subtitlePfd?.fd
+                        if (fd != null) {
+                            val fdUri = "fd://$fd"
                             MPVLib.command(arrayOf("sub-add", fdUri))
                             Toast.makeText(this, "Subtitle Added! ✅", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(this, "Custom Subtitles require MPV Engine.", Toast.LENGTH_LONG).show()
                         }
+                    } else {
+                        externalSubUri = uri
+                        Toast.makeText(this, "Subtitle Added!", Toast.LENGTH_SHORT).show()
+                        handler.post { playVideo(playerViewModel.currentVideoIndex.value) }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -245,8 +256,33 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             exoPlayer?.stop()
             exoPlayer?.clearMediaItems()
 
-            val mediaItem = MediaItem.fromUri(uri)
-            exoPlayer?.setMediaItem(mediaItem)
+            val externalSub = externalSubUri
+            if (externalSub != null) {
+                val videoSource =
+                    DefaultMediaSourceFactory(this).createMediaSource(MediaItem.fromUri(uri))
+                val ext = externalSub.lastPathSegment
+                    ?.substringAfterLast('.', "")
+                    ?.lowercase(Locale.US) ?: ""
+                val mime =
+                    when (ext) {
+                        "ass", "ssa" -> MimeTypes.TEXT_SSA
+                        "vtt" -> MimeTypes.TEXT_VTT
+                        "ttml", "dfxp" -> MimeTypes.APPLICATION_TTML
+                        else -> MimeTypes.APPLICATION_SUBRIP
+                    }
+                val subSource =
+                    SingleSampleMediaSource.Factory(DefaultDataSource.Factory(this))
+                        .createMediaSource(
+                            MediaItem.SubtitleConfiguration.Builder(externalSub)
+                                .setMimeType(mime)
+                                .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                                .build(),
+                            C.TIME_UNSET
+                        )
+                exoPlayer?.setMediaSource(MergingMediaSource(videoSource, subSource))
+            } else {
+                exoPlayer?.setMediaItem(MediaItem.fromUri(uri))
+            }
             exoPlayer?.prepare()
             if (startPos > 3000L) {
                 exoPlayer?.seekTo(startPos)
