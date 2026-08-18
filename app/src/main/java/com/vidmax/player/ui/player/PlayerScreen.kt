@@ -36,6 +36,7 @@ import androidx.media3.ui.PlayerView
 import com.vidmax.player.R
 import kotlin.math.max
 import com.vidmax.player.viewmodel.AspectRatioMode
+import com.vidmax.player.viewmodel.PanelMode
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
 import `is`.xyz.mpv.MPVLib
@@ -60,6 +61,9 @@ fun PlayerScreen(
   var bgPlayEnabled by remember { mutableStateOf(prefs.getBoolean("bg_play_enabled", false)) }
   val aspectRatio by viewModel.aspectRatio.collectAsState()
   val currentEngine by viewModel.currentEngine.collectAsState()
+  val panelMode by viewModel.panelMode.collectAsState()
+  val subAudioTab by viewModel.subtitleAudioTab.collectAsState()
+  val panelOpen = panelMode != PanelMode.NONE
 
   var videoScale by remember { mutableFloatStateOf(1f) }
   var videoOffsetX by remember { mutableFloatStateOf(0f) }
@@ -121,6 +125,16 @@ fun PlayerScreen(
     videoOffsetY = 0f
   }
 
+  // While a right-half panel is open the video is shown at scale 1, centered
+  // and clean, so the user gets a live unfiltered preview.
+  LaunchedEffect(panelOpen) {
+    if (panelOpen) {
+      videoScale = 1f
+      videoOffsetX = 0f
+      videoOffsetY = 0f
+    }
+  }
+
   LaunchedEffect(bgPlayEnabled, currentEngine) {
     if (bgPlayEnabled) {
       if (currentEngine == PlayerEngine.EXO) {
@@ -175,13 +189,13 @@ fun PlayerScreen(
                   }
             },
             modifier =
-                Modifier.fillMaxSize()
+                (if (panelOpen) Modifier.fillMaxHeight().fillMaxWidth(0.5f) else Modifier.fillMaxSize())
                     .onSizeChanged { viewSizePx = it; clampVideoOffset() }
                     .graphicsLayer(
-                        scaleX = videoScale,
-                        scaleY = videoScale,
-                        translationX = videoOffsetX,
-                        translationY = videoOffsetY))
+                        scaleX = if (panelOpen) 1f else videoScale,
+                        scaleY = if (panelOpen) 1f else videoScale,
+                        translationX = if (panelOpen) 0f else videoOffsetX,
+                        translationY = if (panelOpen) 0f else videoOffsetY))
       } else {
         AndroidView(
             factory = { ctx: Context ->
@@ -240,13 +254,13 @@ fun PlayerScreen(
             },
             update = { frameLayout -> frameLayout.requestLayout() },
             modifier =
-                Modifier.fillMaxSize()
+                (if (panelOpen) Modifier.fillMaxHeight().fillMaxWidth(0.5f) else Modifier.fillMaxSize())
                     .onSizeChanged { viewSizePx = it; clampVideoOffset() }
                     .graphicsLayer(
-                        scaleX = videoScale,
-                        scaleY = videoScale,
-                        translationX = videoOffsetX,
-                        translationY = videoOffsetY))
+                        scaleX = if (panelOpen) 1f else videoScale,
+                        scaleY = if (panelOpen) 1f else videoScale,
+                        translationX = if (panelOpen) 0f else videoOffsetX,
+                        translationY = if (panelOpen) 0f else videoOffsetY))
       }
     } else {
       Column(
@@ -278,7 +292,29 @@ fun PlayerScreen(
           }
     }
 
-    PlayerControls(
+    if (panelOpen) {
+      when (panelMode) {
+        PanelMode.SUB_AUDIO ->
+          SubtitleAudioPanel(
+              initialTab = subAudioTab,
+              currentEngine = currentEngine,
+              viewModel = viewModel,
+              exoPlayer = exoPlayer,
+              onClose = { viewModel.setPanelMode(PanelMode.NONE) },
+              onPickSubtitle = onPickSubtitle,
+              onOpenSettings = { viewModel.setPanelMode(PanelMode.SETTINGS) },
+              onOpenSync = {
+                viewModel.setPanelMode(PanelMode.NONE)
+                viewModel.setSyncMenuVisible(true)
+              })
+        PanelMode.SETTINGS ->
+          PlayerSettingsSheet(
+              viewModel = viewModel,
+              onDismiss = { viewModel.setPanelMode(PanelMode.NONE) })
+        PanelMode.NONE -> {}
+      }
+    } else {
+      PlayerControls(
         viewModel = viewModel,
         currentPath = currentPath,
         audioBoostEnabled = audioBoostEnabled,
@@ -343,8 +379,8 @@ fun PlayerScreen(
         onSeekForward = onSeekForward,
         onSeekBackward = onSeekBackward,
         onBack = onBack,
-        onPickSubtitle = onPickSubtitle,
         modifier = Modifier.fillMaxSize())
+    }
   }
 }
 

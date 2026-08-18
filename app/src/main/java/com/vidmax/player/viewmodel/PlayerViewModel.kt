@@ -18,6 +18,17 @@ enum class AspectRatioMode {
   STRETCH
 }
 
+enum class PanelMode {
+  NONE,
+  SUB_AUDIO,
+  SETTINGS
+}
+
+enum class SubtitleAudioTab {
+  SUBTITLE,
+  AUDIO
+}
+
 // 🔥 Updated: Dual Engine tracking Enum with MPV instead of VLC
 enum class PlayerEngine {
   EXO, // Google's Super Smooth Engine
@@ -52,6 +63,16 @@ class PlayerViewModel : ViewModel() {
 
   private val _controlsVisible: MutableStateFlow<Boolean> = MutableStateFlow(true)
   val controlsVisible: StateFlow<Boolean> = _controlsVisible
+
+  private val _panelMode: MutableStateFlow<PanelMode> = MutableStateFlow(PanelMode.NONE)
+  val panelMode: StateFlow<PanelMode> = _panelMode
+
+  private val _subtitleAudioTab: MutableStateFlow<SubtitleAudioTab> =
+      MutableStateFlow(SubtitleAudioTab.SUBTITLE)
+  val subtitleAudioTab: StateFlow<SubtitleAudioTab> = _subtitleAudioTab
+
+  private val _syncMenuVisible: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val syncMenuVisible: StateFlow<Boolean> = _syncMenuVisible
 
   private val _loopMode: MutableStateFlow<LoopMode> = MutableStateFlow(LoopMode.NONE)
   val loopMode: StateFlow<LoopMode> = _loopMode
@@ -183,6 +204,18 @@ class PlayerViewModel : ViewModel() {
 
   fun setControlsVisible(visible: Boolean) {
     _controlsVisible.value = visible
+  }
+
+  fun setPanelMode(m: PanelMode) {
+    _panelMode.value = m
+  }
+
+  fun setSubtitleAudioTab(tab: SubtitleAudioTab) {
+    _subtitleAudioTab.value = tab
+  }
+
+  fun setSyncMenuVisible(visible: Boolean) {
+    _syncMenuVisible.value = visible
   }
 
   fun cycleLoopMode() {

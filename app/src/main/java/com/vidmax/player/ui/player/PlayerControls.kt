@@ -66,8 +66,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -76,8 +74,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.vidmax.player.R
 import com.vidmax.player.viewmodel.AspectRatioMode
 import com.vidmax.player.viewmodel.LoopMode
+import com.vidmax.player.viewmodel.PanelMode
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
+import com.vidmax.player.viewmodel.SubtitleAudioTab
 import `is`.xyz.mpv.MPVLib
 import java.io.File
 import java.util.Locale
@@ -109,8 +109,7 @@ fun PlayerControls(
     onNext: () -> Unit,
     onSeekForward: () -> Unit,
     onSeekBackward: () -> Unit,
-    onBack: () -> Unit,
-    onPickSubtitle: () -> Unit
+    onBack: () -> Unit
 ) {
 
     val context = LocalContext.current
@@ -132,6 +131,7 @@ fun PlayerControls(
     val videoTitle by viewModel.videoTitle.collectAsState()
 
     val currentEngine by viewModel.currentEngine.collectAsState()
+    val showSyncMenu by viewModel.syncMenuVisible.collectAsState()
 
     val isGestureOverlayVisible by viewModel.isGestureOverlayVisible.collectAsState()
     val gestureIndicatorType by viewModel.gestureIndicatorType.collectAsState()
@@ -222,13 +222,11 @@ fun PlayerControls(
             .apply()
     }
 
-    var showSubtitleAudioPanel by remember { mutableStateOf<SubtitleAudioTab?>(null) }
     var showEngineMenu by remember { mutableStateOf(false) }
 
     var showDecoderMenu by remember { mutableStateOf(false) }
     var currentMpvDecoder by remember { mutableStateOf("auto-copy") }
 
-    var showSyncMenu by remember { mutableStateOf(false) }
     var audioDelayMs by remember { mutableLongStateOf(0L) }
     var subtitleDelayMs by remember { mutableLongStateOf(0L) }
 
@@ -238,7 +236,6 @@ fun PlayerControls(
     var localBoostEnabled by remember { mutableStateOf(audioBoostEnabled) }
     var sleepTimerMinutes by remember { mutableIntStateOf(0) }
     var showTimerDialog by remember { mutableStateOf(false) }
-    var showSettingsPanel by remember { mutableStateOf(false) }
     var showImmersive by remember {
         mutableStateOf(true)
     }
@@ -614,7 +611,7 @@ fun PlayerControls(
                 } catch (e: Exception) {}
             }
         }
-        ModalBottomSheet(onDismissRequest = { showSyncMenu = false }, containerColor = Color(0xFF1E1E1E)) {
+        ModalBottomSheet(onDismissRequest = { viewModel.setSyncMenuVisible(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 Text("Speed & Sync", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Column {
@@ -669,127 +666,6 @@ fun PlayerControls(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
-    }
-
-    // ============================================================
-    // Organized MPVEx-style settings panel
-    // ============================================================
-    if (showSettingsPanel) {
-        PlayerSettingsSheet(
-            viewModel = viewModel,
-            autoHideControls = autoHideControls,
-            onAutoHideControlsChange = {
-                autoHideControls = it
-                savePrefs("auto_hide_controls", it)
-            },
-            controlsHideDelayMs = controlsHideDelayMs,
-            onControlsHideDelayChange = {
-                controlsHideDelayMs = it
-                savePrefs("controls_hide_delay_ms", it)
-            },
-            showControlsOnPlay = showControlsOnPlay,
-            onShowControlsOnPlayChange = {
-                showControlsOnPlay = it
-                savePrefs("show_controls_on_play", it)
-            },
-            bottomControlsBelowSeekbar = bottomControlsBelowSeekbar,
-            onBottomControlsBelowSeekbarChange = {
-                bottomControlsBelowSeekbar = it
-                savePrefs("bottom_controls_below_seekbar", it)
-            },
-            ambientMode = ambientMode,
-            onAmbientModeChange = {
-                ambientMode = it
-                savePrefs("ambient_mode", it)
-            },
-            keepScreenOn = keepScreenOn,
-            onKeepScreenOnChange = {
-                keepScreenOn = it
-                savePrefs("keep_screen_on", it)
-            },
-            hideButtonBackground = hideButtonBackground,
-            onHideButtonBackgroundChange = {
-                hideButtonBackground = it
-                savePrefs("hide_button_background", it)
-            },
-            reduceMotion = reduceMotion,
-            onReduceMotionChange = {
-                reduceMotion = it
-                savePrefs("reduce_motion", it)
-            },
-            whiteSeekbar = whiteSeekbar,
-            onWhiteSeekbarChange = {
-                whiteSeekbar = it
-                savePrefs("white_seekbar", it)
-            },
-            showDoubleTapIndicator = showDoubleTapIndicator,
-            onShowDoubleTapIndicatorChange = {
-                showDoubleTapIndicator = it
-                savePrefs("show_double_tap_indicator", it)
-            },
-            brightnessGestureEnabled = brightnessGestureEnabled,
-            onBrightnessGestureChange = {
-                brightnessGestureEnabled = it
-                savePrefs("gesture_brightness_enabled", it)
-            },
-            volumeGestureEnabled = volumeGestureEnabled,
-            onVolumeGestureChange = {
-                volumeGestureEnabled = it
-                savePrefs("gesture_volume_enabled", it)
-            },
-            pinchZoomEnabled = pinchZoomEnabled,
-            onPinchZoomChange = {
-                pinchZoomEnabled = it
-                savePrefs("pinch_to_zoom_enabled", it)
-            },
-            horizontalSeekEnabled = horizontalSeekEnabled,
-            onHorizontalSeekChange = {
-                horizontalSeekEnabled = it
-                savePrefs("gesture_horizontal_seek_enabled", it)
-            },
-            doubleTapSeekSeconds = doubleTapSeekSeconds,
-            onDoubleTapSeekSecondsChange = {
-                doubleTapSeekSeconds = it
-                savePrefs("double_tap_seek_seconds", it)
-            },
-            reverseDoubleTap = reverseDoubleTap,
-            onReverseDoubleTapChange = {
-                reverseDoubleTap = it
-                savePrefs("reverse_double_tap", it)
-            },
-            seekGestureSensitivity = seekGestureSensitivity,
-            onSeekGestureSensitivityChange = {
-                seekGestureSensitivity = it
-                savePrefs("seek_gesture_sensitivity", it)
-            },
-            singleTapAction = singleTapAction,
-            onSingleTapActionChange = {
-                singleTapAction = it
-                savePrefs("single_tap_action", it)
-            },
-            preventSeekbarTap = preventSeekbarTap,
-            onPreventSeekbarTapChange = {
-                preventSeekbarTap = it
-                savePrefs("prevent_seekbar_tap", it)
-            },
-            mpvVideoSync = mpvVideoSync,
-            onMpvVideoSyncChange = {
-                mpvVideoSync = it
-                savePrefs("mpv_video_sync", it)
-            },
-            mpvInterpolation = mpvInterpolation,
-            onMpvInterpolationChange = {
-                mpvInterpolation = it
-                savePrefs("mpv_interpolation", it)
-            },
-            mpvAudioPitchCorrection = mpvAudioPitchCorrection,
-            onMpvAudioPitchCorrectionChange = {
-                mpvAudioPitchCorrection = it
-                savePrefs("mpv_audio_pitch_correction", it)
-            },
-            onOpenDecoder = { showSettingsPanel = false; showDecoderMenu = true },
-            onDismiss = { showSettingsPanel = false }
-        )
     }
 
     // ============================================================
@@ -1244,14 +1120,20 @@ fun PlayerControls(
                         MpvCircleButton(
                             icon = Icons.Outlined.Audiotrack,
                             contentDescription = "Audio tracks",
-                            onClick = { showSubtitleAudioPanel = SubtitleAudioTab.AUDIO },
+                            onClick = {
+                                viewModel.setSubtitleAudioTab(SubtitleAudioTab.AUDIO)
+                                viewModel.setPanelMode(PanelMode.SUB_AUDIO)
+                            },
                             size = 42.dp
                         )
 
                         MpvCircleButton(
                             icon = Icons.Outlined.Subtitles,
                             contentDescription = "Subtitles",
-                            onClick = { showSubtitleAudioPanel = SubtitleAudioTab.SUBTITLE },
+                            onClick = {
+                                viewModel.setSubtitleAudioTab(SubtitleAudioTab.SUBTITLE)
+                                viewModel.setPanelMode(PanelMode.SUB_AUDIO)
+                            },
                             size = 42.dp
                         )
 
@@ -1271,12 +1153,12 @@ fun PlayerControls(
                                 DropdownMenuItem(
                                     text = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; showSettingsPanel = true }
+                                    onClick = { showMoreMenu = false; viewModel.setPanelMode(PanelMode.SETTINGS) }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Speed & Sync", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; showSyncMenu = true }
+                                    onClick = { showMoreMenu = false; viewModel.setSyncMenuVisible(true) }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Share", color = MaterialTheme.colorScheme.onSurface) },
@@ -1397,7 +1279,7 @@ fun PlayerControls(
                                 onRotate = toggleScreenRotation,
                                 onZoom = { showZoomSheet = true },
                                 onAspect = { showAspectSheet = true },
-                                onSpeed = { showSyncMenu = true },
+                                onSpeed = { viewModel.setSyncMenuVisible(true) },
                                 onRepeat = { viewModel.cycleLoopMode() },
                                 onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
@@ -1420,7 +1302,7 @@ fun PlayerControls(
                                 onRotate = toggleScreenRotation,
                                 onZoom = { showZoomSheet = true },
                                 onAspect = { showAspectSheet = true },
-                                onSpeed = { showSyncMenu = true },
+                                onSpeed = { viewModel.setSyncMenuVisible(true) },
                                 onRepeat = { viewModel.cycleLoopMode() },
                                 onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
@@ -1440,30 +1322,6 @@ fun PlayerControls(
                     }
                 }
             }
-        }
-    }
-
-    // ============================================================
-    // Subtitle / Audio track panel overlay
-    // ============================================================
-    showSubtitleAudioPanel?.let { panelTab ->
-        Dialog(
-            onDismissRequest = { showSubtitleAudioPanel = null },
-            properties = DialogProperties(
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false
-            )
-        ) {
-            SubtitleAudioPanel(
-                initialTab = panelTab,
-                currentEngine = currentEngine,
-                viewModel = viewModel,
-                exoPlayer = exoPlayer,
-                onClose = { showSubtitleAudioPanel = null },
-                onPickSubtitle = onPickSubtitle,
-                onOpenSettings = { showSettingsPanel = true },
-                onOpenSync = { showSyncMenu = true }
-            )
         }
     }
 }
