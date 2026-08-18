@@ -71,8 +71,26 @@ class PlayerViewModel : ViewModel() {
       MutableStateFlow(SubtitleAudioTab.SUBTITLE)
   val subtitleAudioTab: StateFlow<SubtitleAudioTab> = _subtitleAudioTab
 
-  private val _syncMenuVisible: MutableStateFlow<Boolean> = MutableStateFlow(false)
-  val syncMenuVisible: StateFlow<Boolean> = _syncMenuVisible
+  private val _showSyncSheet: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val showSyncSheet: StateFlow<Boolean> = _showSyncSheet
+
+  private val _showZoomSheet: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val showZoomSheet: StateFlow<Boolean> = _showZoomSheet
+
+  private val _showAspectSheet: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val showAspectSheet: StateFlow<Boolean> = _showAspectSheet
+
+  private val _showSettingsSheet: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val showSettingsSheet: StateFlow<Boolean> = _showSettingsSheet
+
+  private val _showEngineMenu: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val showEngineMenu: StateFlow<Boolean> = _showEngineMenu
+
+  private val _showDecoderMenu: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val showDecoderMenu: StateFlow<Boolean> = _showDecoderMenu
+
+  private val _showSpeedSheet: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val showSpeedSheet: StateFlow<Boolean> = _showSpeedSheet
 
   private val _loopMode: MutableStateFlow<LoopMode> = MutableStateFlow(LoopMode.NONE)
   val loopMode: StateFlow<LoopMode> = _loopMode
@@ -214,8 +232,32 @@ class PlayerViewModel : ViewModel() {
     _subtitleAudioTab.value = tab
   }
 
-  fun setSyncMenuVisible(visible: Boolean) {
-    _syncMenuVisible.value = visible
+  fun setShowSyncSheet(show: Boolean) {
+    _showSyncSheet.value = show
+  }
+
+  fun setShowZoomSheet(show: Boolean) {
+    _showZoomSheet.value = show
+  }
+
+  fun setShowAspectSheet(show: Boolean) {
+    _showAspectSheet.value = show
+  }
+
+  fun setShowSettingsSheet(show: Boolean) {
+    _showSettingsSheet.value = show
+  }
+
+  fun setShowEngineMenu(show: Boolean) {
+    _showEngineMenu.value = show
+  }
+
+  fun setShowDecoderMenu(show: Boolean) {
+    _showDecoderMenu.value = show
+  }
+
+  fun setShowSpeedSheet(show: Boolean) {
+    _showSpeedSheet.value = show
   }
 
   fun cycleLoopMode() {
