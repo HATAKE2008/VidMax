@@ -1,9 +1,14 @@
 package com.vidmax.player.ui.player
 
+import android.app.Activity
+import android.content.Context
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -16,89 +21,135 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.R
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
 import `is`.xyz.mpv.MPVLib
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerSettingsSheet(
     viewModel: PlayerViewModel,
-    // ---- Controls ----
-    autoHideControls: Boolean,
-    onAutoHideControlsChange: (Boolean) -> Unit,
-    controlsHideDelayMs: Int,
-    onControlsHideDelayChange: (Int) -> Unit,
-    showControlsOnPlay: Boolean,
-    onShowControlsOnPlayChange: (Boolean) -> Unit,
-    bottomControlsBelowSeekbar: Boolean,
-    onBottomControlsBelowSeekbarChange: (Boolean) -> Unit,
-    ambientMode: Boolean,
-    onAmbientModeChange: (Boolean) -> Unit,
-    keepScreenOn: Boolean,
-    onKeepScreenOnChange: (Boolean) -> Unit,
-    // ---- Aesthetics ----
-    hideButtonBackground: Boolean,
-    onHideButtonBackgroundChange: (Boolean) -> Unit,
-    reduceMotion: Boolean,
-    onReduceMotionChange: (Boolean) -> Unit,
-    whiteSeekbar: Boolean,
-    onWhiteSeekbarChange: (Boolean) -> Unit,
-    showDoubleTapIndicator: Boolean,
-    onShowDoubleTapIndicatorChange: (Boolean) -> Unit,
-    // ---- Gestures ----
-    brightnessGestureEnabled: Boolean,
-    onBrightnessGestureChange: (Boolean) -> Unit,
-    volumeGestureEnabled: Boolean,
-    onVolumeGestureChange: (Boolean) -> Unit,
-    pinchZoomEnabled: Boolean,
-    onPinchZoomChange: (Boolean) -> Unit,
-    horizontalSeekEnabled: Boolean,
-    onHorizontalSeekChange: (Boolean) -> Unit,
-    doubleTapSeekSeconds: Int,
-    onDoubleTapSeekSecondsChange: (Int) -> Unit,
-    reverseDoubleTap: Boolean,
-    onReverseDoubleTapChange: (Boolean) -> Unit,
-    seekGestureSensitivity: Int,
-    onSeekGestureSensitivityChange: (Int) -> Unit,
-    singleTapAction: String,
-    onSingleTapActionChange: (String) -> Unit,
-    preventSeekbarTap: Boolean,
-    onPreventSeekbarTapChange: (Boolean) -> Unit,
-    // ---- Settings / Advanced ----
-    mpvVideoSync: String,
-    onMpvVideoSyncChange: (String) -> Unit,
-    mpvInterpolation: Boolean,
-    onMpvInterpolationChange: (Boolean) -> Unit,
-    mpvAudioPitchCorrection: Boolean,
-    onMpvAudioPitchCorrectionChange: (Boolean) -> Unit,
-    onOpenDecoder: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
+    val activity = context as? Activity
     val currentEngine by viewModel.currentEngine.collectAsState()
     val subtitleSize by viewModel.subtitleSize.collectAsState()
 
     val primary = MaterialTheme.colorScheme.primary
     val isMpv = currentEngine == PlayerEngine.MPV
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF1E1E1E)) {
+    val legacyVerticalGestures = prefs.getBoolean("gesture_vertical_enabled", true)
+    var autoHideControls by remember { mutableStateOf(prefs.getBoolean("auto_hide_controls", true)) }
+    var controlsHideDelayMs by remember { mutableIntStateOf(prefs.getInt("controls_hide_delay_ms", 3000)) }
+    var showControlsOnPlay by remember { mutableStateOf(prefs.getBoolean("show_controls_on_play", true)) }
+    var bottomControlsBelowSeekbar by remember { mutableStateOf(prefs.getBoolean("bottom_controls_below_seekbar", false)) }
+    var ambientMode by remember { mutableStateOf(prefs.getBoolean("ambient_mode", false)) }
+    var keepScreenOn by remember { mutableStateOf(prefs.getBoolean("keep_screen_on", true)) }
+    var hideButtonBackground by remember { mutableStateOf(prefs.getBoolean("hide_button_background", false)) }
+    var reduceMotion by remember { mutableStateOf(prefs.getBoolean("reduce_motion", false)) }
+    var whiteSeekbar by remember { mutableStateOf(prefs.getBoolean("white_seekbar", false)) }
+    var showDoubleTapIndicator by remember { mutableStateOf(prefs.getBoolean("show_double_tap_indicator", true)) }
+    var brightnessGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_brightness_enabled", legacyVerticalGestures)) }
+    var volumeGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_volume_enabled", legacyVerticalGestures)) }
+    var pinchZoomEnabled by remember { mutableStateOf(prefs.getBoolean("pinch_to_zoom_enabled", true)) }
+    var horizontalSeekEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_horizontal_seek_enabled", true)) }
+    var doubleTapSeekSeconds by remember { mutableIntStateOf(prefs.getInt("double_tap_seek_seconds", 10)) }
+    var reverseDoubleTap by remember { mutableStateOf(prefs.getBoolean("reverse_double_tap", false)) }
+    var seekGestureSensitivity by remember { mutableIntStateOf(prefs.getInt("seek_gesture_sensitivity", 60000)) }
+    var singleTapAction by remember { mutableStateOf(prefs.getString("single_tap_action", "toggle_controls") ?: "toggle_controls") }
+    var preventSeekbarTap by remember { mutableStateOf(prefs.getBoolean("prevent_seekbar_tap", false)) }
+    var mpvVideoSync by remember { mutableStateOf(prefs.getString("mpv_video_sync", "audio") ?: "audio") }
+    var mpvInterpolation by remember { mutableStateOf(prefs.getBoolean("mpv_interpolation", false)) }
+    var mpvAudioPitchCorrection by remember { mutableStateOf(prefs.getBoolean("mpv_audio_pitch_correction", true)) }
+
+    var showDecoderDialog by remember { mutableStateOf(false) }
+    var currentMpvDecoder by remember { mutableStateOf("auto-copy") }
+
+    val savePrefs: (String, Any) -> Unit = { key, value ->
+        prefs.edit().apply {
+            when (value) {
+                is Boolean -> putBoolean(key, value)
+                is Int -> putInt(key, value)
+                is String -> putString(key, value)
+            }
+        }.apply()
+    }
+
+    LaunchedEffect(ambientMode, keepScreenOn) {
+        val act = activity ?: return@LaunchedEffect
+        act.window.setDimAmount(if (ambientMode) 0.85f else 0f)
+        if (keepScreenOn) {
+            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    LaunchedEffect(currentEngine, mpvVideoSync, mpvInterpolation, mpvAudioPitchCorrection) {
+        if (currentEngine == PlayerEngine.MPV) {
+            try {
+                MPVLib.setPropertyString("video-sync", mpvVideoSync)
+                MPVLib.setPropertyBoolean("interpolation", mpvInterpolation)
+                MPVLib.setPropertyBoolean("audio-pitch-correction", mpvAudioPitchCorrection)
+            } catch (e: Exception) {}
+        }
+    }
+
+    LaunchedEffect(showDecoderDialog) {
+        if (showDecoderDialog && currentEngine == PlayerEngine.MPV) {
+            try { currentMpvDecoder = MPVLib.getPropertyString("hwdec") ?: "auto-copy" } catch (e: Exception) {}
+        }
+    }
+
+    Row(modifier = Modifier.fillMaxSize()) {
+        // LEFT HALF: transparent so the live video stays fully visible
+        Box(
+            modifier = Modifier
+                .weight(0.5f)
+                .fillMaxHeight()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { onDismiss() }
+        )
+
+        // RIGHT HALF: the opaque settings panel
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .weight(0.5f)
+                .fillMaxHeight()
+                .background(Color(0xFF12161A))
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(
-                "Player Settings",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Player Settings",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier.size(36.dp).clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Outlined.Close, "Close", tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+            }
 
             // ---------------- Controls ----------------
             SettingsSectionHeader("Controls", Icons.Outlined.Tune)
@@ -107,7 +158,10 @@ fun PlayerSettingsSheet(
                 subtitle = "Fade out controls after a delay",
                 icon = Icons.Outlined.MoreVert,
                 checked = autoHideControls,
-                onCheckedChange = onAutoHideControlsChange
+                onCheckedChange = {
+                    autoHideControls = it
+                    savePrefs("auto_hide_controls", it)
+                }
             )
             SettingsChipRow(
                 title = "Auto-hide Delay",
@@ -120,35 +174,48 @@ fun PlayerSettingsSheet(
                     else -> 1
                 }
             ) { index ->
-                onControlsHideDelayChange(listOf(2000, 3000, 5000, 0)[index])
+                controlsHideDelayMs = listOf(2000, 3000, 5000, 0)[index]
+                savePrefs("controls_hide_delay_ms", controlsHideDelayMs)
             }
             SettingsSwitchRow(
                 title = "Show Controls on Play",
                 subtitle = "Reveal controls when playback starts",
                 icon = Icons.Outlined.PlayArrow,
                 checked = showControlsOnPlay,
-                onCheckedChange = onShowControlsOnPlayChange
+                onCheckedChange = {
+                    showControlsOnPlay = it
+                    savePrefs("show_controls_on_play", it)
+                }
             )
             SettingsSwitchRow(
                 title = "Controls Below Seek Bar",
                 subtitle = "Place the button row under the progress bar",
                 icon = Icons.Outlined.FitScreen,
                 checked = bottomControlsBelowSeekbar,
-                onCheckedChange = onBottomControlsBelowSeekbarChange
+                onCheckedChange = {
+                    bottomControlsBelowSeekbar = it
+                    savePrefs("bottom_controls_below_seekbar", it)
+                }
             )
             SettingsSwitchRow(
                 title = "Ambient Mode",
                 subtitle = "Dim the screen to reduce eye strain",
                 icon = Icons.Outlined.BrightnessHigh,
                 checked = ambientMode,
-                onCheckedChange = onAmbientModeChange
+                onCheckedChange = {
+                    ambientMode = it
+                    savePrefs("ambient_mode", it)
+                }
             )
             SettingsSwitchRow(
                 title = "Keep Screen On",
                 subtitle = "Prevent the screen from sleeping",
                 icon = Icons.Outlined.LockOpen,
                 checked = keepScreenOn,
-                onCheckedChange = onKeepScreenOnChange
+                onCheckedChange = {
+                    keepScreenOn = it
+                    savePrefs("keep_screen_on", it)
+                }
             )
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
@@ -161,28 +228,38 @@ fun PlayerSettingsSheet(
                 options = listOf("Translucent", "Flat"),
                 selectedIndex = if (hideButtonBackground) 1 else 0
             ) { index ->
-                onHideButtonBackgroundChange(index == 1)
+                hideButtonBackground = index == 1
+                savePrefs("hide_button_background", hideButtonBackground)
             }
             SettingsSwitchRow(
                 title = "Reduce Motion",
                 subtitle = "Use simpler animations for the controls",
                 icon = Icons.Outlined.Fullscreen,
                 checked = reduceMotion,
-                onCheckedChange = onReduceMotionChange
+                onCheckedChange = {
+                    reduceMotion = it
+                    savePrefs("reduce_motion", it)
+                }
             )
             SettingsSwitchRow(
                 title = "White Progress Bar",
                 subtitle = "Render the progress bar in white",
                 icon = Icons.Outlined.Speed,
                 checked = whiteSeekbar,
-                onCheckedChange = onWhiteSeekbarChange
+                onCheckedChange = {
+                    whiteSeekbar = it
+                    savePrefs("white_seekbar", it)
+                }
             )
             SettingsSwitchRow(
                 title = "Double-tap Seek Indicator",
                 subtitle = "Show the ripple when seeking by double-tap",
                 icon = Icons.Outlined.AspectRatio,
                 checked = showDoubleTapIndicator,
-                onCheckedChange = onShowDoubleTapIndicatorChange
+                onCheckedChange = {
+                    showDoubleTapIndicator = it
+                    savePrefs("show_double_tap_indicator", it)
+                }
             )
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
@@ -194,28 +271,40 @@ fun PlayerSettingsSheet(
                 subtitle = "Swipe up / down on the left edge",
                 icon = Icons.Outlined.BrightnessHigh,
                 checked = brightnessGestureEnabled,
-                onCheckedChange = onBrightnessGestureChange
+                onCheckedChange = {
+                    brightnessGestureEnabled = it
+                    savePrefs("gesture_brightness_enabled", it)
+                }
             )
             SettingsSwitchRow(
                 title = "Volume Gesture",
                 subtitle = "Swipe up / down on the right edge",
                 icon = Icons.Outlined.VolumeUp,
                 checked = volumeGestureEnabled,
-                onCheckedChange = onVolumeGestureChange
+                onCheckedChange = {
+                    volumeGestureEnabled = it
+                    savePrefs("gesture_volume_enabled", it)
+                }
             )
             SettingsSwitchRow(
                 title = "Pinch to Zoom",
                 subtitle = "Pinch to zoom the video in / out",
                 icon = Icons.Outlined.ZoomIn,
                 checked = pinchZoomEnabled,
-                onCheckedChange = onPinchZoomChange
+                onCheckedChange = {
+                    pinchZoomEnabled = it
+                    savePrefs("pinch_to_zoom_enabled", it)
+                }
             )
             SettingsSwitchRow(
                 title = "Horizontal Swipe Seek",
                 subtitle = "Drag across the screen to seek",
                 icon = Icons.Default.FastForward,
                 checked = horizontalSeekEnabled,
-                onCheckedChange = onHorizontalSeekChange
+                onCheckedChange = {
+                    horizontalSeekEnabled = it
+                    savePrefs("gesture_horizontal_seek_enabled", it)
+                }
             )
             SettingsChipRow(
                 title = "Double-tap Seek",
@@ -227,14 +316,18 @@ fun PlayerSettingsSheet(
                     else -> 0
                 }
             ) { index ->
-                onDoubleTapSeekSecondsChange(listOf(10, 30, 60)[index])
+                doubleTapSeekSeconds = listOf(10, 30, 60)[index]
+                savePrefs("double_tap_seek_seconds", doubleTapSeekSeconds)
             }
             SettingsSwitchRow(
                 title = "Reverse Double-tap",
                 subtitle = "Swap the left and right seek directions",
                 icon = Icons.Outlined.SwapHoriz,
                 checked = reverseDoubleTap,
-                onCheckedChange = onReverseDoubleTapChange
+                onCheckedChange = {
+                    reverseDoubleTap = it
+                    savePrefs("reverse_double_tap", it)
+                }
             )
             SettingsChipRow(
                 title = "Seek Gesture Sensitivity",
@@ -246,7 +339,8 @@ fun PlayerSettingsSheet(
                     else -> 1
                 }
             ) { index ->
-                onSeekGestureSensitivityChange(listOf(30000, 60000, 120000)[index])
+                seekGestureSensitivity = listOf(30000, 60000, 120000)[index]
+                savePrefs("seek_gesture_sensitivity", seekGestureSensitivity)
             }
             SettingsChipRow(
                 title = "Single-tap Action",
@@ -254,14 +348,18 @@ fun PlayerSettingsSheet(
                 options = listOf("Toggle Controls", "Play / Pause"),
                 selectedIndex = if (singleTapAction == "play_pause") 1 else 0
             ) { index ->
-                onSingleTapActionChange(listOf("toggle_controls", "play_pause")[index])
+                singleTapAction = listOf("toggle_controls", "play_pause")[index]
+                savePrefs("single_tap_action", singleTapAction)
             }
             SettingsSwitchRow(
                 title = "Prevent Seek Bar Tap",
                 subtitle = "Require dragging the seek bar to seek",
                 icon = Icons.Default.Lock,
                 checked = preventSeekbarTap,
-                onCheckedChange = onPreventSeekbarTapChange
+                onCheckedChange = {
+                    preventSeekbarTap = it
+                    savePrefs("prevent_seekbar_tap", it)
+                }
             )
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
@@ -292,7 +390,7 @@ fun PlayerSettingsSheet(
                 title = "Hardware Decoder",
                 subtitle = "Auto / SW / HW / HW+",
                 icon = Icons.Outlined.Memory,
-                onClick = onOpenDecoder
+                onClick = { showDecoderDialog = true }
             )
             if (isMpv) {
                 SettingsChipRow(
@@ -301,21 +399,28 @@ fun PlayerSettingsSheet(
                     options = listOf("Audio", "Display Resample"),
                     selectedIndex = if (mpvVideoSync == "display-resample") 1 else 0
                 ) { index ->
-                    onMpvVideoSyncChange(listOf("audio", "display-resample")[index])
+                    mpvVideoSync = listOf("audio", "display-resample")[index]
+                    savePrefs("mpv_video_sync", mpvVideoSync)
                 }
                 SettingsSwitchRow(
                     title = "Interpolation",
                     subtitle = "Smooth motion by frame blending",
                     icon = Icons.Outlined.Movie,
                     checked = mpvInterpolation,
-                    onCheckedChange = onMpvInterpolationChange
+                    onCheckedChange = {
+                        mpvInterpolation = it
+                        savePrefs("mpv_interpolation", it)
+                    }
                 )
                 SettingsSwitchRow(
                     title = "Audio Pitch Correction",
                     subtitle = "Keep pitch stable when changing speed",
                     icon = Icons.Outlined.Audiotrack,
                     checked = mpvAudioPitchCorrection,
-                    onCheckedChange = onMpvAudioPitchCorrectionChange
+                    onCheckedChange = {
+                        mpvAudioPitchCorrection = it
+                        savePrefs("mpv_audio_pitch_correction", it)
+                    }
                 )
             } else {
                 SettingsInfoRow(
@@ -330,6 +435,54 @@ fun PlayerSettingsSheet(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showDecoderDialog) {
+        AlertDialog(
+            onDismissRequest = { showDecoderDialog = false },
+            containerColor = Color(0xFF1E1E1E),
+            title = { Text("Hardware Decoder", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    val decoderOptions = listOf(
+                        Pair("auto-copy", "Auto (auto-copy)"),
+                        Pair("no", "SW (no)"),
+                        Pair("mediacodec-copy", "HW (mediacodec-copy)"),
+                        Pair("mediacodec", "HW+ (mediacodec)")
+                    )
+                    decoderOptions.forEach { (value, label) ->
+                        val isSelected = currentMpvDecoder == value
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                try {
+                                    MPVLib.setPropertyString("hwdec", value)
+                                    currentMpvDecoder = value
+                                } catch (e: Exception) {}
+                                showDecoderDialog = false
+                            }.padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(id = if (isSelected) R.drawable.ic_radio_checked else R.drawable.ic_radio_unchecked),
+                                contentDescription = null,
+                                tint = if (isSelected) primary else Color.Gray,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.width(16.dp))
+                            Text(
+                                label,
+                                color = if (isSelected) primary else Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDecoderDialog = false }) { Text("OK") }
+            }
+        )
     }
 }
 

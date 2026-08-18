@@ -68,11 +68,10 @@ import androidx.media3.common.Tracks
 import androidx.media3.ui.CaptionStyleCompat
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
+import com.vidmax.player.viewmodel.SubtitleAudioTab
 import `is`.xyz.mpv.MPVLib
 import java.util.Locale
 import kotlin.math.roundToInt
-
-enum class SubtitleAudioTab { SUBTITLE, AUDIO }
 
 private data class ExoTrackInfo(
     val group: Tracks.Group,
@@ -92,7 +91,6 @@ private val SecondaryText = Color(0xFF9AA0A6)
 private val ValueText = Color(0xFF58A6F0)
 private val CardBackground = Color(0xFF202428)
 private val CardDividerColor = Color.White.copy(alpha = 0.08f)
-private val PanelBackgroundColor = Color(0xFF141517).copy(alpha = 0.95f)
 
 // ---------------------------------------------------------------------------
 // EXO track helpers
@@ -436,53 +434,51 @@ fun SubtitleAudioPanel(
         }
     }
 
-    // Root Box for placing the panel on the right side
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.3f)) // Dim background for focus
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { onClose() }, // Tap outside to close
-        contentAlignment = Alignment.CenterEnd // Snap panel to the right
-    ) {
-        // The Panel Container
-        Row(
+    Row(modifier = modifier.fillMaxSize()) {
+        // LEFT HALF: transparent so the video stays fully visible underneath.
+        // Tapping it closes the panel.
+        Box(
             modifier = Modifier
+                .weight(0.5f)
                 .fillMaxHeight()
-                .widthIn(max = 400.dp) // Restrict max width so it doesn't stretch
-                .background(PanelBackgroundColor)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
-                ) {} // Catch clicks so tapping inside doesn't close the panel
-        ) {
-            // ==================== LEFT ICON RAIL ====================
-            Column(
-                modifier = Modifier
-                    .width(52.dp)
-                    .fillMaxHeight()
-                    .background(Color.Black.copy(alpha = 0.2f))
-                    .statusBarsPadding() // FIX: Responsive padding for cutouts/status bar
-                    .padding(top = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                RailButton(Icons.Outlined.FolderOpen, selected = false) { onPickSubtitle() }
-                RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
-                RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
-                RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
-                RailButton(Icons.Outlined.Speed, selected = false) { onClose(); onOpenSync() }
-            }
+                ) { onClose() }
+        )
 
-            // ==================== MAIN AREA ====================
-            Column(Modifier.fillMaxSize()) {
-                // FIX: Redundant Back button removed
-                PanelTopBar(
-                    title = if (tab == SubtitleAudioTab.SUBTITLE) "Subtitle" else "Audio Track",
-                    onClose = onClose
-                )
+        // RIGHT HALF: the opaque panel
+        Column(
+            modifier = Modifier
+                .weight(0.5f)
+                .fillMaxHeight()
+                .background(Color(0xFF12161A))
+        ) {
+            Row(Modifier.fillMaxSize()) {
+                // ==================== LEFT ICON RAIL ====================
+                Column(
+                    modifier = Modifier
+                        .width(52.dp)
+                        .fillMaxHeight()
+                        .background(Color.Black.copy(alpha = 0.2f))
+                        .statusBarsPadding()
+                        .padding(top = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    RailButton(Icons.Outlined.FolderOpen, selected = false) { onPickSubtitle() }
+                    RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
+                    RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
+                    RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
+                    RailButton(Icons.Outlined.Speed, selected = false) { onClose(); onOpenSync() }
+                }
+
+                // ==================== MAIN AREA ====================
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    PanelTopBar(
+                        title = if (tab == SubtitleAudioTab.SUBTITLE) "Subtitle" else "Audio Track",
+                        onClose = onClose
+                    )
 
                 Column(
                     modifier = Modifier
@@ -564,6 +560,7 @@ fun SubtitleAudioPanel(
                         )
                     }
                 }
+            }
             }
         }
     }
