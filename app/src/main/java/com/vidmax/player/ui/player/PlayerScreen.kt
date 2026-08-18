@@ -159,6 +159,7 @@ fun PlayerScreen(
               (LayoutInflater.from(ctx).inflate(R.layout.view_player_texture, null) as PlayerView)
                   .apply {
                     player = exoPlayer
+                    viewModel.exoSubtitleView = subtitleView
                     // Fit the video inside the view, preserving its aspect ratio
                     // and centering it (professional player default).
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT

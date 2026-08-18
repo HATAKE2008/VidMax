@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.vidmax.player.ui.player
 
 import android.content.Context
@@ -45,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -57,6 +60,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
+import androidx.media3.ui.CaptionStyleCompat
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
 import `is`.xyz.mpv.MPVLib
@@ -64,6 +73,14 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 enum class SubtitleAudioTab { SUBTITLE, AUDIO }
+
+private data class ExoTrackInfo(
+    val group: Tracks.Group,
+    val trackIndex: Int,
+    val label: String,
+    val secondary: String,
+    val selected: Boolean
+)
 
 // ---------------------------------------------------------------------------
 // Colors from the design spec
@@ -78,6 +95,44 @@ private val CardDividerColor = Color.White.copy(alpha = 0.08f)
 private val PanelBackgroundColor = Color(0xFF141517).copy(alpha = 0.95f)
 
 // ---------------------------------------------------------------------------
+// EXO track helpers
+// ---------------------------------------------------------------------------
+private fun exoLabel(format: Format, index: Int): String =
+    format.label?.takeIf { it.isNotBlank() }
+        ?: format.language?.takeIf { it.isNotBlank() }
+        ?: "Track #${index + 1}"
+
+private fun exoSecondary(format: Format, channelCount: Int?): String {
+    val parts = mutableListOf<String>()
+    format.language?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+    format.sampleMimeType?.let { parts.add(exoMimeShortName(it)) }
+    if (channelCount != null && channelCount > 0) parts.add("$channelCount.0ch")
+    return parts.joinToString(", ")
+}
+
+private fun exoMimeShortName(mime: String): String =
+    when (mime) {
+        "audio/mp4a-latm" -> "AAC"
+        "audio/mpeg" -> "MP3"
+        "audio/opus" -> "Opus"
+        "audio/ac3" -> "AC-3"
+        "audio/eac3" -> "E-AC-3"
+        "audio/vorbis" -> "Vorbis"
+        "audio/flac" -> "FLAC"
+        "audio/raw" -> "PCM"
+        "audio/true-hd" -> "TrueHD"
+        "audio/dts" -> "DTS"
+        "text/ssa" -> "SSA"
+        "text/x-ssa" -> "SSA"
+        "text/x-ass" -> "ASS"
+        "text/vtt" -> "VTT"
+        "application/ttml" -> "TTML"
+        "application/x-subrip" -> "SRT"
+        "text/x-microdvd" -> "MicroDVD"
+        else -> mime.substringAfter('/').uppercase(Locale.US)
+    }
+
+// ---------------------------------------------------------------------------
 // Right-side Compact Overlay: Subtitle / Audio Track panel
 // ---------------------------------------------------------------------------
 @Composable
@@ -85,6 +140,7 @@ fun SubtitleAudioPanel(
     initialTab: SubtitleAudioTab,
     currentEngine: PlayerEngine,
     viewModel: PlayerViewModel,
+    exoPlayer: Player?,
     onClose: () -> Unit,
     onPickSubtitle: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -102,6 +158,12 @@ fun SubtitleAudioPanel(
     var currentMpvSubId by remember { mutableStateOf("no") }
     var mpvAudioTracks by remember { mutableStateOf<List<MpvTrackInfo>>(emptyList()) }
     var currentMpvAudioId by remember { mutableStateOf("1") }
+
+    // ---- exo track lists ----
+    var exoSubTracks by remember { mutableStateOf<List<ExoTrackInfo>>(emptyList()) }
+    var exoAudioTracks by remember { mutableStateOf<List<ExoTrackInfo>>(emptyList()) }
+    var initialExoSubIndex by remember { mutableIntStateOf(-1) }
+    var initialExoAudioIndex by remember { mutableIntStateOf(-1) }
 
     // ---- Subtitle appearance ----
     val subtitleSize by viewModel.subtitleSize.collectAsState()
@@ -177,12 +239,123 @@ fun SubtitleAudioPanel(
         } catch (e: Exception) {}
     }
 
+    fun refreshExoTracks() {
+        val player = exoPlayer ?: return
+        val tracks = try { player.currentTracks } catch (e: Exception) { return }
+        val subs = mutableListOf<ExoTrackInfo>()
+        val auds = mutableListOf<ExoTrackInfo>()
+        for (group in tracks.groups) {
+            when (group.type) {
+                C.TRACK_TYPE_TEXT -> {
+                    for (i in 0 until group.length) {
+                        val format = group.getTrackFormat(i)
+                        subs.add(
+                            ExoTrackInfo(
+                                group = group,
+                                trackIndex = i,
+                                label = exoLabel(format, i),
+                                secondary = exoSecondary(format, null),
+                                selected = group.isTrackSelected(i)
+                            )
+                        )
+                    }
+                }
+                C.TRACK_TYPE_AUDIO -> {
+                    for (i in 0 until group.length) {
+                        val format = group.getTrackFormat(i)
+                        auds.add(
+                            ExoTrackInfo(
+                                group = group,
+                                trackIndex = i,
+                                label = exoLabel(format, i),
+                                secondary = exoSecondary(format, format.channelCount),
+                                selected = group.isTrackSelected(i)
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        exoSubTracks = subs
+        exoAudioTracks = auds
+        if (initialExoSubIndex == -1) {
+            initialExoSubIndex = subs.indexOfFirst { it.selected }
+        }
+        if (initialExoAudioIndex == -1) {
+            initialExoAudioIndex = auds.indexOfFirst { it.selected }
+        }
+    }
+
+    fun selectExoTrack(track: ExoTrackInfo, trackType: Int) {
+        val player = exoPlayer ?: return
+        player.trackSelectionParameters =
+            player.trackSelectionParameters
+                .buildUpon()
+                .setTrackTypeDisabled(trackType, false)
+                .setOverrideForType(
+                    TrackSelectionOverride(track.group.mediaTrackGroup, listOf(track.trackIndex))
+                )
+                .build()
+    }
+
+    fun disableExoSubtitles() {
+        val player = exoPlayer ?: return
+        player.trackSelectionParameters =
+            player.trackSelectionParameters
+                .buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .build()
+    }
+
+    fun disableExoAudio() {
+        val player = exoPlayer ?: return
+        player.trackSelectionParameters =
+            player.trackSelectionParameters
+                .buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                .build()
+    }
+
+    fun applyExoSubtitleView() {
+        val view = viewModel.exoSubtitleView ?: return
+        val bgColorOrTransparent =
+            if (subBgEnabled) subBgColor else android.graphics.Color.TRANSPARENT
+        view.setStyle(
+            CaptionStyleCompat(
+                subColor,
+                android.graphics.Color.WHITE,
+                bgColorOrTransparent,
+                CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                android.graphics.Color.BLACK,
+                null
+            )
+        )
+        view.setFractionalTextSize(0.0533f * textSizePercent / 100f)
+        view.setBottomPaddingFraction(subMarginPercent / 100f)
+    }
+
     LaunchedEffect(Unit) {
         if (isMpv) {
             refreshSubtitleTracks()
             refreshAudioTracks()
             subtitleDelaySec = (MPVLib.getPropertyDouble("sub-delay") ?: 0.0).toFloat()
             audioDelaySec = (MPVLib.getPropertyDouble("audio-delay") ?: 0.0).toFloat()
+        }
+    }
+
+    LaunchedEffect(exoPlayer) {
+        val player = exoPlayer ?: return@LaunchedEffect
+        val listener =
+            object : Player.Listener {
+                override fun onTracksChanged(tracks: Tracks) {
+                    refreshExoTracks()
+                }
+            }
+        player.addListener(listener)
+        refreshExoTracks()
+        onDispose {
+            player.removeListener(listener)
         }
     }
 
@@ -194,6 +367,8 @@ fun SubtitleAudioPanel(
         viewModel.setSubtitleSize(size)
         if (isMpv) {
             try { MPVLib.setPropertyDouble("sub-scale", p / 100f.toDouble()) } catch (e: Exception) {}
+        } else {
+            applyExoSubtitleView()
         }
     }
 
@@ -202,6 +377,8 @@ fun SubtitleAudioPanel(
         prefs.edit().putInt("sub_color", subColor).apply()
         if (isMpv) {
             try { MPVLib.setPropertyString("sub-color", mpvColorString(subColor)) } catch (e: Exception) {}
+        } else {
+            applyExoSubtitleView()
         }
     }
 
@@ -210,6 +387,8 @@ fun SubtitleAudioPanel(
         prefs.edit().putFloat("sub_outline", subOutline).apply()
         if (isMpv) {
             try { MPVLib.setPropertyDouble("sub-outline", subOutline.toDouble()) } catch (e: Exception) {}
+        } else {
+            applyExoSubtitleView()
         }
     }
 
@@ -222,13 +401,13 @@ fun SubtitleAudioPanel(
     fun applySubBgEnabled(enabled: Boolean) {
         subBgEnabled = enabled
         prefs.edit().putBoolean("sub_bg_enabled", enabled).apply()
-        pushSubBg()
+        if (isMpv) pushSubBg() else applyExoSubtitleView()
     }
 
     fun applySubBgColor(color: Color) {
         subBgColor = color.toArgb()
         prefs.edit().putInt("sub_bg_color", subBgColor).apply()
-        pushSubBg()
+        if (isMpv) pushSubBg() else applyExoSubtitleView()
     }
 
     fun applySubMargin(value: Float) {
@@ -236,6 +415,8 @@ fun SubtitleAudioPanel(
         prefs.edit().putFloat("sub_margin", subMarginPercent).apply()
         if (isMpv) {
             try { MPVLib.setPropertyString("sub-margin-y", "${subMarginPercent.roundToInt()}%") } catch (e: Exception) {}
+        } else {
+            applyExoSubtitleView()
         }
     }
 
@@ -316,6 +497,7 @@ fun SubtitleAudioPanel(
                             isMpv = isMpv,
                             mpvSubTracks = mpvSubTracks,
                             currentMpvSubId = currentMpvSubId,
+                            exoSubTracks = exoSubTracks,
                             onPickSubtitle = onPickSubtitle,
                             onSelectSubtitle = { id ->
                                 try { MPVLib.setPropertyInt("sid", id) } catch (e: Exception) {}
@@ -325,6 +507,8 @@ fun SubtitleAudioPanel(
                                 try { MPVLib.setPropertyString("sid", "no") } catch (e: Exception) {}
                                 currentMpvSubId = "no"
                             },
+                            onSelectExoSubtitle = { track -> selectExoTrack(track, C.TRACK_TYPE_TEXT) },
+                            onOffExoSubtitle = { disableExoSubtitles() },
                             textSizePercent = textSizePercent,
                             subColor = subColor,
                             subOutline = subOutline,
@@ -345,6 +529,8 @@ fun SubtitleAudioPanel(
                             isMpv = isMpv,
                             mpvAudioTracks = mpvAudioTracks,
                             currentMpvAudioId = currentMpvAudioId,
+                            exoAudioTracks = exoAudioTracks,
+                            initialExoAudioIndex = initialExoAudioIndex,
                             onSelectAudio = { id ->
                                 try { MPVLib.setPropertyInt("aid", id) } catch (e: Exception) {}
                                 currentMpvAudioId = id.toString()
@@ -353,6 +539,8 @@ fun SubtitleAudioPanel(
                                 try { MPVLib.setPropertyString("aid", "no") } catch (e: Exception) {}
                                 currentMpvAudioId = "no"
                             },
+                            onSelectExoAudio = { track -> selectExoTrack(track, C.TRACK_TYPE_AUDIO) },
+                            onDisableExoAudio = { disableExoAudio() },
                             swAudioDecoder = swAudioDecoder,
                             onSwAudioDecoderChange = {
                                 swAudioDecoder = it
@@ -482,9 +670,12 @@ private fun SubtitleTab(
     isMpv: Boolean,
     mpvSubTracks: List<MpvTrackInfo>,
     currentMpvSubId: String,
+    exoSubTracks: List<ExoTrackInfo>,
     onPickSubtitle: () -> Unit,
     onSelectSubtitle: (Int) -> Unit,
     onOffSubtitle: () -> Unit,
+    onSelectExoSubtitle: (ExoTrackInfo) -> Unit,
+    onOffExoSubtitle: () -> Unit,
     textSizePercent: Int,
     subColor: Int,
     subOutline: Float,
@@ -527,12 +718,30 @@ private fun SubtitleTab(
                 )
             }
         }
+    } else if (!isMpv && exoSubTracks.isNotEmpty()) {
+        PanelCard("Subtitle tracks") {
+            PanelRow(
+                leading = { PanelRadio(exoSubTracks.none { it.selected }) },
+                label = "Off",
+                secondary = "Disable subtitles",
+                onClick = onOffExoSubtitle
+            )
+            exoSubTracks.forEachIndexed { _, track ->
+                CardDivider()
+                PanelRow(
+                    leading = { PanelRadio(track.selected) },
+                    label = track.label,
+                    secondary = track.secondary,
+                    onClick = { onSelectExoSubtitle(track) }
+                )
+            }
+        }
     } else if (!isMpv) {
         PanelCard("Subtitle tracks") {
             PanelRow(
                 leading = { LeadingIcon(Icons.Outlined.Subtitles) },
-                label = "Track selection not available",
-                secondary = "Switch to the MPV (HW) engine to change subtitle tracks"
+                label = "No subtitle tracks available",
+                secondary = "No subtitle tracks found in the current video"
             )
         }
     }
@@ -594,17 +803,21 @@ private fun SubtitleTab(
     }
 
     PanelCard("Synchronization") {
-        PanelRow(
-            leading = { LeadingIcon(Icons.Outlined.Schedule) },
-            label = "Subtitle delay",
-            trailing = {
-                PanelStepper(
-                    valueText = String.format(Locale.US, "%.2fs", subtitleDelaySec),
-                    onDecrease = { onSubDelayChange(subtitleDelaySec - 0.1f) },
-                    onIncrease = { onSubDelayChange(subtitleDelaySec + 0.1f) }
-                )
-            }
-        )
+        Box(if (isMpv) Modifier else Modifier.alpha(0.4f)) {
+            PanelRow(
+                leading = { LeadingIcon(Icons.Outlined.Schedule) },
+                label = "Subtitle delay",
+                secondary = if (isMpv) null else "MPV engine only",
+                trailing = {
+                    PanelStepper(
+                        valueText = String.format(Locale.US, "%.2fs", subtitleDelaySec),
+                        onDecrease = { if (isMpv) onSubDelayChange(subtitleDelaySec - 0.1f) },
+                        onIncrease = { if (isMpv) onSubDelayChange(subtitleDelaySec + 0.1f) },
+                        enabled = isMpv
+                    )
+                }
+            )
+        }
     }
 }
 
@@ -616,8 +829,12 @@ private fun AudioTab(
     isMpv: Boolean,
     mpvAudioTracks: List<MpvTrackInfo>,
     currentMpvAudioId: String,
+    exoAudioTracks: List<ExoTrackInfo>,
+    initialExoAudioIndex: Int,
     onSelectAudio: (Int) -> Unit,
     onDisableAudio: () -> Unit,
+    onSelectExoAudio: (ExoTrackInfo) -> Unit,
+    onDisableExoAudio: () -> Unit,
     swAudioDecoder: Boolean,
     onSwAudioDecoderChange: (Boolean) -> Unit,
     stereoMode: String,
@@ -664,11 +881,39 @@ private fun AudioTab(
                 trailing = { KebabIcon() },
                 onClick = onDisableAudio
             )
+        } else if (exoAudioTracks.isNotEmpty()) {
+            exoAudioTracks.forEachIndexed { index, track ->
+                PanelRow(
+                    leading = { PanelRadio(track.selected) },
+                    label = track.label,
+                    secondary = track.secondary,
+                    trailing = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if (index == initialExoAudioIndex) DefaultBadge()
+                            KebabIcon()
+                        }
+                    },
+                    onClick = { onSelectExoAudio(track) }
+                )
+                if (index < exoAudioTracks.size - 1) CardDivider()
+            }
+            CardDivider()
+            val isDisabled = exoAudioTracks.none { it.selected }
+            PanelRow(
+                leading = { PanelRadio(isDisabled) },
+                label = "Disable",
+                secondary = "Disable audio",
+                trailing = { KebabIcon() },
+                onClick = onDisableExoAudio
+            )
         } else {
             PanelRow(
                 leading = { LeadingIcon(Icons.Outlined.Audiotrack) },
-                label = "Track selection not available",
-                secondary = "Switch to the MPV (HW) engine to change audio tracks"
+                label = "No audio tracks available",
+                secondary = "No audio tracks found in the current video"
             )
         }
     }
@@ -687,29 +932,37 @@ private fun AudioTab(
             trailing = { ValueChevron(stereoMode, accent = stereoMode != "Normal", onStereoClick) }
         )
         CardDivider()
-        PanelRow(
-            leading = { LeadingIcon(Icons.Outlined.Sync) },
-            label = "Audio synchronization (AV sync)",
-            trailing = {
-                ValueChevron(
-                    String.format(Locale.US, "%.2fs", avSyncSec),
-                    accent = kotlin.math.abs(avSyncSec) > 0.001f,
-                    onAvSyncClick
-                )
-            }
-        )
+        Box(if (isMpv) Modifier else Modifier.alpha(0.4f)) {
+            PanelRow(
+                leading = { LeadingIcon(Icons.Outlined.Sync) },
+                label = "Audio synchronization (AV sync)",
+                secondary = if (isMpv) null else "MPV engine only",
+                trailing = {
+                    ValueChevron(
+                        String.format(Locale.US, "%.2fs", avSyncSec),
+                        accent = isMpv && kotlin.math.abs(avSyncSec) > 0.001f,
+                        onAvSyncClick,
+                        enabled = isMpv
+                    )
+                }
+            )
+        }
         CardDivider()
-        PanelRow(
-            leading = { LeadingIcon(Icons.Outlined.Schedule) },
-            label = "Audio delay",
-            trailing = {
-                ValueChevron(
-                    String.format(Locale.US, "%.2fs", audioDelaySec),
-                    accent = kotlin.math.abs(audioDelaySec) > 0.001f,
-                    onAudioDelayClick
-                )
-            }
-        )
+        Box(if (isMpv) Modifier else Modifier.alpha(0.4f)) {
+            PanelRow(
+                leading = { LeadingIcon(Icons.Outlined.Schedule) },
+                label = "Audio delay",
+                secondary = if (isMpv) null else "MPV engine only",
+                trailing = {
+                    ValueChevron(
+                        String.format(Locale.US, "%.2fs", audioDelaySec),
+                        accent = isMpv && kotlin.math.abs(audioDelaySec) > 0.001f,
+                        onAudioDelayClick,
+                        enabled = isMpv
+                    )
+                }
+            )
+        }
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.VolumeUp) },
@@ -821,23 +1074,29 @@ private fun CardDivider() {
 }
 
 @Composable
-private fun PanelStepper(valueText: String, onDecrease: () -> Unit, onIncrease: () -> Unit) {
+private fun PanelStepper(
+    valueText: String,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    enabled: Boolean = true
+) {
     Row(verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        StepButton(Icons.Default.Remove, onDecrease)
+        StepButton(Icons.Default.Remove, onDecrease, enabled)
         // FIX: Width increased to 56.dp to avoid text clipping
         Text(valueText, color = ValueText, fontSize = 13.sp, textAlign = TextAlign.Center,
             maxLines = 1, modifier = Modifier.width(56.dp))
-        StepButton(Icons.Default.Add, onIncrease)
+        StepButton(Icons.Default.Add, onIncrease, enabled)
     }
 }
 
 @Composable
-private fun StepButton(icon: ImageVector, onClick: () -> Unit) {
+private fun StepButton(icon: ImageVector, onClick: () -> Unit, enabled: Boolean = true) {
     Box(modifier = Modifier.size(26.dp).clip(CircleShape)
-        .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape).clickable(onClick = onClick),
+        .border(1.dp, Color.White.copy(alpha = if (enabled) 0.25f else 0.12f), CircleShape)
+        .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(12.dp))
+        Icon(icon, null, tint = Color.White.copy(alpha = if (enabled) 1f else 0.5f), modifier = Modifier.size(12.dp))
     }
 }
 
@@ -893,8 +1152,13 @@ private fun PanelRadio(selected: Boolean) {
 }
 
 @Composable
-private fun ValueChevron(value: String, accent: Boolean, onClick: () -> Unit) {
-    Row(modifier = Modifier.clickable(onClick = onClick),
+private fun ValueChevron(
+    value: String,
+    accent: Boolean,
+    onClick: () -> Unit,
+    enabled: Boolean = true
+) {
+    Row(modifier = Modifier.then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(value, color = if (accent) ValueText else Color(0xFF9AA0A6), fontSize = 13.sp,

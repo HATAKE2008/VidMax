@@ -1,6 +1,7 @@
 package com.vidmax.player.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.media3.ui.SubtitleView
 import com.vidmax.player.utils.SubtitleItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,8 @@ enum class PlayerEngine {
 data class SubtitleTrack(val name: String, val subtitles: List<SubtitleItem>)
 
 class PlayerViewModel : ViewModel() {
+
+  var exoSubtitleView: SubtitleView? = null
 
   // 🔥 New: State for currently active engine
   private val _currentEngine: MutableStateFlow<PlayerEngine> = MutableStateFlow(PlayerEngine.EXO)

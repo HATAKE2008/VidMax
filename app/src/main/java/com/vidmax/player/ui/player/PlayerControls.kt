@@ -1458,6 +1458,7 @@ fun PlayerControls(
                 initialTab = panelTab,
                 currentEngine = currentEngine,
                 viewModel = viewModel,
+                exoPlayer = exoPlayer,
                 onClose = { showSubtitleAudioPanel = null },
                 onPickSubtitle = onPickSubtitle,
                 onOpenSettings = { showSettingsPanel = true },
