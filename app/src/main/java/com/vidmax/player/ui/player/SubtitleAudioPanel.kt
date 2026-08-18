@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Remove
@@ -76,9 +75,10 @@ private val SecondaryText = Color(0xFF9AA0A6)
 private val ValueText = Color(0xFF58A6F0)
 private val CardBackground = Color(0xFF202428)
 private val CardDividerColor = Color.White.copy(alpha = 0.08f)
+private val PanelBackgroundColor = Color(0xFF141517).copy(alpha = 0.95f)
 
 // ---------------------------------------------------------------------------
-// Full-screen overlay: Subtitle / Audio Track panel
+// Right-side Compact Overlay: Subtitle / Audio Track panel
 // ---------------------------------------------------------------------------
 @Composable
 fun SubtitleAudioPanel(
@@ -255,23 +255,36 @@ fun SubtitleAudioPanel(
         }
     }
 
+    // Root Box for placing the panel on the right side
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
+            .background(Color.Black.copy(alpha = 0.3f)) // Dim background for focus
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
-            ) {}
+            ) { onClose() }, // Tap outside to close
+        contentAlignment = Alignment.CenterEnd // Snap panel to the right
     ) {
-        Row(Modifier.fillMaxSize()) {
+        // The Panel Container
+        Row(
+            modifier = Modifier
+                .fillMaxHeight()
+                .widthIn(max = 400.dp) // Restrict max width so it doesn't stretch
+                .background(PanelBackgroundColor)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {} // Catch clicks so tapping inside doesn't close the panel
+        ) {
             // ==================== LEFT ICON RAIL ====================
             Column(
                 modifier = Modifier
                     .width(52.dp)
                     .fillMaxHeight()
-                    .background(Color.Black.copy(alpha = 0.45f))
-                    .padding(top = 60.dp),
+                    .background(Color.Black.copy(alpha = 0.2f))
+                    .statusBarsPadding() // FIX: Responsive padding for cutouts/status bar
+                    .padding(top = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -279,15 +292,14 @@ fun SubtitleAudioPanel(
                 RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
                 RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
                 RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
-                // Sliders icon omitted: no equalizer sheet exists in the app.
                 RailButton(Icons.Outlined.Speed, selected = false) { onClose(); onOpenSync() }
             }
 
             // ==================== MAIN AREA ====================
             Column(Modifier.fillMaxSize()) {
+                // FIX: Redundant Back button removed
                 PanelTopBar(
                     title = if (tab == SubtitleAudioTab.SUBTITLE) "Subtitle" else "Audio Track",
-                    onBack = onClose,
                     onClose = onClose
                 )
 
@@ -295,9 +307,8 @@ fun SubtitleAudioPanel(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .widthIn(max = 480.dp)
                         .verticalScroll(rememberScrollState())
-                        .padding(10.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (tab == SubtitleAudioTab.SUBTITLE) {
@@ -740,13 +751,11 @@ private fun RailButton(icon: ImageVector, selected: Boolean, onClick: () -> Unit
 }
 
 @Composable
-private fun PanelTopBar(title: String, onBack: () -> Unit, onClose: () -> Unit) {
+private fun PanelTopBar(title: String, onClose: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 10.dp),
+        modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        CircleIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
-        Spacer(Modifier.width(10.dp))
         Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f))
@@ -757,16 +766,16 @@ private fun PanelTopBar(title: String, onBack: () -> Unit, onClose: () -> Unit) 
 @Composable
 private fun CircleIconButton(icon: ImageVector, contentDescription: String?, onClick: () -> Unit) {
     Box(
-        modifier = Modifier.size(40.dp).clip(CircleShape)
+        modifier = Modifier.size(36.dp).clip(CircleShape)
             .background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Icon(icon, contentDescription, tint = Color.White, modifier = Modifier.size(20.dp)) }
+    ) { Icon(icon, contentDescription, tint = Color.White, modifier = Modifier.size(18.dp)) }
 }
 
 @Composable
 private fun PanelCard(header: String, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground)) {
-        Text(header, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+        Text(header, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 6.dp))
         content()
     }
@@ -780,9 +789,10 @@ private fun PanelRow(
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
+    // FIX: Compact spacing (min height 44.dp instead of 50.dp)
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
-            .padding(horizontal = 12.dp)
+        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -815,8 +825,9 @@ private fun PanelStepper(valueText: String, onDecrease: () -> Unit, onIncrease: 
     Row(verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         StepButton(Icons.Default.Remove, onDecrease)
+        // FIX: Width increased to 56.dp to avoid text clipping
         Text(valueText, color = ValueText, fontSize = 13.sp, textAlign = TextAlign.Center,
-            maxLines = 1, modifier = Modifier.width(44.dp))
+            maxLines = 1, modifier = Modifier.width(56.dp))
         StepButton(Icons.Default.Add, onIncrease)
     }
 }
