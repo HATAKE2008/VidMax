@@ -1137,6 +1137,14 @@ fun PlayerControls(
                             size = 42.dp
                         )
 
+                        // Settings (direct call, not inside a dropdown)
+                        MpvCircleButton(
+                            icon = Icons.Outlined.Settings,
+                            contentDescription = "Settings",
+                            onClick = { viewModel.setPanelMode(PanelMode.SETTINGS) },
+                            size = 42.dp
+                        )
+
                         // More menu
                         Box {
                             MpvCircleButton(
@@ -1150,11 +1158,6 @@ fun PlayerControls(
                                 onDismissRequest = { showMoreMenu = false },
                                 modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
-                                    leadingIcon = { Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; viewModel.setPanelMode(PanelMode.SETTINGS) }
-                                )
                                 DropdownMenuItem(
                                     text = { Text("Speed & Sync", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.primary) },
