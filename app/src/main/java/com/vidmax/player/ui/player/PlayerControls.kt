@@ -152,8 +152,8 @@ fun PlayerControls(
     var volumeGestureEnabled by remember {
         mutableStateOf(settingsPrefs.getBoolean("gesture_volume_enabled", legacyVerticalGestures))
     }
-    var pinchZoomEnabled by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("pinch_to_zoom_enabled", true))
+    val pinchZoomEnabled by remember {
+        mutableStateOf(settingsPrefs.getBoolean("pinch_to_zoom_enabled", true))
     }
     var horizontalSeekEnabled by remember {
         mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("gesture_horizontal_seek_enabled", true))
@@ -272,7 +272,6 @@ fun PlayerControls(
     }
 
     val density = LocalDensity.current
-    val deadZonePx = remember(density) { with(density) { 40.dp.toPx() } }
     val bottomDeadZonePx = remember(density) { with(density) { 120.dp.toPx() } }
 
     var showMoreMenu by remember { mutableStateOf(false) }
@@ -681,7 +680,7 @@ fun PlayerControls(
                     }
                 }
             }
-            .pointerInput(isLocked) {
+            .pointerInput(isLocked, pinchZoomEnabled) {
                 if (isLocked) return@pointerInput
 
                 awaitEachGesture {
@@ -695,10 +694,6 @@ fun PlayerControls(
                     pinchActive = false
                     lastPinchDistance = 0f
                     lastPinchCentroid = Offset.Zero
-
-                    val inDeadZone = down.position.x < deadZonePx ||
-                        down.position.x > size.width - deadZonePx ||
-                        down.position.y > size.height - bottomDeadZonePx
 
                     do {
                         val event = awaitPointerEvent()
@@ -732,12 +727,23 @@ fun PlayerControls(
                         }
 
                         // ---- Single finger: brightness / volume / seek ----
-                        if (pressed.size == 1 && currentVideoScale <= 1f && !inDeadZone && pointerCount.get() == 1) {
+                        if (pressed.size == 1) {
                             val change = pressed.first()
                             val dragAmount = Offset(
                                 change.position.x - change.previousPosition.x,
                                 change.position.y - change.previousPosition.y
                             )
+
+                            // Zoomed: one finger pans the video
+                            if (currentVideoScale > 1f) {
+                                val pan = Offset(
+                                    change.position.x - change.previousPosition.x,
+                                    change.position.y - change.previousPosition.y
+                                )
+                                onVideoScaleChange(1f, pan, change.position)
+                                change.consume()
+                                continue
+                            }
 
                             if (!isDraggingLocal) {
                                 dragAccumulatorX += dragAmount.x
@@ -774,7 +780,8 @@ fun PlayerControls(
 
                                 if (!dragDirectionDetermined) {
                                     if (abs(dragAmount.x) > abs(dragAmount.y)) {
-                                        dragType = 4
+                                        dragType =
+                                            if (down.position.y < size.height - bottomDeadZonePx) 4 else 0
                                     } else if (dragStartOffset.x < size.width * 0.5f) {
                                         dragType = 1
                                     } else {
@@ -1074,7 +1081,7 @@ fun PlayerControls(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                videoTitle,
+                                videoTitle.ifBlank { File(currentPath).nameWithoutExtension },
                                 color = Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
