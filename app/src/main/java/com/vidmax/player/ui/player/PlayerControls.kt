@@ -145,7 +145,7 @@ fun PlayerControls(
     val currentVolumePercent by viewModel.currentVolumePercent.collectAsState()
     val currentBrightnessPercent by viewModel.currentBrightnessPercent.collectAsState()
 
-    // ---- MPVEx preference switches (stored in vidmax_settings) ----
+    // ---- MPVEx preference switches ----
     val settingsPrefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
     val legacyVerticalGestures = settingsPrefs.getBoolean("gesture_vertical_enabled", true)
     var brightnessGestureEnabled by remember {
@@ -158,74 +158,71 @@ fun PlayerControls(
         mutableStateOf(settingsPrefs.getBoolean("pinch_zoom_enabled", true))
     }
     var horizontalSeekEnabled by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("gesture_horizontal_seek_enabled", true))
+        mutableStateOf(settingsPrefs.getBoolean("gesture_horizontal_seek_enabled", true))
     }
     var doubleTapSeekSeconds by remember {
-        mutableIntStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getInt("double_tap_seek_seconds", 10))
+        mutableIntStateOf(settingsPrefs.getInt("double_tap_seek_seconds", 10))
     }
     var reverseDoubleTap by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("reverse_double_tap", false))
+        mutableStateOf(settingsPrefs.getBoolean("reverse_double_tap", false))
     }
     var seekGestureSensitivity by remember {
-        mutableIntStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getInt("seek_gesture_sensitivity", 60000))
+        mutableIntStateOf(settingsPrefs.getInt("seek_gesture_sensitivity", 60000))
     }
     var singleTapAction by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getString("single_tap_action", "toggle_controls") ?: "toggle_controls")
+        mutableStateOf(settingsPrefs.getString("single_tap_action", "toggle_controls") ?: "toggle_controls")
     }
     var preventSeekbarTap by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("prevent_seekbar_tap", false))
+        mutableStateOf(settingsPrefs.getBoolean("prevent_seekbar_tap", false))
     }
     var autoHideControls by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("auto_hide_controls", true))
+        mutableStateOf(settingsPrefs.getBoolean("auto_hide_controls", true))
     }
     var controlsHideDelayMs by remember {
-        mutableIntStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getInt("controls_hide_delay_ms", 3000))
+        mutableIntStateOf(settingsPrefs.getInt("controls_hide_delay_ms", 3000))
     }
     var showControlsOnPlay by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("show_controls_on_play", true))
+        mutableStateOf(settingsPrefs.getBoolean("show_controls_on_play", true))
     }
     var bottomControlsBelowSeekbar by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("bottom_controls_below_seekbar", false))
+        mutableStateOf(settingsPrefs.getBoolean("bottom_controls_below_seekbar", false))
     }
     var ambientMode by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("ambient_mode", false))
+        mutableStateOf(settingsPrefs.getBoolean("ambient_mode", false))
     }
     var keepScreenOn by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("keep_screen_on", true))
+        mutableStateOf(settingsPrefs.getBoolean("keep_screen_on", true))
     }
     var hideButtonBackground by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("hide_button_background", false))
+        mutableStateOf(settingsPrefs.getBoolean("hide_button_background", false))
     }
     var reduceMotion by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("reduce_motion", false))
+        mutableStateOf(settingsPrefs.getBoolean("reduce_motion", false))
     }
     var whiteSeekbar by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("white_seekbar", false))
+        mutableStateOf(settingsPrefs.getBoolean("white_seekbar", false))
     }
     var showDoubleTapIndicator by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("show_double_tap_indicator", true))
+        mutableStateOf(settingsPrefs.getBoolean("show_double_tap_indicator", true))
     }
     var mpvVideoSync by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getString("mpv_video_sync", "audio") ?: "audio")
+        mutableStateOf(settingsPrefs.getString("mpv_video_sync", "audio") ?: "audio")
     }
     var mpvInterpolation by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("mpv_interpolation", false))
+        mutableStateOf(settingsPrefs.getBoolean("mpv_interpolation", false))
     }
     var mpvAudioPitchCorrection by remember {
-        mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("mpv_audio_pitch_correction", true))
+        mutableStateOf(settingsPrefs.getBoolean("mpv_audio_pitch_correction", true))
     }
 
     val savePrefs: (String, Any) -> Unit = { key, value ->
-        context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
-            .edit()
-            .apply {
-                when (value) {
-                    is Boolean -> putBoolean(key, value)
-                    is Int -> putInt(key, value)
-                    is String -> putString(key, value)
-                }
+        settingsPrefs.edit().apply {
+            when (value) {
+                is Boolean -> putBoolean(key, value)
+                is Int -> putInt(key, value)
+                is String -> putString(key, value)
             }
-            .apply()
+        }.apply()
     }
 
     var currentMpvDecoder by remember { mutableStateOf("auto-copy") }
@@ -236,9 +233,7 @@ fun PlayerControls(
     var localBoostEnabled by remember { mutableStateOf(audioBoostEnabled) }
     var sleepTimerMinutes by remember { mutableIntStateOf(0) }
     var showTimerDialog by remember { mutableStateOf(false) }
-    var showImmersive by remember {
-        mutableStateOf(true)
-    }
+    var showImmersive by remember { mutableStateOf(true) }
 
     // Gesture States
     var isDragging by remember { mutableStateOf(false) }
@@ -370,8 +365,7 @@ fun PlayerControls(
     val toggleEngine = { engine: PlayerEngine ->
         if (currentEngine != engine) {
             viewModel.setPlayerEngine(engine)
-            context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
-                .edit().putString("player_engine", engine.name).apply()
+            settingsPrefs.edit().putString("player_engine", engine.name).apply()
             Toast.makeText(
                 context,
                 if (engine == PlayerEngine.MPV) "Switched to MPV. Reloading..." else "Switched to ExoPlayer. Reloading...",
@@ -388,7 +382,6 @@ fun PlayerControls(
         ModalBottomSheet(onDismissRequest = { viewModel.setShowZoomSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
             val primaryColor = MaterialTheme.colorScheme.primary
             val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
-            val primaryFaded = primaryColor.copy(alpha = 0.2f)
 
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp),
@@ -701,8 +694,14 @@ fun PlayerControls(
                                 val p2 = pressed[1]
                                 val dist = (p1.position - p2.position).getDistance()
                                 val centroid = (p1.position + p2.position) / 2f
+                                
                                 if (pinchActive && lastDist > 0f) {
-                                    val zoomChange = dist / lastDist
+                                    // ৩ গুণ ফাস্ট জুম
+                                    val zoomSensitivity = 3.0f 
+                                    val rawZoomChange = dist / lastDist
+                                    val zoomChange = 1f + (rawZoomChange - 1f) * zoomSensitivity
+                                    
+                                    // ২ আঙুল দিয়ে প্যান (মুভমেন্ট) করা যাবে
                                     val panChange = centroid - lastCentroid
                                     onVideoScaleChange(zoomChange, panChange, centroid)
                                 } else {
@@ -719,87 +718,80 @@ fun PlayerControls(
                                 val dx = change.position.x - change.previousPosition.x
                                 val dy = change.position.y - change.previousPosition.y
 
-                                if (currentVideoScale > 1f) {
-                                    // zoomed: one finger pans the video
-                                    onVideoScaleChange(1f, Offset(dx, dy), change.position)
-                                    change.consume()
-                                } else {
-                                    if (!isDraggingLocal) {
-                                        accX += dx
-                                        accY += dy
-                                        // Increased Touch Slop to prevent accidental gesture activation
-                                        if (sqrt(accX * accX + accY * accY) > 40f) {
-                                            isDraggingLocal = true
-                                            dragType = if (abs(accX) > abs(accY)) {
-                                                // horizontal seek, only outside bottom dead zone
-                                                if (down.position.y < size.height - bottomDeadZonePx) 4 else 0
-                                            } else if (down.position.x < size.width / 2f) 1 // left = brightness
-                                            else 2 // right = volume
+                                // এখানে currentVideoScale > 1f এর চেকিংটি রিমুভ করা হয়েছে
+                                // যাতে জুম করা অবস্থাতেও ১ আঙুল দিয়ে ভলিউম/ব্রাইটনেস কন্ট্রোল করা যায় এবং ভিডিও স্থির থাকে।
+                                if (!isDraggingLocal) {
+                                    accX += dx
+                                    accY += dy
+                                    
+                                    // Touch Slop
+                                    if (sqrt(accX * accX + accY * accY) > 40f) {
+                                        isDraggingLocal = true
+                                        dragType = if (abs(accX) > abs(accY)) {
+                                            // horizontal seek, only outside bottom dead zone
+                                            if (down.position.y < size.height - bottomDeadZonePx) 4 else 0
+                                        } else if (down.position.x < size.width / 2f) 1 // left = brightness
+                                        else 2 // right = volume
 
-                                            isDragging = true
-                                            seekAccumulator = 0f
-                                            targetSeekPosition = currentPosition
+                                        isDragging = true
+                                        seekAccumulator = 0f
+                                        targetSeekPosition = currentPosition
 
-                                            volBase = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                            volumeAccumulator = 0f
-                                            lastAppliedVolume = volBase
+                                        volBase = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                        volumeAccumulator = 0f
+                                        lastAppliedVolume = volBase
 
-                                            brightBase = activity?.window?.attributes?.screenBrightness ?: -1f
-                                            if (brightBase < 0f) {
-                                                brightBase = Settings.System.getFloat(
-                                                    context.contentResolver,
-                                                    Settings.System.SCREEN_BRIGHTNESS,
-                                                    255f
-                                                ) / 255f
-                                            }
-                                            brightCurrent = brightBase
-                                            lastAppliedBrightness = brightBase
+                                        brightBase = activity?.window?.attributes?.screenBrightness ?: -1f
+                                        if (brightBase < 0f) {
+                                            brightBase = Settings.System.getFloat(
+                                                context.contentResolver,
+                                                Settings.System.SCREEN_BRIGHTNESS,
+                                                255f
+                                            ) / 255f
                                         }
+                                        brightCurrent = brightBase
+                                        lastAppliedBrightness = brightBase
                                     }
-                                    if (isDraggingLocal && dragType != 0) {
-                                        change.consume()
-                                        when (dragType) {
-                                            1 -> {
-                                                if (brightnessGestureEnabled) {
-                                                    if (activity != null) {
-                                                        // Half screen height (0.5f) drag for Full brightness range
-                                                        brightCurrent = (brightCurrent - dy / (size.height * 0.5f)).coerceIn(0f, 1f)
-                                                        
-                                                        // Debounce OS Window attribute updates to prevent Stuttering
-                                                        if (abs(brightCurrent - lastAppliedBrightness) > 0.02f) {
-                                                            activity.window.attributes = activity.window.attributes.apply {
-                                                                screenBrightness = brightCurrent
-                                                            }
-                                                            lastAppliedBrightness = brightCurrent
-                                                        }
-                                                        viewModel.setCurrentBrightnessPercent(brightCurrent)
-                                                        viewModel.setGestureIndicator(1, brightCurrent)
-                                                    }
-                                                }
-                                            }
-                                            2 -> {
-                                                if (volumeGestureEnabled) {
-                                                    volumeAccumulator += dy
-                                                    // Half screen height (0.5f) drag for Full volume range
-                                                    val delta = (-volumeAccumulator / (size.height * 0.5f) * maxVol).roundToInt()
-                                                    val newVol = (volBase + delta).coerceIn(0, maxVol)
+                                }
+                                if (isDraggingLocal && dragType != 0) {
+                                    change.consume()
+                                    when (dragType) {
+                                        1 -> {
+                                            if (brightnessGestureEnabled) {
+                                                if (activity != null) {
+                                                    brightCurrent = (brightCurrent - dy / (size.height * 0.5f)).coerceIn(0f, 1f)
                                                     
-                                                    // Only update stream when integer value changes
-                                                    if (newVol != lastAppliedVolume) {
-                                                        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
-                                                        lastAppliedVolume = newVol
+                                                    if (abs(brightCurrent - lastAppliedBrightness) > 0.02f) {
+                                                        activity.window.attributes = activity.window.attributes.apply {
+                                                            screenBrightness = brightCurrent
+                                                        }
+                                                        lastAppliedBrightness = brightCurrent
                                                     }
-                                                    viewModel.setGestureIndicator(2, newVol.toFloat() / maxVol)
+                                                    viewModel.setCurrentBrightnessPercent(brightCurrent)
+                                                    viewModel.setGestureIndicator(1, brightCurrent)
                                                 }
                                             }
-                                            4 -> {
-                                                if (horizontalSeekEnabled) {
-                                                    seekAccumulator += dx
-                                                    val seekSensitivity = seekGestureSensitivity.toFloat()
-                                                    val msPerPixel = seekSensitivity / size.width
-                                                    targetSeekPosition = (currentPosition + (seekAccumulator * msPerPixel).toLong()).coerceIn(0L, duration)
-                                                    viewModel.setGestureIndicator(4, targetSeekPosition.toFloat())
+                                        }
+                                        2 -> {
+                                            if (volumeGestureEnabled) {
+                                                volumeAccumulator += dy
+                                                val delta = (-volumeAccumulator / (size.height * 0.5f) * maxVol).roundToInt()
+                                                val newVol = (volBase + delta).coerceIn(0, maxVol)
+                                                
+                                                if (newVol != lastAppliedVolume) {
+                                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                                    lastAppliedVolume = newVol
                                                 }
+                                                viewModel.setGestureIndicator(2, newVol.toFloat() / maxVol)
+                                            }
+                                        }
+                                        4 -> {
+                                            if (horizontalSeekEnabled) {
+                                                seekAccumulator += dx
+                                                val seekSensitivity = seekGestureSensitivity.toFloat()
+                                                val msPerPixel = seekSensitivity / size.width
+                                                targetSeekPosition = (currentPosition + (seekAccumulator * msPerPixel).toLong()).coerceIn(0L, duration)
+                                                viewModel.setGestureIndicator(4, targetSeekPosition.toFloat())
                                             }
                                         }
                                     }
