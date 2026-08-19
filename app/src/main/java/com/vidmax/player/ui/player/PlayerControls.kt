@@ -12,6 +12,7 @@ import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
@@ -71,7 +72,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
 import com.vidmax.player.R
 import com.vidmax.player.viewmodel.AspectRatioMode
 import com.vidmax.player.viewmodel.LoopMode
@@ -84,6 +84,7 @@ import java.io.File
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -245,6 +246,9 @@ fun PlayerControls(
     var ignoreDrag by remember { mutableStateOf(false) }
     var seekAccumulator by remember { mutableFloatStateOf(0f) }
     var targetSeekPosition by remember { mutableLongStateOf(0L) }
+    var volBase by remember { mutableIntStateOf(-1) }
+    var brightBase by remember { mutableFloatStateOf(-1f) }
+    var brightCurrent by remember { mutableFloatStateOf(-1f) }
 
     val pointerCount = remember { AtomicInteger(0) }
     var showDoubleTapRipple by remember { mutableIntStateOf(0) }
@@ -738,20 +742,18 @@ fun PlayerControls(
                                         seekAccumulator = 0f
                                         targetSeekPosition = currentPosition
 
-                                        var mpvVolume = 100
-                                        if (currentEngine == PlayerEngine.MPV) {
-                                            try { mpvVolume = MPVLib.getPropertyInt("volume") ?: 100 } catch (e: Exception) {}
-                                        }
+                                        volBase = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                        volumeAccumulator = 0f
 
-                                        if (currentEngine == PlayerEngine.MPV && mpvVolume > 100) {
-                                            volumeAccumulator = mpvVolume.toFloat()
-                                        } else if (currentEngine == PlayerEngine.EXO && gestureIndicatorValue > 100f) {
-                                            volumeAccumulator = gestureIndicatorValue
-                                        } else {
-                                            val maxSystemVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                            val currentSystemVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                            volumeAccumulator = (currentSystemVol.toFloat() / maxSystemVol) * 100f
+                                        brightBase = activity?.window?.attributes?.screenBrightness ?: -1f
+                                        if (brightBase < 0f) {
+                                            brightBase = Settings.System.getFloat(
+                                                context.contentResolver,
+                                                Settings.System.SCREEN_BRIGHTNESS,
+                                                255f
+                                            ) / 255f
                                         }
+                                        brightCurrent = brightBase
                                     }
                                 }
                                 if (isDraggingLocal && dragType != 0) {
@@ -760,45 +762,27 @@ fun PlayerControls(
                                         1 -> {
                                             if (brightnessGestureEnabled) {
                                                 if (activity != null) {
-                                                    val attributes = activity.window.attributes
-                                                    var currentBrightness = attributes.screenBrightness
-                                                    if (currentBrightness < 0) currentBrightness = 0.5f
-                                                    val newBrightness = (currentBrightness + (-dy / size.height * 1.2f)).coerceIn(0.01f, 1f)
-                                                    attributes.screenBrightness = newBrightness
-                                                    activity.window.attributes = attributes
-                                                    viewModel.setCurrentBrightnessPercent(newBrightness)
-                                                    viewModel.setGestureIndicator(1, newBrightness)
+                                                    brightCurrent = (brightCurrent - dy / size.height).coerceIn(0.01f, 1f)
+                                                    activity.window.attributes.apply {
+                                                        screenBrightness = brightCurrent
+                                                    }.also {
+                                                        activity.window.attributes = it
+                                                    }
+                                                    viewModel.setCurrentBrightnessPercent(brightCurrent)
+                                                    viewModel.setGestureIndicator(1, brightCurrent)
+                                                    Log.d("VidMaxGesture", "APPLY brightness=$brightCurrent")
                                                 }
                                             }
                                         }
                                         2 -> {
                                             if (volumeGestureEnabled) {
-                                                val dragSensitivity = 150f
-                                                volumeAccumulator += (-dy / size.height) * dragSensitivity
-                                                val maxAllowedVol = if (localBoostEnabled) 200f else 100f
-                                                volumeAccumulator = volumeAccumulator.coerceIn(0f, maxAllowedVol)
-
-                                                val maxSystemVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                                val currentSystemVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-
-                                                if (volumeAccumulator <= 100f) {
-                                                    val newSystemVol = ((volumeAccumulator / 100f) * maxSystemVol).toInt()
-                                                    if (currentSystemVol != newSystemVol) audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newSystemVol, 0)
-                                                    if (currentEngine == PlayerEngine.MPV) {
-                                                        try { if ((MPVLib.getPropertyInt("volume") ?: 100) != 100) MPVLib.setPropertyInt("volume", 100) } catch (e: Exception) {}
-                                                    } else {
-                                                        try { if (loudnessEnhancer?.enabled == true) loudnessEnhancer?.enabled = false } catch (e: Exception) {}
-                                                    }
-                                                    viewModel.setCurrentVolumePercent(volumeAccumulator / 100f)
-                                                    viewModel.setGestureIndicator(2, volumeAccumulator)
-                                                } else {
-                                                    if (currentSystemVol != maxSystemVol) audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxSystemVol, 0)
-                                                    if (currentEngine == PlayerEngine.MPV) {
-                                                        try { MPVLib.setPropertyInt("volume", volumeAccumulator.toInt()) } catch (e: Exception) {}
-                                                    }
-                                                    viewModel.setCurrentVolumePercent(1f)
-                                                    viewModel.setGestureIndicator(2, volumeAccumulator)
-                                                }
+                                                val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                                volumeAccumulator += dy
+                                                val delta = (-volumeAccumulator / size.height * max).roundToInt()
+                                                val newVol = (volBase + delta).coerceIn(0, max)
+                                                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                                viewModel.setGestureIndicator(2, newVol.toFloat() / max)
+                                                Log.d("VidMaxGesture", "APPLY volume=$newVol/$max")
                                             }
                                         }
                                         4 -> {
@@ -817,22 +801,6 @@ fun PlayerControls(
                     } while (event.changes.any { it.pressed })
 
                     if (isDraggingLocal) {
-                        if (dragType == 2 && volumeAccumulator > 100f && currentEngine == PlayerEngine.EXO) {
-                            if (loudnessEnhancer == null && exoPlayer != null) {
-                                try {
-                                    val sessionId = (exoPlayer as? ExoPlayer)?.audioSessionId ?: 0
-                                    if (sessionId != 0) loudnessEnhancer = LoudnessEnhancer(sessionId)
-                                } catch (e: Exception) {}
-                            }
-                            try {
-                                if (loudnessEnhancer?.enabled == false) loudnessEnhancer?.enabled = true
-                                val currentVolInt = volumeAccumulator.toInt()
-                                val boostRatio = (currentVolInt - 100f) / 100f
-                                val gainMB = (boostRatio * 10000).toInt()
-                                loudnessEnhancer?.setTargetGain(gainMB)
-                            } catch (e: Exception) {}
-                        }
-
                         if (dragType == 4 && horizontalSeekEnabled) {
                             onSeek(targetSeekPosition)
                             viewModel.setCurrentPosition(targetSeekPosition)
@@ -842,6 +810,10 @@ fun PlayerControls(
                         isDragging = false
                         dragType = 0
                         ignoreDrag = false
+                        volBase = -1
+                        volumeAccumulator = 0f
+                        brightBase = -1f
+                        brightCurrent = -1f
                         viewModel.hideGestureOverlay()
                     }
                     pinchActive = false
@@ -984,8 +956,8 @@ fun PlayerControls(
             exit = fadeOut(tween(300)) + slideOutHorizontally(targetOffsetX = { it }),
             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 32.dp)
         ) {
-            val progress = (gestureIndicatorValue / 100f).coerceIn(0f, 1f)
-            val percentage = "${gestureIndicatorValue.toInt()}%"
+            val progress = gestureIndicatorValue.coerceIn(0f, 1f)
+            val percentage = "${(gestureIndicatorValue * 100).toInt()}%"
             Box(
                 modifier = Modifier.height(180.dp).width(52.dp).clip(RoundedCornerShape(26.dp)).background(Color.Black.copy(alpha = 0.5f)).border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(26.dp)).padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center
