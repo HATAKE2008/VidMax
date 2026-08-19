@@ -12,6 +12,7 @@ import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.provider.MediaStore
+import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.compose.animation.*
@@ -153,7 +154,7 @@ fun PlayerControls(
         mutableStateOf(settingsPrefs.getBoolean("gesture_volume_enabled", legacyVerticalGestures))
     }
     val pinchZoomEnabled by remember {
-        mutableStateOf(settingsPrefs.getBoolean("pinch_to_zoom_enabled", true))
+        mutableStateOf(settingsPrefs.getBoolean("pinch_zoom_enabled", true))
     }
     var horizontalSeekEnabled by remember {
         mutableStateOf(context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE).getBoolean("gesture_horizontal_seek_enabled", true))
@@ -240,23 +241,15 @@ fun PlayerControls(
 
     // Gesture States
     var isDragging by remember { mutableStateOf(false) }
-    var dragType by remember { mutableIntStateOf(0) }
     var volumeAccumulator by remember { mutableFloatStateOf(0f) }
     var ignoreDrag by remember { mutableStateOf(false) }
-    var dragDirectionDetermined by remember { mutableStateOf(false) }
     var seekAccumulator by remember { mutableFloatStateOf(0f) }
     var targetSeekPosition by remember { mutableLongStateOf(0L) }
-    var dragStartOffset by remember { mutableStateOf(Offset.Zero) }
 
     val pointerCount = remember { AtomicInteger(0) }
     var showDoubleTapRipple by remember { mutableIntStateOf(0) }
     var loudnessEnhancer by remember { mutableStateOf<LoudnessEnhancer?>(null) }
     var showZoomMeter by remember { mutableStateOf(false) }
-
-    // Pinch / Pan state
-    var pinchActive by remember { mutableStateOf(false) }
-    var lastPinchDistance by remember { mutableFloatStateOf(0f) }
-    var lastPinchCentroid by remember { mutableStateOf(Offset.Zero) }
 
     // Read current zoom without restarting the gesture detectors on every change
     val currentVideoScale by rememberUpdatedState(videoScale)
@@ -680,168 +673,142 @@ fun PlayerControls(
                     }
                 }
             }
-            .pointerInput(isLocked, pinchZoomEnabled) {
+            .pointerInput(isLocked, pinchZoomEnabled, currentVideoScale) {
                 if (isLocked) return@pointerInput
 
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    if (down.isConsumed) return@awaitEachGesture
-
+                    Log.d("VidMaxGesture", "DOWN at ${down.position}")
                     var isDraggingLocal = false
-                    var dragAccumulatorX = 0f
-                    var dragAccumulatorY = 0f
-
-                    pinchActive = false
-                    lastPinchDistance = 0f
-                    lastPinchCentroid = Offset.Zero
+                    var accX = 0f
+                    var accY = 0f
+                    var dragType = 0
+                    var pinchActive = false
+                    var lastDist = 0f
+                    var lastCentroid = Offset.Zero
 
                     do {
                         val event = awaitPointerEvent()
                         val pressed = event.changes.filter { it.pressed }
 
-                        // ---- Two finger pinch / pan (smooth zoom) ----
+                        // TWO FINGERS: pinch zoom + pan
                         if (pressed.size >= 2 && pinchZoomEnabled) {
-                            if (isDraggingLocal) {
-                                isDraggingLocal = false
-                                isDragging = false
-                                dragType = 0
-                            }
+                            isDraggingLocal = false
+                            dragType = 0
                             val p1 = pressed[0]
                             val p2 = pressed[1]
-                            val currentDistance = (p1.position - p2.position).getDistance()
-                            val currentCentroid = (p1.position + p2.position) / 2f
-
-                            if (!pinchActive) {
+                            val dist = (p1.position - p2.position).getDistance()
+                            val centroid = (p1.position + p2.position) / 2f
+                            if (pinchActive && lastDist > 0f) {
+                                Log.d("VidMaxGesture", "PINCH zoom=${dist / lastDist}")
+                                onVideoScaleChange(dist / lastDist, centroid - lastCentroid, centroid)
+                            } else {
                                 pinchActive = true
-                                lastPinchDistance = currentDistance
-                                lastPinchCentroid = currentCentroid
-                            } else if (lastPinchDistance > 0f) {
-                                val zoom = currentDistance / lastPinchDistance
-                                val pan = currentCentroid - lastPinchCentroid
-                                onVideoScaleChange(zoom, pan, currentCentroid)
-                                lastPinchDistance = currentDistance
-                                lastPinchCentroid = currentCentroid
                             }
+                            lastDist = dist
+                            lastCentroid = centroid
                             p1.consume()
                             p2.consume()
                         }
-
-                        // ---- Single finger: brightness / volume / seek ----
-                        if (pressed.size == 1) {
+                        // ONE FINGER
+                        else if (pressed.size == 1) {
                             val change = pressed.first()
-                            val dragAmount = Offset(
-                                change.position.x - change.previousPosition.x,
-                                change.position.y - change.previousPosition.y
-                            )
+                            val dx = change.position.x - change.previousPosition.x
+                            val dy = change.position.y - change.previousPosition.y
 
-                            // Zoomed: one finger pans the video
                             if (currentVideoScale > 1f) {
-                                val pan = Offset(
-                                    change.position.x - change.previousPosition.x,
-                                    change.position.y - change.previousPosition.y
-                                )
-                                onVideoScaleChange(1f, pan, change.position)
+                                // zoomed: one finger pans the video
+                                onVideoScaleChange(1f, Offset(dx, dy), change.position)
                                 change.consume()
-                                continue
-                            }
-
-                            if (!isDraggingLocal) {
-                                dragAccumulatorX += dragAmount.x
-                                dragAccumulatorY += dragAmount.y
-                                val distance = sqrt(dragAccumulatorX * dragAccumulatorX + dragAccumulatorY * dragAccumulatorY)
-
-                                if (distance > 20f) {
-                                    isDraggingLocal = true
-                                    isDragging = true
-                                    dragDirectionDetermined = false
-                                    dragStartOffset = down.position
-                                    seekAccumulator = 0f
-                                    targetSeekPosition = currentPosition
-
-                                    var mpvVolume = 100
-                                    if (currentEngine == PlayerEngine.MPV) {
-                                        try { mpvVolume = MPVLib.getPropertyInt("volume") ?: 100 } catch (e: Exception) {}
-                                    }
-
-                                    if (currentEngine == PlayerEngine.MPV && mpvVolume > 100) {
-                                        volumeAccumulator = mpvVolume.toFloat()
-                                    } else if (currentEngine == PlayerEngine.EXO && gestureIndicatorValue > 100f) {
-                                        volumeAccumulator = gestureIndicatorValue
-                                    } else {
-                                        val maxSystemVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                        val currentSystemVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                        volumeAccumulator = (currentSystemVol.toFloat() / maxSystemVol) * 100f
-                                    }
-                                }
-                            }
-
-                            if (isDraggingLocal) {
-                                change.consume()
-
-                                if (!dragDirectionDetermined) {
-                                    if (abs(dragAmount.x) > abs(dragAmount.y)) {
+                            } else {
+                                if (!isDraggingLocal) {
+                                    accX += dx
+                                    accY += dy
+                                    if (sqrt(accX * accX + accY * accY) > 20f) {
+                                        isDraggingLocal = true
                                         dragType =
-                                            if (down.position.y < size.height - bottomDeadZonePx) 4 else 0
-                                    } else if (dragStartOffset.x < size.width * 0.5f) {
-                                        dragType = 1
-                                    } else {
-                                        dragType = 2
-                                    }
-                                    dragDirectionDetermined = true
-                                }
+                                            if (abs(accX) > abs(accY)) {
+                                                // horizontal seek, only outside bottom dead zone
+                                                if (down.position.y < size.height - bottomDeadZonePx) 4 else 0
+                                            } else if (down.position.x < size.width / 2f) 1 // left = brightness
+                                            else 2 // right = volume
+                                        Log.d("VidMaxGesture", "DRAG type=$dragType")
 
-                                when (dragType) {
-                                    1 -> {
-                                        if (brightnessGestureEnabled) {
-                                            if (activity != null) {
-                                                val attributes = activity.window.attributes
-                                                var currentBrightness = attributes.screenBrightness
-                                                if (currentBrightness < 0) currentBrightness = 0.5f
-                                                val newBrightness = (currentBrightness + (-dragAmount.y / size.height * 1.2f)).coerceIn(0.01f, 1f)
-                                                attributes.screenBrightness = newBrightness
-                                                activity.window.attributes = attributes
-                                                viewModel.setCurrentBrightnessPercent(newBrightness)
-                                                viewModel.setGestureIndicator(1, newBrightness)
-                                            }
+                                        isDragging = true
+                                        seekAccumulator = 0f
+                                        targetSeekPosition = currentPosition
+
+                                        var mpvVolume = 100
+                                        if (currentEngine == PlayerEngine.MPV) {
+                                            try { mpvVolume = MPVLib.getPropertyInt("volume") ?: 100 } catch (e: Exception) {}
                                         }
-                                    }
-                                    2 -> {
-                                        if (volumeGestureEnabled) {
-                                            val dragSensitivity = 150f
-                                            volumeAccumulator += (-dragAmount.y / size.height) * dragSensitivity
-                                            val maxAllowedVol = if (localBoostEnabled) 200f else 100f
-                                            volumeAccumulator = volumeAccumulator.coerceIn(0f, maxAllowedVol)
 
+                                        if (currentEngine == PlayerEngine.MPV && mpvVolume > 100) {
+                                            volumeAccumulator = mpvVolume.toFloat()
+                                        } else if (currentEngine == PlayerEngine.EXO && gestureIndicatorValue > 100f) {
+                                            volumeAccumulator = gestureIndicatorValue
+                                        } else {
                                             val maxSystemVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                                             val currentSystemVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-
-                                            if (volumeAccumulator <= 100f) {
-                                                val newSystemVol = ((volumeAccumulator / 100f) * maxSystemVol).toInt()
-                                                if (currentSystemVol != newSystemVol) audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newSystemVol, 0)
-                                                if (currentEngine == PlayerEngine.MPV) {
-                                                    try { if ((MPVLib.getPropertyInt("volume") ?: 100) != 100) MPVLib.setPropertyInt("volume", 100) } catch (e: Exception) {}
-                                                } else {
-                                                    try { if (loudnessEnhancer?.enabled == true) loudnessEnhancer?.enabled = false } catch (e: Exception) {}
-                                                }
-                                                viewModel.setCurrentVolumePercent(volumeAccumulator / 100f)
-                                                viewModel.setGestureIndicator(2, volumeAccumulator)
-                                            } else {
-                                                if (currentSystemVol != maxSystemVol) audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxSystemVol, 0)
-                                                if (currentEngine == PlayerEngine.MPV) {
-                                                    try { MPVLib.setPropertyInt("volume", volumeAccumulator.toInt()) } catch (e: Exception) {}
-                                                }
-                                                viewModel.setCurrentVolumePercent(1f)
-                                                viewModel.setGestureIndicator(2, volumeAccumulator)
-                                            }
+                                            volumeAccumulator = (currentSystemVol.toFloat() / maxSystemVol) * 100f
                                         }
                                     }
-                                    4 -> {
-                                        if (horizontalSeekEnabled) {
-                                            seekAccumulator += dragAmount.x
-                                            val seekSensitivity = seekGestureSensitivity.toFloat()
-                                            val msPerPixel = seekSensitivity / size.width
-                                            targetSeekPosition = (currentPosition + (seekAccumulator * msPerPixel).toLong()).coerceIn(0L, duration)
-                                            viewModel.setGestureIndicator(4, targetSeekPosition.toFloat())
+                                }
+                                if (isDraggingLocal && dragType != 0) {
+                                    change.consume()
+                                    when (dragType) {
+                                        1 -> {
+                                            if (brightnessGestureEnabled) {
+                                                if (activity != null) {
+                                                    val attributes = activity.window.attributes
+                                                    var currentBrightness = attributes.screenBrightness
+                                                    if (currentBrightness < 0) currentBrightness = 0.5f
+                                                    val newBrightness = (currentBrightness + (-dy / size.height * 1.2f)).coerceIn(0.01f, 1f)
+                                                    attributes.screenBrightness = newBrightness
+                                                    activity.window.attributes = attributes
+                                                    viewModel.setCurrentBrightnessPercent(newBrightness)
+                                                    viewModel.setGestureIndicator(1, newBrightness)
+                                                }
+                                            }
+                                        }
+                                        2 -> {
+                                            if (volumeGestureEnabled) {
+                                                val dragSensitivity = 150f
+                                                volumeAccumulator += (-dy / size.height) * dragSensitivity
+                                                val maxAllowedVol = if (localBoostEnabled) 200f else 100f
+                                                volumeAccumulator = volumeAccumulator.coerceIn(0f, maxAllowedVol)
+
+                                                val maxSystemVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                                val currentSystemVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+
+                                                if (volumeAccumulator <= 100f) {
+                                                    val newSystemVol = ((volumeAccumulator / 100f) * maxSystemVol).toInt()
+                                                    if (currentSystemVol != newSystemVol) audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newSystemVol, 0)
+                                                    if (currentEngine == PlayerEngine.MPV) {
+                                                        try { if ((MPVLib.getPropertyInt("volume") ?: 100) != 100) MPVLib.setPropertyInt("volume", 100) } catch (e: Exception) {}
+                                                    } else {
+                                                        try { if (loudnessEnhancer?.enabled == true) loudnessEnhancer?.enabled = false } catch (e: Exception) {}
+                                                    }
+                                                    viewModel.setCurrentVolumePercent(volumeAccumulator / 100f)
+                                                    viewModel.setGestureIndicator(2, volumeAccumulator)
+                                                } else {
+                                                    if (currentSystemVol != maxSystemVol) audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxSystemVol, 0)
+                                                    if (currentEngine == PlayerEngine.MPV) {
+                                                        try { MPVLib.setPropertyInt("volume", volumeAccumulator.toInt()) } catch (e: Exception) {}
+                                                    }
+                                                    viewModel.setCurrentVolumePercent(1f)
+                                                    viewModel.setGestureIndicator(2, volumeAccumulator)
+                                                }
+                                            }
+                                        }
+                                        4 -> {
+                                            if (horizontalSeekEnabled) {
+                                                seekAccumulator += dx
+                                                val seekSensitivity = seekGestureSensitivity.toFloat()
+                                                val msPerPixel = seekSensitivity / size.width
+                                                targetSeekPosition = (currentPosition + (seekAccumulator * msPerPixel).toLong()).coerceIn(0L, duration)
+                                                viewModel.setGestureIndicator(4, targetSeekPosition.toFloat())
+                                            }
                                         }
                                     }
                                 }
