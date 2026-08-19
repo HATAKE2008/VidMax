@@ -460,9 +460,8 @@ fun SubtitleAudioPanel(
                     modifier = Modifier
                         .width(52.dp)
                         .fillMaxHeight()
-                        .background(Color.Black.copy(alpha = 0.2f))
-                        .statusBarsPadding()
-                        .padding(top = 16.dp),
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .padding(top = 60.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
