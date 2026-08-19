@@ -59,6 +59,8 @@ fun PlayerScreen(
     onPickSubtitle: () -> Unit
 ) {
   val context = LocalContext.current
+  val density = LocalDensity.current
+  val configuration = LocalConfiguration.current
   val prefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
 
   var bgPlayEnabled by remember { mutableStateOf(prefs.getBoolean("bg_play_enabled", false)) }
@@ -339,10 +341,10 @@ fun PlayerScreen(
           if (vw <= 0f || vh <= 0f) {
             // Safety: view not measured yet; fall back to the window size so the
             // first pinch is still anchored/clamped correctly.
-            viewSizePx = with(LocalDensity.current) {
+            viewSizePx = with(density) {
               IntSize(
-                  LocalConfiguration.current.screenWidthDp.dp.toPx().toInt(),
-                  LocalConfiguration.current.screenHeightDp.dp.toPx().toInt())
+                  configuration.screenWidthDp.dp.toPx().toInt(),
+                  configuration.screenHeightDp.dp.toPx().toInt())
             }
             vw = viewSizePx.width.toFloat()
             vh = viewSizePx.height.toFloat()
