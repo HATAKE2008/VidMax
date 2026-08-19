@@ -3,6 +3,7 @@
 package com.vidmax.player.ui.player
 
 import android.content.Context
+import android.util.Log
 import android.graphics.SurfaceTexture
 import android.view.LayoutInflater
 import android.view.Surface
@@ -23,7 +24,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
@@ -331,22 +334,36 @@ fun PlayerScreen(
         },
         videoScale = videoScale,
         onVideoScaleChange = { zoom, pan, anchor ->
-          val vw = viewSizePx.width.toFloat()
-          val vh = viewSizePx.height.toFloat()
-          if (vw <= 0f || vh <= 0f) return@PlayerControls
-          // Anchor-based zoom: scale about the pinch centroid (or view center when
-          // anchor is null) instead of always about the view center, which is what
-          // caused the video to drift sideways after a pinch. Pan is applied in raw
-          // pixels (NOT multiplied by scale) and then clamped so the scaled content
-          // always covers the viewport.
-          val newScale = (videoScale * zoom).coerceIn(1f, 4f)
-          val k = newScale / videoScale
-          val ax = (anchor?.x ?: vw / 2f) - vw / 2f
-          val ay = (anchor?.y ?: vh / 2f) - vh / 2f
-          videoOffsetX = ax - (ax - videoOffsetX) * k + pan.x
-          videoOffsetY = ay - (ay - videoOffsetY) * k + pan.y
-          videoScale = newScale
-          clampVideoOffset()
+          var vw = viewSizePx.width.toFloat()
+          var vh = viewSizePx.height.toFloat()
+          if (vw <= 0f || vh <= 0f) {
+            // Safety: view not measured yet; fall back to the window size so the
+            // first pinch is still anchored/clamped correctly.
+            viewSizePx = with(LocalDensity.current) {
+              IntSize(
+                  LocalConfiguration.current.screenWidthDp.dp.toPx().toInt(),
+                  LocalConfiguration.current.screenHeightDp.dp.toPx().toInt())
+            }
+            vw = viewSizePx.width.toFloat()
+            vh = viewSizePx.height.toFloat()
+          }
+          if (vw > 0f && vh > 0f) {
+            val newScale = (videoScale * zoom).coerceIn(1f, 4f)
+            val k = newScale / videoScale
+            if (k != 1f) {
+              val ax = (anchor?.x ?: vw / 2f) - vw / 2f
+              val ay = (anchor?.y ?: vh / 2f) - vh / 2f
+              videoOffsetX = ax - (ax - videoOffsetX) * k
+              videoOffsetY = ay - (ay - videoOffsetY) * k
+            }
+            if (pan.getDistance() > 1f) {
+              videoOffsetX += pan.x
+              videoOffsetY += pan.y
+            }
+            videoScale = newScale
+            clampVideoOffset()
+            Log.d("VidMaxGesture", "APPLY scale=$newScale")
+          }
         },
         exoPlayer = exoPlayer,
         bgPlayEnabled = bgPlayEnabled,
