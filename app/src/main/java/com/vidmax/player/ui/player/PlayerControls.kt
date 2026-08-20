@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
@@ -103,6 +104,7 @@ fun PlayerControls(
     onSpeedChange: (Float) -> Unit,
     videoScale: Float,
     onVideoScaleChange: (Float, Offset, Offset?) -> Unit,
+    liveZoomScale: MutableFloatState,
     exoPlayer: Player? = null,
     bgPlayEnabled: Boolean,
     onBgPlayToggle: (Boolean) -> Unit,
@@ -252,6 +254,12 @@ fun PlayerControls(
     var showZoomMeter by remember { mutableStateOf(false) }
 
     val currentVideoScale by rememberUpdatedState(videoScale)
+
+    var pinchStartDist by remember { mutableFloatStateOf(0f) }
+    var pinchAnchorScale by remember { mutableFloatStateOf(1f) }
+    var lastAppliedScale by remember { mutableFloatStateOf(1f) }
+    var lastRawTargetScale by remember { mutableFloatStateOf(1f) }
+    var pinchPointerIds by remember { mutableStateOf<Pair<PointerId, PointerId>?>(null) }
 
     LaunchedEffect(videoScale) {
         if (videoScale != 1f) {
@@ -666,7 +674,7 @@ fun PlayerControls(
                         }
                     }
                 }
-                .pointerInput(isLocked, pinchZoomEnabled, currentVideoScale) {
+                .pointerInput(isLocked, pinchZoomEnabled) {
                     if (isLocked) return@pointerInput
 
                     awaitEachGesture {
@@ -679,9 +687,6 @@ fun PlayerControls(
                         // Pinch Zoom state variables
                         var pinchActive = false
                         var lastTwoFingerActive = false
-                        var pinchStartDist = 0f
-                        var pinchAnchorScale = 1f
-                        var lastAppliedScale = 1f
                         var lastDist = 0f
                         var lastCentroid = Offset.Zero
                         var smoothedPan = Offset.Zero
@@ -701,10 +706,12 @@ fun PlayerControls(
                                 dragType = 0
                                 val p1 = pressed[0]
                                 val p2 = pressed[1]
+                                val currentIds = Pair(p1.id, p2.id)
                                 val dist = (p1.position - p2.position).getDistance()
                                 val centroid = (p1.position + p2.position) / 2f
+                                val pairChanged = pinchPointerIds != null && pinchPointerIds != currentIds
 
-                                if (pinchActive && lastTwoFingerActive && pinchStartDist > 0f) {
+                                if (pinchActive && lastTwoFingerActive && !pairChanged) {
                                     val nowNs = System.nanoTime()
                                     val dtMs = if (lastPinchEventNs > 0L) {
                                         ((nowNs - lastPinchEventNs) / 1_000_000f).coerceIn(1f, 60f)
@@ -714,6 +721,7 @@ fun PlayerControls(
                                     // Absolute target scale from gesture start
                                     val rawTargetScale = (pinchAnchorScale * (dist / pinchStartDist))
                                         .coerceIn(1f, 4f)
+                                    lastRawTargetScale = rawTargetScale
 
                                     // Light EMA smoothing on the target scale
                                     val alpha = 1f - exp(-dtMs / 40f)
@@ -723,18 +731,19 @@ fun PlayerControls(
                                     val panAlpha = 1f - exp(-dtMs / 45f)
                                     smoothedPan = smoothedPan + (rawPan - smoothedPan) * panAlpha
 
-                                    // Delta ratio relative to what's already applied
-                                    val deltaRatio = smoothedTargetScale / lastAppliedScale
-                                    onVideoScaleChange(deltaRatio, smoothedPan, centroid)
+                                    liveZoomScale.floatValue = smoothedTargetScale
                                     lastAppliedScale = smoothedTargetScale
                                 } else {
                                     pinchActive = true
                                     pinchStartDist = dist
-                                    pinchAnchorScale = currentVideoScale
-                                    lastAppliedScale = currentVideoScale
+                                    pinchAnchorScale = if (pinchPointerIds != null) lastAppliedScale else currentVideoScale
+                                    lastAppliedScale = pinchAnchorScale
+                                    lastRawTargetScale = pinchAnchorScale
+                                    liveZoomScale.floatValue = pinchAnchorScale
                                     smoothedPan = Offset.Zero
                                     lastPinchEventNs = System.nanoTime()
                                 }
+                                pinchPointerIds = currentIds
                                 lastDist = dist
                                 lastCentroid = centroid
                                 lastTwoFingerActive = true
@@ -838,7 +847,12 @@ fun PlayerControls(
                             ignoreDrag = false
                             viewModel.hideGestureOverlay()
                         }
-                        pinchActive = false
+                        if (pinchActive) {
+                            onVideoScaleChange(lastRawTargetScale / currentVideoScale, smoothedPan, null)
+                            liveZoomScale.floatValue = lastRawTargetScale
+                            pinchActive = false
+                            pinchPointerIds = null
+                        }
                         lastTwoFingerActive = false
                     }
                 }
