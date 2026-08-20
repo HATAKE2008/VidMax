@@ -687,31 +687,33 @@ fun PlayerControls(
                             val pressed = event.changes.filter { it.pressed }
 
                             // TWO FINGERS: pinch zoom + pan
-                            if (pressed.size >= 2 && pinchZoomEnabled) {
-                                isDraggingLocal = false
-                                dragType = 0
-                                val p1 = pressed[0]
-                                val p2 = pressed[1]
-                                val dist = (p1.position - p2.position).getDistance()
-                                val centroid = (p1.position + p2.position) / 2f
-                                
-                                if (pinchActive && lastDist > 0f) {
-                                    // ৩ গুণ ফাস্ট জুম
-                                    val zoomSensitivity = 8.0f 
-                                    val rawZoomChange = dist / lastDist
-                                    val zoomChange = 1f + (rawZoomChange - 1f) * zoomSensitivity
-                                    
-                                    // ২ আঙুল দিয়ে প্যান (মুভমেন্ট) করা যাবে
-                                    val panChange = centroid - lastCentroid
-                                    onVideoScaleChange(zoomChange, panChange, centroid)
-                                } else {
-                                    pinchActive = true
-                                }
-                                lastDist = dist
-                                lastCentroid = centroid
-                                p1.consume()
-                                p2.consume()
-                            }
+if (pressed.size >= 2 && pinchZoomEnabled) {
+    isDraggingLocal = false
+    dragType = 0
+    val p1 = pressed[0]
+    val p2 = pressed[1]
+    val dist = (p1.position - p2.position).getDistance()
+    val centroid = (p1.position + p2.position) / 2f
+    
+    if (pinchActive && lastDist > 0f) {
+        val rawZoomChange = dist / lastDist
+        
+        // MX/VLC Player-এর মতো স্মুথ এক্সপোনেনশিয়াল জুম
+        // ২.৫ থেকে ৩.০ হলো পারফেক্ট স্মুথ স্পিড
+        val zoomSensitivity = 2.8 
+        val zoomChange = Math.pow(rawZoomChange.toDouble(), zoomSensitivity).toFloat()
+        
+        val panChange = centroid - lastCentroid
+        onVideoScaleChange(zoomChange, panChange, centroid)
+    } else {
+        pinchActive = true
+    }
+    lastDist = dist
+    lastCentroid = centroid
+    p1.consume()
+    p2.consume()
+}
+
                             // ONE FINGER
                             else if (pressed.size == 1) {
                                 val change = pressed.first()
