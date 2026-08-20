@@ -2,7 +2,10 @@ package com.vidmax.player.ui.screen
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -23,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -404,255 +408,130 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 }
             }
 
-            // BOTTOM NAVIGATION BAR (Detached Online/Search Button Style)
-            Row(
+            // 🌟 GLASSMORPHISM BOTTOM NAVIGATION BAR
+            Box(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 20.dp)
                     .fillMaxWidth()
-                    .height(64.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .height(68.dp)
+                    .clip(RoundedCornerShape(40.dp))
+                    .then(
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            Modifier.graphicsLayer {
+                                renderEffect = RenderEffect.createBlurEffect(20f, 20f, Shader.TileMode.DECAL)
+                            }
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+                        RoundedCornerShape(40.dp)
+                    )
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                        RoundedCornerShape(40.dp)
+                    )
             ) {
-                // Main Navigation Pill
-                BoxWithConstraints(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .shadow(
-                            elevation = 6.dp,
-                            shape = RoundedCornerShape(32.dp),
-                            ambientColor = Color.Black.copy(alpha = 0.05f),
-                            spotColor = Color.Black.copy(alpha = 0.10f)
-                        )
-                        .clip(RoundedCornerShape(32.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
-                        .border(
-                            1.2.dp,
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            RoundedCornerShape(32.dp)
-                        )
-                        .padding(horizontal = 6.dp, vertical = 6.dp)
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val averageTabWidthPx = with(LocalDensity.current) { (maxWidth / navItemsState.size).toPx() }
-                    var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
-
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        navItemsState.forEachIndexed { index, item ->
-                            key(item.label) {
-                                var offsetX by remember { mutableStateOf(0f) }
-                                val animatedOffsetX by animateFloatAsState(targetValue = offsetX, label = "dragX")
-
-                                val currentIndex = navItemsState.indexOf(item)
-                                val isSelected = selectedScreen == item.label
-
-                                val tabWeight by animateFloatAsState(
-                                    targetValue = if (isSelected) 2.4f else 1.0f,
-                                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                                    label = "tabWeight"
-                                )
-
-                                val contentColor by animateColorAsState(
-                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                    animationSpec = tween(300, easing = FastOutSlowInEasing),
-                                    label = "colorAnim"
-                                )
-
-                                val tabBgAlpha by animateFloatAsState(
-                                    targetValue = if (isSelected) 1f else 0f,
-                                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                                    label = "tabBgAlpha"
-                                )
-
-                                val iconScale by animateFloatAsState(
-                                    targetValue = if (isSelected) 1.05f else 1.0f,
-                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                    label = "scaleAnim"
-                                )
-
+                    navItemsState.forEachIndexed { index, item ->
+                        val isSelected = selectedScreen == item.label
+                        
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple(bounded = false, radius = 40.dp)
+                                ) {
+                                    selectedScreen = item.label
+                                    if (item.label != "Folders") viewModel.closeFolder()
+                                    viewModel.closePlaylist()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Active pill with outlined border + glow
+                            AnimatedVisibility(
+                                visible = isSelected,
+                                enter = fadeIn(tween(300)) + scaleIn(initialScale = 0.9f, animationSpec = tween(300)),
+                                exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.9f, animationSpec = tween(200))
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .weight(tabWeight)
-                                        .fillMaxHeight()
-                                        .zIndex(if (draggedItemIndex == currentIndex) 1f else 0f)
-                                        .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                                        .pointerInput(item.label) {
-                                            detectDragGesturesAfterLongPress(
-                                                onDragStart = { draggedItemIndex = navItemsState.indexOf(item) },
-                                                onDragEnd = {
-                                                    draggedItemIndex = null
-                                                    offsetX = 0f
-                                                },
-                                                onDragCancel = {
-                                                    draggedItemIndex = null
-                                                    offsetX = 0f
-                                                },
-                                                onDrag = { change, dragAmount ->
-                                                    change.consume()
-                                                    offsetX += dragAmount.x
-                                                    val currentActiveIndex = navItemsState.indexOf(item)
-                                                    val offsetThreshold = averageTabWidthPx / 2
-
-                                                    if (offsetX > offsetThreshold && currentActiveIndex < navItemsState.lastIndex) {
-                                                        val newList = navItemsState.toMutableList()
-                                                        val temp = newList[currentActiveIndex]
-                                                        newList[currentActiveIndex] = newList[currentActiveIndex + 1]
-                                                        newList[currentActiveIndex + 1] = temp
-
-                                                        navItemsState = newList
-                                                        sharedPrefs.edit().putString("nav_order", navItemsState.joinToString(",") { it.label }).apply()
-
-                                                        offsetX -= averageTabWidthPx
-                                                        draggedItemIndex = currentActiveIndex + 1
-                                                    }
-                                                    else if (offsetX < -offsetThreshold && currentActiveIndex > 0) {
-                                                        val newList = navItemsState.toMutableList()
-                                                        val temp = newList[currentActiveIndex]
-                                                        newList[currentActiveIndex] = newList[currentActiveIndex - 1]
-                                                        newList[currentActiveIndex - 1] = temp
-
-                                                        navItemsState = newList
-                                                        sharedPrefs.edit().putString("nav_order", navItemsState.joinToString(",") { it.label }).apply()
-
-                                                        offsetX += averageTabWidthPx
-                                                        draggedItemIndex = currentActiveIndex - 1
-                                                    }
-                                                }
-                                            )
-                                        }
-                                        .clip(RoundedCornerShape(26.dp))
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = ripple(),
-                                            onClick = {
-                                                selectedScreen = item.label
-                                                if (item.label != "Folders") viewModel.closeFolder()
-                                                viewModel.closePlaylist()
-                                            }
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    // Active pill background (theme primary tint)
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(26.dp))
-                                            .background(
-                                                if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
-                                                else Color.Transparent
-                                            )
-                                    )
-
-                                    Row(
-                                        modifier = Modifier.fillMaxSize(),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        val iconRes = when (item.label) {
-                                            "Videos" -> R.drawable.ic_video_library
-                                            "Folders" -> R.drawable.ic_folder
-                                            "Music" -> R.drawable.ic_music_note
-                                            else -> R.drawable.ic_video_library
-                                        }
-                                        Icon(
-                                            painter = painterResource(id = iconRes),
-                                            contentDescription = item.label,
-                                            tint = contentColor,
-                                            modifier = Modifier
-                                                .size(24.dp)
-                                                .scale(iconScale)
+                                        .size(width = 140.dp, height = 48.dp)
+                                        .shadow(
+                                            elevation = 8.dp,
+                                            shape = RoundedCornerShape(28.dp),
+                                            spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
                                         )
+                                        .clip(RoundedCornerShape(28.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                        .border(
+                                            1.5.dp,
+                                            MaterialTheme.colorScheme.primary,
+                                            RoundedCornerShape(28.dp)
+                                        )
+                                )
+                            }
 
-                                        AnimatedVisibility(
-                                            visible = isSelected,
-                                            enter = expandHorizontally(
-                                                animationSpec = tween(320, easing = FastOutSlowInEasing),
-                                                expandFrom = Alignment.Start
-                                            ) + fadeIn(
-                                                animationSpec = tween(180, delayMillis = 100, easing = LinearEasing)
-                                            ),
-                                            exit = shrinkHorizontally(
-                                                animationSpec = tween(220, easing = FastOutSlowInEasing),
-                                                shrinkTowards = Alignment.Start
-                                            ) + fadeOut(
-                                                animationSpec = tween(120, easing = LinearEasing)
-                                            )
-                                        ) {
-                                            Text(
-                                                text = item.label,
-                                                fontSize = 15.sp,
-                                                color = contentColor,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Clip,
-                                                modifier = Modifier.padding(start = 8.dp)
-                                            )
-                                        }
-                                    }
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)
+                            ) {
+                                val iconRes = when (item.label) {
+                                    "Videos" -> R.drawable.ic_video_library
+                                    "Folders" -> R.drawable.ic_folder
+                                    "Music" -> R.drawable.ic_music_note
+                                    else -> R.drawable.ic_video_library
+                                }
+                                
+                                val iconColor by animateColorAsState(
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary 
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                                    animationSpec = tween(300),
+                                    label = "iconColor"
+                                )
+                                
+                                Icon(
+                                    painter = painterResource(id = iconRes),
+                                    contentDescription = item.label,
+                                    tint = iconColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
+
+                                // Text label with animation
+                                AnimatedVisibility(
+                                    visible = isSelected,
+                                    enter = expandHorizontally(
+                                        animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                        expandFrom = Alignment.Start
+                                    ) + fadeIn(tween(180, delayMillis = 100)),
+                                    exit = shrinkHorizontally(
+                                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                        shrinkTowards = Alignment.Start
+                                    ) + fadeOut(tween(120))
+                                ) {
+                                    Text(
+                                        text = item.label,
+                                        fontSize = 15.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.W600,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Clip,
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
                                 }
                             }
                         }
                     }
-                }
-
-                // Separate Online/Search Circular Button
-                val isOnlineSelected = selectedScreen == "Online"
-                val searchBgColor by animateColorAsState(
-                    targetValue = if (isOnlineSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                    label = "searchBgColor"
-                )
-                val searchIconColor by animateColorAsState(
-                    targetValue = if (isOnlineSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                    animationSpec = tween(300, easing = FastOutSlowInEasing),
-                    label = "searchIconColor"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .shadow(
-                            elevation = 6.dp,
-                            shape = CircleShape,
-                            ambientColor = Color.Black.copy(alpha = 0.05f),
-                            spotColor = Color.Black.copy(alpha = 0.10f)
-                        )
-                        .clip(CircleShape)
-                        .background(searchBgColor)
-                        .border(
-                            1.2.dp,
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            CircleShape
-                        )
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(),
-                            onClick = {
-                                selectedScreen = "Online"
-                                viewModel.closeFolder()
-                                viewModel.closePlaylist()
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val iconScale by animateFloatAsState(
-                        targetValue = if (isOnlineSelected) 1.15f else 1.0f,
-                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                        label = "searchScaleAnim"
-                    )
-
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Online",
-                        tint = searchIconColor,
-                        modifier = Modifier
-                            .size(26.dp)
-                            .scale(iconScale)
-                    )
                 }
             }
         }
