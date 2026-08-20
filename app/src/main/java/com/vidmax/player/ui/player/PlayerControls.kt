@@ -697,7 +697,7 @@ fun PlayerControls(
                                 
                                 if (pinchActive && lastDist > 0f) {
                                     // ৩ গুণ ফাস্ট জুম
-                                    val zoomSensitivity = 3.0f 
+                                    val zoomSensitivity = 8.0f 
                                     val rawZoomChange = dist / lastDist
                                     val zoomChange = 1f + (rawZoomChange - 1f) * zoomSensitivity
                                     
