@@ -61,14 +61,14 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     val searchViewModel: MusicSearchViewModel = hiltViewModel()
     val playerViewModel: MusicPlayerViewModel = hiltViewModel()
 
-    // 💾 শেয়ার্ড প্রেফারেন্সেস এবং ট্যাব অর্ডার
+    // 💾 শেয়ার্ড প্রেফারেন্সেস এবং ট্যাব অর্ডার (Online বাদ দিয়ে)
     val sharedPrefs = remember { context.getSharedPreferences("NavPrefs", Context.MODE_PRIVATE) }
     var navItemsState by remember {
-        val defaultTabs = listOf("Videos", "Folders", "Music", "Online")
+        val defaultTabs = listOf("Videos", "Folders", "Music")
         val savedOrderStr = sharedPrefs.getString("nav_order", "") ?: ""
 
         val initialList = if (savedOrderStr.isNotBlank()) {
-            val savedTabs = savedOrderStr.split(",")
+            val savedTabs = savedOrderStr.split(",").filter { it != "Online" } // Filter out old Online state if any
             val missingTabs = defaultTabs.filter { !savedTabs.contains(it) }
             (savedTabs + missingTabs).map { NavItem(it) }
         } else {
@@ -77,7 +77,9 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         mutableStateOf(initialList)
     }
 
-    var selectedTab by remember { mutableIntStateOf(0) }
+    // Selected screen name tracking instead of Int index
+    var selectedScreen by remember { mutableStateOf(navItemsState.firstOrNull()?.label ?: "Videos") }
+    
     var isSettingsOpen by remember { mutableStateOf(false) }
     var isMusicPlayerOpen by remember { mutableStateOf(false) }
 
@@ -158,7 +160,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
 
     // 🔄 ব্যাক হ্যান্ডলার
     BackHandler(
-        enabled = isMusicPlayerOpen || isSettingsOpen || openedPlaylistTitle.isNotEmpty() || selectedTab != 0 || currentFolderPath.isNotEmpty()
+        enabled = isMusicPlayerOpen || isSettingsOpen || openedPlaylistTitle.isNotEmpty() || selectedScreen != navItemsState.firstOrNull()?.label || currentFolderPath.isNotEmpty()
     ) {
         if (isMusicPlayerOpen) {
             isMusicPlayerOpen = false
@@ -168,8 +170,8 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
             viewModel.closePlaylist()
         } else if (currentFolderPath.isNotEmpty()) {
             viewModel.closeFolder()
-        } else if (selectedTab != 0) {
-            selectedTab = 0 // ডিফল্ট প্রথম ট্যাবে চলে যাবে
+        } else if (selectedScreen != navItemsState.firstOrNull()?.label) {
+            selectedScreen = navItemsState.firstOrNull()?.label ?: "Videos" // ডিফল্ট প্রথম ট্যাবে চলে যাবে
         }
     }
 
@@ -179,8 +181,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         onVideoClick(videos, index)
     }
 
-    val currentTabLabel = navItemsState[selectedTab].label
-    val showMusicRecentBar = (currentTabLabel == "Music" || openedPlaylistTitle.isNotEmpty()) && recentMusicTitle.isNotEmpty()
+    val showMusicRecentBar = (selectedScreen == "Music" || openedPlaylistTitle.isNotEmpty()) && recentMusicTitle.isNotEmpty()
 
     Box(modifier = Modifier.fillMaxSize().nestedScroll(nestedScrollConnection)) {
         Scaffold(containerColor = MaterialTheme.colorScheme.background) { paddingValues ->
@@ -202,7 +203,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 } else {
                     // 🌟 Flutter-style Fade + Scale Page Transition
                     AnimatedContent(
-                        targetState = selectedTab,
+                        targetState = selectedScreen,
                         transitionSpec = {
                             (fadeIn(tween(250, easing = FastOutSlowInEasing)) +
                              scaleIn(initialScale = 0.96f, animationSpec = tween(250, easing = FastOutSlowInEasing)))
@@ -212,8 +213,8 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                              )
                         },
                         label = "pageTransition"
-                    ) { tabIndex ->
-                        when (navItemsState[tabIndex].label) {
+                    ) { screen ->
+                        when (screen) {
                             "Videos" -> HomeScreen(
                                 viewModel = viewModel,
                                 onVideoClick = handleVideoClick,
@@ -403,7 +404,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 }
             }
 
-            // BOTTOM NAVIGATION BAR (GNAV STYLE + DRAG TO REORDER + BLOOMEE-STYLE SMOOTH ANIMATION)
+            // BOTTOM NAVIGATION BAR (Integrated Style)
             BoxWithConstraints(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
@@ -420,141 +421,130 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     )
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                val averageTabWidthPx = with(LocalDensity.current) { (maxWidth / navItemsState.size).toPx() }
+                val searchButtonWidth = 64.dp
+                val averageTabWidthPx = with(LocalDensity.current) { ((maxWidth - searchButtonWidth) / navItemsState.size).toPx() }
                 var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
 
                 Row(
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    navItemsState.forEachIndexed { index, item ->
-                        key(item.label) {
-                            var offsetX by remember { mutableStateOf(0f) }
-                            val animatedOffsetX by animateFloatAsState(targetValue = offsetX, label = "dragX")
+                    // Draggable Tabs
+                    Row(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        navItemsState.forEachIndexed { index, item ->
+                            key(item.label) {
+                                var offsetX by remember { mutableStateOf(0f) }
+                                val animatedOffsetX by animateFloatAsState(targetValue = offsetX, label = "dragX")
 
-                            val currentIndex = navItemsState.indexOf(item)
-                            val isSelected = selectedTab == currentIndex
+                                val currentIndex = navItemsState.indexOf(item)
+                                val isSelected = selectedScreen == item.label
 
-                            // 🔥 টেক্সট বড় করার কারণে tabWeight একটু বাড়ানো হলো (2.8f)
-                            val tabWeight by animateFloatAsState(
-                                targetValue = if (isSelected) 2.8f else 1.0f,
-                                animationSpec = tween(350, easing = FastOutSlowInEasing),
-                                label = "tabWeight"
-                            )
-
-                            val contentColor by animateColorAsState(
-                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                animationSpec = tween(300, easing = FastOutSlowInEasing),
-                                label = "colorAnim"
-                            )
-
-                            val tabBgAlpha by animateFloatAsState(
-                                targetValue = if (isSelected) 1f else 0f,
-                                animationSpec = tween(350, easing = FastOutSlowInEasing),
-                                label = "tabBgAlpha"
-                            )
-
-                            val iconScale by animateFloatAsState(
-                                targetValue = if (isSelected) 1.05f else 1.0f,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                label = "scaleAnim"
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .weight(tabWeight)
-                                    .fillMaxHeight()
-                                    .zIndex(if (draggedItemIndex == currentIndex) 1f else 0f)
-                                    .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                                    .pointerInput(item.label) {
-                                        detectDragGesturesAfterLongPress(
-                                            onDragStart = { draggedItemIndex = navItemsState.indexOf(item) },
-                                            onDragEnd = {
-                                                draggedItemIndex = null
-                                                offsetX = 0f
-                                            },
-                                            onDragCancel = {
-                                                draggedItemIndex = null
-                                                offsetX = 0f
-                                            },
-                                            onDrag = { change, dragAmount ->
-                                                change.consume()
-                                                offsetX += dragAmount.x
-                                                val currentActiveIndex = navItemsState.indexOf(item)
-                                                val offsetThreshold = averageTabWidthPx / 2
-
-                                                if (offsetX > offsetThreshold && currentActiveIndex < navItemsState.lastIndex) {
-                                                    val newList = navItemsState.toMutableList()
-                                                    val temp = newList[currentActiveIndex]
-                                                    newList[currentActiveIndex] = newList[currentActiveIndex + 1]
-                                                    newList[currentActiveIndex + 1] = temp
-
-                                                    val currentSelectedLabel = navItemsState[selectedTab].label
-                                                    navItemsState = newList
-                                                    selectedTab = navItemsState.indexOfFirst { it.label == currentSelectedLabel }
-                                                    sharedPrefs.edit().putString("nav_order", navItemsState.joinToString(",") { it.label }).apply()
-
-                                                    offsetX -= averageTabWidthPx
-                                                    draggedItemIndex = currentActiveIndex + 1
-                                                }
-                                                else if (offsetX < -offsetThreshold && currentActiveIndex > 0) {
-                                                    val newList = navItemsState.toMutableList()
-                                                    val temp = newList[currentActiveIndex]
-                                                    newList[currentActiveIndex] = newList[currentActiveIndex - 1]
-                                                    newList[currentActiveIndex - 1] = temp
-
-                                                    val currentSelectedLabel = navItemsState[selectedTab].label
-                                                    navItemsState = newList
-                                                    selectedTab = navItemsState.indexOfFirst { it.label == currentSelectedLabel }
-                                                    sharedPrefs.edit().putString("nav_order", navItemsState.joinToString(",") { it.label }).apply()
-
-                                                    offsetX += averageTabWidthPx
-                                                    draggedItemIndex = currentActiveIndex - 1
-                                                }
-                                            }
-                                        )
-                                    }
-                                    .clip(RoundedCornerShape(26.dp))
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = ripple(),
-                                        onClick = {
-                                            selectedTab = currentIndex
-                                            if (item.label != "Folders") viewModel.closeFolder()
-                                            viewModel.closePlaylist()
-                                        }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // Active pill background
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(RoundedCornerShape(26.dp))
-                                        .background(
-                                            if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
-                                            else Color.Transparent
-                                        )
+                                val tabWeight by animateFloatAsState(
+                                    targetValue = if (isSelected) 2.8f else 1.0f,
+                                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                                    label = "tabWeight"
                                 )
 
-                                // ✅ FIX: কোনো conditional padding/Arrangement নেই — সবসময় Center,
-                                // তাই tab switch করলে icon jump করে না, text expand হলে smoothly slide করে
-                                Row(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
+                                val contentColor by animateColorAsState(
+                                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                    animationSpec = tween(300, easing = FastOutSlowInEasing),
+                                    label = "colorAnim"
+                                )
+
+                                val tabBgAlpha by animateFloatAsState(
+                                    targetValue = if (isSelected) 1f else 0f,
+                                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                                    label = "tabBgAlpha"
+                                )
+
+                                val iconScale by animateFloatAsState(
+                                    targetValue = if (isSelected) 1.05f else 1.0f,
+                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                                    label = "scaleAnim"
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(tabWeight)
+                                        .fillMaxHeight()
+                                        .zIndex(if (draggedItemIndex == currentIndex) 1f else 0f)
+                                        .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                                        .pointerInput(item.label) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = { draggedItemIndex = navItemsState.indexOf(item) },
+                                                onDragEnd = {
+                                                    draggedItemIndex = null
+                                                    offsetX = 0f
+                                                },
+                                                onDragCancel = {
+                                                    draggedItemIndex = null
+                                                    offsetX = 0f
+                                                },
+                                                onDrag = { change, dragAmount ->
+                                                    change.consume()
+                                                    offsetX += dragAmount.x
+                                                    val currentActiveIndex = navItemsState.indexOf(item)
+                                                    val offsetThreshold = averageTabWidthPx / 2
+
+                                                    if (offsetX > offsetThreshold && currentActiveIndex < navItemsState.lastIndex) {
+                                                        val newList = navItemsState.toMutableList()
+                                                        val temp = newList[currentActiveIndex]
+                                                        newList[currentActiveIndex] = newList[currentActiveIndex + 1]
+                                                        newList[currentActiveIndex + 1] = temp
+
+                                                        navItemsState = newList
+                                                        sharedPrefs.edit().putString("nav_order", navItemsState.joinToString(",") { it.label }).apply()
+
+                                                        offsetX -= averageTabWidthPx
+                                                        draggedItemIndex = currentActiveIndex + 1
+                                                    }
+                                                    else if (offsetX < -offsetThreshold && currentActiveIndex > 0) {
+                                                        val newList = navItemsState.toMutableList()
+                                                        val temp = newList[currentActiveIndex]
+                                                        newList[currentActiveIndex] = newList[currentActiveIndex - 1]
+                                                        newList[currentActiveIndex - 1] = temp
+
+                                                        navItemsState = newList
+                                                        sharedPrefs.edit().putString("nav_order", navItemsState.joinToString(",") { it.label }).apply()
+
+                                                        offsetX += averageTabWidthPx
+                                                        draggedItemIndex = currentActiveIndex - 1
+                                                    }
+                                                }
+                                            )
+                                        }
+                                        .clip(RoundedCornerShape(26.dp))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = ripple(),
+                                            onClick = {
+                                                selectedScreen = item.label
+                                                if (item.label != "Folders") viewModel.closeFolder()
+                                                viewModel.closePlaylist()
+                                            }
+                                        ),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    if (item.label == "Online") {
-                                        Icon(
-                                            imageVector = Icons.Default.Search,
-                                            contentDescription = item.label,
-                                            tint = contentColor,
-                                            modifier = Modifier
-                                                .size(24.dp)
-                                                .scale(iconScale)
-                                        )
-                                    } else {
+                                    // Active pill background
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(RoundedCornerShape(26.dp))
+                                            .background(
+                                                if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
+                                                else Color.Transparent
+                                            )
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         val iconRes = when (item.label) {
                                             "Videos" -> R.drawable.ic_video_library
                                             "Folders" -> R.drawable.ic_folder
@@ -569,37 +559,90 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                                 .size(24.dp)
                                                 .scale(iconScale)
                                         )
-                                    }
 
-                                    // Text expands and fades in (Bloomee style)
-                                    AnimatedVisibility(
-                                        visible = isSelected,
-                                        enter = expandHorizontally(
-                                            animationSpec = tween(320, easing = FastOutSlowInEasing),
-                                            expandFrom = Alignment.Start
-                                        ) + fadeIn(
-                                            animationSpec = tween(180, delayMillis = 100, easing = LinearEasing)
-                                        ),
-                                        exit = shrinkHorizontally(
-                                            animationSpec = tween(220, easing = FastOutSlowInEasing),
-                                            shrinkTowards = Alignment.Start
-                                        ) + fadeOut(
-                                            animationSpec = tween(120, easing = LinearEasing)
-                                        )
-                                    ) {
-                                        Text(
-                                            text = item.label,
-                                            fontSize = 15.sp,
-                                            color = contentColor,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Clip,
-                                            modifier = Modifier.padding(start = 8.dp)
-                                        )
+                                        AnimatedVisibility(
+                                            visible = isSelected,
+                                            enter = expandHorizontally(
+                                                animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                                expandFrom = Alignment.Start
+                                            ) + fadeIn(
+                                                animationSpec = tween(180, delayMillis = 100, easing = LinearEasing)
+                                            ),
+                                            exit = shrinkHorizontally(
+                                                animationSpec = tween(220, easing = FastOutSlowInEasing),
+                                                shrinkTowards = Alignment.Start
+                                            ) + fadeOut(
+                                                animationSpec = tween(120, easing = LinearEasing)
+                                            )
+                                        ) {
+                                            Text(
+                                                text = item.label,
+                                                fontSize = 15.sp,
+                                                color = contentColor,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Clip,
+                                                modifier = Modifier.padding(start = 8.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
+                    }
+
+                    // Online / Search Action Button
+                    Box(
+                        modifier = Modifier
+                            .width(searchButtonWidth)
+                            .fillMaxHeight()
+                            .padding(start = 4.dp) // Little gap between main tabs and search
+                            .clip(RoundedCornerShape(26.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(),
+                                onClick = {
+                                    selectedScreen = "Online"
+                                    viewModel.closeFolder()
+                                    viewModel.closePlaylist()
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val isOnlineSelected = selectedScreen == "Online"
+                        val tabBgAlpha by animateFloatAsState(
+                            targetValue = if (isOnlineSelected) 1f else 0f,
+                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            label = "tabBgAlpha"
+                        )
+                        val contentColor by animateColorAsState(
+                            targetValue = if (isOnlineSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                            animationSpec = tween(300, easing = FastOutSlowInEasing),
+                            label = "colorAnim"
+                        )
+                        val iconScale by animateFloatAsState(
+                            targetValue = if (isOnlineSelected) 1.05f else 1.0f,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                            label = "scaleAnim"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(26.dp))
+                                .background(
+                                    if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
+                                    else Color.Transparent
+                                )
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Online",
+                            tint = contentColor,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .scale(iconScale)
+                        )
                     }
                 }
             }
@@ -636,7 +679,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
             }
         }
 
-        // 🔄 UPDATE AVAILABLE DIALOG (auto-check result)
+        // 🔄 UPDATE AVAILABLE DIALOG
         updateResult?.let { result ->
             UpdateResultDialog(
                 result = result,
