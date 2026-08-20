@@ -61,7 +61,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     val searchViewModel: MusicSearchViewModel = hiltViewModel()
     val playerViewModel: MusicPlayerViewModel = hiltViewModel()
 
-    // 💾 শেয়ার্ড প্রেফারেন্সেস এবং ট্যাব অর্ডার (Online বাদ দিয়ে)
+    // 💾 শেয়ার্ড প্রেফারেন্সেস এবং ট্যাব অর্ডার (Online বাদ দিয়ে)
     val sharedPrefs = remember { context.getSharedPreferences("NavPrefs", Context.MODE_PRIVATE) }
     var navItemsState by remember {
         val defaultTabs = listOf("Videos", "Folders", "Music")
@@ -79,7 +79,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
 
     // Selected screen name tracking
     var selectedScreen by remember { mutableStateOf(navItemsState.firstOrNull()?.label ?: "Videos") }
-    
+
     var isSettingsOpen by remember { mutableStateOf(false) }
     var isMusicPlayerOpen by remember { mutableStateOf(false) }
 
@@ -408,9 +408,9 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
             Row(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp)
+                    .padding(bottom = 20.dp)
                     .fillMaxWidth()
-                    .height(68.dp),
+                    .height(64.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -419,15 +419,20 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .shadow(16.dp, RoundedCornerShape(35.dp), spotColor = Color.Black.copy(alpha = 0.45f))
-                        .clip(RoundedCornerShape(35.dp))
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(32.dp),
+                            ambientColor = Color.Black.copy(alpha = 0.05f),
+                            spotColor = Color.Black.copy(alpha = 0.10f)
+                        )
+                        .clip(RoundedCornerShape(32.dp))
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
                         .border(
                             1.2.dp,
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            RoundedCornerShape(35.dp)
+                            RoundedCornerShape(32.dp)
                         )
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
                 ) {
                     val averageTabWidthPx = with(LocalDensity.current) { (maxWidth / navItemsState.size).toPx() }
                     var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
@@ -446,7 +451,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 val isSelected = selectedScreen == item.label
 
                                 val tabWeight by animateFloatAsState(
-                                    targetValue = if (isSelected) 2.8f else 1.0f,
+                                    targetValue = if (isSelected) 2.4f else 1.0f,
                                     animationSpec = tween(350, easing = FastOutSlowInEasing),
                                     label = "tabWeight"
                                 )
@@ -531,7 +536,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    // Active pill background
+                                    // Active pill background (theme primary tint)
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -606,11 +611,16 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     animationSpec = tween(300, easing = FastOutSlowInEasing),
                     label = "searchIconColor"
                 )
-                
+
                 Box(
                     modifier = Modifier
-                        .size(68.dp)
-                        .shadow(16.dp, CircleShape, spotColor = Color.Black.copy(alpha = 0.45f))
+                        .size(64.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = CircleShape,
+                            ambientColor = Color.Black.copy(alpha = 0.05f),
+                            spotColor = Color.Black.copy(alpha = 0.10f)
+                        )
                         .clip(CircleShape)
                         .background(searchBgColor)
                         .border(
@@ -634,7 +644,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
                         label = "searchScaleAnim"
                     )
-                    
+
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Online",
@@ -666,7 +676,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         AnimatedVisibility(
             visible = isMusicPlayerOpen,
             enter = slideInVertically(initialOffsetY = { fullHeight -> fullHeight }, animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)),
-            exit = slideOutVertically(targetOffsetY = { fullHeight -> fullHeight }, animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
+            exit = slideOutVertically(targetOffsetY = { fullHeight -> fullHeight }, animationSpec = tween(350, easing = FastOutSlowInEasing)),
             modifier = Modifier.fillMaxSize().zIndex(10f)
         ) {
             Box(modifier = Modifier.fillMaxSize().clickable(enabled = false) {}) {
