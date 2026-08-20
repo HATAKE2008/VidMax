@@ -677,6 +677,10 @@ fun PlayerControls(
                         var pinchActive = false
                         var lastDist = 0f
                         var lastCentroid = Offset.Zero
+                        var lastTwoFingerActive = false
+                        var smoothedZoomRatio = 1f
+                        var smoothedPan = Offset.Zero
+                        var lastPinchEventNs = 0L
 
                         var lastAppliedBrightness = -1f
                         var lastAppliedVolume = -1
@@ -695,27 +699,49 @@ if (pressed.size >= 2 && pinchZoomEnabled) {
     val dist = (p1.position - p2.position).getDistance()
     val centroid = (p1.position + p2.position) / 2f
     
-    if (pinchActive && lastDist > 0f) {
-        val rawZoomChange = dist / lastDist
-        
-        // MX/VLC Player-এর মতো স্মুথ এক্সপোনেনশিয়াল জুম
-        // ২.৫ থেকে ৩.০ হলো পারফেক্ট স্মুথ স্পিড
-        val zoomSensitivity = 2.8 
-        val zoomChange = Math.pow(rawZoomChange.toDouble(), zoomSensitivity).toFloat()
-        
-        val panChange = centroid - lastCentroid
-        onVideoScaleChange(zoomChange, panChange, centroid)
+    if (pinchActive && lastDist > 0f && lastTwoFingerActive) {
+        val nowNs = System.nanoTime()
+        val dtMs = if (lastPinchEventNs > 0L) {
+            ((nowNs - lastPinchEventNs) / 1_000_000f).coerceIn(1f, 60f)
+        } else 16f
+        lastPinchEventNs = nowNs
+
+        val rawRatio = dist / lastDist
+
+        // MX/VLC Player-এর মতো EMA (Exponential Moving Average) স্মুথিং
+        // টাইম-কনস্ট্যান্ট 55ms -> frame-rate independent, জিটার দূর করে
+        val alpha = 1f - Math.exp(-dtMs / 55f).toFloat()
+        smoothedZoomRatio = smoothedZoomRatio + (rawRatio - smoothedZoomRatio) * alpha
+
+        // ডেড-জোন: খুব ছোট পরিবর্তন উপেক্ষা করে (finger noise রোধ)
+        val zoomChange = if (abs(smoothedZoomRatio - 1f) < 0.0035f) {
+            1f
+        } else {
+            Math.pow(smoothedZoomRatio.toDouble(), 2.8).toFloat()
+        }
+
+        // প্যানও একই EMA দিয়ে স্মুথ করা হয়
+        val rawPan = centroid - lastCentroid
+        val panAlpha = 1f - Math.exp(-dtMs / 45f).toFloat()
+        smoothedPan = smoothedPan + (rawPan - smoothedPan) * panAlpha
+
+        onVideoScaleChange(zoomChange, smoothedPan, centroid)
     } else {
         pinchActive = true
+        smoothedZoomRatio = 1f
+        smoothedPan = Offset.Zero
+        lastPinchEventNs = System.nanoTime()
     }
     lastDist = dist
     lastCentroid = centroid
+    lastTwoFingerActive = true
     p1.consume()
     p2.consume()
 }
 
                             // ONE FINGER
                             else if (pressed.size == 1) {
+                                lastTwoFingerActive = false
                                 val change = pressed.first()
                                 val dx = change.position.x - change.previousPosition.x
                                 val dy = change.position.y - change.previousPosition.y
