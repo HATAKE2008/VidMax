@@ -75,6 +75,11 @@ fun PlayerScreen(
   var videoOffsetY by remember { mutableFloatStateOf(0f) }
   var currentPlaybackSpeed by remember { mutableFloatStateOf(1f) }
 
+  // Live zoom layer: written every pinch frame by PlayerControls (no
+  // recomposition), kept in sync with the committed scale otherwise.
+  val liveZoomScale = remember { mutableFloatStateOf(1f) }
+  LaunchedEffect(videoScale) { liveZoomScale.floatValue = videoScale }
+
   // Real size of the video surface view (px), kept in sync via onSizeChanged on
   // both engine AndroidViews. Used to anchor pinch zoom and to clamp the pan so
   // no one-sided black space can ever appear.
@@ -196,11 +201,13 @@ fun PlayerScreen(
             modifier =
                 (if (panelOpen) Modifier.fillMaxHeight().fillMaxWidth(0.5f) else Modifier.fillMaxSize())
                     .onSizeChanged { viewSizePx = it; clampVideoOffset() }
-                    .graphicsLayer(
-                        scaleX = if (panelOpen) 1f else videoScale,
-                        scaleY = if (panelOpen) 1f else videoScale,
-                        translationX = if (panelOpen) 0f else videoOffsetX,
-                        translationY = if (panelOpen) 0f else videoOffsetY))
+                    .graphicsLayer {
+                        val s = if (panelOpen) 1f else liveZoomScale.floatValue
+                        scaleX = s
+                        scaleY = s
+                        translationX = if (panelOpen) 0f else videoOffsetX
+                        translationY = if (panelOpen) 0f else videoOffsetY
+                    })
       } else {
         AndroidView(
             factory = { ctx: Context ->
@@ -261,11 +268,13 @@ fun PlayerScreen(
             modifier =
                 (if (panelOpen) Modifier.fillMaxHeight().fillMaxWidth(0.5f) else Modifier.fillMaxSize())
                     .onSizeChanged { viewSizePx = it; clampVideoOffset() }
-                    .graphicsLayer(
-                        scaleX = if (panelOpen) 1f else videoScale,
-                        scaleY = if (panelOpen) 1f else videoScale,
-                        translationX = if (panelOpen) 0f else videoOffsetX,
-                        translationY = if (panelOpen) 0f else videoOffsetY))
+                    .graphicsLayer {
+                        val s = if (panelOpen) 1f else liveZoomScale.floatValue
+                        scaleX = s
+                        scaleY = s
+                        translationX = if (panelOpen) 0f else videoOffsetX
+                        translationY = if (panelOpen) 0f else videoOffsetY
+                    })
       }
     } else {
       Column(
@@ -335,6 +344,7 @@ fun PlayerScreen(
           }
         },
         videoScale = videoScale,
+        liveZoomScale = liveZoomScale,
         onVideoScaleChange = { zoom, pan, anchor ->
           var vw = viewSizePx.width.toFloat()
           var vh = viewSizePx.height.toFloat()
