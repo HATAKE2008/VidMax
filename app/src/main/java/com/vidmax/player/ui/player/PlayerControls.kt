@@ -675,11 +675,15 @@ fun PlayerControls(
                         var accX = 0f
                         var accY = 0f
                         var dragType = 0
+
+                        // Pinch Zoom state variables
                         var pinchActive = false
+                        var lastTwoFingerActive = false
+                        var pinchStartDist = 0f
+                        var pinchAnchorScale = 1f
+                        var lastAppliedScale = 1f
                         var lastDist = 0f
                         var lastCentroid = Offset.Zero
-                        var lastTwoFingerActive = false
-                        var smoothedZoomRatio = 1f
                         var smoothedPan = Offset.Zero
                         var lastPinchEventNs = 0L
 
@@ -691,55 +695,52 @@ fun PlayerControls(
                             val event = awaitPointerEvent()
                             val pressed = event.changes.filter { it.pressed }
 
-                            // TWO FINGERS: pinch zoom + pan
-if (pressed.size >= 2 && pinchZoomEnabled) {
-    isDraggingLocal = false
-    dragType = 0
-    val p1 = pressed[0]
-    val p2 = pressed[1]
-    val dist = (p1.position - p2.position).getDistance()
-    val centroid = (p1.position + p2.position) / 2f
-    
-    if (pinchActive && lastDist > 0f && lastTwoFingerActive) {
-        val nowNs = System.nanoTime()
-        val dtMs = if (lastPinchEventNs > 0L) {
-            ((nowNs - lastPinchEventNs) / 1_000_000f).coerceIn(1f, 60f)
-        } else 16f
-        lastPinchEventNs = nowNs
+                            // TWO FINGERS: pinch zoom + pan (Absolute distance ratio based)
+                            if (pressed.size >= 2 && pinchZoomEnabled) {
+                                isDraggingLocal = false
+                                dragType = 0
+                                val p1 = pressed[0]
+                                val p2 = pressed[1]
+                                val dist = (p1.position - p2.position).getDistance()
+                                val centroid = (p1.position + p2.position) / 2f
 
-        val rawRatio = dist / lastDist
+                                if (pinchActive && lastTwoFingerActive && pinchStartDist > 0f) {
+                                    val nowNs = System.nanoTime()
+                                    val dtMs = if (lastPinchEventNs > 0L) {
+                                        ((nowNs - lastPinchEventNs) / 1_000_000f).coerceIn(1f, 60f)
+                                    } else 16f
+                                    lastPinchEventNs = nowNs
 
-        // MX/VLC Player-এর মতো EMA (Exponential Moving Average) স্মুথিং
-        // টাইম-কনস্ট্যান্ট 55ms -> frame-rate independent, জিটার দূর করে
-        val alpha = 1f - exp(-dtMs / 55f)
-        smoothedZoomRatio = smoothedZoomRatio + (rawRatio - smoothedZoomRatio) * alpha
+                                    // Absolute target scale from gesture start
+                                    val rawTargetScale = (pinchAnchorScale * (dist / pinchStartDist))
+                                        .coerceIn(1f, 4f)
 
-        // ডেড-জোন: খুব ছোট পরিবর্তন উপেক্ষা করে (finger noise রোধ)
-        val zoomChange = if (abs(smoothedZoomRatio - 1f) < 0.0035f) {
-            1f
-        } else {
-            Math.pow(smoothedZoomRatio.toDouble(), 2.8).toFloat()
-        }
+                                    // Light EMA smoothing on the target scale
+                                    val alpha = 1f - exp(-dtMs / 40f)
+                                    val smoothedTargetScale = lastAppliedScale + (rawTargetScale - lastAppliedScale) * alpha
 
-        // প্যানও একই EMA দিয়ে স্মুথ করা হয়
-        val rawPan = centroid - lastCentroid
-        val panAlpha = 1f - exp(-dtMs / 45f)
-        smoothedPan = smoothedPan + (rawPan - smoothedPan) * panAlpha
+                                    val rawPan = centroid - lastCentroid
+                                    val panAlpha = 1f - exp(-dtMs / 45f)
+                                    smoothedPan = smoothedPan + (rawPan - smoothedPan) * panAlpha
 
-        onVideoScaleChange(zoomChange, smoothedPan, centroid)
-    } else {
-        pinchActive = true
-        smoothedZoomRatio = 1f
-        smoothedPan = Offset.Zero
-        lastPinchEventNs = System.nanoTime()
-    }
-    lastDist = dist
-    lastCentroid = centroid
-    lastTwoFingerActive = true
-    p1.consume()
-    p2.consume()
-}
-
+                                    // Delta ratio relative to what's already applied
+                                    val deltaRatio = smoothedTargetScale / lastAppliedScale
+                                    onVideoScaleChange(deltaRatio, smoothedPan, centroid)
+                                    lastAppliedScale = smoothedTargetScale
+                                } else {
+                                    pinchActive = true
+                                    pinchStartDist = dist
+                                    pinchAnchorScale = currentVideoScale
+                                    lastAppliedScale = currentVideoScale
+                                    smoothedPan = Offset.Zero
+                                    lastPinchEventNs = System.nanoTime()
+                                }
+                                lastDist = dist
+                                lastCentroid = centroid
+                                lastTwoFingerActive = true
+                                p1.consume()
+                                p2.consume()
+                            }
                             // ONE FINGER
                             else if (pressed.size == 1) {
                                 lastTwoFingerActive = false
@@ -747,13 +748,10 @@ if (pressed.size >= 2 && pinchZoomEnabled) {
                                 val dx = change.position.x - change.previousPosition.x
                                 val dy = change.position.y - change.previousPosition.y
 
-                                // এখানে currentVideoScale > 1f এর চেকিংটি রিমুভ করা হয়েছে
-                                // যাতে জুম করা অবস্থাতেও ১ আঙুল দিয়ে ভলিউম/ব্রাইটনেস কন্ট্রোল করা যায় এবং ভিডিও স্থির থাকে।
                                 if (!isDraggingLocal) {
                                     accX += dx
                                     accY += dy
                                     
-                                    // Touch Slop
                                     if (sqrt(accX * accX + accY * accY) > 40f) {
                                         isDraggingLocal = true
                                         dragType = if (abs(accX) > abs(accY)) {
@@ -841,6 +839,7 @@ if (pressed.size >= 2 && pinchZoomEnabled) {
                             viewModel.hideGestureOverlay()
                         }
                         pinchActive = false
+                        lastTwoFingerActive = false
                     }
                 }
                 .pointerInput(isLocked) {
@@ -1107,7 +1106,7 @@ if (pressed.size >= 2 && pinchZoomEnabled) {
                             size = 42.dp
                         )
 
-                        // Settings (direct call, not inside a dropdown)
+                        // Settings
                         MpvCircleButton(
                             icon = Icons.Outlined.Settings,
                             contentDescription = "Settings",
