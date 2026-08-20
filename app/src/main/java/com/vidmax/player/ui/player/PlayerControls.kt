@@ -84,6 +84,7 @@ import java.io.File
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlinx.coroutines.delay
@@ -710,7 +711,7 @@ if (pressed.size >= 2 && pinchZoomEnabled) {
 
         // MX/VLC Player-এর মতো EMA (Exponential Moving Average) স্মুথিং
         // টাইম-কনস্ট্যান্ট 55ms -> frame-rate independent, জিটার দূর করে
-        val alpha = 1f - Math.exp(-dtMs / 55f).toFloat()
+        val alpha = 1f - exp(-dtMs / 55f)
         smoothedZoomRatio = smoothedZoomRatio + (rawRatio - smoothedZoomRatio) * alpha
 
         // ডেড-জোন: খুব ছোট পরিবর্তন উপেক্ষা করে (finger noise রোধ)
@@ -722,7 +723,7 @@ if (pressed.size >= 2 && pinchZoomEnabled) {
 
         // প্যানও একই EMA দিয়ে স্মুথ করা হয়
         val rawPan = centroid - lastCentroid
-        val panAlpha = 1f - Math.exp(-dtMs / 45f).toFloat()
+        val panAlpha = 1f - exp(-dtMs / 45f)
         smoothedPan = smoothedPan + (rawPan - smoothedPan) * panAlpha
 
         onVideoScaleChange(zoomChange, smoothedPan, centroid)
