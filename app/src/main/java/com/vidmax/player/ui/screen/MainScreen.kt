@@ -68,7 +68,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         val savedOrderStr = sharedPrefs.getString("nav_order", "") ?: ""
 
         val initialList = if (savedOrderStr.isNotBlank()) {
-            val savedTabs = savedOrderStr.split(",").filter { it != "Online" } // Filter out old Online state if any
+            val savedTabs = savedOrderStr.split(",").filter { it != "Online" }
             val missingTabs = defaultTabs.filter { !savedTabs.contains(it) }
             (savedTabs + missingTabs).map { NavItem(it) }
         } else {
@@ -77,7 +77,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         mutableStateOf(initialList)
     }
 
-    // Selected screen name tracking instead of Int index
+    // Selected screen name tracking
     var selectedScreen by remember { mutableStateOf(navItemsState.firstOrNull()?.label ?: "Videos") }
     
     var isSettingsOpen by remember { mutableStateOf(false) }
@@ -171,7 +171,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
         } else if (currentFolderPath.isNotEmpty()) {
             viewModel.closeFolder()
         } else if (selectedScreen != navItemsState.firstOrNull()?.label) {
-            selectedScreen = navItemsState.firstOrNull()?.label ?: "Videos" // ডিফল্ট প্রথম ট্যাবে চলে যাবে
+            selectedScreen = navItemsState.firstOrNull()?.label ?: "Videos"
         }
     }
 
@@ -404,34 +404,36 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 }
             }
 
-            // BOTTOM NAVIGATION BAR (Integrated Style)
-            BoxWithConstraints(
+            // BOTTOM NAVIGATION BAR (Detached Online/Search Button Style)
+            Row(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 16.dp)
                     .fillMaxWidth()
-                    .height(68.dp)
-                    .shadow(16.dp, RoundedCornerShape(35.dp), spotColor = Color.Black.copy(alpha = 0.45f))
-                    .clip(RoundedCornerShape(35.dp))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
-                    .border(
-                        1.2.dp,
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        RoundedCornerShape(35.dp)
-                    )
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .height(68.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                val searchButtonWidth = 64.dp
-                val averageTabWidthPx = with(LocalDensity.current) { ((maxWidth - searchButtonWidth) / navItemsState.size).toPx() }
-                var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
-
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically
+                // Main Navigation Pill
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .shadow(16.dp, RoundedCornerShape(35.dp), spotColor = Color.Black.copy(alpha = 0.45f))
+                        .clip(RoundedCornerShape(35.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                        .border(
+                            1.2.dp,
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            RoundedCornerShape(35.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
                 ) {
-                    // Draggable Tabs
+                    val averageTabWidthPx = with(LocalDensity.current) { (maxWidth / navItemsState.size).toPx() }
+                    var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
+
                     Row(
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        modifier = Modifier.fillMaxSize(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -590,60 +592,57 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                             }
                         }
                     }
+                }
 
-                    // Online / Search Action Button
-                    Box(
+                // Separate Online/Search Circular Button
+                val isOnlineSelected = selectedScreen == "Online"
+                val searchBgColor by animateColorAsState(
+                    targetValue = if (isOnlineSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                    label = "searchBgColor"
+                )
+                val searchIconColor by animateColorAsState(
+                    targetValue = if (isOnlineSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                    animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    label = "searchIconColor"
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .shadow(16.dp, CircleShape, spotColor = Color.Black.copy(alpha = 0.45f))
+                        .clip(CircleShape)
+                        .background(searchBgColor)
+                        .border(
+                            1.2.dp,
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            CircleShape
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(),
+                            onClick = {
+                                selectedScreen = "Online"
+                                viewModel.closeFolder()
+                                viewModel.closePlaylist()
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val iconScale by animateFloatAsState(
+                        targetValue = if (isOnlineSelected) 1.15f else 1.0f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                        label = "searchScaleAnim"
+                    )
+                    
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Online",
+                        tint = searchIconColor,
                         modifier = Modifier
-                            .width(searchButtonWidth)
-                            .fillMaxHeight()
-                            .padding(start = 4.dp) // Little gap between main tabs and search
-                            .clip(RoundedCornerShape(26.dp))
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple(),
-                                onClick = {
-                                    selectedScreen = "Online"
-                                    viewModel.closeFolder()
-                                    viewModel.closePlaylist()
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val isOnlineSelected = selectedScreen == "Online"
-                        val tabBgAlpha by animateFloatAsState(
-                            targetValue = if (isOnlineSelected) 1f else 0f,
-                            animationSpec = tween(350, easing = FastOutSlowInEasing),
-                            label = "tabBgAlpha"
-                        )
-                        val contentColor by animateColorAsState(
-                            targetValue = if (isOnlineSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                            animationSpec = tween(300, easing = FastOutSlowInEasing),
-                            label = "colorAnim"
-                        )
-                        val iconScale by animateFloatAsState(
-                            targetValue = if (isOnlineSelected) 1.05f else 1.0f,
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                            label = "scaleAnim"
-                        )
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(26.dp))
-                                .background(
-                                    if (tabBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * tabBgAlpha)
-                                    else Color.Transparent
-                                )
-                        )
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Online",
-                            tint = contentColor,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .scale(iconScale)
-                        )
-                    }
+                            .size(26.dp)
+                            .scale(iconScale)
+                    )
                 }
             }
         }
