@@ -64,11 +64,11 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     // 💾 শেয়ার্ড প্রেফারেন্সেস এবং ট্যাব অর্ডার (Online বাদ দিয়ে)
     val sharedPrefs = remember { context.getSharedPreferences("NavPrefs", Context.MODE_PRIVATE) }
     var navItemsState by remember {
-        val defaultTabs = listOf("Videos", "Folders", "Music")
+        val defaultTabs = listOf("Videos", "Music")
         val savedOrderStr = sharedPrefs.getString("nav_order", "") ?: ""
 
         val initialList = if (savedOrderStr.isNotBlank()) {
-            val savedTabs = savedOrderStr.split(",").filter { it != "Online" }
+            val savedTabs = savedOrderStr.split(",").filter { it != "Online" && it != "Folders" }
             val missingTabs = defaultTabs.filter { !savedTabs.contains(it) }
             (savedTabs + missingTabs).map { NavItem(it) }
         } else {
@@ -220,7 +220,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 onVideoClick = handleVideoClick,
                                 onSettingsClick = { isSettingsOpen = true }
                             )
-                            "Folders" -> FoldersScreen(viewModel = viewModel, onVideoClick = handleVideoClick)
                             "Music" -> MusicScreen(
                                 viewModel = viewModel,
                                 onSettingsClick = { isSettingsOpen = true },
@@ -530,7 +529,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                             indication = ripple(),
                                             onClick = {
                                                 selectedScreen = item.label
-                                                if (item.label != "Folders") viewModel.closeFolder()
+                                                viewModel.closeFolder()
                                                 viewModel.closePlaylist()
                                             }
                                         ),
@@ -554,7 +553,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     ) {
                                         val iconRes = when (item.label) {
                                             "Videos" -> R.drawable.ic_video_library
-                                            "Folders" -> R.drawable.ic_folder
                                             "Music" -> R.drawable.ic_music_note
                                             else -> R.drawable.ic_video_library
                                         }

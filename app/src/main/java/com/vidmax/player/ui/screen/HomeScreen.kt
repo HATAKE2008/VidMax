@@ -13,10 +13,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,6 +50,7 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vidmax.player.R
+import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.VidMaxSearchBar
 import com.vidmax.player.viewmodel.LibraryViewModel
@@ -56,6 +60,11 @@ enum class HomeViewStyle {
   LIST,
   GRID_MEDIUM,
   GRID_LARGE
+}
+
+enum class HomeContentMode {
+  VIDEO,
+  FOLDER
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -87,6 +96,23 @@ fun HomeScreen(
         prefs.getString("home_view_style", HomeViewStyle.LIST.name) ?: HomeViewStyle.LIST.name
     mutableStateOf(HomeViewStyle.valueOf(savedStyle))
   }
+
+  var currentContentMode by remember {
+    val savedMode =
+        prefs.getString("home_content_mode", HomeContentMode.VIDEO.name)
+            ?: HomeContentMode.VIDEO.name
+    mutableStateOf(
+        try {
+          HomeContentMode.valueOf(savedMode)
+        } catch (e: IllegalArgumentException) {
+          HomeContentMode.VIDEO
+        })
+  }
+
+  val folders by viewModel.folders.collectAsState()
+  val folderVideos by viewModel.folderVideos.collectAsState()
+  val currentFolderPath by viewModel.currentFolderPath.collectAsState()
+  val isInsideFolder = currentFolderPath.isNotEmpty()
 
   val deleteLauncher =
       rememberLauncherForActivityResult(
@@ -258,10 +284,67 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
               Text(
-                  text = "Videos",
+                  text = if (currentContentMode == HomeContentMode.VIDEO) "Videos" else "Folders",
                   color = MaterialTheme.colorScheme.onBackground,
                   fontSize = 20.sp,
                   fontWeight = FontWeight.ExtraBold)
+
+              BoxWithConstraints(
+                  modifier =
+                      Modifier.width(132.dp)
+                          .height(36.dp)
+                          .clip(RoundedCornerShape(50))
+                          .background(
+                              MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
+                    val segmentWidth = maxWidth / 2f
+                    val indicatorOffset by
+                        animateDpAsState(
+                            targetValue =
+                                if (currentContentMode == HomeContentMode.VIDEO) 0.dp
+                                else segmentWidth,
+                            animationSpec = tween(250),
+                            label = "contentModeIndicator")
+
+                    Box(
+                        modifier =
+                            Modifier.offset(x = indicatorOffset)
+                                .width(segmentWidth)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.primary))
+
+                    Row(modifier = Modifier.fillMaxSize()) {
+                      HomeContentSegment(
+                          label = "Video",
+                          isActive = currentContentMode == HomeContentMode.VIDEO,
+                          modifier = Modifier.weight(1f).fillMaxHeight(),
+                          onClick = {
+                            if (currentContentMode != HomeContentMode.VIDEO) {
+                              currentContentMode = HomeContentMode.VIDEO
+                              viewModel.closeFolder()
+                              prefs
+                                  .edit()
+                                  .putString("home_content_mode", HomeContentMode.VIDEO.name)
+                                  .apply()
+                            }
+                          })
+                      HomeContentSegment(
+                          label = "Folder",
+                          isActive = currentContentMode == HomeContentMode.FOLDER,
+                          modifier = Modifier.weight(1f).fillMaxHeight(),
+                          onClick = {
+                            if (currentContentMode != HomeContentMode.FOLDER) {
+                              currentContentMode = HomeContentMode.FOLDER
+                              viewModel.closeFolder()
+                              selectedVideoIds = emptySet()
+                              prefs
+                                  .edit()
+                                  .putString("home_content_mode", HomeContentMode.FOLDER.name)
+                                  .apply()
+                            }
+                          })
+                    }
+                  }
 
               Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { isSearchExpanded = true }, modifier = Modifier.size(36.dp)) {
@@ -330,7 +413,7 @@ fun HomeScreen(
                   textAlign = TextAlign.Center)
             }
           }
-          videos.isEmpty() -> {
+          videos.isEmpty() && !(currentContentMode == HomeContentMode.FOLDER && folders.isNotEmpty()) -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
               Text(
                   text =
@@ -342,102 +425,277 @@ fun HomeScreen(
           }
           else -> {
             Crossfade(
-                targetState = currentViewStyle,
+                targetState = currentContentMode,
                 animationSpec = tween(400),
-                label = "videoViewAnim") { style ->
-                  when (style) {
-                    HomeViewStyle.LIST -> {
-                      LazyColumn(
-                          verticalArrangement = Arrangement.spacedBy(10.dp),
-                          contentPadding = PaddingValues(bottom = 130.dp)) {
-                            itemsIndexed(items = videos, key = { _, video -> video.id }) {
-                                index,
-                                video ->
-                              val isSelected = selectedVideoIds.contains(video.id)
-                              PremiumVideoListCard(
-                                  video = video,
-                                  duration = viewModel.formatDuration(video.duration),
-                                  size = viewModel.formatSize(video.size),
-                                  resolution =
-                                      viewModel.getResolutionLabel(video.width, video.height),
-                                  isSelected = isSelected,
-                                  onClick = {
-                                    if (inSelectionMode) {
-                                      selectedVideoIds =
-                                          if (isSelected) selectedVideoIds - video.id
-                                          else selectedVideoIds + video.id
-                                    } else {
-                                      onVideoClick(videos, index)
+                label = "homeContentAnim") { mode ->
+                  when (mode) {
+                    HomeContentMode.VIDEO -> {
+                      Crossfade(
+                          targetState = currentViewStyle,
+                          animationSpec = tween(400),
+                          label = "videoViewAnim") { style ->
+                            when (style) {
+                              HomeViewStyle.LIST -> {
+                                LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    contentPadding = PaddingValues(bottom = 130.dp)) {
+                                      itemsIndexed(
+                                          items = videos, key = { _, video -> video.id }) {
+                                          index,
+                                          video ->
+                                        val isSelected = selectedVideoIds.contains(video.id)
+                                        PremiumVideoListCard(
+                                            video = video,
+                                            duration = viewModel.formatDuration(video.duration),
+                                            size = viewModel.formatSize(video.size),
+                                            resolution =
+                                                viewModel.getResolutionLabel(
+                                                    video.width, video.height),
+                                            isSelected = isSelected,
+                                            onClick = {
+                                              if (inSelectionMode) {
+                                                selectedVideoIds =
+                                                    if (isSelected) selectedVideoIds - video.id
+                                                    else selectedVideoIds + video.id
+                                              } else {
+                                                onVideoClick(videos, index)
+                                              }
+                                            },
+                                            onLongClick = {
+                                              selectedVideoIds =
+                                                  if (isSelected) selectedVideoIds - video.id
+                                                  else selectedVideoIds + video.id
+                                            })
+                                      }
                                     }
-                                  },
-                                  onLongClick = {
-                                    selectedVideoIds =
-                                        if (isSelected) selectedVideoIds - video.id
-                                        else selectedVideoIds + video.id
-                                  })
+                              }
+                              HomeViewStyle.GRID_MEDIUM -> {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    contentPadding = PaddingValues(bottom = 130.dp)) {
+                                      itemsIndexed(
+                                          items = videos, key = { _, video -> video.id }) {
+                                          index,
+                                          video ->
+                                        val isSelected = selectedVideoIds.contains(video.id)
+                                        CustomVideoGridCard(
+                                            video = video,
+                                            duration = viewModel.formatDuration(video.duration),
+                                            isSelected = isSelected,
+                                            onClick = {
+                                              if (inSelectionMode) {
+                                                selectedVideoIds =
+                                                    if (isSelected) selectedVideoIds - video.id
+                                                    else selectedVideoIds + video.id
+                                              } else {
+                                                onVideoClick(videos, index)
+                                              }
+                                            },
+                                            onLongClick = {
+                                              selectedVideoIds =
+                                                  if (isSelected) selectedVideoIds - video.id
+                                                  else selectedVideoIds + video.id
+                                            })
+                                      }
+                                    }
+                              }
+                              HomeViewStyle.GRID_LARGE -> {
+                                LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    contentPadding = PaddingValues(bottom = 130.dp)) {
+                                      itemsIndexed(
+                                          items = videos, key = { _, video -> video.id }) {
+                                          index,
+                                          video ->
+                                        val isSelected = selectedVideoIds.contains(video.id)
+                                        CustomVideoLargeCard(
+                                            video = video,
+                                            duration = viewModel.formatDuration(video.duration),
+                                            size = viewModel.formatSize(video.size),
+                                            isSelected = isSelected,
+                                            onClick = {
+                                              if (inSelectionMode) {
+                                                selectedVideoIds =
+                                                    if (isSelected) selectedVideoIds - video.id
+                                                    else selectedVideoIds + video.id
+                                              } else {
+                                                onVideoClick(videos, index)
+                                              }
+                                            },
+                                            onLongClick = {
+                                              selectedVideoIds =
+                                                  if (isSelected) selectedVideoIds - video.id
+                                                  else selectedVideoIds + video.id
+                                            })
+                                      }
+                                    }
+                              }
                             }
                           }
                     }
-                    HomeViewStyle.GRID_MEDIUM -> {
-                      LazyVerticalGrid(
-                          columns = GridCells.Fixed(2),
-                          horizontalArrangement = Arrangement.spacedBy(12.dp),
-                          verticalArrangement = Arrangement.spacedBy(12.dp),
-                          contentPadding = PaddingValues(bottom = 130.dp)) {
-                            itemsIndexed(items = videos, key = { _, video -> video.id }) {
-                                index,
-                                video ->
-                              val isSelected = selectedVideoIds.contains(video.id)
-                              CustomVideoGridCard(
-                                  video = video,
-                                  duration = viewModel.formatDuration(video.duration),
-                                  isSelected = isSelected,
-                                  onClick = {
-                                    if (inSelectionMode) {
-                                      selectedVideoIds =
-                                          if (isSelected) selectedVideoIds - video.id
-                                          else selectedVideoIds + video.id
-                                    } else {
-                                      onVideoClick(videos, index)
-                                    }
-                                  },
-                                  onLongClick = {
-                                    selectedVideoIds =
-                                        if (isSelected) selectedVideoIds - video.id
-                                        else selectedVideoIds + video.id
-                                  })
+                    HomeContentMode.FOLDER -> {
+                      if (isInsideFolder) {
+                        val folderName: String =
+                            folders.firstOrNull { it.path == currentFolderPath }?.name ?: "Folder"
+                        Column(modifier = Modifier.fillMaxSize()) {
+                          Row(
+                              modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                              verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { viewModel.closeFolder() }) {
+                                  Icon(
+                                      imageVector = Icons.Default.ArrowBack,
+                                      contentDescription = "Back",
+                                      tint = MaterialTheme.colorScheme.primary)
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Column {
+                                  Text(
+                                      text = folderName,
+                                      color = MaterialTheme.colorScheme.onBackground,
+                                      fontSize = 16.sp,
+                                      fontWeight = FontWeight.Bold,
+                                      maxLines = 1,
+                                      overflow = TextOverflow.Ellipsis)
+                                  Text(
+                                      text = "${folderVideos.size} videos",
+                                      color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                      fontSize = 12.sp)
+                                }
+                              }
+
+                          Crossfade(
+                              targetState = currentViewStyle,
+                              animationSpec = tween(400),
+                              label = "folderVideoViewAnim") { style ->
+                                when (style) {
+                                  HomeViewStyle.LIST -> {
+                                    LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                                        contentPadding = PaddingValues(bottom = 130.dp)) {
+                                          itemsIndexed(
+                                              items = folderVideos,
+                                              key = { _, video -> video.id }) {
+                                              index,
+                                              video ->
+                                            PremiumVideoListCard(
+                                                video = video,
+                                                duration = viewModel.formatDuration(video.duration),
+                                                size = viewModel.formatSize(video.size),
+                                                resolution =
+                                                    viewModel.getResolutionLabel(
+                                                        video.width, video.height),
+                                                isSelected = false,
+                                                onClick = {
+                                                  onVideoClick(folderVideos, index)
+                                                },
+                                                onLongClick = {})
+                                          }
+                                        }
+                                  }
+                                  HomeViewStyle.GRID_MEDIUM -> {
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(2),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        contentPadding = PaddingValues(bottom = 130.dp)) {
+                                          itemsIndexed(
+                                              items = folderVideos,
+                                              key = { _, video -> video.id }) {
+                                              index,
+                                              video ->
+                                            CustomVideoGridCard(
+                                                video = video,
+                                                duration = viewModel.formatDuration(video.duration),
+                                                isSelected = false,
+                                                onClick = {
+                                                  onVideoClick(folderVideos, index)
+                                                },
+                                                onLongClick = {})
+                                          }
+                                        }
+                                  }
+                                  HomeViewStyle.GRID_LARGE -> {
+                                    LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                        contentPadding = PaddingValues(bottom = 130.dp)) {
+                                          itemsIndexed(
+                                              items = folderVideos,
+                                              key = { _, video -> video.id }) {
+                                              index,
+                                              video ->
+                                            CustomVideoLargeCard(
+                                                video = video,
+                                                duration = viewModel.formatDuration(video.duration),
+                                                size = viewModel.formatSize(video.size),
+                                                isSelected = false,
+                                                onClick = {
+                                                  onVideoClick(folderVideos, index)
+                                                },
+                                                onLongClick = {})
+                                          }
+                                        }
+                                  }
+                                }
+                              }
+                        }
+                      } else {
+                        Crossfade(
+                            targetState = currentViewStyle,
+                            animationSpec = tween(400),
+                            label = "folderViewAnim") { style ->
+                              when (style) {
+                                HomeViewStyle.LIST -> {
+                                  LazyColumn(
+                                      verticalArrangement = Arrangement.spacedBy(10.dp),
+                                      contentPadding = PaddingValues(bottom = 130.dp)) {
+                                        itemsIndexed(
+                                            items = folders,
+                                            key = { _, folder -> folder.path }) {
+                                            _,
+                                            folder ->
+                                          HomeFolderListCard(
+                                              folder = folder,
+                                              onClick = { viewModel.openFolder(folder.path) })
+                                        }
+                                      }
+                                }
+                                HomeViewStyle.GRID_MEDIUM -> {
+                                  LazyVerticalGrid(
+                                      columns = GridCells.Fixed(2),
+                                      horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                      verticalArrangement = Arrangement.spacedBy(12.dp),
+                                      contentPadding = PaddingValues(bottom = 130.dp)) {
+                                        itemsIndexed(
+                                            items = folders,
+                                            key = { _, folder -> folder.path }) {
+                                            _,
+                                            folder ->
+                                          HomeFolderGridCard(
+                                              folder = folder,
+                                              onClick = { viewModel.openFolder(folder.path) })
+                                        }
+                                      }
+                                }
+                                HomeViewStyle.GRID_LARGE -> {
+                                  LazyColumn(
+                                      verticalArrangement = Arrangement.spacedBy(16.dp),
+                                      contentPadding = PaddingValues(bottom = 130.dp)) {
+                                        itemsIndexed(
+                                            items = folders,
+                                            key = { _, folder -> folder.path }) {
+                                            _,
+                                            folder ->
+                                          HomeFolderLargeCard(
+                                              folder = folder,
+                                              onClick = { viewModel.openFolder(folder.path) })
+                                        }
+                                      }
+                                }
+                              }
                             }
-                          }
-                    }
-                    HomeViewStyle.GRID_LARGE -> {
-                      LazyColumn(
-                          verticalArrangement = Arrangement.spacedBy(16.dp),
-                          contentPadding = PaddingValues(bottom = 130.dp)) {
-                            itemsIndexed(items = videos, key = { _, video -> video.id }) {
-                                index,
-                                video ->
-                              val isSelected = selectedVideoIds.contains(video.id)
-                              CustomVideoLargeCard(
-                                  video = video,
-                                  duration = viewModel.formatDuration(video.duration),
-                                  size = viewModel.formatSize(video.size),
-                                  isSelected = isSelected,
-                                  onClick = {
-                                    if (inSelectionMode) {
-                                      selectedVideoIds =
-                                          if (isSelected) selectedVideoIds - video.id
-                                          else selectedVideoIds + video.id
-                                    } else {
-                                      onVideoClick(videos, index)
-                                    }
-                                  },
-                                  onLongClick = {
-                                    selectedVideoIds =
-                                        if (isSelected) selectedVideoIds - video.id
-                                        else selectedVideoIds + video.id
-                                  })
-                            }
-                          }
+                      }
                     }
                   }
                 }
@@ -782,4 +1040,173 @@ fun getVideoUriFromPathForMulti(context: Context, path: String): Uri? {
       ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
     } else null
   }
+}
+
+@Composable
+fun HomeContentSegment(
+    label: String,
+    isActive: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+  val textColor by
+      animateColorAsState(
+          targetValue =
+              if (isActive) MaterialTheme.colorScheme.onPrimary
+              else MaterialTheme.colorScheme.onSurfaceVariant,
+          animationSpec = tween(250),
+          label = "homeContentSegmentColor")
+
+  Box(
+      modifier = modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
+      contentAlignment = Alignment.Center) {
+        Text(
+            text = label,
+            color = textColor,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold)
+      }
+}
+
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+  Row(
+      modifier =
+          modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(14.dp))
+              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+              .clickable(onClick = onClick)
+              .padding(8.dp),
+      verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier =
+                Modifier.size(width = 110.dp, height = 64.dp).clip(RoundedCornerShape(10.dp))
+                    .background(Color.DarkGray)) {
+              GlideImage(
+                  model = File(folder.firstVideoPath),
+                  contentDescription = "Folder Thumbnail",
+                  contentScale = ContentScale.Crop,
+                  modifier = Modifier.fillMaxSize()
+              ) { requestBuilder ->
+                  requestBuilder.diskCacheStrategy(DiskCacheStrategy.ALL).override(300)
+              }
+            }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+              text = folder.name,
+              color = MaterialTheme.colorScheme.onSurface,
+              fontSize = 14.sp,
+              fontWeight = FontWeight.SemiBold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis)
+
+          Spacer(modifier = Modifier.height(6.dp))
+
+          Text(
+              text = "${folder.videoCount} videos",
+              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+              fontSize = 12.sp,
+              fontWeight = FontWeight.Medium)
+        }
+      }
+}
+
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+fun HomeFolderGridCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+  Card(
+      modifier =
+          modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
+      shape = RoundedCornerShape(12.dp),
+      colors =
+          CardDefaults.cardColors(
+              containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
+        Column {
+          Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.DarkGray)) {
+            GlideImage(
+                model = File(folder.firstVideoPath),
+                contentDescription = "Folder Thumbnail",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            ) { requestBuilder ->
+                requestBuilder.diskCacheStrategy(DiskCacheStrategy.ALL).override(400)
+            }
+          }
+
+          Column(modifier = Modifier.padding(10.dp)) {
+            Text(
+                text = folder.name,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                lineHeight = 16.sp,
+                overflow = TextOverflow.Ellipsis)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${folder.videoCount} videos",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+        }
+      }
+}
+
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+  Card(
+      modifier =
+          modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
+      shape = RoundedCornerShape(16.dp),
+      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column {
+          Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.DarkGray)) {
+            GlideImage(
+                model = File(folder.firstVideoPath),
+                contentDescription = "Folder Thumbnail",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            ) { requestBuilder ->
+                requestBuilder.diskCacheStrategy(DiskCacheStrategy.ALL).override(600)
+            }
+          }
+
+          Row(
+              modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+              verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                  Text(
+                      text = folder.name,
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 16.sp,
+                      color = MaterialTheme.colorScheme.onSurface,
+                      maxLines = 1,
+                      overflow = TextOverflow.Ellipsis)
+                  Spacer(modifier = Modifier.height(4.dp))
+                  Text(
+                      text = "${folder.videoCount} videos",
+                      fontSize = 12.sp,
+                      color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                Box(
+                    modifier =
+                        Modifier.size(44.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape),
+                    contentAlignment = Alignment.Center) {
+                      Icon(
+                          imageVector = Icons.Default.PlayArrow,
+                          contentDescription = null,
+                          tint = MaterialTheme.colorScheme.onPrimary,
+                          modifier = Modifier.size(24.dp))
+                    }
+              }
+        }
+      }
 }
