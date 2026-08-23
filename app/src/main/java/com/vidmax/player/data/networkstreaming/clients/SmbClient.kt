@@ -161,7 +161,7 @@ class SmbClient(connection: NetworkConnection) : BaseNetworkClient(connection) {
                             path = filePath,
                             isDirectory = info.fileAttributes and 0x10L != 0L,
                             size = info.endOfFile,
-                            lastModified = info.changeTime.toMillis(),
+                            lastModified = info.changeTime.toEpochMillis(),
                             mimeType = if (info.fileAttributes and 0x10L != 0L) null else getMimeType(fileName)
                         )
                     }

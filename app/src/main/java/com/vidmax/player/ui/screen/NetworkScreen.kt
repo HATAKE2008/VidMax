@@ -11,7 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dns
@@ -86,7 +86,8 @@ fun NetworkScreen() {
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        if (currentConnection == null) {
+        val conn = currentConnection
+        if (conn == null) {
             ConnectionsList(
                 connections = connections,
                 statuses = statuses,
@@ -99,7 +100,7 @@ fun NetworkScreen() {
             )
         } else {
             NetworkBrowser(
-                connection = currentConnection,
+                connection = conn,
                 currentPath = currentPath,
                 files = files,
                 isLoading = isLoading,
@@ -495,7 +496,7 @@ private fun NetworkVideoRow(file: NetworkFile, onClick: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.PlayArrow,
+                imageVector = Icons.Filled.PlayArrow,
                 contentDescription = "Play",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(26.dp),
