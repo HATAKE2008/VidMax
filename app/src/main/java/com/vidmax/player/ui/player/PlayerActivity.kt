@@ -245,7 +245,9 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         currentPlayingPath = path
         playerViewModel.setVideoTitle(File(path).nameWithoutExtension)
 
-        val name = path.substringAfterLast("/").substringBeforeLast(".")
+        val name = runCatching {
+            Uri.decode(path.substringAfterLast("/").substringBeforeLast("."))
+        }.getOrDefault(path.substringAfterLast("/").substringBeforeLast("."))
         playerViewModel.setVideoTitle(name)
         prefs.edit().putString("recent_video_path", path).putString("recent_video_title", name).apply()
 
