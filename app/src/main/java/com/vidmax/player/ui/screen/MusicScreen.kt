@@ -1,4 +1,4 @@
-package com.vidmax.player.ui.screen
+Package com.vidmax.player.ui.screen
 
 import android.app.Activity
 import android.content.ContentUris
@@ -117,8 +117,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // --- FAST MEMORY EMBEDDED ART CACHE ENGINE FOR GLIDE ---
-// Removed 'private' to resolve the Compose compiler visibility issue
-object EmbeddedArtCache {
+private object EmbeddedArtCache {
   private val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
   private val cacheSize = maxMemory / 8
   private val memoryCache =
