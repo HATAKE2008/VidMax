@@ -496,9 +496,17 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 android.util.Log.e("VidMaxPlayer", "ExoPlayer error for $currentPlayingPath", error)
+                val reason = when (error.errorCode) {
+                    2001, 2002 -> "network connection failed — check internet / server address"
+                    2003 -> "server sent an unexpected content type"
+                    2004 -> "server rejected this link (dead, blocked or needs login)"
+                    2005 -> "file not found on the server"
+                    2007 -> "plain-HTTP links are blocked by the system"
+                    else -> "source could not be read"
+                }
                 Toast.makeText(
                     this@PlayerActivity,
-                    "Playback error (${error.errorCode}): ${error.message ?: "unknown"}",
+                    "Playback error ${error.errorCode}: $reason",
                     Toast.LENGTH_LONG,
                 ).show()
             }
