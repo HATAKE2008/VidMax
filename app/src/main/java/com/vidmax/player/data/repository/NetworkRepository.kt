@@ -66,7 +66,7 @@ class NetworkRepository(context: Context) {
     /**
      * Update an existing connection
      */
-    fun updateConnection(connection: NetworkConnection) {
+    suspend fun updateConnection(connection: NetworkConnection) {
         val connections = getAllConnections().toMutableList()
         val index = connections.indexOfFirst { it.id == connection.id }
         if (index >= 0) {
@@ -93,7 +93,7 @@ class NetworkRepository(context: Context) {
     /**
      * Delete a connection
      */
-    fun deleteConnection(connection: NetworkConnection) {
+    suspend fun deleteConnection(connection: NetworkConnection) {
         val connections = getAllConnections().toMutableList()
         connections.removeAll { it.id == connection.id }
         saveConnections(connections)
