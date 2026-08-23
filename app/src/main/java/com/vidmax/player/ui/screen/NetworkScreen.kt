@@ -34,6 +34,8 @@ import com.vidmax.player.data.model.ConnectionStatus
 import com.vidmax.player.data.model.NetworkConnection
 import com.vidmax.player.data.model.NetworkFile
 import com.vidmax.player.ui.components.AddConnectionDialog
+import com.vidmax.player.ui.components.RecentStreamLinkRow
+import com.vidmax.player.ui.components.StreamLinkSection
 import com.vidmax.player.viewmodel.NetworkViewModel
 import kotlinx.coroutines.launch
 
@@ -49,6 +51,7 @@ fun NetworkScreen() {
     val files by viewModel.files.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val playedLinks by viewModel.playedLinks.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingConnection by remember { mutableStateOf<NetworkConnection?>(null) }
@@ -91,7 +94,10 @@ fun NetworkScreen() {
             ConnectionsList(
                 connections = connections,
                 statuses = statuses,
+                playedLinks = playedLinks,
                 onAdd = { showAddDialog = true },
+                onPlayLink = { viewModel.playStreamLink(it) },
+                onRemoveLink = { viewModel.removePlayedLink(it) },
                 onEdit = { editingConnection = it },
                 onDelete = { viewModel.deleteConnection(it) },
                 onConnect = { viewModel.connect(it) },
@@ -124,7 +130,10 @@ fun NetworkScreen() {
 private fun ConnectionsList(
     connections: List<NetworkConnection>,
     statuses: Map<Long, ConnectionStatus>,
+    playedLinks: List<String>,
     onAdd: () -> Unit,
+    onPlayLink: (String) -> Unit,
+    onRemoveLink: (String) -> Unit,
     onEdit: (NetworkConnection) -> Unit,
     onDelete: (NetworkConnection) -> Unit,
     onConnect: (NetworkConnection) -> Unit,
@@ -152,42 +161,78 @@ private fun ConnectionsList(
             }
         }
 
-        if (connections.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Dns,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(64.dp),
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "No servers yet",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Add an SMB, FTP or WebDAV server to stream videos",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = onAdd) {
-                    Text("Add Server")
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                StreamLinkSection(onPlayLink = onPlayLink)
+            }
+
+            if (playedLinks.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Recent Links",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                items(items = playedLinks, key = { it }) { link ->
+                    RecentStreamLinkRow(
+                        link = link,
+                        onClick = { onPlayLink(link) },
+                        onRemove = { onRemoveLink(link) },
+                    )
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
+
+            if (connections.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier.fillParentMaxSize().padding(horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Dns,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(64.dp),
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No servers yet",
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Add an SMB, FTP or WebDAV server to stream videos",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = onAdd) {
+                            Text("Add Server")
+                        }
+                    }
+                }
+            } else {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Servers",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
                 items(items = connections, key = { it.id }) { connection ->
                     ConnectionCard(
                         connection = connection,

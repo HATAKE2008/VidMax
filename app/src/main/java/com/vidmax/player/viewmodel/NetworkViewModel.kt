@@ -48,6 +48,10 @@ class NetworkViewModel(application: Application) : AndroidViewModel(application)
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // Recently played stream links (Stream Link section)
+    private val _playedLinks = MutableStateFlow(repository.getPlayedLinks())
+    val playedLinks: StateFlow<List<String>> = _playedLinks.asStateFlow()
+
     init {
         viewModelScope.launch {
             repository.connectionStatuses.collect { statuses ->
@@ -93,6 +97,34 @@ class NetworkViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.disconnect(connection)
         }
+    }
+
+    // ---------- Stream Link ----------
+
+    /**
+     * Play a direct stream URL, like mpvRex's Stream Link feature.
+     * Records the link in the recent history and launches the player directly.
+     */
+    fun playStreamLink(url: String) {
+        val cleanUrl = url.trim()
+        if (cleanUrl.isEmpty()) return
+        repository.addPlayedLink(cleanUrl)
+        _playedLinks.value = repository.getPlayedLinks()
+        viewModelScope.launch {
+            try {
+                PlayerActivity.start(getApplication(), listOf(cleanUrl), 0)
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Error playing stream"
+            }
+        }
+    }
+
+    /**
+     * Remove a stream link from the recent history.
+     */
+    fun removePlayedLink(url: String) {
+        repository.removePlayedLink(url)
+        _playedLinks.value = repository.getPlayedLinks()
     }
 
     // ---------- Browsing ----------
