@@ -14,3 +14,7 @@
 .cxx
 local.properties
 .kotlin
+
+# Build artifacts
+apk/
+*.apk
