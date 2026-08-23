@@ -127,6 +127,9 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             MPVLib.observeProperty("time-pos", 5)
             MPVLib.observeProperty("duration", 5)
             MPVLib.observeProperty("pause", 3)
+            // Fires with true when mpv has no active file — used to detect a
+            // loadfile that failed instantly (e.g. a non-direct stream URL).
+            MPVLib.observeProperty("idle-active", 3)
             mpvInitialized = true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -346,6 +349,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
             MPVLib.command(arrayOf("loadfile", uri.toString(), "replace"))
             MPVLib.setPropertyBoolean("pause", false)
+            expectMpvPlayback = true
             playerViewModel.setPlaying(true)
         }
 
@@ -398,8 +402,26 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         }
     }
 
+    // Set right before MPV loadfile, cleared when the file actually loads.
+    // If idle-active becomes true while this is set, the stream could not be
+    // opened (bad/non-direct URL, unreachable host, unsupported protocol).
+    @Volatile
+    private var expectMpvPlayback: Boolean = false
+
     override fun eventProperty(property: String) {}
-    override fun eventProperty(property: String, value: Boolean) {}
+    override fun eventProperty(property: String, value: Boolean) {
+        if (property == "idle-active" && value && expectMpvPlayback) {
+            expectMpvPlayback = false
+            handler.post {
+                playerViewModel.setPlaying(false)
+                Toast.makeText(
+                    this,
+                    "Could not open stream — paste a direct video link (.mp4 / .mkv / .m3u8), not a page URL",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+    }
     override fun eventProperty(property: String, value: Long) {}
     override fun eventProperty(property: String, value: Double) {}
     override fun eventProperty(property: String, value: String) {}
@@ -410,6 +432,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         when (eventId) {
             MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED,
             MPVLib.MpvEvent.MPV_EVENT_VIDEO_RECONFIG -> {
+                expectMpvPlayback = false
                 val mode = playerViewModel.aspectRatio.value
                 handler.post { MpvScaling.reapply(mode) }
             }
