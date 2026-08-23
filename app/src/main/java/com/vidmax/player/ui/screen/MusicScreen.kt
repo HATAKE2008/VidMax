@@ -670,7 +670,7 @@ fun MusicScreen(
       }
     }
 
-    // 🚀 COMPACT & SLEEK AUTO-HIDING NAVIGATION TAB BAR (REVISED) 🚀
+    // 🚀 FULL WIDTH, PROPERLY SIZED NAVIGATION TAB BAR 🚀
     val tabsList = listOf("Songs", "Folders", "Playlists", "Favorites")
     val selectedTabIndex = tabsList.indexOf(currentTab).coerceAtLeast(0)
 
@@ -681,15 +681,15 @@ fun MusicScreen(
     ) {
       Row(
           modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-          horizontalArrangement = Arrangement.Center // সেন্টার করে দেওয়া হলো
+          horizontalArrangement = Arrangement.Center 
       ) {
         BoxWithConstraints(
             modifier = Modifier
-                .fillMaxWidth(0.9f) // পুরো স্ক্রিন না নিয়ে কিছুটা ছোট (Compact) করা হয়েছে
-                .height(42.dp) // উচ্চতা কমানো হয়েছে
-                .clip(RoundedCornerShape(50)) // Pill শেপ
+                .fillMaxWidth() // <-- FULL WIDTH
+                .height(48.dp) // <-- INCREASED HEIGHT FOR BETTER LOOK
+                .clip(RoundedCornerShape(50)) 
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                .padding(3.dp)
+                .padding(4.dp)
         ) {
           val tabWidth = maxWidth / tabsList.size
           val indicatorOffset by animateDpAsState(
@@ -720,7 +720,7 @@ fun MusicScreen(
                   activeAlbumName = null
                   activeFolderName = null
                 }) { tint, scale ->
-              Icon(painterResource(id = R.drawable.ic_music_note), contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+              Icon(painterResource(id = R.drawable.ic_music_note), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
             }
 
             TabItem(
@@ -732,7 +732,7 @@ fun MusicScreen(
                   activeAlbumName = null
                   activeFolderName = null
                 }) { tint, scale ->
-              Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+              Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
             }
 
             TabItem(
@@ -744,7 +744,7 @@ fun MusicScreen(
                   activeAlbumName = null
                   activeFolderName = null
                 }) { tint, scale ->
-              Icon(painterResource(id = R.drawable.ic_playlist), contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+              Icon(painterResource(id = R.drawable.ic_playlist), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
             }
 
             TabItem(
@@ -756,7 +756,7 @@ fun MusicScreen(
                   activeAlbumName = null
                   activeFolderName = null
                 }) { tint, scale ->
-              Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+              Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
             }
           }
         }
@@ -967,7 +967,7 @@ fun MusicScreen(
   }
 }
 
-// SLEEK TAB ITEM WITH COMPACT ANIMATION (REVISED)
+// SLEEK TAB ITEM WITH PROPER SIZING
 @Composable
 fun RowScope.TabItem(
     title: String,
@@ -996,11 +996,11 @@ fun RowScope.TabItem(
       horizontalArrangement = Arrangement.Center,
       verticalAlignment = Alignment.CenterVertically) {
     icon(contentColor, iconScale)
-    Spacer(modifier = Modifier.width(3.dp))
+    Spacer(modifier = Modifier.width(4.dp))
     Text(
         text = title,
         color = contentColor,
-        fontSize = 10.sp, // টেক্সট সাইজ ছোট করা হয়েছে যেন গাদাগাদি না লাগে
+        fontSize = 12.sp, // <-- INCREASED TEXT SIZE
         fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
