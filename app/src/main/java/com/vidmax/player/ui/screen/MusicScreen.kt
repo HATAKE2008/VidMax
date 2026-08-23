@@ -1,4 +1,4 @@
-Package com.vidmax.player.ui.screen
+package com.vidmax.player.ui.screen
 
 import android.app.Activity
 import android.content.ContentUris
@@ -670,7 +670,7 @@ fun MusicScreen(
       }
     }
 
-    // 🚀 COMPACT & SLEEK AUTO-HIDING NAVIGATION TAB BAR 🚀
+    // 🚀 COMPACT & SLEEK AUTO-HIDING NAVIGATION TAB BAR (REVISED) 🚀
     val tabsList = listOf("Songs", "Folders", "Playlists", "Favorites")
     val selectedTabIndex = tabsList.indexOf(currentTab).coerceAtLeast(0)
 
@@ -679,81 +679,85 @@ fun MusicScreen(
         enter = expandVertically(animationSpec = tween(250)) + fadeIn(animationSpec = tween(250)),
         exit = shrinkVertically(animationSpec = tween(250)) + fadeOut(animationSpec = tween(250))
     ) {
-      BoxWithConstraints(
-          modifier = Modifier
-              .fillMaxWidth()
-              .padding(vertical = 4.dp)
-              .height(46.dp)
-              .clip(RoundedCornerShape(23.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-              .padding(3.dp)
+      Row(
+          modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+          horizontalArrangement = Arrangement.Center // সেন্টার করে দেওয়া হলো
       ) {
-        val tabWidth = maxWidth / tabsList.size
-        val indicatorOffset by animateDpAsState(
-            targetValue = tabWidth * selectedTabIndex,
-            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
-            label = "indicatorOffset"
-        )
-
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
-                .offset(x = indicatorOffset)
-                .width(tabWidth)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(20.dp))
-                .background(MaterialTheme.colorScheme.primary)
-        )
+                .fillMaxWidth(0.9f) // পুরো স্ক্রিন না নিয়ে কিছুটা ছোট (Compact) করা হয়েছে
+                .height(42.dp) // উচ্চতা কমানো হয়েছে
+                .clip(RoundedCornerShape(50)) // Pill শেপ
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                .padding(3.dp)
+        ) {
+          val tabWidth = maxWidth / tabsList.size
+          val indicatorOffset by animateDpAsState(
+              targetValue = tabWidth * selectedTabIndex,
+              animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+              label = "indicatorOffset"
+          )
 
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-          TabItem(
-              title = "Songs",
-              isSelected = currentTab == "Songs",
-              onClick = {
-                currentTab = "Songs"
-                activePlaylist = null
-                activeAlbumName = null
-                activeFolderName = null
-              }) { tint, scale ->
-            Icon(painterResource(id = R.drawable.ic_music_note), contentDescription = null, tint = tint, modifier = Modifier.size(16.dp).scale(scale))
-          }
+          Box(
+              modifier = Modifier
+                  .offset(x = indicatorOffset)
+                  .width(tabWidth)
+                  .fillMaxHeight()
+                  .clip(RoundedCornerShape(50))
+                  .background(MaterialTheme.colorScheme.primary)
+          )
 
-          TabItem(
-              title = "Folders",
-              isSelected = currentTab == "Folders",
-              onClick = {
-                currentTab = "Folders"
-                activePlaylist = null
-                activeAlbumName = null
-                activeFolderName = null
-              }) { tint, scale ->
-            Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = tint, modifier = Modifier.size(16.dp).scale(scale))
-          }
+          Row(
+              modifier = Modifier.fillMaxSize(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically) {
+            TabItem(
+                title = "Songs",
+                isSelected = currentTab == "Songs",
+                onClick = {
+                  currentTab = "Songs"
+                  activePlaylist = null
+                  activeAlbumName = null
+                  activeFolderName = null
+                }) { tint, scale ->
+              Icon(painterResource(id = R.drawable.ic_music_note), contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+            }
 
-          TabItem(
-              title = "Playlists",
-              isSelected = currentTab == "Playlists",
-              onClick = {
-                currentTab = "Playlists"
-                activePlaylist = null
-                activeAlbumName = null
-                activeFolderName = null
-              }) { tint, scale ->
-            Icon(painterResource(id = R.drawable.ic_playlist), contentDescription = null, tint = tint, modifier = Modifier.size(16.dp).scale(scale))
-          }
+            TabItem(
+                title = "Folders",
+                isSelected = currentTab == "Folders",
+                onClick = {
+                  currentTab = "Folders"
+                  activePlaylist = null
+                  activeAlbumName = null
+                  activeFolderName = null
+                }) { tint, scale ->
+              Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+            }
 
-          TabItem(
-              title = "Favorites",
-              isSelected = currentTab == "Favorites",
-              onClick = {
-                currentTab = "Favorites"
-                activePlaylist = null
-                activeAlbumName = null
-                activeFolderName = null
-              }) { tint, scale ->
-            Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp).scale(scale))
+            TabItem(
+                title = "Playlists",
+                isSelected = currentTab == "Playlists",
+                onClick = {
+                  currentTab = "Playlists"
+                  activePlaylist = null
+                  activeAlbumName = null
+                  activeFolderName = null
+                }) { tint, scale ->
+              Icon(painterResource(id = R.drawable.ic_playlist), contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+            }
+
+            TabItem(
+                title = "Favorites",
+                isSelected = currentTab == "Favorites",
+                onClick = {
+                  currentTab = "Favorites"
+                  activePlaylist = null
+                  activeAlbumName = null
+                  activeFolderName = null
+                }) { tint, scale ->
+              Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+            }
           }
         }
       }
@@ -963,7 +967,7 @@ fun MusicScreen(
   }
 }
 
-// SLEEK TAB ITEM WITH COMPACT ANIMATION
+// SLEEK TAB ITEM WITH COMPACT ANIMATION (REVISED)
 @Composable
 fun RowScope.TabItem(
     title: String,
@@ -987,16 +991,16 @@ fun RowScope.TabItem(
       modifier = Modifier
           .weight(1f)
           .fillMaxHeight()
-          .clip(RoundedCornerShape(20.dp))
+          .clip(RoundedCornerShape(50)) // Pill shape
           .clickable { onClick() },
       horizontalArrangement = Arrangement.Center,
       verticalAlignment = Alignment.CenterVertically) {
     icon(contentColor, iconScale)
-    Spacer(modifier = Modifier.width(5.dp))
+    Spacer(modifier = Modifier.width(3.dp))
     Text(
         text = title,
         color = contentColor,
-        fontSize = 11.sp,
+        fontSize = 10.sp, // টেক্সট সাইজ ছোট করা হয়েছে যেন গাদাগাদি না লাগে
         fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
