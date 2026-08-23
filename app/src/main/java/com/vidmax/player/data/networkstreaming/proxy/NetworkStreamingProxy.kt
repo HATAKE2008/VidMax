@@ -175,17 +175,31 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
             null
         }
 
-        // Get file size if not known
+        // Get file size if not known; if the size still can't be determined we
+        // cannot answer a range request correctly (invalid Content-Length), so
+        // fall through to a chunked full response instead.
         if (streamInfo.fileSize < 0) {
             streamInfo.fileSize = getFileSize(streamInfo)
         }
 
+        if (streamInfo.fileSize <= 0) {
+            return handleFullRequest(session, streamInfo)
+        }
+
         val fileSize = streamInfo.fileSize
-        val rangeEnd = end ?: (fileSize - 1)
-        val contentLength = rangeEnd - start + 1
+        val safeStart = start.coerceIn(0L, fileSize - 1)
+        val rangeEnd = end?.coerceAtMost(fileSize - 1) ?: (fileSize - 1)
+        val contentLength = rangeEnd - safeStart + 1
+        if (contentLength <= 0) {
+            return newFixedLengthResponse(
+                Response.Status.RANGE_NOT_SATISFIABLE,
+                MIME_PLAINTEXT,
+                "Invalid range",
+            )
+        }
 
         // Get stream with offset
-        val inputStream = getStreamWithOffset(streamInfo, start, contentLength)
+        val inputStream = getStreamWithOffset(streamInfo, safeStart, contentLength)
 
         if (inputStream == null) {
             return newFixedLengthResponse(
@@ -204,8 +218,7 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
         )
 
         response.addHeader("Accept-Ranges", "bytes")
-        response.addHeader("Content-Range", "bytes $start-$rangeEnd/$fileSize")
-        response.addHeader("Content-Length", contentLength.toString())
+        response.addHeader("Content-Range", "bytes $safeStart-$rangeEnd/$fileSize")
 
         return response
     }
@@ -229,6 +242,14 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
             )
         }
 
+        // When the size is unknown a fixed-length response would send an
+        // invalid Content-Length; chunked keeps HTTP/1.1 players happy.
+        if (streamInfo.fileSize <= 0) {
+            val response = newChunkedResponse(Response.Status.OK, streamInfo.mimeType, inputStream)
+            response.addHeader("Accept-Ranges", "bytes")
+            return response
+        }
+
         val response = newFixedLengthResponse(
             Response.Status.OK,
             streamInfo.mimeType,
@@ -237,12 +258,33 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
         )
 
         response.addHeader("Accept-Ranges", "bytes")
-        if (streamInfo.fileSize > 0) {
-            response.addHeader("Content-Length", streamInfo.fileSize.toString())
-        }
 
         return response
     }
+
+    /**
+     * SMB2 paths use backslash separators; forward slashes are rejected by
+     * most servers (Windows in particular) with OBJECT_NAME_NOT_FOUND.
+     */
+    private fun toSmbPath(path: String): String = path.trim('/').replace('/', '\\')
+
+    /**
+     * Blank credentials must authenticate as guest; a NULL session
+     * ([AuthenticationContext.anonymous]) is rejected by most modern NAS/Samba
+     * servers even when the share is public.
+     */
+    private fun resolveAuthContext(connection: NetworkConnection): AuthenticationContext =
+        if (connection.isAnonymous ||
+            connection.username.isBlank() && connection.password.isBlank()
+        ) {
+            AuthenticationContext.guest()
+        } else {
+            AuthenticationContext(
+                connection.username,
+                connection.password.toCharArray(),
+                "",
+            )
+        }
 
     private fun getFileSize(streamInfo: StreamInfo): Long {
         return runBlocking {
@@ -304,7 +346,6 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
             // Expected input format: smb://host/shareName/path/to/file.mkv
             val relativePath = when {
                 streamInfo.filePath.startsWith("smb://", ignoreCase = true) -> {
-                    // Bypassing standard URI parsing to avoid premature encoding shifts
                     val pathAfterProtocol = streamInfo.filePath.substring(6)
                     val firstSlash = pathAfterProtocol.indexOf('/')
                     if (firstSlash == -1) {
@@ -319,8 +360,9 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
                 else -> streamInfo.filePath.trim('/')
             }
 
-            // Decode URL-encoded characters (e.g., %20 to space) so SMBJ can resolve the literal disk path
-            val decodedRelativePath = java.net.URLDecoder.decode(relativePath, "UTF-8")
+            // The path is already raw (it comes straight from the directory
+            // listing); only the separator needs converting for SMB2.
+            val smbRelativePath = toSmbPath(relativePath)
 
             val smbConfig = SmbConfig.builder()
                 .withTimeout(30000, TimeUnit.MILLISECONDS)
@@ -329,22 +371,14 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
 
             smbClient = SMBClient(smbConfig)
 
-            val authContext = if (streamInfo.connection.isAnonymous) {
-                AuthenticationContext.anonymous()
-            } else {
-                AuthenticationContext(
-                    streamInfo.connection.username,
-                    streamInfo.connection.password.toCharArray(),
-                    null,
-                )
-            }
+            val authContext = resolveAuthContext(streamInfo.connection)
 
             connection = smbClient.connect(streamInfo.connection.host, streamInfo.connection.port)
             session = connection.authenticate(authContext)
             diskShare = session.connectShare(shareName) as DiskShare
 
             file = diskShare.openFile(
-                decodedRelativePath,
+                smbRelativePath,
                 EnumSet.of(AccessMask.GENERIC_READ),
                 null,
                 EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ),
@@ -456,6 +490,13 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
     private fun getStream(streamInfo: StreamInfo): InputStream? {
         return runBlocking {
             try {
+                // FTP needs a dedicated control connection per response so
+                // concurrent/overlapping player requests never corrupt the
+                // shared client's control channel.
+                if (streamInfo.client is FtpClient) {
+                    return@runBlocking getStreamWithOffsetFTP(streamInfo, 0)
+                }
+
                 // Connect if needed
                 if (!streamInfo.client.isConnected()) {
                     streamInfo.client.connect().getOrThrow()
@@ -631,9 +672,18 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
     private suspend fun getStreamWithOffsetWebDAV(streamInfo: StreamInfo, offset: Long): InputStream? {
         try {
             val protocol = if (streamInfo.connection.useHttps) "https" else "http"
-            val cleanBasePath = streamInfo.connection.path.trimEnd('/')
+            val cleanBasePath = streamInfo.connection.path.trim('/')
             val cleanFilePath = if (streamInfo.filePath.startsWith("/")) streamInfo.filePath else "/${streamInfo.filePath}"
-            val url = "$protocol://${streamInfo.connection.host}:${streamInfo.connection.port}$cleanBasePath$cleanFilePath"
+
+            // Percent-encode each path segment; OkHttp rejects raw URLs that
+            // contain spaces or non-ASCII characters (Bangla filenames etc.).
+            val encodedPath =
+                listOf(cleanBasePath, cleanFilePath.trim('/'))
+                    .filter { it.isNotEmpty() }
+                    .joinToString("/") { path ->
+                        path.split('/').joinToString("/") { android.net.Uri.encode(it) }
+                    }
+            val url = "$protocol://${streamInfo.connection.host}:${streamInfo.connection.port}/$encodedPath"
 
             // Use OkHttp directly to add Range header support
             val okHttpClient = okhttp3.OkHttpClient.Builder()
@@ -734,8 +784,9 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
                 else -> streamInfo.filePath.trim('/')
             }
 
-            // Decode URL-encoded characters so SMBJ can resolve the literal disk path
-            val decodedRelativePath = java.net.URLDecoder.decode(relativePath, "UTF-8")
+            // SMB2 requires backslash separators; forward slashes are rejected
+            // by most servers with OBJECT_NAME_NOT_FOUND.
+            val smbRelativePath = toSmbPath(relativePath)
 
             // Reuse the shared session (with auto-reconnect) instead of building a
             // whole new SMB connection per range request.
@@ -743,7 +794,7 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
                 val diskShare = session.connectShare(shareName) as DiskShare
                 try {
                     val file = diskShare.openFile(
-                        decodedRelativePath,
+                        smbRelativePath,
                         EnumSet.of(AccessMask.GENERIC_READ),
                         null,
                         EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ),

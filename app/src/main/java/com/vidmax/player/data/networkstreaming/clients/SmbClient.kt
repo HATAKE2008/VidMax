@@ -119,10 +119,14 @@ class SmbClient(connection: NetworkConnection) : BaseNetworkClient(connection) {
 
         smbConnection = smbClient?.connect(resolvedHostIp, connection.port)
 
-        val authContext = if (connection.isAnonymous) {
-            AuthenticationContext.anonymous()
-        } else {
-            AuthenticationContext(connection.username, connection.password.toCharArray(), "")
+        // Guest shares reject NULL sessions (anonymous); blank credentials must
+        // authenticate as guest to work against typical NAS/Samba setups.
+        val authContext = when {
+            connection.isAnonymous ||
+                connection.username.isBlank() && connection.password.isBlank() ->
+                AuthenticationContext.guest()
+            else ->
+                AuthenticationContext(connection.username, connection.password.toCharArray(), "")
         }
 
         session = smbConnection?.authenticate(authContext)
