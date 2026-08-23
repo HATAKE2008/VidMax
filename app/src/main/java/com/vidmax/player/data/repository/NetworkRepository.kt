@@ -231,20 +231,27 @@ class NetworkRepository(context: Context) {
 
     /**
      * Get recently played stream links (most recent first, max [MAX_PLAYED_LINKS]).
+     * Distinct is enforced here because the Network screen uses the raw link as
+     * the LazyColumn item key — a duplicated entry would crash composition with
+     * "Key was already used".
      */
     fun getPlayedLinks(): List<String> {
         val raw = prefs.getString(KEY_PLAYED_LINKS, "") ?: ""
         if (raw.isBlank()) return emptyList()
-        return raw.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+        return raw.split('\n')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
     }
 
     /**
      * Record a played stream link, moving it to the top and capping the history size.
      */
     fun addPlayedLink(url: String) {
+        val clean = url.trim()
         val current = getPlayedLinks().toMutableList()
-        current.remove(url)
-        current.add(0, url)
+        current.removeAll { it == clean }
+        current.add(0, clean)
         val capped = if (current.size > MAX_PLAYED_LINKS) current.take(MAX_PLAYED_LINKS) else current
         prefs.edit().putString(KEY_PLAYED_LINKS, capped.joinToString("\n")).apply()
     }
@@ -253,8 +260,9 @@ class NetworkRepository(context: Context) {
      * Remove a stream link from the history.
      */
     fun removePlayedLink(url: String) {
+        val clean = url.trim()
         val current = getPlayedLinks().toMutableList()
-        current.remove(url)
+        current.removeAll { it == clean }
         prefs.edit().putString(KEY_PLAYED_LINKS, current.joinToString("\n")).apply()
     }
 
