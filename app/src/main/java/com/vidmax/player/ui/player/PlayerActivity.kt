@@ -456,11 +456,11 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                 }
             }
 
-            override fun onPlayerError(error: androidx.media3.exoplayer.PlaybackException) {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 android.util.Log.e("VidMaxPlayer", "ExoPlayer error for $currentPlayingPath", error)
                 Toast.makeText(
                     this@PlayerActivity,
-                    "Playback error: ${error.errorCodeName}${error.message?.let { " — $it" } ?: ""}",
+                    "Playback error (${error.errorCode}): ${error.message ?: "unknown"}",
                     Toast.LENGTH_LONG,
                 ).show()
             }
