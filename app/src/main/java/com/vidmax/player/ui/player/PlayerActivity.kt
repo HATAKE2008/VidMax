@@ -57,12 +57,11 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
     private var audioBoostEnabled: Boolean = false
     private var currentPlayingPath: String = ""
     
-    // MPV হ্যাং হওয়া আটকানোর ফ্ল্যাগ
+    // MPV হ্যাং হওয়া আটকানোর ফ্ল্যাগ
     private var isTrackChanging: Boolean = false
     private val resetTrackChangeRunnable = Runnable { isTrackChanging = false }
 
     private var subtitlePfd: ParcelFileDescriptor? = null
-
     private var externalSubUri: Uri? = null
 
     private val subtitlePickerLauncher =
@@ -98,6 +97,10 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             val intent = Intent(context, PlayerActivity::class.java)
             intent.putStringArrayListExtra(EXTRA_PATHS, ArrayList(paths))
             intent.putExtra(EXTRA_INDEX, startIndex)
+            
+            // 🔥 FIX: Application Context থেকে Activity start করার জন্য FLAG_ACTIVITY_NEW_TASK প্রয়োজন
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            
             context.startActivity(intent)
         }
     }
@@ -115,7 +118,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         audioBoostEnabled = prefs.getBoolean("audio_boost", false)
         val isAutoRotate = prefs.getBoolean("auto_rotate", true)
 
-        // 🔥 FIX: DEFAULT_DARK এর জায়গায় Default ব্যবহার করা হলো
+        // 🔥 FIX: DEFAULT_DARK এর জায়গায় Default ব্যবহার করা হলো
         val savedThemeName = prefs.getString("app_theme", AppTheme.Default.name) ?: AppTheme.Default.name
         val currentTheme = try {
             AppTheme.valueOf(savedThemeName)
