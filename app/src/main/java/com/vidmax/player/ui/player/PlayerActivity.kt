@@ -30,6 +30,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MergingMediaSource
@@ -56,10 +57,13 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
     private var isResumePlayback: Boolean = true
     private var audioBoostEnabled: Boolean = false
     private var currentPlayingPath: String = ""
-    
+
     // MPV হ্যাং হওয়া আটকানোর ফ্ল্যাগ
     private var isTrackChanging: Boolean = false
     private val resetTrackChangeRunnable = Runnable { isTrackChanging = false }
+
+    // 🔥 FIX: MPV এখন lazy initialize হবে — শুধুমাত্র MPV engine ব্যবহারের সময়
+    private var mpvInitialized: Boolean = false
 
     private var subtitlePfd: ParcelFileDescriptor? = null
     private var externalSubUri: Uri? = null
@@ -68,7 +72,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             if (uri != null) {
                 try {
-                    if (playerViewModel.currentEngine.value == PlayerEngine.MPV) {
+                    if (playerViewModel.currentEngine.value == PlayerEngine.MPV && mpvInitialized) {
                         subtitlePfd?.close()
                         subtitlePfd = contentResolver.openFileDescriptor(uri, "r")
                         val fd = subtitlePfd?.fd
@@ -97,20 +101,40 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             val intent = Intent(context, PlayerActivity::class.java)
             intent.putStringArrayListExtra(EXTRA_PATHS, ArrayList(paths))
             intent.putExtra(EXTRA_INDEX, startIndex)
-            
-            // 🔥 FIX: Application Context থেকে Activity start করার জন্য FLAG_ACTIVITY_NEW_TASK প্রয়োজন
+            // 🔥 FIX: Application Context থেকে start করার জন্য
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            
             context.startActivity(intent)
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        // Parity with MainActivity: draw the activity edge-to-edge so the player
-        // content is laid out under the system bars (the bars themselves are then
-        // hidden by enterImmersiveMode()).
-        enableEdgeToEdge()
+    // 🔥 FIX: MPV init এখন আলাদা function এ — দরকার হলেই শুধু call হবে
+    private fun ensureMpvReady() {
+        if (mpvInitialized) return
+        try {
+            MPVLib.create(this)
+            MPVLib.setOptionString("profile", "fast")
+            MPVLib.setOptionString("hwdec", "no") // software decode = Unisoc এ safe
+            MPVLib.setOptionString("vo", "gpu")
+            MPVLib.setOptionString("gpu-context", "android")
+            MPVLib.setOptionString("vd-lavc-fast", "yes")
+            MPVLib.setOptionString("keepaspect", "yes")
+            MPVLib.setOptionString("panscan", "0")
+            MPVLib.setOptionString("video-aspect-override", "no")
+            MPVLib.init()
 
+            MPVLib.addObserver(this)
+            MPVLib.observeProperty("time-pos", 5)
+            MPVLib.observeProperty("duration", 5)
+            MPVLib.observeProperty("pause", 3)
+            mpvInitialized = true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            mpvInitialized = false
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         prefs = getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
@@ -118,7 +142,6 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         audioBoostEnabled = prefs.getBoolean("audio_boost", false)
         val isAutoRotate = prefs.getBoolean("auto_rotate", true)
 
-        // 🔥 FIX: DEFAULT_DARK এর জায়গায় Default ব্যবহার করা হলো
         val savedThemeName = prefs.getString("app_theme", AppTheme.Default.name) ?: AppTheme.Default.name
         val currentTheme = try {
             AppTheme.valueOf(savedThemeName)
@@ -133,6 +156,11 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             PlayerEngine.EXO
         }
         playerViewModel.setPlayerEngine(engineToSet)
+
+        // 🔥 FIX: MPV শুধু তখনই init হবে যখন engine = MPV
+        if (engineToSet == PlayerEngine.MPV) {
+            ensureMpvReady()
+        }
 
         requestedOrientation =
             if (isAutoRotate) ActivityInfo.SCREEN_ORIENTATION_SENSOR
@@ -154,29 +182,15 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
         playerViewModel.setTotalVideos(videoPaths.size)
 
-        MPVLib.create(this)
-        MPVLib.setOptionString("profile", "fast")
-        MPVLib.setOptionString("hwdec", "mediacodec") 
-        MPVLib.setOptionString("hwdec-codecs", "all") 
-        MPVLib.setOptionString("vo", "gpu")           
-        MPVLib.setOptionString("gpu-context", "android")
-        MPVLib.setOptionString("vd-lavc-fast", "yes") 
-        // Default scaling behavior: fit the video (preserve aspect ratio, no
-        // stretching/distortion), centered, as large as possible. These are the
-        // defaults in mpv too, but set explicitly so no profile/option overrides them.
-        MPVLib.setOptionString("keepaspect", "yes")
-        MPVLib.setOptionString("panscan", "0")
-        MPVLib.setOptionString("video-aspect-override", "no")
-        MPVLib.init()
-
-        MPVLib.addObserver(this)
-        MPVLib.observeProperty("time-pos", 5)
-        MPVLib.observeProperty("duration", 5)
-        MPVLib.observeProperty("pause", 3)
-
-        exoPlayer = ExoPlayer.Builder(this).build()
+        // 🔥 FIX: decoder fallback enable — hardware decoder fail হলে software ব্যবহার হবে
+        exoPlayer = ExoPlayer.Builder(this)
+            .setRenderersFactory(
+                DefaultRenderersFactory(this)
+                    .setEnableDecoderFallback(true)
+            )
+            .build()
         setupExoListeners()
-        
+
         handler.post(progressUpdateRunnable)
 
         pendingPlayIndex = startIndex
@@ -188,7 +202,6 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                     videoPaths[currentIndex]
                 else ""
 
-            // 🔥 Theme Applied Here
             VidMaxTheme(appTheme = currentTheme) {
                 PlayerScreen(
                     exoPlayer = exoPlayer,
@@ -219,11 +232,6 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         }
     }
 
-    // Hides the system bars (status + navigation) and draws edge-to-edge so the
-    // video fills the whole screen. Called on create, on resume and whenever the
-    // window regains focus, because bottom sheets / dropdown menus and rotation
-    // restore the system bars which would otherwise leave a black gap above the
-    // player controls.
     private fun enterImmersiveMode() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -246,7 +254,6 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         playerViewModel.setCurrentVideoIndex(index)
         val path = videoPaths[index]
         currentPlayingPath = path
-        playerViewModel.setVideoTitle(File(path).nameWithoutExtension)
 
         val name = runCatching {
             Uri.decode(path.substringAfterLast("/").substringBeforeLast("."))
@@ -258,7 +265,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         val startPos = if (isResumePlayback) prefs.getLong("resume_pos_$path", 0L) else 0L
 
         if (playerViewModel.currentEngine.value == PlayerEngine.EXO) {
-            MPVLib.command(arrayOf("stop"))
+            if (mpvInitialized) MPVLib.command(arrayOf("stop"))
             exoPlayer?.stop()
             exoPlayer?.clearMediaItems()
 
@@ -295,6 +302,12 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             }
             exoPlayer?.play()
         } else {
+            // 🔥 FIX: MPV branch এ এসে তবেই MPV init হবে
+            ensureMpvReady()
+            if (!mpvInitialized) {
+                Toast.makeText(this, "MPV engine failed to start, use EXO engine", Toast.LENGTH_LONG).show()
+                return
+            }
             exoPlayer?.stop()
 
             if (startPos > 3000L) {
@@ -319,7 +332,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                     exoPlayer?.currentPosition ?: 0L
                 } else {
                     try {
-                        ((MPVLib.getPropertyDouble("time-pos") ?: 0.0) * 1000).toLong()
+                        if (mpvInitialized) ((MPVLib.getPropertyDouble("time-pos") ?: 0.0) * 1000).toLong() else 0L
                     } catch (e: Exception) {
                         0L
                     }
@@ -344,7 +357,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         if (playerViewModel.currentEngine.value == PlayerEngine.EXO) {
             val newPos = (exoPlayer?.currentPosition ?: 0L) + 10_000L
             exoPlayer?.seekTo(newPos)
-        } else {
+        } else if (mpvInitialized) {
             MPVLib.command(arrayOf("seek", "10", "relative"))
         }
     }
@@ -353,7 +366,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         if (playerViewModel.currentEngine.value == PlayerEngine.EXO) {
             val newPosition = (exoPlayer?.currentPosition ?: 0L) - 10_000L
             exoPlayer?.seekTo(if (newPosition < 0) 0L else newPosition)
-        } else {
+        } else if (mpvInitialized) {
             MPVLib.command(arrayOf("seek", "-10", "relative"))
         }
     }
@@ -365,13 +378,9 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
     override fun eventProperty(property: String, value: String) {}
 
     override fun event(eventId: Int) {
-        if (playerViewModel.currentEngine.value != PlayerEngine.MPV) return
+        if (playerViewModel.currentEngine.value != PlayerEngine.MPV || !mpvInitialized) return
 
         when (eventId) {
-            // New file loaded, or rotation/aspect metadata changed -> re-apply the
-            // fitted/centered geometry so the video never renders too small or with
-            // unnecessary black space (it has already been applied once in
-            // PlayerScreen's surface callbacks, this reinforces it at the right time).
             MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED,
             MPVLib.MpvEvent.MPV_EVENT_VIDEO_RECONFIG -> {
                 val mode = playerViewModel.aspectRatio.value
@@ -380,7 +389,6 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
             MPVLib.MpvEvent.MPV_EVENT_END_FILE -> {
                 if (isTrackChanging) return
-
                 playerViewModel.setPlaying(false)
                 if (currentPlayingPath.isNotEmpty()) {
                     prefs.edit().putLong("resume_pos_$currentPlayingPath", 0L).apply()
@@ -396,21 +404,21 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                 if (exoPlayer?.isPlaying == true) {
                     playerViewModel.setCurrentPosition(exoPlayer?.currentPosition ?: 0L)
                 }
-            } else if (playerViewModel.currentEngine.value == PlayerEngine.MPV) {
+            } else if (playerViewModel.currentEngine.value == PlayerEngine.MPV && mpvInitialized) {
                 try {
                     val isPaused = MPVLib.getPropertyBoolean("pause") ?: true
-                    playerViewModel.setPlaying(!isPaused) 
-                    
+                    playerViewModel.setPlaying(!isPaused)
+
                     if (!isPaused) {
                         val pos = MPVLib.getPropertyDouble("time-pos") ?: 0.0
                         playerViewModel.setCurrentPosition((pos * 1000).toLong())
-                        
+
                         val dur = MPVLib.getPropertyDouble("duration") ?: 0.0
                         if (dur > 0) playerViewModel.setDuration((dur * 1000).toLong())
                     }
                 } catch (e: Exception) {}
             }
-            handler.postDelayed(this, 500) 
+            handler.postDelayed(this, 500)
         }
     }
 
@@ -458,25 +466,23 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         saveCurrentPlaybackPosition()
         val bgPlay = prefs.getBoolean("bg_play_enabled", false)
         if (!bgPlay) {
-            try {
-                MPVLib.setPropertyBoolean("pause", true)
-            } catch (e: Exception) {}
+            if (mpvInitialized) {
+                try { MPVLib.setPropertyBoolean("pause", true) } catch (e: Exception) {}
+            }
             exoPlayer?.pause()
         }
     }
 
     override fun onResume() {
         super.onResume()
-        // Re-hide the system bars after returning from the background, after a
-        // bottom sheet/dialog dismisses, and after rotation.
         enterImmersiveMode()
         val bgPlay = prefs.getBoolean("bg_play_enabled", false)
         if (playerViewModel.currentEngine.value == PlayerEngine.MPV) {
-            try {
-                if (!bgPlay) {
-                    MPVLib.setPropertyBoolean("pause", false)
-                }
-            } catch (e: Exception) {}
+            if (mpvInitialized) {
+                try {
+                    if (!bgPlay) MPVLib.setPropertyBoolean("pause", false)
+                } catch (e: Exception) {}
+            }
         } else {
             if (!bgPlay) {
                 exoPlayer?.play()
@@ -486,8 +492,6 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        // Bottom sheets / dropdown menus steal focus (and restore the system
-        // bars); re-hide them whenever the player window regains focus.
         if (hasFocus) {
             enterImmersiveMode()
         }
@@ -497,16 +501,16 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         super.onStop()
         if (isFinishing) {
             saveCurrentPlaybackPosition()
-            try {
-                MPVLib.setPropertyBoolean("pause", true)
-            } catch (e: Exception) {}
-            MPVLib.command(arrayOf("stop"))
+            if (mpvInitialized) {
+                try { MPVLib.setPropertyBoolean("pause", true) } catch (e: Exception) {}
+                MPVLib.command(arrayOf("stop"))
+            }
             exoPlayer?.pause()
             exoPlayer?.stop()
         } else {
-            try {
-                MPVLib.setPropertyBoolean("pause", true)
-            } catch (e: Exception) {}
+            if (mpvInitialized) {
+                try { MPVLib.setPropertyBoolean("pause", true) } catch (e: Exception) {}
+            }
             exoPlayer?.pause()
         }
     }
@@ -517,8 +521,11 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         try {
             subtitlePfd?.close()
         } catch (e: Exception) {}
-        MPVLib.removeObserver(this)
-        MPVLib.destroy()
+        // 🔥 FIX: শুধুমাত্র init হয়ে থাকলে তবেই MPV destroy হবে
+        if (mpvInitialized) {
+            MPVLib.removeObserver(this)
+            MPVLib.destroy()
+        }
         exoPlayer?.release()
         exoPlayer = null
         super.onDestroy()
