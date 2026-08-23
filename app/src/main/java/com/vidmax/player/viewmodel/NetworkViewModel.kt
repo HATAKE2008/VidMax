@@ -224,10 +224,15 @@ class NetworkViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         super.onCleared()
-        viewModelScope.launch {
-            repository.disconnectAll()
+        // The scope is already cancelled here, so block briefly for cleanup.
+        kotlinx.coroutines.runBlocking {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                repository.disconnectAll()
+            }
         }
-        NetworkStreamingProxy.stopInstance()
+        // NOTE: the proxy singleton is intentionally kept alive — stopping it
+        // here would kill any stream that is still playing in PlayerActivity
+        // (e.g. when this activity is destroyed in the background).
     }
 
     companion object {

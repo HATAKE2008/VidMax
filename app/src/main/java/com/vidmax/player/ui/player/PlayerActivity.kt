@@ -155,10 +155,22 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         } catch (e: Exception) {
             PlayerEngine.EXO
         }
-        playerViewModel.setPlayerEngine(engineToSet)
+
+        // Schemes only mpv can handle (ExoPlayer has no rtsp/rtmp/mms/ftp
+        // datasource here): route stream links straight to the MPV engine.
+        val pathsFromIntentEarly = intent.getStringArrayListExtra(EXTRA_PATHS)
+        val firstScheme = pathsFromIntentEarly?.firstOrNull()
+            ?.let { runCatching { Uri.parse(it).scheme }.getOrNull() }?.lowercase(Locale.US)
+        val mpvOnlySchemes = setOf(
+            "rtsp", "rtsps", "rtmp", "rtmps", "rtp", "srt",
+            "udp", "mms", "mmsh", "tcp", "ftp", "ftps", "smb",
+        )
+        val resolvedEngine =
+            if (firstScheme in mpvOnlySchemes) PlayerEngine.MPV else engineToSet
+        playerViewModel.setPlayerEngine(resolvedEngine)
 
         // 🔥 FIX: MPV শুধু তখনই init হবে যখন engine = MPV
-        if (engineToSet == PlayerEngine.MPV) {
+        if (resolvedEngine == PlayerEngine.MPV) {
             ensureMpvReady()
         }
 
