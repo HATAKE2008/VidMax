@@ -48,6 +48,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
     private val playerViewModel: PlayerViewModel by viewModels()
     private var exoPlayer: ExoPlayer? = null
+    private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
 
     private var pendingPlayIndex: Int = -1
     private var videoPaths: List<String> = emptyList()
@@ -195,11 +196,26 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         playerViewModel.setTotalVideos(videoPaths.size)
 
         // 🔥 FIX: decoder fallback enable — hardware decoder fail হলে software ব্যবহার হবে
+        // Stream links commonly redirect across protocols (https→http, CDN hops)
+        // and some hosts reject the default ExoPlayer user agent, so the HTTP
+        // data source allows cross-protocol redirects with a browser UA.
+        val httpDataSourceFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(15_000)
+            .setUserAgent(
+                "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) " +
+                    "Chrome/124.0.0.0 Mobile Safari/537.36"
+            )
+        mediaSourceFactory = DefaultMediaSourceFactory(
+            DefaultDataSource.Factory(this, httpDataSourceFactory)
+        )
         exoPlayer = ExoPlayer.Builder(this)
             .setRenderersFactory(
                 DefaultRenderersFactory(this)
                     .setEnableDecoderFallback(true)
             )
+            .setMediaSourceFactory(mediaSourceFactory)
             .build()
         setupExoListeners()
 
@@ -283,8 +299,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
             val externalSub = externalSubUri
             if (externalSub != null) {
-                val videoSource =
-                    DefaultMediaSourceFactory(this).createMediaSource(MediaItem.fromUri(uri))
+                val videoSource = mediaSourceFactory.createMediaSource(MediaItem.fromUri(uri))
                 val ext = externalSub.lastPathSegment
                     ?.substringAfterLast('.', "")
                     ?.lowercase(Locale.US) ?: ""
