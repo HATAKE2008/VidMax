@@ -64,7 +64,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     // 💾 শেয়ার্ড প্রেফারেন্সেস এবং ট্যাব অর্ডার (Online বাদ দিয়ে)
     val sharedPrefs = remember { context.getSharedPreferences("NavPrefs", Context.MODE_PRIVATE) }
     var navItemsState by remember {
-        val defaultTabs = listOf("Videos", "Music")
+        val defaultTabs = listOf("Videos", "Music", "Network")
         val savedOrderStr = sharedPrefs.getString("nav_order", "") ?: ""
 
         val initialList = if (savedOrderStr.isNotBlank()) {
@@ -239,6 +239,9 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     onSettingsClick = { isSettingsOpen = true },
                                     libraryViewModel = viewModel
                                 )
+                            }
+                            "Network" -> {
+                                NetworkScreen()
                             }
                         }
                     }
@@ -554,6 +557,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                         val iconRes = when (item.label) {
                                             "Videos" -> R.drawable.ic_video_library
                                             "Music" -> R.drawable.ic_music_note
+                                            "Network" -> R.drawable.ic_network
                                             else -> R.drawable.ic_video_library
                                         }
                                         Icon(

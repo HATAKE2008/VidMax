@@ -79,7 +79,8 @@ android {
                 'META-INF/LICENSE.txt',
                 'META-INF/NOTICE',
                 'META-INF/NOTICE.txt',
-                '**/*.kotlin_module'
+                'META-INF/*.kotlin_module',
+                'META-INF/versions/9/OSGI-INF/MANIFEST.MF'
             ]
         }
         jniLibs {
@@ -154,4 +155,22 @@ dependencies {
 
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+
+    // ==============================================================
+    // 🔥 NETWORK STREAMING DEPENDENCIES (SMB / FTP / WebDAV)
+    // ==============================================================
+
+    // SMB 2/3 protocol client
+    implementation 'com.hierynomus:smbj:0.14.0'
+
+    // FTP protocol client
+    implementation 'commons-net:commons-net:3.12.0'
+
+    // WebDAV client (sardine-android)
+    implementation('com.github.thegrizzlylabs:sardine-android:0.8') {
+        exclude group: 'xpp3', module: 'xpp3'
+    }
+
+    // Local HTTP proxy server for seekable streaming
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
 }
