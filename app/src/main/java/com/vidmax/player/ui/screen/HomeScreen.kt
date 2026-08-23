@@ -14,7 +14,9 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -279,72 +281,16 @@ fun HomeScreen(
               }
             }
       } else {
+        // Top Header Area
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp, top = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
               Text(
                   text = if (currentContentMode == HomeContentMode.VIDEO) "Videos" else "Folders",
                   color = MaterialTheme.colorScheme.onBackground,
-                  fontSize = 20.sp,
+                  fontSize = 24.sp,
                   fontWeight = FontWeight.ExtraBold)
-
-              BoxWithConstraints(
-                  modifier =
-                      Modifier.width(132.dp)
-                          .height(36.dp)
-                          .clip(RoundedCornerShape(50))
-                          .background(
-                              MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
-                    val segmentWidth = maxWidth / 2f
-                    val indicatorOffset by
-                        animateDpAsState(
-                            targetValue =
-                                if (currentContentMode == HomeContentMode.VIDEO) 0.dp
-                                else segmentWidth,
-                            animationSpec = tween(250),
-                            label = "contentModeIndicator")
-
-                    Box(
-                        modifier =
-                            Modifier.offset(x = indicatorOffset)
-                                .width(segmentWidth)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(50))
-                                .background(MaterialTheme.colorScheme.primary))
-
-                    Row(modifier = Modifier.fillMaxSize()) {
-                      HomeContentSegment(
-                          label = "Video",
-                          isActive = currentContentMode == HomeContentMode.VIDEO,
-                          modifier = Modifier.weight(1f).fillMaxHeight(),
-                          onClick = {
-                            if (currentContentMode != HomeContentMode.VIDEO) {
-                              currentContentMode = HomeContentMode.VIDEO
-                              viewModel.closeFolder()
-                              prefs
-                                  .edit()
-                                  .putString("home_content_mode", HomeContentMode.VIDEO.name)
-                                  .apply()
-                            }
-                          })
-                      HomeContentSegment(
-                          label = "Folder",
-                          isActive = currentContentMode == HomeContentMode.FOLDER,
-                          modifier = Modifier.weight(1f).fillMaxHeight(),
-                          onClick = {
-                            if (currentContentMode != HomeContentMode.FOLDER) {
-                              currentContentMode = HomeContentMode.FOLDER
-                              viewModel.closeFolder()
-                              selectedVideoIds = emptySet()
-                              prefs
-                                  .edit()
-                                  .putString("home_content_mode", HomeContentMode.FOLDER.name)
-                                  .apply()
-                            }
-                          })
-                    }
-                  }
 
               Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { isSearchExpanded = true }, modifier = Modifier.size(36.dp)) {
@@ -391,6 +337,72 @@ fun HomeScreen(
                 }
               }
             }
+        
+        // Custom Segmented Button Area (Larger, Spring Animation, Positioned Below Header)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            BoxWithConstraints(
+                modifier =
+                    Modifier.fillMaxWidth(0.7f) // Make it wider
+                        .height(46.dp) // Make it taller
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
+                  val segmentWidth = maxWidth / 2f
+                  val indicatorOffset by
+                      animateDpAsState(
+                          targetValue =
+                              if (currentContentMode == HomeContentMode.VIDEO) 0.dp
+                              else segmentWidth,
+                          animationSpec = spring(
+                              dampingRatio = Spring.DampingRatioMediumBouncy,
+                              stiffness = Spring.StiffnessLow
+                          ),
+                          label = "contentModeIndicator")
+
+                  Box(
+                      modifier =
+                          Modifier.offset(x = indicatorOffset)
+                              .width(segmentWidth)
+                              .fillMaxHeight()
+                              .clip(RoundedCornerShape(50))
+                              .background(MaterialTheme.colorScheme.primary))
+
+                  Row(modifier = Modifier.fillMaxSize()) {
+                    HomeContentSegment(
+                        label = "Video",
+                        isActive = currentContentMode == HomeContentMode.VIDEO,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = {
+                          if (currentContentMode != HomeContentMode.VIDEO) {
+                            currentContentMode = HomeContentMode.VIDEO
+                            viewModel.closeFolder()
+                            prefs
+                                .edit()
+                                .putString("home_content_mode", HomeContentMode.VIDEO.name)
+                                .apply()
+                          }
+                        })
+                    HomeContentSegment(
+                        label = "Folder",
+                        isActive = currentContentMode == HomeContentMode.FOLDER,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = {
+                          if (currentContentMode != HomeContentMode.FOLDER) {
+                            currentContentMode = HomeContentMode.FOLDER
+                            viewModel.closeFolder()
+                            selectedVideoIds = emptySet()
+                            prefs
+                                .edit()
+                                .putString("home_content_mode", HomeContentMode.FOLDER.name)
+                                .apply()
+                          }
+                        })
+                  }
+                }
+        }
       }
 
       Spacer(modifier = Modifier.height(4.dp))
@@ -767,7 +779,6 @@ fun PremiumVideoListCard(
                 Modifier.size(width = 110.dp, height = 64.dp).clip(RoundedCornerShape(10.dp))
                     .background(Color.DarkGray)) {
               
-              // 🔥 GLIDE MAGIC: Caches video frames permanently on Disk!
               GlideImage(
                   model = File(video.path),
                   contentDescription = "Thumbnail",
@@ -776,7 +787,7 @@ fun PremiumVideoListCard(
               ) { requestBuilder ->
                   requestBuilder
                       .diskCacheStrategy(DiskCacheStrategy.ALL)
-                      .override(300) // Small size for fast list loading
+                      .override(300) 
               }
 
               Text(
@@ -866,7 +877,6 @@ fun CustomVideoGridCard(
         Column {
           Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.DarkGray)) {
             
-            // 🔥 GLIDE MAGIC
             GlideImage(
                 model = File(video.path),
                 contentDescription = "Thumbnail",
@@ -875,7 +885,7 @@ fun CustomVideoGridCard(
             ) { requestBuilder ->
                 requestBuilder
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .override(400) // Medium size
+                    .override(400) 
             }
 
             Text(
@@ -948,7 +958,6 @@ fun CustomVideoLargeCard(
         Column {
           Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.DarkGray)) {
             
-            // 🔥 GLIDE MAGIC
             GlideImage(
                 model = File(video.path),
                 contentDescription = "Thumbnail",
@@ -957,7 +966,7 @@ fun CustomVideoLargeCard(
             ) { requestBuilder ->
                 requestBuilder
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .override(600) // Large size
+                    .override(600) 
             }
 
             if (isSelected) {
@@ -1063,12 +1072,11 @@ fun HomeContentSegment(
         Text(
             text = label,
             color = textColor,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold)
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold)
       }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
   Row(
@@ -1082,16 +1090,16 @@ fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
       verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier =
-                Modifier.size(width = 110.dp, height = 64.dp).clip(RoundedCornerShape(10.dp))
-                    .background(Color.DarkGray)) {
-              GlideImage(
-                  model = File(folder.firstVideoPath),
-                  contentDescription = "Folder Thumbnail",
-                  contentScale = ContentScale.Crop,
-                  modifier = Modifier.fillMaxSize()
-              ) { requestBuilder ->
-                  requestBuilder.diskCacheStrategy(DiskCacheStrategy.ALL).override(300)
-              }
+                Modifier.size(width = 110.dp, height = 64.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
+            contentAlignment = Alignment.Center) {
+              Icon(
+                  painter = painterResource(id = R.drawable.ic_folder),
+                  contentDescription = "Folder Icon",
+                  tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                  modifier = Modifier.size(36.dp)
+              )
             }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -1100,7 +1108,7 @@ fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
           Text(
               text = folder.name,
               color = MaterialTheme.colorScheme.onSurface,
-              fontSize = 14.sp,
+              fontSize = 15.sp,
               fontWeight = FontWeight.SemiBold,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis)
@@ -1110,13 +1118,12 @@ fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
           Text(
               text = "${folder.videoCount} videos",
               color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-              fontSize = 12.sp,
+              fontSize = 13.sp,
               fontWeight = FontWeight.Medium)
         }
       }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun HomeFolderGridCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
   Card(
@@ -1127,22 +1134,25 @@ fun HomeFolderGridCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
           CardDefaults.cardColors(
               containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
         Column {
-          Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.DarkGray)) {
-            GlideImage(
-                model = File(folder.firstVideoPath),
-                contentDescription = "Folder Thumbnail",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            ) { requestBuilder ->
-                requestBuilder.diskCacheStrategy(DiskCacheStrategy.ALL).override(400)
-            }
+          Box(
+              modifier = Modifier
+                  .fillMaxWidth()
+                  .aspectRatio(16f / 9f)
+                  .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
+              contentAlignment = Alignment.Center) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_folder),
+                    contentDescription = "Folder Icon",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(52.dp)
+                )
           }
 
           Column(modifier = Modifier.padding(10.dp)) {
             Text(
                 text = folder.name,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
+                fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 lineHeight = 16.sp,
@@ -1150,14 +1160,13 @@ fun HomeFolderGridCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "${folder.videoCount} videos",
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
           }
         }
       }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
   Card(
@@ -1166,15 +1175,18 @@ fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modif
       shape = RoundedCornerShape(16.dp),
       colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column {
-          Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.DarkGray)) {
-            GlideImage(
-                model = File(folder.firstVideoPath),
-                contentDescription = "Folder Thumbnail",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            ) { requestBuilder ->
-                requestBuilder.diskCacheStrategy(DiskCacheStrategy.ALL).override(600)
-            }
+          Box(
+              modifier = Modifier
+                  .fillMaxWidth()
+                  .aspectRatio(16f / 9f)
+                  .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
+              contentAlignment = Alignment.Center) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_folder),
+                    contentDescription = "Folder Icon",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(72.dp)
+                )
           }
 
           Row(
@@ -1184,14 +1196,14 @@ fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modif
                   Text(
                       text = folder.name,
                       fontWeight = FontWeight.Bold,
-                      fontSize = 16.sp,
+                      fontSize = 18.sp,
                       color = MaterialTheme.colorScheme.onSurface,
                       maxLines = 1,
                       overflow = TextOverflow.Ellipsis)
                   Spacer(modifier = Modifier.height(4.dp))
                   Text(
                       text = "${folder.videoCount} videos",
-                      fontSize = 12.sp,
+                      fontSize = 14.sp,
                       color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
