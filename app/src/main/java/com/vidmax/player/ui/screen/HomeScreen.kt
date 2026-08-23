@@ -4,179 +4,356 @@ import android.app.Activity
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.LruCache
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.EaseInOutSine
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.signature.ObjectKey
 import com.vidmax.player.R
-import com.vidmax.player.data.model.FolderItem
-import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.data.model.AudioItem
 import com.vidmax.player.ui.components.VidMaxSearchBar
 import com.vidmax.player.viewmodel.LibraryViewModel
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 
-enum class HomeViewStyle {
-  LIST,
-  GRID_MEDIUM,
-  GRID_LARGE
+// --- FAST MEMORY EMBEDDED ART CACHE ENGINE FOR GLIDE ---
+private object EmbeddedArtCache {
+  private val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+  private val cacheSize = maxMemory / 8
+  private val memoryCache =
+      object : LruCache<String, ByteArray>(cacheSize) {
+        override fun sizeOf(key: String, value: ByteArray): Int {
+          return value.size / 1024
+        }
+      }
+
+  fun get(path: String): ByteArray? = memoryCache.get(path)
+
+  fun getOrFetch(context: Context, path: String): ByteArray? {
+    if (path.isEmpty()) return null
+    get(path)?.let { return it }
+
+    val retriever = MediaMetadataRetriever()
+    return try {
+      val uri = if (path.startsWith("/")) Uri.fromFile(File(path)) else Uri.parse(path)
+      retriever.setDataSource(context, uri)
+      val art = retriever.embeddedPicture
+
+      if (art != null) {
+        memoryCache.put(path, art)
+      }
+      art
+    } catch (e: Exception) {
+      null
+    } finally {
+      try {
+        retriever.release()
+      } catch (e: Exception) {
+        // Ignore release errors on older APIs
+      }
+    }
+  }
 }
 
-// 🔥 UPDATE: Added 2 new modes for the segmented button
-enum class HomeContentMode {
-  VIDEO,
-  FOLDER,
-  FAVORITES,
-  PLAYLISTS
+// Playlist Data Model
+data class VidMaxPlaylist(val name: String, val paths: List<String>)
+
+fun loadPlaylists(context: Context): List<VidMaxPlaylist> {
+  val prefs = context.getSharedPreferences("VidMaxPlaylists", Context.MODE_PRIVATE)
+  val jsonString = prefs.getString("playlists_data", "[]") ?: "[]"
+  return try {
+    val jsonArray = JSONArray(jsonString)
+    List(jsonArray.length()) { i ->
+      val jsonObj = jsonArray.getJSONObject(i)
+      val name = jsonObj.getString("name")
+      val pathsArray = jsonObj.getJSONArray("paths")
+      val paths = List(pathsArray.length()) { j -> pathsArray.getString(j) }
+      VidMaxPlaylist(name, paths)
+    }
+  } catch (e: Exception) {
+    e.printStackTrace()
+    emptyList()
+  }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+fun savePlaylists(context: Context, playlists: List<VidMaxPlaylist>) {
+  val prefs = context.getSharedPreferences("VidMaxPlaylists", Context.MODE_PRIVATE)
+  val jsonArray = JSONArray()
+  for (playlist in playlists) {
+    val jsonObj = JSONObject()
+    jsonObj.put("name", playlist.name)
+    val pathsArray = JSONArray()
+    for (path in playlist.paths) {
+      pathsArray.put(path)
+    }
+    jsonObj.put("paths", pathsArray)
+    jsonArray.put(jsonObj)
+  }
+  prefs.edit().putString("playlists_data", jsonArray.toString()).apply()
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
+fun MusicScreen(
     viewModel: LibraryViewModel,
-    onVideoClick: (List<VideoItem>, Int) -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onAudioClick: (List<AudioItem>, Int) -> Unit,
+    onOpenFavorites: () -> Unit,
+    onOpenMyMix: () -> Unit
 ) {
   val context = LocalContext.current
-  val prefs: SharedPreferences = remember {
-    context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
-  }
+  val audioList by viewModel.filteredAudio.collectAsState()
+  val searchQuery by viewModel.audioSearchQuery.collectAsState()
 
-  val videos by viewModel.filteredVideos.collectAsState()
-  val searchQuery by viewModel.searchQuery.collectAsState()
-  val isLoading by viewModel.isLoading.collectAsState()
-  val hasPermission by viewModel.hasPermission.collectAsState()
+  val currentlyPlayingPath by viewModel.recentlyPlayedPath.collectAsState()
+  val isAudioPlaying by viewModel.isAudioPlaying.collectAsState()
+  val favoritePaths by viewModel.favoriteAudioPaths.collectAsState()
 
-  val recentVideoPath by viewModel.recentVideoPath.collectAsState()
-
-  var selectedVideoIds by remember { mutableStateOf(setOf<Long>()) }
+  var selectedAudioIds by remember { mutableStateOf(emptySet<Long>()) }
   var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+  val inSelectionMode = selectedAudioIds.isNotEmpty()
   var isSearchExpanded by remember { mutableStateOf(false) }
-  val inSelectionMode = selectedVideoIds.isNotEmpty()
 
-  var currentViewStyle by remember {
-    val savedStyle =
-        prefs.getString("home_view_style", HomeViewStyle.LIST.name) ?: HomeViewStyle.LIST.name
-    mutableStateOf(HomeViewStyle.valueOf(savedStyle))
+  var currentTab by remember { mutableStateOf("Songs") }
+
+  var userPlaylists by remember { mutableStateOf(loadPlaylists(context)) }
+  var activePlaylist by remember { mutableStateOf<VidMaxPlaylist?>(null) }
+  var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+  var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+  var newPlaylistName by remember { mutableStateOf("") }
+  var playlistToDelete by remember { mutableStateOf<VidMaxPlaylist?>(null) }
+
+  var activeAlbumName by remember { mutableStateOf<String?>(null) }
+  val albumsMap = remember(audioList) {
+    audioList.groupBy { audio ->
+      try {
+        File(audio.path).parentFile?.name ?: "Unknown Album"
+      } catch (e: Exception) {
+        "Unknown Album"
+      }
+    }
   }
 
-  var currentContentMode by remember {
-    val savedMode =
-        prefs.getString("home_content_mode", HomeContentMode.VIDEO.name)
-            ?: HomeContentMode.VIDEO.name
-    mutableStateOf(
-        try {
-          HomeContentMode.valueOf(savedMode)
-        } catch (e: IllegalArgumentException) {
-          HomeContentMode.VIDEO
-        })
+  var activeFolderName by remember { mutableStateOf<String?>(null) }
+  val foldersMap = remember(audioList) {
+    audioList.groupBy { audio ->
+      try {
+        File(audio.path).parentFile?.name ?: "Unknown Folder"
+      } catch (e: Exception) {
+        "Unknown Folder"
+      }
+    }
   }
 
-  val folders by viewModel.folders.collectAsState()
-  val folderVideos by viewModel.folderVideos.collectAsState()
-  val currentFolderPath by viewModel.currentFolderPath.collectAsState()
-  val isInsideFolder = currentFolderPath.isNotEmpty()
+  // --- AUTO HIDE TAB BAR ON SCROLL ENGINE ---
+  val listState = rememberLazyListState()
+  var isTabBarVisible by remember { mutableStateOf(true) }
 
-  val deleteLauncher =
-      rememberLauncherForActivityResult(
-          contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-              Toast.makeText(context, "Selected videos deleted successfully", Toast.LENGTH_SHORT)
-                  .show()
-              selectedVideoIds = emptySet()
-            } else {
-              Toast.makeText(context, "Delete Cancelled", Toast.LENGTH_SHORT).show()
-            }
-          }
+  val nestedScrollConnection = remember {
+    object : NestedScrollConnection {
+      override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (available.y < -12f) { // Scroll Down -> Hide
+          isTabBarVisible = false
+        } else if (available.y > 12f) { // Scroll Up -> Show
+          isTabBarVisible = true
+        }
+        return Offset.Zero
+      }
+    }
+  }
 
+  val displayedList = remember(
+      currentTab,
+      audioList,
+      favoritePaths,
+      activePlaylist,
+      activeAlbumName,
+      activeFolderName,
+      albumsMap,
+      foldersMap
+  ) {
+    when {
+      currentTab == "Songs" -> audioList
+      currentTab == "Favorites" -> audioList.filter { it.path in favoritePaths }
+      currentTab == "Playlists" && activePlaylist != null -> {
+        val paths = activePlaylist!!.paths
+        audioList.filter { it.path in paths }
+      }
+      currentTab == "Albums" && activeAlbumName != null -> albumsMap[activeAlbumName] ?: emptyList()
+      currentTab == "Folders" && activeFolderName != null -> foldersMap[activeFolderName] ?: emptyList()
+      else -> emptyList()
+    }
+  }
+
+  BackHandler(
+      enabled = inSelectionMode ||
+          isSearchExpanded ||
+          activePlaylist != null ||
+          activeFolderName != null ||
+          activeAlbumName != null
+  ) {
+    when {
+      inSelectionMode -> selectedAudioIds = emptySet()
+      isSearchExpanded -> {
+        isSearchExpanded = false
+        viewModel.setAudioSearchQuery("")
+      }
+      activePlaylist != null -> activePlaylist = null
+      activeFolderName != null -> activeFolderName = null
+      activeAlbumName != null -> activeAlbumName = null
+    }
+  }
+
+  val deleteLauncher = rememberLauncherForActivityResult(
+      contract = ActivityResultContracts.StartIntentSenderForResult()
+  ) { result ->
+    if (result.resultCode == Activity.RESULT_OK) {
+      Toast.makeText(context, "Selected audio deleted successfully", Toast.LENGTH_SHORT).show()
+      selectedAudioIds = emptySet()
+    } else {
+      Toast.makeText(context, "Delete Cancelled", Toast.LENGTH_SHORT).show()
+    }
+  }
+
+  // --- DIALOGS ---
   if (showDeleteConfirmDialog) {
     AlertDialog(
         onDismissRequest = { showDeleteConfirmDialog = false },
-        title = { Text("Delete Videos", fontWeight = FontWeight.Bold) },
+        title = { Text(text = "Delete Audios", fontWeight = FontWeight.Bold) },
         text = {
-          Text(
-              "Are you sure you want to delete ${selectedVideoIds.size} selected videos? This action cannot be undone.")
+          Text("Are you sure you want to delete ${selectedAudioIds.size} selected songs? This action cannot be undone.")
         },
         confirmButton = {
           TextButton(
               onClick = {
                 showDeleteConfirmDialog = false
-                val urisToDelete =
-                    selectedVideoIds.mapNotNull { id ->
-                      val path = videos.find { it.id == id }?.path ?: return@mapNotNull null
-                      getVideoUriFromPathForMulti(context, path)
-                    }
+                val urisToDelete = selectedAudioIds.mapNotNull { id ->
+                  displayedList.find { it.id == id }?.path?.let { getAudioUriFromPathForMulti(context, it) }
+                }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && urisToDelete.isNotEmpty()) {
-                  val pendingIntent =
-                      MediaStore.createDeleteRequest(context.contentResolver, urisToDelete)
-                  deleteLauncher.launch(
-                      IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+                  val pendingIntent = MediaStore.createDeleteRequest(context.contentResolver, urisToDelete)
+                  deleteLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
                 } else {
                   var deletedCount = 0
-                  selectedVideoIds.forEach { id ->
-                    val path = videos.find { it.id == id }?.path ?: return@forEach
+                  selectedAudioIds.forEach { id ->
+                    val path = displayedList.find { it.id == id }?.path ?: return@forEach
                     val file = File(path)
                     if (file.exists() && file.delete()) {
                       deletedCount++
                     } else {
-                      val uri = getVideoUriFromPathForMulti(context, path)
-                      if (uri != null) {
-                        val rows = context.contentResolver.delete(uri, null, null)
-                        if (rows > 0) deletedCount++
+                      getAudioUriFromPathForMulti(context, path)?.let { uri ->
+                        if (context.contentResolver.delete(uri, null, null) > 0) deletedCount++
                       }
                     }
                   }
-                  Toast.makeText(context, "$deletedCount video(s) deleted", Toast.LENGTH_SHORT)
-                      .show()
-                  selectedVideoIds = emptySet()
+                  Toast.makeText(context, "$deletedCount audio(s) deleted", Toast.LENGTH_SHORT).show()
+                  selectedAudioIds = emptySet()
                 }
               }) {
-                Text(
-                    "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-              }
+            Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+          }
         },
         dismissButton = {
           TextButton(onClick = { showDeleteConfirmDialog = false }) {
@@ -185,1061 +362,962 @@ fun HomeScreen(
         })
   }
 
-  Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-      Spacer(modifier = Modifier.height(6.dp))
-
-      if (inSelectionMode) {
-        Row(
-            modifier =
-                Modifier.fillMaxWidth()
-                    .padding(vertical = 6.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { selectedVideoIds = emptySet() }) {
-                  Icon(
-                      painter = painterResource(id = R.drawable.ic_close_custom),
-                      contentDescription = "Close",
-                      tint = MaterialTheme.colorScheme.onBackground,
-                      modifier = Modifier.size(24.dp))
-                }
-                Text(
-                    text = "${selectedVideoIds.size} Selected",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold)
-              }
-              Row {
-                IconButton(
-                    onClick = {
-                      selectedVideoIds =
-                          if (selectedVideoIds.size == videos.size) emptySet()
-                          else videos.map { it.id }.toSet()
-                    }) {
-                      Icon(
-                          painter = painterResource(id = R.drawable.ic_select_all),
-                          contentDescription = "Select All",
-                          tint = MaterialTheme.colorScheme.primary,
-                          modifier = Modifier.size(24.dp))
-                    }
-                IconButton(
-                    onClick = {
-                      val uris =
-                          selectedVideoIds
-                              .mapNotNull { id ->
-                                val path =
-                                    videos.find { it.id == id }?.path ?: return@mapNotNull null
-                                getVideoUriFromPathForMulti(context, path)
-                              }
-                              .toCollection(ArrayList())
-
-                      if (uris.isNotEmpty()) {
-                        val intent =
-                            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                              type = "video/*"
-                              putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-                              addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                        context.startActivity(
-                            Intent.createChooser(intent, "Share ${uris.size} Videos"))
-                        selectedVideoIds = emptySet()
-                      }
-                    }) {
-                      Icon(
-                          painter = painterResource(id = R.drawable.ic_share_custom),
-                          contentDescription = "Share",
-                          tint = MaterialTheme.colorScheme.primary,
-                          modifier = Modifier.size(24.dp))
-                    }
-                IconButton(onClick = { showDeleteConfirmDialog = true }) {
-                  Icon(
-                      painter = painterResource(id = R.drawable.ic_delete_custom),
-                      contentDescription = "Delete",
-                      tint = MaterialTheme.colorScheme.error,
-                      modifier = Modifier.size(24.dp))
-                }
-              }
-            }
-      } else if (isSearchExpanded) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-              IconButton(
-                  onClick = {
-                    isSearchExpanded = false
-                    viewModel.setSearchQuery("")
-                  }) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onBackground)
-                  }
-              Box(modifier = Modifier.weight(1f)) {
-                VidMaxSearchBar(
-                    query = searchQuery, onQueryChange = { viewModel.setSearchQuery(it) })
-              }
-            }
-      } else {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-              Text(
-                  text = when (currentContentMode) {
-                      HomeContentMode.VIDEO -> "Videos"
-                      HomeContentMode.FOLDER -> "Folders"
-                      HomeContentMode.FAVORITES -> "Favorites"
-                      HomeContentMode.PLAYLISTS -> "Playlists"
-                  },
-                  color = MaterialTheme.colorScheme.onBackground,
-                  fontSize = 24.sp,
-                  fontWeight = FontWeight.ExtraBold)
-
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { isSearchExpanded = true }, modifier = Modifier.size(36.dp)) {
-                  Icon(
-                      imageVector = Icons.Filled.Search,
-                      contentDescription = "Search",
-                      tint = MaterialTheme.colorScheme.onBackground,
-                      modifier = Modifier.size(24.dp))
-                }
-
-                IconButton(
-                    onClick = {
-                      val newStyle =
-                          when (currentViewStyle) {
-                            HomeViewStyle.LIST -> HomeViewStyle.GRID_MEDIUM
-                            HomeViewStyle.GRID_MEDIUM -> HomeViewStyle.GRID_LARGE
-                            HomeViewStyle.GRID_LARGE -> HomeViewStyle.LIST
-                          }
-                      currentViewStyle = newStyle
-                      prefs.edit().putString("home_view_style", newStyle.name).apply()
-                    },
-                    modifier = Modifier.padding(horizontal = 8.dp).size(36.dp)) {
-                      Crossfade(targetState = currentViewStyle, label = "iconAnim") { style ->
-                        val iconRes =
-                            when (style) {
-                              HomeViewStyle.LIST -> R.drawable.ic_view_list_custom
-                              HomeViewStyle.GRID_MEDIUM -> R.drawable.ic_view_grid_custom
-                              HomeViewStyle.GRID_LARGE -> R.drawable.ic_view_list_custom
-                            }
-                        Icon(
-                            painter = painterResource(id = iconRes),
-                            contentDescription = "Change View",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp))
-                      }
-                    }
-
-                IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
-                  Icon(
-                      imageVector = Icons.Filled.Settings,
-                      contentDescription = "Settings",
-                      tint = MaterialTheme.colorScheme.onBackground,
-                      modifier = Modifier.size(24.dp))
-                }
-              }
-            }
-        
-        // 🔥 UPDATE: 4-Segmented Button Area
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            BoxWithConstraints(
-                modifier =
-                    Modifier.fillMaxWidth() // Made it full width to fit 4 items comfortably
-                        .height(46.dp) 
-                        .clip(RoundedCornerShape(50))
-                        .background(
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
-                  
-                  val segmentWidth = maxWidth / 4f // 4 options now
-                  val indicatorOffset by
-                      animateDpAsState(
-                          targetValue =
-                              when (currentContentMode) {
-                                  HomeContentMode.VIDEO -> 0.dp
-                                  HomeContentMode.FOLDER -> segmentWidth
-                                  HomeContentMode.FAVORITES -> segmentWidth * 2
-                                  HomeContentMode.PLAYLISTS -> segmentWidth * 3
-                              },
-                          animationSpec = spring(
-                              dampingRatio = Spring.DampingRatioMediumBouncy,
-                              stiffness = Spring.StiffnessLow
-                          ),
-                          label = "contentModeIndicator")
-
-                  Box(
-                      modifier =
-                          Modifier.offset(x = indicatorOffset)
-                              .width(segmentWidth)
-                              .fillMaxHeight()
-                              .clip(RoundedCornerShape(50))
-                              .background(MaterialTheme.colorScheme.primary))
-
-                  Row(modifier = Modifier.fillMaxSize()) {
-                    HomeContentSegment(
-                        label = "Video",
-                        isActive = currentContentMode == HomeContentMode.VIDEO,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        onClick = {
-                          if (currentContentMode != HomeContentMode.VIDEO) {
-                            currentContentMode = HomeContentMode.VIDEO
-                            viewModel.closeFolder()
-                            prefs.edit().putString("home_content_mode", HomeContentMode.VIDEO.name).apply()
-                          }
-                        })
-                    HomeContentSegment(
-                        label = "Folder",
-                        isActive = currentContentMode == HomeContentMode.FOLDER,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        onClick = {
-                          if (currentContentMode != HomeContentMode.FOLDER) {
-                            currentContentMode = HomeContentMode.FOLDER
-                            viewModel.closeFolder()
-                            selectedVideoIds = emptySet()
-                            prefs.edit().putString("home_content_mode", HomeContentMode.FOLDER.name).apply()
-                          }
-                        })
-                    HomeContentSegment(
-                        label = "Favs",
-                        isActive = currentContentMode == HomeContentMode.FAVORITES,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        onClick = {
-                          if (currentContentMode != HomeContentMode.FAVORITES) {
-                            currentContentMode = HomeContentMode.FAVORITES
-                            viewModel.closeFolder()
-                            selectedVideoIds = emptySet()
-                            prefs.edit().putString("home_content_mode", HomeContentMode.FAVORITES.name).apply()
-                          }
-                        })
-                    HomeContentSegment(
-                        label = "Playlists",
-                        isActive = currentContentMode == HomeContentMode.PLAYLISTS,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        onClick = {
-                          if (currentContentMode != HomeContentMode.PLAYLISTS) {
-                            currentContentMode = HomeContentMode.PLAYLISTS
-                            viewModel.closeFolder()
-                            selectedVideoIds = emptySet()
-                            prefs.edit().putString("home_content_mode", HomeContentMode.PLAYLISTS.name).apply()
-                          }
-                        })
-                  }
-                }
-        }
-      }
-
-      Spacer(modifier = Modifier.height(4.dp))
-
-      Crossfade(targetState = isLoading, animationSpec = tween(400), label = "loadingAnim") {
-          loading ->
-        when {
-          loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-              CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
+  if (playlistToDelete != null) {
+    AlertDialog(
+        onDismissRequest = { playlistToDelete = null },
+        title = { Text("Delete Playlist", fontWeight = FontWeight.Bold) },
+        text = { Text("Are you sure you want to delete '${playlistToDelete?.name}'? This will not delete the actual songs.") },
+        confirmButton = {
+          TextButton(
+              onClick = {
+                val updatedPlaylists = userPlaylists.toMutableList().apply { remove(playlistToDelete) }
+                userPlaylists = updatedPlaylists
+                savePlaylists(context, updatedPlaylists)
+                playlistToDelete = null
+                Toast.makeText(context, "Playlist deleted", Toast.LENGTH_SHORT).show()
+              }) {
+            Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
           }
-          !hasPermission -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-              Text(
-                  text = "Storage permission required\nto browse videos.",
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  fontSize = 15.sp,
-                  lineHeight = 22.sp,
-                  textAlign = TextAlign.Center)
-            }
+        },
+        dismissButton = {
+          TextButton(onClick = { playlistToDelete = null }) {
+            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
           }
-          videos.isEmpty() && !(currentContentMode == HomeContentMode.FOLDER && folders.isNotEmpty()) -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-              Text(
-                  text =
-                      if (searchQuery.isNotEmpty()) "No videos match \"$searchQuery\""
-                      else "No videos found on this device.",
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  fontSize = 15.sp)
-            }
-          }
-          else -> {
-            Crossfade(
-                targetState = currentContentMode,
-                animationSpec = tween(400),
-                label = "homeContentAnim") { mode ->
-                  when (mode) {
-                    HomeContentMode.VIDEO -> {
-                      // existing video logic...
-                      Crossfade(
-                          targetState = currentViewStyle,
-                          animationSpec = tween(400),
-                          label = "videoViewAnim") { style ->
-                            when (style) {
-                              HomeViewStyle.LIST -> {
-                                LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                                    contentPadding = PaddingValues(bottom = 130.dp)) {
-                                      itemsIndexed(
-                                          items = videos, key = { _, video -> video.id }) {
-                                          index,
-                                          video ->
-                                        val isSelected = selectedVideoIds.contains(video.id)
-                                        PremiumVideoListCard(
-                                            video = video,
-                                            duration = viewModel.formatDuration(video.duration),
-                                            size = viewModel.formatSize(video.size),
-                                            resolution = viewModel.getResolutionLabel(video.width, video.height),
-                                            isSelected = isSelected,
-                                            onClick = {
-                                              if (inSelectionMode) {
-                                                selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                              } else {
-                                                onVideoClick(videos, index)
-                                              }
-                                            },
-                                            onLongClick = {
-                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                            })
-                                      }
-                                    }
-                              }
-                              HomeViewStyle.GRID_MEDIUM -> {
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(2),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(bottom = 130.dp)) {
-                                      itemsIndexed(
-                                          items = videos, key = { _, video -> video.id }) {
-                                          index,
-                                          video ->
-                                        val isSelected = selectedVideoIds.contains(video.id)
-                                        CustomVideoGridCard(
-                                            video = video,
-                                            duration = viewModel.formatDuration(video.duration),
-                                            isSelected = isSelected,
-                                            onClick = {
-                                              if (inSelectionMode) {
-                                                selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                              } else {
-                                                onVideoClick(videos, index)
-                                              }
-                                            },
-                                            onLongClick = {
-                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                            })
-                                      }
-                                    }
-                              }
-                              HomeViewStyle.GRID_LARGE -> {
-                                LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                                    contentPadding = PaddingValues(bottom = 130.dp)) {
-                                      itemsIndexed(
-                                          items = videos, key = { _, video -> video.id }) {
-                                          index,
-                                          video ->
-                                        val isSelected = selectedVideoIds.contains(video.id)
-                                        CustomVideoLargeCard(
-                                            video = video,
-                                            duration = viewModel.formatDuration(video.duration),
-                                            size = viewModel.formatSize(video.size),
-                                            isSelected = isSelected,
-                                            onClick = {
-                                              if (inSelectionMode) {
-                                                selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                              } else {
-                                                onVideoClick(videos, index)
-                                              }
-                                            },
-                                            onLongClick = {
-                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                            })
-                                      }
-                                    }
-                              }
-                            }
-                          }
-                    }
-                    HomeContentMode.FOLDER -> {
-                      // existing folder logic...
-                      if (isInsideFolder) {
-                        val folderName: String =
-                            folders.firstOrNull { it.path == currentFolderPath }?.name ?: "Folder"
-                        Column(modifier = Modifier.fillMaxSize()) {
-                          Row(
-                              modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                              verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { viewModel.closeFolder() }) {
-                                  Icon(
-                                      imageVector = Icons.Default.ArrowBack,
-                                      contentDescription = "Back",
-                                      tint = MaterialTheme.colorScheme.primary)
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Column {
-                                  Text(
-                                      text = folderName,
-                                      color = MaterialTheme.colorScheme.onBackground,
-                                      fontSize = 16.sp,
-                                      fontWeight = FontWeight.Bold,
-                                      maxLines = 1,
-                                      overflow = TextOverflow.Ellipsis)
-                                  Text(
-                                      text = "${folderVideos.size} videos",
-                                      color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                      fontSize = 12.sp)
-                                }
-                              }
-
-                          Crossfade(
-                              targetState = currentViewStyle,
-                              animationSpec = tween(400),
-                              label = "folderVideoViewAnim") { style ->
-                                when (style) {
-                                  HomeViewStyle.LIST -> {
-                                    LazyColumn(
-                                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                                        contentPadding = PaddingValues(bottom = 130.dp)) {
-                                          itemsIndexed(
-                                              items = folderVideos,
-                                              key = { _, video -> video.id }) { index, video ->
-                                            PremiumVideoListCard(
-                                                video = video,
-                                                duration = viewModel.formatDuration(video.duration),
-                                                size = viewModel.formatSize(video.size),
-                                                resolution = viewModel.getResolutionLabel(video.width, video.height),
-                                                isSelected = false,
-                                                onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = {})
-                                          }
-                                        }
-                                  }
-                                  HomeViewStyle.GRID_MEDIUM -> {
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(2),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        contentPadding = PaddingValues(bottom = 130.dp)) {
-                                          itemsIndexed(
-                                              items = folderVideos,
-                                              key = { _, video -> video.id }) { index, video ->
-                                            CustomVideoGridCard(
-                                                video = video,
-                                                duration = viewModel.formatDuration(video.duration),
-                                                isSelected = false,
-                                                onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = {})
-                                          }
-                                        }
-                                  }
-                                  HomeViewStyle.GRID_LARGE -> {
-                                    LazyColumn(
-                                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                                        contentPadding = PaddingValues(bottom = 130.dp)) {
-                                          itemsIndexed(
-                                              items = folderVideos,
-                                              key = { _, video -> video.id }) { index, video ->
-                                            CustomVideoLargeCard(
-                                                video = video,
-                                                duration = viewModel.formatDuration(video.duration),
-                                                size = viewModel.formatSize(video.size),
-                                                isSelected = false,
-                                                onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = {})
-                                          }
-                                        }
-                                  }
-                                }
-                              }
-                        }
-                      } else {
-                        Crossfade(
-                            targetState = currentViewStyle,
-                            animationSpec = tween(400),
-                            label = "folderViewAnim") { style ->
-                              when (style) {
-                                HomeViewStyle.LIST -> {
-                                  LazyColumn(
-                                      verticalArrangement = Arrangement.spacedBy(10.dp),
-                                      contentPadding = PaddingValues(bottom = 130.dp)) {
-                                        itemsIndexed(
-                                            items = folders,
-                                            key = { _, folder -> folder.path }) { _, folder ->
-                                          HomeFolderListCard(
-                                              folder = folder,
-                                              onClick = { viewModel.openFolder(folder.path) })
-                                        }
-                                      }
-                                }
-                                HomeViewStyle.GRID_MEDIUM -> {
-                                  LazyVerticalGrid(
-                                      columns = GridCells.Fixed(2),
-                                      horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                      verticalArrangement = Arrangement.spacedBy(12.dp),
-                                      contentPadding = PaddingValues(bottom = 130.dp)) {
-                                        itemsIndexed(
-                                            items = folders,
-                                            key = { _, folder -> folder.path }) { _, folder ->
-                                          HomeFolderGridCard(
-                                              folder = folder,
-                                              onClick = { viewModel.openFolder(folder.path) })
-                                        }
-                                      }
-                                }
-                                HomeViewStyle.GRID_LARGE -> {
-                                  LazyColumn(
-                                      verticalArrangement = Arrangement.spacedBy(16.dp),
-                                      contentPadding = PaddingValues(bottom = 130.dp)) {
-                                        itemsIndexed(
-                                            items = folders,
-                                            key = { _, folder -> folder.path }) { _, folder ->
-                                          HomeFolderLargeCard(
-                                              folder = folder,
-                                              onClick = { viewModel.openFolder(folder.path) })
-                                        }
-                                      }
-                                }
-                              }
-                            }
-                      }
-                    }
-                    
-                    // 🔥 UPDATE: Placeholders for new tabs
-                    HomeContentMode.FAVORITES -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "No favorites yet.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 16.sp
-                            )
-                        }
-                    }
-                    HomeContentMode.PLAYLISTS -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "No playlists found.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 16.sp
-                            )
-                        }
-                    }
-                  }
-                }
-          }
-        }
-      }
-    }
-
-    if (!inSelectionMode && videos.isNotEmpty() && searchQuery.isEmpty()) {
-      FloatingActionButton(
-          onClick = {
-            var targetIndex = videos.indexOfFirst { it.path == recentVideoPath }
-            if (targetIndex == -1 && recentVideoPath.isNotEmpty()) {
-              val recentFileName = File(recentVideoPath).name
-              targetIndex = videos.indexOfFirst { File(it.path).name == recentFileName }
-            }
-            if (targetIndex == -1) targetIndex = 0
-            onVideoClick(videos, targetIndex)
-          },
-          containerColor = MaterialTheme.colorScheme.primary,
-          contentColor = MaterialTheme.colorScheme.onPrimary,
-          shape = RoundedCornerShape(16.dp),
-          elevation =
-              FloatingActionButtonDefaults.elevation(
-                  defaultElevation = 6.dp, pressedElevation = 12.dp),
-          modifier =
-              Modifier.align(Alignment.BottomEnd)
-                  .padding(end = 20.dp, bottom = 110.dp)
-                  .size(56.dp)) {
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = "Continue Watching",
-                modifier = Modifier.size(28.dp))
-          }
-    }
+        })
   }
-}
 
-// ... [PremiumVideoListCard, CustomVideoGridCard, CustomVideoLargeCard, getVideoUriFromPathForMulti - same as before] ...
-
-@OptIn(ExperimentalFoundationApi::class, ExperimentalGlideComposeApi::class)
-@Composable
-fun PremiumVideoListCard(
-    video: VideoItem,
-    duration: String,
-    size: String,
-    resolution: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
-) {
-  val folderName = File(video.path).parentFile?.name ?: "Unknown"
-
-  Row(
-      modifier =
-          Modifier.fillMaxWidth()
-              .shadow(if (isSelected) 4.dp else 0.dp, RoundedCornerShape(14.dp))
-              .clip(RoundedCornerShape(14.dp))
-              .background(
-                  if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                  else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-              .border(
-                  width = 1.5.dp,
-                  color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                  shape = RoundedCornerShape(14.dp))
-              .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-              .padding(8.dp),
-      verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier =
-                Modifier.size(width = 110.dp, height = 64.dp).clip(RoundedCornerShape(10.dp))
-                    .background(Color.DarkGray)) {
-              
-              GlideImage(
-                  model = File(video.path),
-                  contentDescription = "Thumbnail",
-                  contentScale = ContentScale.Crop,
-                  modifier = Modifier.fillMaxSize()
-              ) { requestBuilder ->
-                  requestBuilder
-                      .diskCacheStrategy(DiskCacheStrategy.ALL)
-                      .override(300) 
-              }
-
-              Text(
-                  text = duration,
-                  color = Color.White,
-                  fontSize = 9.sp,
-                  fontWeight = FontWeight.Bold,
-                  modifier =
-                      Modifier.align(Alignment.BottomEnd)
-                          .padding(4.dp)
-                          .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(4.dp))
-                          .padding(horizontal = 4.dp, vertical = 1.dp))
-            }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-              text = video.title,
-              color = MaterialTheme.colorScheme.onSurface,
-              fontSize = 14.sp,
-              fontWeight = FontWeight.SemiBold,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis)
-
-          Spacer(modifier = Modifier.height(6.dp))
-
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier =
-                    Modifier.background(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(5.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)) {
-                  Text(
-                      text = resolution,
-                      color = MaterialTheme.colorScheme.primary,
-                      fontSize = 10.sp,
-                      fontWeight = FontWeight.Bold)
+  if (showCreatePlaylistDialog) {
+    AlertDialog(
+        onDismissRequest = { showCreatePlaylistDialog = false },
+        title = { Text("New Playlist", fontWeight = FontWeight.Bold) },
+        text = {
+          OutlinedTextField(
+              value = newPlaylistName,
+              onValueChange = { newPlaylistName = it },
+              placeholder = { Text("Enter playlist name") },
+              singleLine = true,
+              colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = MaterialTheme.colorScheme.primary,
+                  cursorColor = MaterialTheme.colorScheme.primary
+              )
+          )
+        },
+        confirmButton = {
+          TextButton(
+              onClick = {
+                if (newPlaylistName.isNotBlank()) {
+                  val updatedPlaylists = userPlaylists.toMutableList().apply {
+                    add(VidMaxPlaylist(newPlaylistName, emptyList()))
+                  }
+                  userPlaylists = updatedPlaylists
+                  savePlaylists(context, updatedPlaylists)
+                  newPlaylistName = ""
+                  showCreatePlaylistDialog = false
+                  Toast.makeText(context, "Playlist created", Toast.LENGTH_SHORT).show()
                 }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Text(
-                text = "$size  •  $folderName",
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis)
+              }) {
+            Text("Create", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
           }
-        }
+        },
+        dismissButton = {
+          TextButton(onClick = { showCreatePlaylistDialog = false }) {
+            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
+          }
+        })
+  }
 
-        if (isSelected) {
-          Icon(
-              imageVector = Icons.Default.Check,
-              contentDescription = "Selected",
-              tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.padding(end = 4.dp).size(20.dp))
-        }
-      }
-}
+  if (showAddToPlaylistDialog) {
+    AlertDialog(
+        onDismissRequest = { showAddToPlaylistDialog = false },
+        title = { Text("Add to Playlist", fontWeight = FontWeight.Bold) },
+        text = {
+          LazyColumn {
+            item {
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .clickable {
+                        showAddToPlaylistDialog = false
+                        showCreatePlaylistDialog = true
+                      }
+                      .padding(vertical = 12.dp),
+                  verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.AddCircle,
+                    contentDescription = "New",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    "Create New Playlist",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+              }
+            }
+            itemsIndexed(userPlaylists) { _, playlist ->
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .clickable {
+                        val pathsToAdd = selectedAudioIds.mapNotNull { id ->
+                          audioList.find { it.id == id }?.path
+                        }
+                        val updatedPaths = (playlist.paths + pathsToAdd).distinct()
+                        val updatedPlaylists = userPlaylists.toMutableList()
+                        
+                        val index = updatedPlaylists.indexOf(playlist)
+                        if (index != -1) {
+                          updatedPlaylists[index] = VidMaxPlaylist(playlist.name, updatedPaths)
+                        }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalGlideComposeApi::class)
-@Composable
-fun CustomVideoGridCard(
-    video: VideoItem,
-    duration: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
-) {
-  Card(
-      modifier =
-          Modifier.fillMaxWidth()
-              .shadow(if (isSelected) 8.dp else 2.dp, RoundedCornerShape(12.dp))
+                        userPlaylists = updatedPlaylists
+                        savePlaylists(context, updatedPlaylists)
+
+                        showAddToPlaylistDialog = false
+                        selectedAudioIds = emptySet()
+                        Toast.makeText(context, "Added to ${playlist.name}", Toast.LENGTH_SHORT).show()
+                      }
+                      .padding(vertical = 12.dp),
+                  verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painterResource(id = R.drawable.ic_playlist),
+                    contentDescription = "Playlist",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(playlist.name, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
+              }
+            }
+          }
+        },
+        confirmButton = {
+          TextButton(onClick = { showAddToPlaylistDialog = false }) {
+            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
+          }
+        })
+  }
+
+  // --- MAIN LAYOUT ---
+  Column(
+      modifier = Modifier
+          .fillMaxSize()
+          .background(MaterialTheme.colorScheme.background)
+          .padding(horizontal = 16.dp)
+          .nestedScroll(nestedScrollConnection)) {
+    Spacer(modifier = Modifier.height(6.dp))
+
+    if (inSelectionMode) {
+      Row(
+          modifier = Modifier
+              .fillMaxWidth()
+              .padding(vertical = 6.dp)
               .clip(RoundedCornerShape(12.dp))
-              .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-              .border(
-                  1.5.dp,
-                  if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                  RoundedCornerShape(12.dp)),
-      shape = RoundedCornerShape(12.dp),
-      colors =
-          CardDefaults.cardColors(
-              containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-        Column {
-          Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.DarkGray)) {
-            
-            GlideImage(
-                model = File(video.path),
-                contentDescription = "Thumbnail",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            ) { requestBuilder ->
-                requestBuilder
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .override(400) 
-            }
-
-            Text(
-                text = duration,
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                modifier =
-                    Modifier.align(Alignment.BottomEnd)
-                        .padding(6.dp)
-                        .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 4.dp, vertical = 2.dp))
-
-            if (isSelected) {
-              Box(
-                  modifier =
-                      Modifier.fillMaxSize()
-                          .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)))
-              Icon(
-                  imageVector = Icons.Default.Check,
-                  contentDescription = "Selected",
-                  tint = MaterialTheme.colorScheme.onPrimary,
-                  modifier =
-                      Modifier.align(Alignment.TopEnd)
-                          .padding(6.dp)
-                          .background(MaterialTheme.colorScheme.primary, CircleShape)
-                          .padding(4.dp)
-                          .size(16.dp))
-            }
+              .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+              .padding(horizontal = 8.dp, vertical = 4.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          IconButton(onClick = { selectedAudioIds = emptySet() }) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_close_custom),
+                contentDescription = "Close",
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(24.dp)
+            )
+          }
+          Text(
+              text = "${selectedAudioIds.size} Selected",
+              color = MaterialTheme.colorScheme.onBackground,
+              fontSize = 16.sp,
+              fontWeight = FontWeight.Bold
+          )
+        }
+        Row {
+          IconButton(onClick = { showAddToPlaylistDialog = true }) {
+            Icon(
+                Icons.Default.Add,
+                contentDescription = "Add to Playlist",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(26.dp)
+            )
           }
 
-          Column(modifier = Modifier.padding(10.dp)) {
-            Text(
-                text = video.title,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                lineHeight = 16.sp,
-                overflow = TextOverflow.Ellipsis)
+          IconButton(
+              onClick = {
+                selectedAudioIds = if (selectedAudioIds.size == displayedList.size) {
+                  emptySet()
+                } else {
+                  displayedList.map { it.id }.toSet()
+                }
+              }) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_select_all),
+                contentDescription = "Select All",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+          }
+          IconButton(
+              onClick = {
+                val uris = selectedAudioIds.mapNotNull { id ->
+                  displayedList.find { it.id == id }?.path?.let { getAudioUriFromPathForMulti(context, it) }
+                }.toCollection(ArrayList())
+
+                if (uris.isNotEmpty()) {
+                  val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                    type = "audio/*"
+                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                  }
+                  context.startActivity(Intent.createChooser(intent, "Share ${uris.size} Audios"))
+                  selectedAudioIds = emptySet()
+                }
+              }) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_share_custom),
+                contentDescription = "Share",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+          }
+          IconButton(onClick = { showDeleteConfirmDialog = true }) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_delete_custom),
+                contentDescription = "Delete",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(24.dp)
+            )
           }
         }
       }
-}
-
-@OptIn(ExperimentalFoundationApi::class, ExperimentalGlideComposeApi::class)
-@Composable
-fun CustomVideoLargeCard(
-    video: VideoItem,
-    duration: String,
-    size: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
-) {
-  val folderName = File(video.path).parentFile?.name ?: "Unknown"
-
-  Card(
-      modifier =
-          Modifier.fillMaxWidth()
-              .shadow(if (isSelected) 10.dp else 4.dp, RoundedCornerShape(16.dp))
-              .clip(RoundedCornerShape(16.dp))
-              .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-              .border(
-                  2.dp,
-                  if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                  RoundedCornerShape(16.dp)),
-      shape = RoundedCornerShape(16.dp),
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column {
-          Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.DarkGray)) {
-            
-            GlideImage(
-                model = File(video.path),
-                contentDescription = "Thumbnail",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            ) { requestBuilder ->
-                requestBuilder
-                    .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .override(600) 
+    } else if (isSearchExpanded) {
+      Row(
+          modifier = Modifier
+              .fillMaxWidth()
+              .padding(bottom = 6.dp),
+          verticalAlignment = Alignment.CenterVertically) {
+        IconButton(
+            onClick = {
+              isSearchExpanded = false
+              viewModel.setAudioSearchQuery("")
+            }) {
+          Icon(
+              imageVector = Icons.Default.ArrowBack,
+              contentDescription = "Back",
+              tint = MaterialTheme.colorScheme.onBackground
+          )
+        }
+        Box(modifier = Modifier.weight(1f)) {
+          VidMaxSearchBar(
+              query = searchQuery,
+              onQueryChange = { viewModel.setAudioSearchQuery(it) },
+              placeholder = "Search songs..."
+          )
+        }
+      }
+    } else {
+      Row(
+          modifier = Modifier
+              .fillMaxWidth()
+              .padding(bottom = 6.dp, top = 4.dp),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          if (currentTab == "Playlists" && activePlaylist != null) {
+            IconButton(onClick = { activePlaylist = null }) {
+              Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
             }
-
-            if (isSelected) {
-              Box(
-                  modifier =
-                      Modifier.fillMaxSize()
-                          .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)))
-              Icon(
-                  imageVector = Icons.Default.Check,
-                  contentDescription = "Selected",
-                  tint = MaterialTheme.colorScheme.onPrimary,
-                  modifier =
-                      Modifier.align(Alignment.TopEnd)
-                          .padding(12.dp)
-                          .background(MaterialTheme.colorScheme.primary, CircleShape)
-                          .padding(4.dp))
+          } else if (currentTab == "Albums" && activeAlbumName != null) {
+            IconButton(onClick = { activeAlbumName = null }) {
+              Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+            }
+          } else if (currentTab == "Folders" && activeFolderName != null) {
+            IconButton(onClick = { activeFolderName = null }) {
+              Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
             }
           }
+
+          val titleText = when {
+            currentTab == "Playlists" && activePlaylist != null -> activePlaylist!!.name
+            currentTab == "Albums" && activeAlbumName != null -> activeAlbumName!!
+            currentTab == "Folders" && activeFolderName != null -> activeFolderName!!
+            else -> "Music"
+          }
+
+          Text(
+              text = titleText,
+              color = MaterialTheme.colorScheme.onBackground,
+              fontSize = 24.sp,
+              fontWeight = FontWeight.ExtraBold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+              modifier = Modifier.weight(1f, fill = false)
+          )
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          IconButton(onClick = { isSearchExpanded = true }, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Filled.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
+          }
+          IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
+          }
+        }
+      }
+    }
+
+    // 🚀 COMPACT & SLEEK AUTO-HIDING NAVIGATION TAB BAR (REVISED) 🚀
+    val tabsList = listOf("Songs", "Folders", "Playlists", "Favorites")
+    val selectedTabIndex = tabsList.indexOf(currentTab).coerceAtLeast(0)
+
+    AnimatedVisibility(
+        visible = isTabBarVisible,
+        enter = expandVertically(animationSpec = tween(250)) + fadeIn(animationSpec = tween(250)),
+        exit = shrinkVertically(animationSpec = tween(250)) + fadeOut(animationSpec = tween(250))
+    ) {
+      Row(
+          modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+          horizontalArrangement = Arrangement.Center // সেন্টার করে দেওয়া হলো
+      ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth(0.9f) // পুরো স্ক্রিন না নিয়ে কিছুটা ছোট (Compact) করা হয়েছে
+                .height(42.dp) // উচ্চতা কমানো হয়েছে
+                .clip(RoundedCornerShape(50)) // Pill শেপ
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                .padding(3.dp)
+        ) {
+          val tabWidth = maxWidth / tabsList.size
+          val indicatorOffset by animateDpAsState(
+              targetValue = tabWidth * selectedTabIndex,
+              animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+              label = "indicatorOffset"
+          )
+
+          Box(
+              modifier = Modifier
+                  .offset(x = indicatorOffset)
+                  .width(tabWidth)
+                  .fillMaxHeight()
+                  .clip(RoundedCornerShape(50))
+                  .background(MaterialTheme.colorScheme.primary)
+          )
 
           Row(
-              modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+              modifier = Modifier.fillMaxSize(),
+              horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                  Text(
-                      text = video.title,
-                      fontWeight = FontWeight.Bold,
-                      fontSize = 16.sp,
-                      color = MaterialTheme.colorScheme.onSurface,
-                      maxLines = 1,
-                      overflow = TextOverflow.Ellipsis)
-                  Spacer(modifier = Modifier.height(4.dp))
-                  Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier =
-                            Modifier.background(
-                                    MaterialTheme.colorScheme.primaryContainer,
-                                    RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)) {
-                          Text(
-                              text = duration,
-                              color = MaterialTheme.colorScheme.onPrimaryContainer,
-                              fontSize = 11.sp,
-                              fontWeight = FontWeight.Bold)
-                        }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "$size  •  $folderName",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                  }
-                }
+            TabItem(
+                title = "Songs",
+                isSelected = currentTab == "Songs",
+                onClick = {
+                  currentTab = "Songs"
+                  activePlaylist = null
+                  activeAlbumName = null
+                  activeFolderName = null
+                }) { tint, scale ->
+              Icon(painterResource(id = R.drawable.ic_music_note), contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+            }
 
-                Box(
-                    modifier =
-                        Modifier.size(44.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape),
-                    contentAlignment = Alignment.Center) {
-                      Icon(
-                          imageVector = Icons.Default.PlayArrow,
-                          contentDescription = null,
-                          tint = MaterialTheme.colorScheme.onPrimary,
-                          modifier = Modifier.size(24.dp))
-                    }
-              }
+            TabItem(
+                title = "Folders",
+                isSelected = currentTab == "Folders",
+                onClick = {
+                  currentTab = "Folders"
+                  activePlaylist = null
+                  activeAlbumName = null
+                  activeFolderName = null
+                }) { tint, scale ->
+              Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+            }
+
+            TabItem(
+                title = "Playlists",
+                isSelected = currentTab == "Playlists",
+                onClick = {
+                  currentTab = "Playlists"
+                  activePlaylist = null
+                  activeAlbumName = null
+                  activeFolderName = null
+                }) { tint, scale ->
+              Icon(painterResource(id = R.drawable.ic_playlist), contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+            }
+
+            TabItem(
+                title = "Favorites",
+                isSelected = currentTab == "Favorites",
+                onClick = {
+                  currentTab = "Favorites"
+                  activePlaylist = null
+                  activeAlbumName = null
+                  activeFolderName = null
+                }) { tint, scale ->
+              Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp).scale(scale))
+            }
+          }
         }
       }
-}
+    }
 
-fun getVideoUriFromPathForMulti(context: Context, path: String): Uri? {
-  val cursor =
-      context.contentResolver.query(
-          MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-          arrayOf(MediaStore.Video.Media._ID),
-          MediaStore.Video.Media.DATA + "=?",
-          arrayOf(path),
-          null)
-  return cursor?.use {
-    if (it.moveToFirst()) {
-      val id = it.getLong(it.getColumnIndexOrThrow(MediaStore.Video.Media._ID))
-      ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
-    } else null
-  }
-}
+    Spacer(modifier = Modifier.height(10.dp))
 
-@Composable
-fun HomeContentSegment(
-    label: String,
-    isActive: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-  val textColor by
-      animateColorAsState(
-          targetValue =
-              if (isActive) MaterialTheme.colorScheme.onPrimary
-              else MaterialTheme.colorScheme.onSurfaceVariant,
-          animationSpec = tween(250),
-          label = "homeContentSegmentColor")
+    // HEADER TEXT COUNTS
+    if ((currentTab != "Playlists" || activePlaylist != null) &&
+        (currentTab != "Albums" || activeAlbumName != null) &&
+        (currentTab != "Folders" || activeFolderName != null)) {
+      Text(
+          text = "${displayedList.size} songs",
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+          fontSize = 15.sp,
+          fontWeight = FontWeight.Bold,
+          modifier = Modifier.padding(bottom = 6.dp)
+      )
+    } else if (currentTab == "Albums" && activeAlbumName == null) {
+      Text(
+          text = "${albumsMap.size} albums",
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+          fontSize = 15.sp,
+          fontWeight = FontWeight.Bold,
+          modifier = Modifier.padding(bottom = 6.dp)
+      )
+    } else if (currentTab == "Folders" && activeFolderName == null) {
+      Text(
+          text = "${foldersMap.size} folders",
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+          fontSize = 15.sp,
+          fontWeight = FontWeight.Bold,
+          modifier = Modifier.padding(bottom = 6.dp)
+      )
+    }
 
-  Box(
-      // 🔥 UPDATE: Slightly smaller text size to fit 4 items comfortably
-      modifier = modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
-      contentAlignment = Alignment.Center) {
-        Text(
-            text = label,
-            color = textColor,
-            fontSize = 13.sp, // Reduced slightly from 14.sp
-            fontWeight = FontWeight.Bold)
-      }
-}
+    // MAIN CONTENT AREA
+    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+      LazyColumn(
+          state = listState,
+          modifier = Modifier.fillMaxSize(),
+          verticalArrangement = Arrangement.spacedBy(10.dp),
+          contentPadding = PaddingValues(bottom = 160.dp)) {
+        
+        if (currentTab == "Albums" && activeAlbumName == null) {
+          if (albumsMap.isEmpty()) {
+            item {
+              Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                Text("No Albums found", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
+              }
+            }
+          } else {
+            itemsIndexed(albumsMap.keys.toList()) { _, albumName ->
+              val albumSongs = albumsMap[albumName] ?: emptyList()
+              val firstSongPath = albumSongs.firstOrNull()?.path ?: ""
 
-@Composable
-fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
-  Row(
-      modifier =
-          modifier
-              .fillMaxWidth()
-              .clip(RoundedCornerShape(14.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-              .clickable(onClick = onClick)
-              .padding(8.dp),
-      verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier =
-                Modifier.size(width = 110.dp, height = 64.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
-            contentAlignment = Alignment.Center) {
-              Icon(
-                  painter = painterResource(id = R.drawable.ic_folder),
-                  contentDescription = "Folder Icon",
-                  tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                  modifier = Modifier.size(36.dp)
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .clip(RoundedCornerShape(14.dp))
+                      .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                      .clickable { activeAlbumName = albumName }
+                      .padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically) {
+                AlbumThumbnail(path = firstSongPath)
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                  Text(albumName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                  Spacer(modifier = Modifier.height(4.dp))
+                  Text("${albumSongs.size} songs", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                }
+              }
+            }
+          }
+        } else if (currentTab == "Folders" && activeFolderName == null) {
+          if (foldersMap.isEmpty()) {
+            item {
+              Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                Text("No Folders found", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
+              }
+            }
+          } else {
+            itemsIndexed(foldersMap.keys.toList()) { _, folderName ->
+              val folderSongs = foldersMap[folderName] ?: emptyList()
+
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .clip(RoundedCornerShape(14.dp))
+                      .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                      .clickable { activeFolderName = folderName }
+                      .padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center) {
+                  Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                  Text(folderName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                  Spacer(modifier = Modifier.height(4.dp))
+                  Text("${folderSongs.size} songs", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                }
+              }
+            }
+          }
+        } else if (currentTab == "Playlists" && activePlaylist == null) {
+          if (userPlaylists.isEmpty()) {
+            item {
+              Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                Text("No Playlists created yet", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
+              }
+            }
+          } else {
+            itemsIndexed(userPlaylists) { _, playlist ->
+              Row(
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .clip(RoundedCornerShape(14.dp))
+                      .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                      .clickable { activePlaylist = playlist }
+                      .padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically) {
+                PlaylistStackedThumbnail(paths = playlist.paths)
+
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                  Text(playlist.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                  Spacer(modifier = Modifier.height(4.dp))
+                  Text("${playlist.paths.size} songs", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                }
+
+                IconButton(onClick = { playlistToDelete = playlist }) {
+                  Icon(Icons.Default.Delete, contentDescription = "Delete Playlist", tint = MaterialTheme.colorScheme.error)
+                }
+              }
+            }
+          }
+        } else {
+          // SHOW SONGS LIST
+          if (displayedList.isEmpty()) {
+            item {
+              Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    text = when {
+                      currentTab == "Favorites" -> "No songs found in Favorites"
+                      activePlaylist != null -> "No songs in this playlist"
+                      else -> "No items found in $currentTab"
+                    },
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    fontSize = 16.sp
+                )
+              }
+            }
+          } else {
+            itemsIndexed(items = displayedList, key = { _, item -> item.id }) { index, audio ->
+              val isSelected = selectedAudioIds.contains(audio.id)
+              val isPlayingNow = currentlyPlayingPath == audio.path
+
+              AudioCard(
+                  audio = audio,
+                  duration = viewModel.formatDuration(audio.duration),
+                  isSelected = isSelected,
+                  isPlayingNow = isPlayingNow,
+                  isAudioPlayingState = isAudioPlaying,
+                  onClick = {
+                    if (inSelectionMode) {
+                      selectedAudioIds = if (isSelected) selectedAudioIds - audio.id else selectedAudioIds + audio.id
+                    } else {
+                      onAudioClick(displayedList, index)
+                    }
+                  },
+                  onLongClick = {
+                    selectedAudioIds = if (isSelected) selectedAudioIds - audio.id else selectedAudioIds + audio.id
+                  }
               )
             }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-              text = folder.name,
-              color = MaterialTheme.colorScheme.onSurface,
-              fontSize = 15.sp,
-              fontWeight = FontWeight.SemiBold,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis)
-
-          Spacer(modifier = Modifier.height(6.dp))
-
-          Text(
-              text = "${folder.videoCount} videos",
-              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-              fontSize = 13.sp,
-              fontWeight = FontWeight.Medium)
+          }
         }
       }
+
+      // FLOATING ACTION BUTTON
+      val fabScale by animateFloatAsState(
+          targetValue = if (currentTab == "Playlists" && activePlaylist == null) 1f else 0f,
+          animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+          label = "fabScale"
+      )
+
+      if (fabScale > 0.01f) {
+        FloatingActionButton(
+            onClick = { showCreatePlaylistDialog = true },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 120.dp)
+                .scale(fabScale)) {
+          Icon(Icons.Default.Add, contentDescription = "New Playlist", modifier = Modifier.size(28.dp))
+        }
+      }
+    }
+  }
+}
+
+// SLEEK TAB ITEM WITH COMPACT ANIMATION (REVISED)
+@Composable
+fun RowScope.TabItem(
+    title: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    icon: @Composable (Color, Float) -> Unit
+) {
+  val contentColor by animateColorAsState(
+      targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+      animationSpec = tween(200),
+      label = "colorAnim"
+  )
+
+  val iconScale by animateFloatAsState(
+      targetValue = if (isSelected) 1.15f else 1.0f,
+      animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+      label = "scaleAnim"
+  )
+
+  Row(
+      modifier = Modifier
+          .weight(1f)
+          .fillMaxHeight()
+          .clip(RoundedCornerShape(50)) // Pill shape
+          .clickable { onClick() },
+      horizontalArrangement = Arrangement.Center,
+      verticalAlignment = Alignment.CenterVertically) {
+    icon(contentColor, iconScale)
+    Spacer(modifier = Modifier.width(3.dp))
+    Text(
+        text = title,
+        color = contentColor,
+        fontSize = 10.sp, // টেক্সট সাইজ ছোট করা হয়েছে যেন গাদাগাদি না লাগে
+        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+  }
+}
+
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+fun AlbumThumbnail(path: String) {
+  val context = LocalContext.current
+  var artByteArray by remember(path) { mutableStateOf<ByteArray?>(EmbeddedArtCache.get(path)) }
+  var isArtLoaded by remember(path) { mutableStateOf(artByteArray != null) }
+
+  LaunchedEffect(path) {
+    if (artByteArray == null && path.isNotEmpty()) {
+      withContext(Dispatchers.IO) {
+        artByteArray = EmbeddedArtCache.getOrFetch(context, path)
+        isArtLoaded = true
+      }
+    }
+  }
+
+  Box(
+      modifier = Modifier
+          .size(64.dp)
+          .clip(RoundedCornerShape(12.dp))
+          .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+      contentAlignment = Alignment.Center) {
+    if (isArtLoaded && artByteArray != null) {
+      GlideImage(
+          model = artByteArray,
+          contentDescription = "Album Art",
+          contentScale = ContentScale.Crop,
+          modifier = Modifier.fillMaxSize()) {
+        it.diskCacheStrategy(DiskCacheStrategy.ALL).signature(ObjectKey(path)).override(150)
+      }
+    } else if (isArtLoaded) {
+      Icon(painterResource(id = R.drawable.ic_music_note), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+    }
+  }
+}
+
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+fun PlaylistStackedThumbnail(paths: List<String>) {
+  val context = LocalContext.current
+  val displayPaths = remember(paths) { paths.take(3) }
+  var byteArrays by remember(displayPaths) { mutableStateOf<List<ByteArray?>>(displayPaths.map { EmbeddedArtCache.get(it) }) }
+  var isLoaded by remember(displayPaths) { mutableStateOf(byteArrays.any { it != null } || displayPaths.isEmpty()) }
+
+  LaunchedEffect(displayPaths) {
+    if (!isLoaded && displayPaths.isNotEmpty()) {
+      withContext(Dispatchers.IO) {
+        byteArrays = displayPaths.map { EmbeddedArtCache.getOrFetch(context, it) }
+        isLoaded = true
+      }
+    }
+  }
+
+  Box(modifier = Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+    if (displayPaths.isEmpty()) {
+      Box(
+          modifier = Modifier
+              .fillMaxSize()
+              .clip(RoundedCornerShape(10.dp))
+              .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+          contentAlignment = Alignment.Center) {
+        Icon(painterResource(id = R.drawable.ic_playlist), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+      }
+    } else if (isLoaded) {
+      if (byteArrays.none { it != null }) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center) {
+          Icon(painterResource(id = R.drawable.ic_playlist), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+        }
+      } else {
+        if (byteArrays.size >= 3 && byteArrays[2] != null) {
+          GlideImage(
+              model = byteArrays[2],
+              contentDescription = null,
+              contentScale = ContentScale.Crop,
+              modifier = Modifier
+                  .size(48.dp)
+                  .offset(x = 8.dp, y = (-6).dp)
+                  .graphicsLayer { rotationZ = 12f }
+                  .clip(RoundedCornerShape(8.dp))
+                  .alpha(0.5f)) {
+            it.diskCacheStrategy(DiskCacheStrategy.ALL).signature(ObjectKey(displayPaths[2])).override(100)
+          }
+        }
+
+        if (byteArrays.size >= 2 && byteArrays[1] != null) {
+          GlideImage(
+              model = byteArrays[1],
+              contentDescription = null,
+              contentScale = ContentScale.Crop,
+              modifier = Modifier
+                  .size(52.dp)
+                  .offset(x = (-6).dp, y = 2.dp)
+                  .graphicsLayer { rotationZ = -10f }
+                  .clip(RoundedCornerShape(8.dp))
+                  .alpha(0.8f)) {
+            it.diskCacheStrategy(DiskCacheStrategy.ALL).signature(ObjectKey(displayPaths[1])).override(100)
+          }
+        }
+
+        if (byteArrays.isNotEmpty() && byteArrays[0] != null) {
+          GlideImage(
+              model = byteArrays[0],
+              contentDescription = null,
+              contentScale = ContentScale.Crop,
+              modifier = Modifier
+                  .size(56.dp)
+                  .shadow(6.dp, RoundedCornerShape(10.dp))
+                  .clip(RoundedCornerShape(10.dp))
+                  .background(MaterialTheme.colorScheme.surfaceVariant)) {
+            it.diskCacheStrategy(DiskCacheStrategy.ALL).signature(ObjectKey(displayPaths[0])).override(150)
+          }
+        }
+      }
+    }
+  }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalGlideComposeApi::class)
+@Composable
+fun AudioCard(
+    audio: AudioItem,
+    duration: String,
+    isSelected: Boolean = false,
+    isPlayingNow: Boolean = false,
+    isAudioPlayingState: Boolean = false,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {}
+) {
+  val context = LocalContext.current
+  val folderName = remember(audio.path) { File(audio.path).parentFile?.name ?: "Unknown" }
+
+  var artByteArray by remember(audio.path) { mutableStateOf<ByteArray?>(EmbeddedArtCache.get(audio.path)) }
+  var isArtLoaded by remember(audio.path) { mutableStateOf(artByteArray != null) }
+
+  LaunchedEffect(audio.path) {
+    if (artByteArray == null) {
+      withContext(Dispatchers.IO) {
+        artByteArray = EmbeddedArtCache.getOrFetch(context, audio.path)
+        isArtLoaded = true
+      }
+    }
+  }
+
+  val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent
+  val borderColor = if (isSelected || isPlayingNow) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else Color.Transparent
+
+  Row(
+      modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(14.dp))
+          .background(backgroundColor)
+          .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(14.dp))
+          .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+          .padding(8.dp),
+      verticalAlignment = Alignment.CenterVertically) {
+    Box(
+        modifier = Modifier
+            .size(64.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+        contentAlignment = Alignment.Center) {
+      
+      if (isArtLoaded && artByteArray != null) {
+        GlideImage(
+            model = artByteArray,
+            contentDescription = "Album Art",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()) {
+          it.diskCacheStrategy(DiskCacheStrategy.ALL).signature(ObjectKey(audio.path)).override(150)
+        }
+      } else if (isArtLoaded) {
+        Icon(painter = painterResource(id = R.drawable.ic_music_note), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+      }
+
+      if (isPlayingNow && isAudioPlayingState) {
+        Box(
+            modifier = Modifier.fillMaxSize().padding(bottom = 6.dp),
+            contentAlignment = Alignment.BottomCenter) {
+          PlayingEqualizerAnim()
+        }
+      }
+    }
+
+    Spacer(modifier = Modifier.width(12.dp))
+
+    Column(modifier = Modifier.weight(1f)) {
+      Text(
+          text = audio.title,
+          color = if (isPlayingNow) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+          fontSize = 14.sp,
+          fontWeight = FontWeight.SemiBold,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis
+      )
+
+      Spacer(modifier = Modifier.height(6.dp))
+
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .background(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), shape = RoundedCornerShape(5.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp)) {
+          Text(text = duration, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Text(
+            text = "${audio.artist}  •  $folderName",
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+      }
+    }
+
+    if (isSelected) {
+      Icon(imageVector = Icons.Filled.Done, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 4.dp).size(24.dp))
+    } else if (isPlayingNow) {
+      Box(
+          modifier = Modifier
+              .padding(end = 4.dp)
+              .size(32.dp)
+              .clip(CircleShape)
+              .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+          contentAlignment = Alignment.Center) {
+        Icon(
+            painter = painterResource(id = if (isAudioPlayingState) R.drawable.ic_pause else R.drawable.ic_play),
+            contentDescription = "Playing State",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(16.dp)
+        )
+      }
+    }
+  }
 }
 
 @Composable
-fun HomeFolderGridCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
-  Card(
-      modifier =
-          modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
-      shape = RoundedCornerShape(12.dp),
-      colors =
-          CardDefaults.cardColors(
-              containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-        Column {
-          Box(
-              modifier = Modifier
-                  .fillMaxWidth()
-                  .aspectRatio(16f / 9f)
-                  .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
-              contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_folder),
-                    contentDescription = "Folder Icon",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(52.dp)
-                )
-          }
+fun PlayingEqualizerAnim() {
+  val transition = rememberInfiniteTransition(label = "dj_eq_transition")
 
-          Column(modifier = Modifier.padding(10.dp)) {
-            Text(
-                text = folder.name,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                lineHeight = 16.sp,
-                overflow = TextOverflow.Ellipsis)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${folder.videoCount} videos",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-          }
-        }
-      }
+  val bar1 by transition.animateFloat(
+      initialValue = 4f,
+      targetValue = 4f,
+      animationSpec = infiniteRepeatable(
+          animation = keyframes { durationMillis = 450; 26f at 120 with EaseInOutSine; 14f at 280; 4f at 450 },
+          repeatMode = RepeatMode.Restart),
+      label = "bar1"
+  )
+
+  val bar2 by transition.animateFloat(
+      initialValue = 6f,
+      targetValue = 6f,
+      animationSpec = infiniteRepeatable(
+          animation = keyframes { durationMillis = 350; 20f at 90 with EaseInOutSine; 8f at 220; 6f at 350 },
+          repeatMode = RepeatMode.Restart),
+      label = "bar2"
+  )
+
+  val bar3 by transition.animateFloat(
+      initialValue = 5f,
+      targetValue = 5f,
+      animationSpec = infiniteRepeatable(
+          animation = keyframes { durationMillis = 500; 28f at 150 with EaseInOutSine; 16f at 320; 5f at 500 },
+          repeatMode = RepeatMode.Restart),
+      label = "bar3"
+  )
+
+  val bar4 by transition.animateFloat(
+      initialValue = 4f,
+      targetValue = 4f,
+      animationSpec = infiniteRepeatable(
+          animation = keyframes { durationMillis = 400; 18f at 100 with EaseInOutSine; 10f at 240; 4f at 400 },
+          repeatMode = RepeatMode.Restart),
+      label = "bar4"
+  )
+
+  Row(
+      modifier = Modifier.size(24.dp),
+      horizontalArrangement = Arrangement.spacedBy(3.dp),
+      verticalAlignment = Alignment.Bottom) {
+    Box(modifier = Modifier.width(3.dp).height(bar1.dp).background(Color.White, RoundedCornerShape(2.dp)))
+    Box(modifier = Modifier.width(3.dp).height(bar2.dp).background(Color.White, RoundedCornerShape(2.dp)))
+    Box(modifier = Modifier.width(3.dp).height(bar3.dp).background(Color.White, RoundedCornerShape(2.dp)))
+    Box(modifier = Modifier.width(3.dp).height(bar4.dp).background(Color.White, RoundedCornerShape(2.dp)))
+  }
 }
 
-@Composable
-fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
-  Card(
-      modifier =
-          modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
-      shape = RoundedCornerShape(16.dp),
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column {
-          Box(
-              modifier = Modifier
-                  .fillMaxWidth()
-                  .aspectRatio(16f / 9f)
-                  .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
-              contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_folder),
-                    contentDescription = "Folder Icon",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(72.dp)
-                )
-          }
-
-          Row(
-              modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-              verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                  Text(
-                      text = folder.name,
-                      fontWeight = FontWeight.Bold,
-                      fontSize = 18.sp,
-                      color = MaterialTheme.colorScheme.onSurface,
-                      maxLines = 1,
-                      overflow = TextOverflow.Ellipsis)
-                  Spacer(modifier = Modifier.height(4.dp))
-                  Text(
-                      text = "${folder.videoCount} videos",
-                      fontSize = 14.sp,
-                      color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
-                Box(
-                    modifier =
-                        Modifier.size(44.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape),
-                    contentAlignment = Alignment.Center) {
-                      Icon(
-                          imageVector = Icons.Default.PlayArrow,
-                          contentDescription = null,
-                          tint = MaterialTheme.colorScheme.onPrimary,
-                          modifier = Modifier.size(24.dp))
-                    }
-              }
-        }
-      }
+fun getAudioUriFromPathForMulti(context: Context, path: String): Uri? {
+  return try {
+    context.contentResolver.query(
+        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+        arrayOf(MediaStore.Audio.Media._ID),
+        MediaStore.Audio.Media.DATA + "=?",
+        arrayOf(path),
+        null
+    )?.use { cursor ->
+      if (cursor.moveToFirst()) {
+        val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID))
+        ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+      } else null
+    }
+  } catch (e: Exception) {
+    null
+  }
 }
