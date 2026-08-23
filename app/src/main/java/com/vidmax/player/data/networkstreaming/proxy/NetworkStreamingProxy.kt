@@ -141,11 +141,13 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
         val rangeHeader = session.headers["range"]
 
         return try {
-            if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
+            val response = if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
                 handleRangeRequest(session, streamInfo, rangeHeader)
             } else {
                 handleFullRequest(session, streamInfo)
             }
+            Log.d(TAG, "SERVE $uri range=[$rangeHeader] -> ${response.status.requestStatus}")
+            response
         } catch (e: Exception) {
             Log.e(TAG, "Error serving request for stream $streamId: ${streamInfo.filePath}", e)
             Log.e(
@@ -537,6 +539,7 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Range stream failed for ${streamInfo.filePath} @ $offset: ${e.message}", e)
                 null
             }
         }
@@ -746,6 +749,7 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
             return BufferedInputStream(wrappedStream, 1024 * 1024)
 
         } catch (e: Exception) {
+            Log.e(TAG, "WebDAV range stream failed for ${streamInfo.filePath}: ${e.message}", e)
             return null
         }
     }

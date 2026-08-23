@@ -455,6 +455,15 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                     handler.post { handlePlaybackCompleted() }
                 }
             }
+
+            override fun onPlayerError(error: androidx.media3.exoplayer.PlaybackException) {
+                android.util.Log.e("VidMaxPlayer", "ExoPlayer error for $currentPlayingPath", error)
+                Toast.makeText(
+                    this@PlayerActivity,
+                    "Playback error: ${error.errorCodeName}${error.message?.let { " — $it" } ?: ""}",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
         })
     }
 
