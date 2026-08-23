@@ -64,9 +64,12 @@ enum class HomeViewStyle {
   GRID_LARGE
 }
 
+// 🔥 UPDATE: Added 2 new modes for the segmented button
 enum class HomeContentMode {
   VIDEO,
-  FOLDER
+  FOLDER,
+  FAVORITES,
+  PLAYLISTS
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -281,13 +284,17 @@ fun HomeScreen(
               }
             }
       } else {
-        // Top Header Area
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
               Text(
-                  text = if (currentContentMode == HomeContentMode.VIDEO) "Videos" else "Folders",
+                  text = when (currentContentMode) {
+                      HomeContentMode.VIDEO -> "Videos"
+                      HomeContentMode.FOLDER -> "Folders"
+                      HomeContentMode.FAVORITES -> "Favorites"
+                      HomeContentMode.PLAYLISTS -> "Playlists"
+                  },
                   color = MaterialTheme.colorScheme.onBackground,
                   fontSize = 24.sp,
                   fontWeight = FontWeight.ExtraBold)
@@ -338,24 +345,29 @@ fun HomeScreen(
               }
             }
         
-        // Custom Segmented Button Area (Larger, Spring Animation, Positioned Below Header)
+        // 🔥 UPDATE: 4-Segmented Button Area
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.Center
         ) {
             BoxWithConstraints(
                 modifier =
-                    Modifier.fillMaxWidth(0.7f) // Make it wider
-                        .height(46.dp) // Make it taller
+                    Modifier.fillMaxWidth() // Made it full width to fit 4 items comfortably
+                        .height(46.dp) 
                         .clip(RoundedCornerShape(50))
                         .background(
                             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
-                  val segmentWidth = maxWidth / 2f
+                  
+                  val segmentWidth = maxWidth / 4f // 4 options now
                   val indicatorOffset by
                       animateDpAsState(
                           targetValue =
-                              if (currentContentMode == HomeContentMode.VIDEO) 0.dp
-                              else segmentWidth,
+                              when (currentContentMode) {
+                                  HomeContentMode.VIDEO -> 0.dp
+                                  HomeContentMode.FOLDER -> segmentWidth
+                                  HomeContentMode.FAVORITES -> segmentWidth * 2
+                                  HomeContentMode.PLAYLISTS -> segmentWidth * 3
+                              },
                           animationSpec = spring(
                               dampingRatio = Spring.DampingRatioMediumBouncy,
                               stiffness = Spring.StiffnessLow
@@ -379,10 +391,7 @@ fun HomeScreen(
                           if (currentContentMode != HomeContentMode.VIDEO) {
                             currentContentMode = HomeContentMode.VIDEO
                             viewModel.closeFolder()
-                            prefs
-                                .edit()
-                                .putString("home_content_mode", HomeContentMode.VIDEO.name)
-                                .apply()
+                            prefs.edit().putString("home_content_mode", HomeContentMode.VIDEO.name).apply()
                           }
                         })
                     HomeContentSegment(
@@ -394,10 +403,31 @@ fun HomeScreen(
                             currentContentMode = HomeContentMode.FOLDER
                             viewModel.closeFolder()
                             selectedVideoIds = emptySet()
-                            prefs
-                                .edit()
-                                .putString("home_content_mode", HomeContentMode.FOLDER.name)
-                                .apply()
+                            prefs.edit().putString("home_content_mode", HomeContentMode.FOLDER.name).apply()
+                          }
+                        })
+                    HomeContentSegment(
+                        label = "Favs",
+                        isActive = currentContentMode == HomeContentMode.FAVORITES,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = {
+                          if (currentContentMode != HomeContentMode.FAVORITES) {
+                            currentContentMode = HomeContentMode.FAVORITES
+                            viewModel.closeFolder()
+                            selectedVideoIds = emptySet()
+                            prefs.edit().putString("home_content_mode", HomeContentMode.FAVORITES.name).apply()
+                          }
+                        })
+                    HomeContentSegment(
+                        label = "Playlists",
+                        isActive = currentContentMode == HomeContentMode.PLAYLISTS,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = {
+                          if (currentContentMode != HomeContentMode.PLAYLISTS) {
+                            currentContentMode = HomeContentMode.PLAYLISTS
+                            viewModel.closeFolder()
+                            selectedVideoIds = emptySet()
+                            prefs.edit().putString("home_content_mode", HomeContentMode.PLAYLISTS.name).apply()
                           }
                         })
                   }
@@ -442,6 +472,7 @@ fun HomeScreen(
                 label = "homeContentAnim") { mode ->
                   when (mode) {
                     HomeContentMode.VIDEO -> {
+                      // existing video logic...
                       Crossfade(
                           targetState = currentViewStyle,
                           animationSpec = tween(400),
@@ -460,23 +491,17 @@ fun HomeScreen(
                                             video = video,
                                             duration = viewModel.formatDuration(video.duration),
                                             size = viewModel.formatSize(video.size),
-                                            resolution =
-                                                viewModel.getResolutionLabel(
-                                                    video.width, video.height),
+                                            resolution = viewModel.getResolutionLabel(video.width, video.height),
                                             isSelected = isSelected,
                                             onClick = {
                                               if (inSelectionMode) {
-                                                selectedVideoIds =
-                                                    if (isSelected) selectedVideoIds - video.id
-                                                    else selectedVideoIds + video.id
+                                                selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
                                               } else {
                                                 onVideoClick(videos, index)
                                               }
                                             },
                                             onLongClick = {
-                                              selectedVideoIds =
-                                                  if (isSelected) selectedVideoIds - video.id
-                                                  else selectedVideoIds + video.id
+                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
                                             })
                                       }
                                     }
@@ -498,17 +523,13 @@ fun HomeScreen(
                                             isSelected = isSelected,
                                             onClick = {
                                               if (inSelectionMode) {
-                                                selectedVideoIds =
-                                                    if (isSelected) selectedVideoIds - video.id
-                                                    else selectedVideoIds + video.id
+                                                selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
                                               } else {
                                                 onVideoClick(videos, index)
                                               }
                                             },
                                             onLongClick = {
-                                              selectedVideoIds =
-                                                  if (isSelected) selectedVideoIds - video.id
-                                                  else selectedVideoIds + video.id
+                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
                                             })
                                       }
                                     }
@@ -529,17 +550,13 @@ fun HomeScreen(
                                             isSelected = isSelected,
                                             onClick = {
                                               if (inSelectionMode) {
-                                                selectedVideoIds =
-                                                    if (isSelected) selectedVideoIds - video.id
-                                                    else selectedVideoIds + video.id
+                                                selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
                                               } else {
                                                 onVideoClick(videos, index)
                                               }
                                             },
                                             onLongClick = {
-                                              selectedVideoIds =
-                                                  if (isSelected) selectedVideoIds - video.id
-                                                  else selectedVideoIds + video.id
+                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
                                             })
                                       }
                                     }
@@ -548,6 +565,7 @@ fun HomeScreen(
                           }
                     }
                     HomeContentMode.FOLDER -> {
+                      // existing folder logic...
                       if (isInsideFolder) {
                         val folderName: String =
                             folders.firstOrNull { it.path == currentFolderPath }?.name ?: "Folder"
@@ -588,20 +606,14 @@ fun HomeScreen(
                                         contentPadding = PaddingValues(bottom = 130.dp)) {
                                           itemsIndexed(
                                               items = folderVideos,
-                                              key = { _, video -> video.id }) {
-                                              index,
-                                              video ->
+                                              key = { _, video -> video.id }) { index, video ->
                                             PremiumVideoListCard(
                                                 video = video,
                                                 duration = viewModel.formatDuration(video.duration),
                                                 size = viewModel.formatSize(video.size),
-                                                resolution =
-                                                    viewModel.getResolutionLabel(
-                                                        video.width, video.height),
+                                                resolution = viewModel.getResolutionLabel(video.width, video.height),
                                                 isSelected = false,
-                                                onClick = {
-                                                  onVideoClick(folderVideos, index)
-                                                },
+                                                onClick = { onVideoClick(folderVideos, index) },
                                                 onLongClick = {})
                                           }
                                         }
@@ -614,16 +626,12 @@ fun HomeScreen(
                                         contentPadding = PaddingValues(bottom = 130.dp)) {
                                           itemsIndexed(
                                               items = folderVideos,
-                                              key = { _, video -> video.id }) {
-                                              index,
-                                              video ->
+                                              key = { _, video -> video.id }) { index, video ->
                                             CustomVideoGridCard(
                                                 video = video,
                                                 duration = viewModel.formatDuration(video.duration),
                                                 isSelected = false,
-                                                onClick = {
-                                                  onVideoClick(folderVideos, index)
-                                                },
+                                                onClick = { onVideoClick(folderVideos, index) },
                                                 onLongClick = {})
                                           }
                                         }
@@ -634,17 +642,13 @@ fun HomeScreen(
                                         contentPadding = PaddingValues(bottom = 130.dp)) {
                                           itemsIndexed(
                                               items = folderVideos,
-                                              key = { _, video -> video.id }) {
-                                              index,
-                                              video ->
+                                              key = { _, video -> video.id }) { index, video ->
                                             CustomVideoLargeCard(
                                                 video = video,
                                                 duration = viewModel.formatDuration(video.duration),
                                                 size = viewModel.formatSize(video.size),
                                                 isSelected = false,
-                                                onClick = {
-                                                  onVideoClick(folderVideos, index)
-                                                },
+                                                onClick = { onVideoClick(folderVideos, index) },
                                                 onLongClick = {})
                                           }
                                         }
@@ -664,9 +668,7 @@ fun HomeScreen(
                                       contentPadding = PaddingValues(bottom = 130.dp)) {
                                         itemsIndexed(
                                             items = folders,
-                                            key = { _, folder -> folder.path }) {
-                                            _,
-                                            folder ->
+                                            key = { _, folder -> folder.path }) { _, folder ->
                                           HomeFolderListCard(
                                               folder = folder,
                                               onClick = { viewModel.openFolder(folder.path) })
@@ -681,9 +683,7 @@ fun HomeScreen(
                                       contentPadding = PaddingValues(bottom = 130.dp)) {
                                         itemsIndexed(
                                             items = folders,
-                                            key = { _, folder -> folder.path }) {
-                                            _,
-                                            folder ->
+                                            key = { _, folder -> folder.path }) { _, folder ->
                                           HomeFolderGridCard(
                                               folder = folder,
                                               onClick = { viewModel.openFolder(folder.path) })
@@ -696,9 +696,7 @@ fun HomeScreen(
                                       contentPadding = PaddingValues(bottom = 130.dp)) {
                                         itemsIndexed(
                                             items = folders,
-                                            key = { _, folder -> folder.path }) {
-                                            _,
-                                            folder ->
+                                            key = { _, folder -> folder.path }) { _, folder ->
                                           HomeFolderLargeCard(
                                               folder = folder,
                                               onClick = { viewModel.openFolder(folder.path) })
@@ -708,6 +706,26 @@ fun HomeScreen(
                               }
                             }
                       }
+                    }
+                    
+                    // 🔥 UPDATE: Placeholders for new tabs
+                    HomeContentMode.FAVORITES -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "No favorites yet.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                    HomeContentMode.PLAYLISTS -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "No playlists found.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                   }
                 }
@@ -745,6 +763,8 @@ fun HomeScreen(
     }
   }
 }
+
+// ... [PremiumVideoListCard, CustomVideoGridCard, CustomVideoLargeCard, getVideoUriFromPathForMulti - same as before] ...
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalGlideComposeApi::class)
 @Composable
@@ -1067,12 +1087,13 @@ fun HomeContentSegment(
           label = "homeContentSegmentColor")
 
   Box(
+      // 🔥 UPDATE: Slightly smaller text size to fit 4 items comfortably
       modifier = modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
       contentAlignment = Alignment.Center) {
         Text(
             text = label,
             color = textColor,
-            fontSize = 14.sp,
+            fontSize = 13.sp, // Reduced slightly from 14.sp
             fontWeight = FontWeight.Bold)
       }
 }
