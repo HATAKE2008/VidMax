@@ -227,6 +227,37 @@ class NetworkRepository(context: Context) {
         _connectionStatuses.value = emptyMap()
     }
 
+    // ---------- Played stream links history ----------
+
+    /**
+     * Get recently played stream links (most recent first, max [MAX_PLAYED_LINKS]).
+     */
+    fun getPlayedLinks(): List<String> {
+        val raw = prefs.getString(KEY_PLAYED_LINKS, "") ?: ""
+        if (raw.isBlank()) return emptyList()
+        return raw.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    /**
+     * Record a played stream link, moving it to the top and capping the history size.
+     */
+    fun addPlayedLink(url: String) {
+        val current = getPlayedLinks().toMutableList()
+        current.remove(url)
+        current.add(0, url)
+        val capped = if (current.size > MAX_PLAYED_LINKS) current.take(MAX_PLAYED_LINKS) else current
+        prefs.edit().putString(KEY_PLAYED_LINKS, capped.joinToString("\n")).apply()
+    }
+
+    /**
+     * Remove a stream link from the history.
+     */
+    fun removePlayedLink(url: String) {
+        val current = getPlayedLinks().toMutableList()
+        current.remove(url)
+        prefs.edit().putString(KEY_PLAYED_LINKS, current.joinToString("\n")).apply()
+    }
+
     private fun saveConnections(connections: List<NetworkConnection>) {
         val array = JSONArray()
         connections.forEach { connection ->
@@ -241,5 +272,7 @@ class NetworkRepository(context: Context) {
 
     companion object {
         private const val KEY_CONNECTIONS = "connections"
+        private const val KEY_PLAYED_LINKS = "played_links"
+        private const val MAX_PLAYED_LINKS = 20
     }
 }
