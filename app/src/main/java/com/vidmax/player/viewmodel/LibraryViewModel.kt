@@ -18,7 +18,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.vidmax.player.data.model.AudioItem
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.data.local.video.VidMaxVideoDatabase
+import com.vidmax.player.data.local.video.VidMaxVideoPlaylist
+import com.vidmax.player.data.local.video.VidMaxVideoPlaylistItem
 import com.vidmax.player.data.repository.AudioRepository
+import com.vidmax.player.data.repository.VideoPlaylistRepository
 import com.vidmax.player.data.repository.VideoRepository
 import com.vidmax.player.service.AudioService
 import com.vidmax.player.ui.theme.AppTheme
@@ -28,9 +32,20 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/**
+ * Ported from mpvRex's PlaylistViewModel.PlaylistWithCount: a playlist row
+ * paired with its item count for list rendering.
+ */
+data class PlaylistWithCount(
+  val playlist: VidMaxVideoPlaylist,
+  val itemCount: Int,
+)
 
 enum class SortOrder {
   NAME,
@@ -104,6 +119,137 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   private val _openedPlaylistAudio: MutableStateFlow<List<AudioItem>> =
       MutableStateFlow(emptyList())
   val openedPlaylistAudio: StateFlow<List<AudioItem>> = _openedPlaylistAudio
+
+  // --- Video Playlists (mpvRex-style Room architecture) ---
+  private val playlistRepository: VideoPlaylistRepository =
+      VideoPlaylistRepository(VidMaxVideoDatabase.getInstance(application).videoPlaylistDao())
+
+  private val _videoPlaylists: MutableStateFlow<List<PlaylistWithCount>> =
+      MutableStateFlow(emptyList())
+  val videoPlaylists: StateFlow<List<PlaylistWithCount>> = _videoPlaylists.asStateFlow()
+
+  private val _openedVideoPlaylist: MutableStateFlow<VidMaxVideoPlaylist?> =
+      MutableStateFlow(null)
+  val openedVideoPlaylist: StateFlow<VidMaxVideoPlaylist?> = _openedVideoPlaylist.asStateFlow()
+
+  private val _openedVideoPlaylistItems: MutableStateFlow<List<VidMaxVideoPlaylistItem>> =
+      MutableStateFlow(emptyList())
+  val openedVideoPlaylistItems: StateFlow<List<VidMaxVideoPlaylistItem>> =
+      _openedVideoPlaylistItems.asStateFlow()
+
+  private var openedVideoPlaylistJob: Job? = null
+
+  // Video favorites — persisted the same way as audio favorites.
+  private val _favoriteVideoPaths: MutableStateFlow<Set<String>> =
+      MutableStateFlow(prefs.getStringSet("favorite_videos", emptySet()) ?: emptySet())
+  val favoriteVideoPaths: StateFlow<Set<String>> = _favoriteVideoPaths.asStateFlow()
+
+  init {
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.observeAllPlaylists().collectLatest {
+        reloadVideoPlaylistsWithCounts()
+      }
+    }
+  }
+
+  /** Reloads playlists with fresh item counts, newest-updated first. */
+  private suspend fun reloadVideoPlaylistsWithCounts() {
+    val withCounts = playlistRepository.getAllPlaylists().map { playlist ->
+      PlaylistWithCount(playlist, playlistRepository.getPlaylistItemCount(playlist.id))
+    }.sortedByDescending { it.playlist.updatedAt }
+    _videoPlaylists.value = withCounts
+  }
+
+  fun createVideoPlaylist(name: String) {
+    if (name.isBlank()) return
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.createPlaylist(name.trim())
+    }
+  }
+
+  fun renameVideoPlaylist(playlistId: Int, newName: String) {
+    if (newName.isBlank()) return
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.getPlaylistById(playlistId)?.let { playlist ->
+        playlistRepository.updatePlaylist(playlist.copy(name = newName.trim()))
+      }
+    }
+  }
+
+  fun deleteVideoPlaylist(playlistId: Int) {
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.getPlaylistById(playlistId)?.let { playlist ->
+        playlistRepository.deletePlaylist(playlist)
+      }
+      if (_openedVideoPlaylist.value?.id == playlistId) closeVideoPlaylist()
+    }
+  }
+
+  fun addVideoToPlaylist(playlistId: Int, video: VideoItem) {
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.addItemToPlaylist(playlistId, video.path, video.title)
+    }
+  }
+
+  fun addVideosToPlaylist(playlistId: Int, videos: List<VideoItem>) {
+    if (videos.isEmpty()) return
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.addItemsToPlaylist(
+          playlistId, videos.map { it.path to it.title })
+    }
+  }
+
+  fun removeVideoFromPlaylist(item: VidMaxVideoPlaylistItem) {
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.removeItemFromPlaylist(item)
+    }
+  }
+
+  fun clearVideoPlaylist(playlistId: Int) {
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.clearPlaylist(playlistId)
+    }
+  }
+
+  fun reorderVideoPlaylist(playlistId: Int, newItemOrder: List<Int>) {
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.reorderPlaylistItems(playlistId, newItemOrder)
+    }
+  }
+
+  /** Opens a playlist and reactively observes its items until closed. */
+  fun openVideoPlaylist(playlistId: Int) {
+    viewModelScope.launch(Dispatchers.IO) {
+      _openedVideoPlaylist.value = playlistRepository.getPlaylistById(playlistId)
+    }
+    openedVideoPlaylistJob?.cancel()
+    openedVideoPlaylistJob = viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.observePlaylistItems(playlistId).collectLatest {
+        _openedVideoPlaylistItems.value = it
+      }
+    }
+  }
+
+  fun closeVideoPlaylist() {
+    openedVideoPlaylistJob?.cancel()
+    openedVideoPlaylistJob = null
+    _openedVideoPlaylist.value = null
+    _openedVideoPlaylistItems.value = emptyList()
+  }
+
+  /** Records play history for a video played from a playlist (mpvRex parity). */
+  fun recordVideoPlayedFromPlaylist(playlistId: Int, filePath: String, positionMs: Long = 0) {
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.updatePlayHistory(playlistId, filePath, positionMs)
+    }
+  }
+
+  fun toggleVideoFavorite(path: String) {
+    val currentFavs: MutableSet<String> = _favoriteVideoPaths.value.toMutableSet()
+    if (currentFavs.contains(path)) currentFavs.remove(path) else currentFavs.add(path)
+    _favoriteVideoPaths.value = currentFavs
+    prefs.edit().putStringSet("favorite_videos", currentFavs).apply()
+  }
 
   // --- Common States ---
   private val _allVideos: MutableStateFlow<List<VideoItem>> = MutableStateFlow(emptyList())
