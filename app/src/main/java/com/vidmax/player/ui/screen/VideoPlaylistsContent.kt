@@ -231,6 +231,7 @@ private fun PlaylistCard(name: String, count: Int, onClick: () -> Unit) {
       }
 }
 
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun PlaylistDetailContent(
   viewModel: LibraryViewModel,
