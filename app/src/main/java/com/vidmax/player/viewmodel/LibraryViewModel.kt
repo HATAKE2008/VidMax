@@ -191,6 +191,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
   }
 
+  /** Creates a new playlist and adds the videos to it (mpvRex AddToPlaylist flow). */
+  fun createAndAddToPlaylist(name: String, videos: List<VideoItem>) {
+    if (name.isBlank() || videos.isEmpty()) return
+    viewModelScope.launch(Dispatchers.IO) {
+      val playlistId = playlistRepository.createPlaylist(name).toInt()
+      playlistRepository.addItemsToPlaylist(playlistId, videos.map { it.path to it.title })
+    }
+  }
+
   fun addVideosToPlaylist(playlistId: Int, videos: List<VideoItem>) {
     if (videos.isEmpty()) return
     viewModelScope.launch(Dispatchers.IO) {
