@@ -95,6 +95,7 @@ fun HomeScreen(
   var selectedVideoIds by remember { mutableStateOf(setOf<Long>()) }
   var showDeleteConfirmDialog by remember { mutableStateOf(false) }
   var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+  val openedVideoPlaylist by viewModel.openedVideoPlaylist.collectAsState()
   var isSearchExpanded by remember { mutableStateOf(false) }
   val inSelectionMode = selectedVideoIds.isNotEmpty()
 
@@ -327,6 +328,9 @@ fun HomeScreen(
               }
             }
       } else {
+        // Inside a folder or playlist detail, the screen shows only its own
+        // back button + title — hide the home header and category toggle.
+        if (!isInsideFolder && openedVideoPlaylist == null) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -475,6 +479,7 @@ fun HomeScreen(
                         })
                   }
                 }
+        }
         }
       }
 

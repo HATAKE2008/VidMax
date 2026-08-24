@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -53,14 +52,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
+import com.bumptech.glide.integration.compose.GlideImage
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vidmax.player.data.local.video.VidMaxVideoPlaylistItem
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.PlaylistWithCount
+import java.io.File
 
 /**
  * Playlists tab content for the Videos home screen (mpvRex-style).
  */
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun VideoPlaylistsContent(
   viewModel: LibraryViewModel,
@@ -122,7 +127,7 @@ fun VideoPlaylistsContent(
           shape = RoundedCornerShape(16.dp),
           modifier =
               Modifier.align(Alignment.BottomEnd)
-                  .padding(end = 20.dp, bottom = 110.dp)
+                  .padding(end = 20.dp, bottom = 140.dp)
                   .size(56.dp)) {
             Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
           }
@@ -337,25 +342,29 @@ private fun PlaylistDetailContent(
                           .clickable { onPlayVideos(toVideoItems(items), index) }
                           .padding(horizontal = 10.dp, vertical = 10.dp),
                   verticalAlignment = Alignment.CenterVertically) {
+                    // Real video thumbnail, same loading path as the folder view.
                     Box(
                         modifier =
-                            Modifier.size(38.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center) {
-                          Text(
-                              text = "${index + 1}",
-                              color = MaterialTheme.colorScheme.primary,
-                              fontSize = 13.sp,
-                              fontWeight = FontWeight.Bold)
+                            Modifier.width(110.dp)
+                                .height(62.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.DarkGray)) {
+                          GlideImage(
+                              model = File(item.filePath),
+                              contentDescription = "Thumbnail",
+                              contentScale = ContentScale.Crop,
+                              modifier = Modifier.fillMaxSize()) { requestBuilder ->
+                            requestBuilder
+                                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                .override(400)
+                          }
                         }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = item.fileName,
                         color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 14.sp,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f))
                     IconButton(onClick = { viewModel.removeVideoFromPlaylist(item) }) {
