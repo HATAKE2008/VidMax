@@ -54,6 +54,7 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vidmax.player.R
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.ui.components.AddToPlaylistDialog
 import com.vidmax.player.ui.components.VidMaxSearchBar
 import com.vidmax.player.viewmodel.LibraryViewModel
 import java.io.File
@@ -93,6 +94,7 @@ fun HomeScreen(
 
   var selectedVideoIds by remember { mutableStateOf(setOf<Long>()) }
   var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+  var showAddToPlaylistDialog by remember { mutableStateOf(false) }
   var isSearchExpanded by remember { mutableStateOf(false) }
   val inSelectionMode = selectedVideoIds.isNotEmpty()
 
@@ -130,6 +132,16 @@ fun HomeScreen(
               Toast.makeText(context, "Delete Cancelled", Toast.LENGTH_SHORT).show()
             }
           }
+
+  if (showAddToPlaylistDialog) {
+    AddToPlaylistDialog(
+        viewModel = viewModel,
+        videos = videos.filter { selectedVideoIds.contains(it.id) },
+        onDismiss = {
+          showAddToPlaylistDialog = false
+          selectedVideoIds = emptySet()
+        })
+  }
 
   if (showDeleteConfirmDialog) {
     AlertDialog(
@@ -252,6 +264,37 @@ fun HomeScreen(
                       Icon(
                           painter = painterResource(id = R.drawable.ic_share_custom),
                           contentDescription = "Share",
+                          tint = MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.size(24.dp))
+                    }
+                IconButton(
+                    onClick = {
+                      val selected = videos.filter { selectedVideoIds.contains(it.id) }
+                      if (selected.isNotEmpty()) {
+                        showAddToPlaylistDialog = true
+                      }
+                    }) {
+                      Icon(
+                          imageVector = Icons.Filled.PlaylistAdd,
+                          contentDescription = "Add to Playlist",
+                          tint = MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.size(24.dp))
+                    }
+                IconButton(
+                    onClick = {
+                      val selected = videos.filter { selectedVideoIds.contains(it.id) }
+                      val allFavorite =
+                          selected.isNotEmpty() &&
+                              selected.all { viewModel.favoriteVideoPaths.value.contains(it.path) }
+                      selected.forEach { video ->
+                        if (allFavorite == viewModel.favoriteVideoPaths.value.contains(video.path)) {
+                          viewModel.toggleVideoFavorite(video.path)
+                        }
+                      }
+                    }) {
+                      Icon(
+                          imageVector = Icons.Filled.Favorite,
+                          contentDescription = "Toggle Favorite",
                           tint = MaterialTheme.colorScheme.primary,
                           modifier = Modifier.size(24.dp))
                     }
@@ -708,24 +751,16 @@ fun HomeScreen(
                       }
                     }
                     
-                    // 🔥 UPDATE: Placeholders for new tabs
+                    // 🔥 UPDATE: Favorites & Playlists tabs (mpvRex-style)
                     HomeContentMode.FAVORITES -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "No favorites yet.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 16.sp
-                            )
-                        }
+                        VideoFavoritesContent(
+                            viewModel = viewModel,
+                            onPlayVideos = onVideoClick)
                     }
                     HomeContentMode.PLAYLISTS -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "No playlists found.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 16.sp
-                            )
-                        }
+                        VideoPlaylistsContent(
+                            viewModel = viewModel,
+                            onPlayVideos = onVideoClick)
                     }
                   }
                 }
