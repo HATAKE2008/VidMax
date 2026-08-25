@@ -7,7 +7,13 @@
         <item name="android:windowLightStatusBar">false</item>
     </style>
 
-    <style name="Theme.VidMax.Splash" parent="Theme.VidMax.NoActionBar">
-        <item name="android:windowBackground">@drawable/splash_background</item>
+    <!-- Launcher splash (androidx.core:core-splashscreen, same approach as mpvRex).
+         Shows logo on black from the very first frame on ALL Android versions,
+         then hands over to Theme.VidMax.NoActionBar automatically. -->
+    <style name="Theme.VidMax.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_screen_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="windowSplashScreenAnimationDuration">800</item>
+        <item name="postSplashScreenTheme">@style/Theme.VidMax.NoActionBar</item>
     </style>
 </resources>

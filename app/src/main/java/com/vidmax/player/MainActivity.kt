@@ -13,6 +13,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.vidmax.player.ui.permission.PermissionScreen
 import com.vidmax.player.ui.player.PlayerActivity
 import com.vidmax.player.ui.screen.MainScreen
@@ -30,7 +31,9 @@ class MainActivity : ComponentActivity() {
   private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
 
   override fun onCreate(savedInstanceState: Bundle?) {
-    setTheme(R.style.Theme_VidMax_NoActionBar)
+    // 🔥 System splash (core-splashscreen): logo shows instantly on cold start
+    // and postSplashScreenTheme switches to Theme.VidMax.NoActionBar automatically.
+    installSplashScreen()
 
     enableEdgeToEdge()
 

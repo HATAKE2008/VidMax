@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Splash icon: app logo sized to sit inside the 108dp system icon canvas
+     (safe on both pre-12 compat rendering and API 31+ circular masking). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="92dp"
+        android:height="92dp"
+        android:gravity="center"
+        android:drawable="@drawable/app_logo" />
+</layer-list>
