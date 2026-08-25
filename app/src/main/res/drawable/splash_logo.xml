@@ -1,10 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Splash icon: app logo sized to sit inside the 108dp system icon canvas
-     (safe on both pre-12 compat rendering and API 31+ circular masking). -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="92dp"
-        android:height="92dp"
-        android:gravity="center"
-        android:drawable="@drawable/app_logo" />
-</layer-list>
+<!-- VidMax splash icon as an AnimatedVectorDrawable, mpvRex-style:
+     the system splash shows this single element (288dp canvas, content inside
+     the 252dp safe zone) so there is no size jump when the app appears.
+     The checkmark draws itself in via trimPathEnd on API 31+; on older
+     versions the static frame shows the complete logo. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="288dp"
+            android:height="288dp"
+            android:viewportWidth="288"
+            android:viewportHeight="288">
+
+            <!-- Navy rounded square (inset to the icon safe zone) -->
+            <path
+                android:pathData="M 73 18 L 251 18 A 55 55 0 0 1 270 73 L 270 215 A 55 55 0 0 1 215 270 L 73 270 A 55 55 0 0 1 18 215 L 18 73 A 55 55 0 0 1 73 18 Z"
+                android:fillColor="#061238" />
+
+            <group
+                android:name="check_group"
+                android:pivotX="145"
+                android:pivotY="130"
+                android:scaleX="1"
+                android:scaleY="1">
+                <path
+                    android:name="check_path"
+                    android:pathData="M 94 90 L 132 172 L 196 90"
+                    android:strokeColor="#FFFFFF"
+                    android:strokeWidth="30"
+                    android:strokeLineCap="round"
+                    android:strokeLineJoin="round"
+                    android:trimPathEnd="1" />
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <!-- Checkmark draws itself in -->
+    <target android:name="check_path">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:duration="500"
+                android:startOffset="120"
+                android:interpolator="@android:interpolator/decelerate_quad" />
+        </aapt:attr>
+    </target>
+
+    <!-- Subtle settle pop while it draws -->
+    <target android:name="check_group">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="520"
+                android:startOffset="120"
+                android:interpolator="@android:interpolator/decelerate_quad">
+                <propertyValuesHolder
+                    android:propertyName="scaleX"
+                    android:valueFrom="0.7"
+                    android:valueTo="1" />
+                <propertyValuesHolder
+                    android:propertyName="scaleY"
+                    android:valueFrom="0.7"
+                    android:valueTo="1" />
+            </objectAnimator>
+        </aapt:attr>
+    </target>
+
+</animated-vector>
