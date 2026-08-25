@@ -5,6 +5,8 @@ on:
     branches:
       - new-feature
       - video-screeen-new
+      - 260823-feat-network-streaming
+      - main
   workflow_dispatch:
 
 jobs:
@@ -29,7 +31,7 @@ jobs:
         mkdir -p app/src/main/jniLibs/arm64-v8a
         cp mpv_extracted/lib/arm64-v8a/*.so app/src/main/jniLibs/arm64-v8a/
         echo "Copied .so files:"
-        ls app/src/main/jniLibs/arm64-v8a/
+        ls -la app/src/main/jniLibs/arm64-v8a/
 
     - name: Setup Java JDK
       uses: actions/setup-java@v4
@@ -41,12 +43,34 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x gradlew
 
-    - name: Setup Keystore
+    - name: Setup Keystore (secret or auto-generated fallback)
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
       run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > vidmax.keystore
+        if [ -n "$KEYSTORE_BASE64" ]; then
+          echo "Decoding keystore from repo secret..."
+          echo "$KEYSTORE_BASE64" | base64 -d > vidmax.keystore
+        else
+          echo "No KEYSTORE_BASE64 secret found — generating a local signing keystore..."
+          keytool -genkeypair -v \
+            -keystore vidmax.keystore \
+            -storepass vidmax123 \
+            -keypass vidmax123 \
+            -alias vidmax \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=VidMax, OU=VidMax, O=VidMax, L=Internet, ST=Internet, C=US"
+        fi
+        ls -la vidmax.keystore
 
     - name: Build Signed APK
-      run: ./gradlew assembleRelease
+      id: gradle_build
+      shell: bash
+      run: |
+        set -o pipefail
+        ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee build.log
+        status=${PIPESTATUS[0]}
+        echo "exitcode=$status" >> "$GITHUB_OUTPUT"
+        exit $status
       env:
         GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=512m"
         KEYSTORE_PATH: ${{ github.workspace }}/vidmax.keystore
@@ -55,8 +79,24 @@ jobs:
         KEY_PASS: vidmax123
         LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
 
-    - name: Upload APK
+    - name: Print Build Log Tail (on failure)
+      if: failure()
+      run: |
+        echo "===== BUILD FAILED — last 80 lines of Gradle output ====="
+        tail -n 80 build.log || true
+
+    - name: Upload APK Artifact
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: VidMax-Release-APK
         path: app/build/outputs/apk/release/*.apk
+        if-no-files-found: error
+
+    - name: Upload Full Build Log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: VidMax-Build-Log
+        path: build.log
+        if-no-files-found: ignore
