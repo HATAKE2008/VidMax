@@ -17,7 +17,6 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.vidmax.player.ui.permission.PermissionScreen
 import com.vidmax.player.ui.player.PlayerActivity
 import com.vidmax.player.ui.screen.MainScreen
-import com.vidmax.player.ui.screen.SplashScreen
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.VidMaxTheme
 import com.vidmax.player.viewmodel.DarkMode
@@ -78,23 +77,17 @@ class MainActivity : ComponentActivity() {
           amoledMode = amoledMode,
           appFontFamily = appFontFamily
       ) {
-        // 🔥 স্প্ল্যাশ স্ক্রিন স্টেট
-        var showSplash by remember { mutableStateOf(true) }
-
-        if (showSplash) {
-          SplashScreen(onSplashFinished = { showSplash = false })
+        // 🔥 স্প্ল্যাশ সিস্টেম লেভেলেই শেষ (core-splashscreen) — সরাসরি কন্টেন্ট,
+        // কোনো দ্বিতীয় Compose splash নেই (mpvRex প্যাটার্ন)
+        if (permission) {
+          MainScreen(
+              viewModel = libraryViewModel,
+              onVideoClick = { videos, index ->
+                libraryViewModel.setRecentlyPlayedVideo(videos[index].title, videos[index].path)
+                PlayerActivity.start(this@MainActivity, videos.map { it.path }, index)
+              })
         } else {
-          // স্প্ল্যাশ শেষ হলে পারমিশন চেক করে মেইন অ্যাপে যাবে
-          if (permission) {
-            MainScreen(
-                viewModel = libraryViewModel,
-                onVideoClick = { videos, index ->
-                  libraryViewModel.setRecentlyPlayedVideo(videos[index].title, videos[index].path)
-                  PlayerActivity.start(this@MainActivity, videos.map { it.path }, index)
-                })
-          } else {
-            PermissionScreen(onRequestPermission = { requestStoragePermissions() })
-          }
+          PermissionScreen(onRequestPermission = { requestStoragePermissions() })
         }
       }
     }
