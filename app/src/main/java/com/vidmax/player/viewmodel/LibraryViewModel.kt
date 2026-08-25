@@ -25,6 +25,7 @@ import com.vidmax.player.data.repository.AudioRepository
 import com.vidmax.player.data.repository.VideoPlaylistRepository
 import com.vidmax.player.data.repository.VideoRepository
 import com.vidmax.player.service.AudioService
+import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -344,6 +345,20 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       prefs.getBoolean("amoled_mode", false)
   )
   val amoledMode: StateFlow<Boolean> = _amoledMode
+
+  // --- App Font (font changer) ---
+  private val _appFontId: MutableStateFlow<String> = MutableStateFlow(
+      prefs.getString("app_font", AppFonts.SYSTEM_DEFAULT) ?: AppFonts.SYSTEM_DEFAULT
+  )
+  val appFontId: StateFlow<String> = _appFontId.asStateFlow()
+
+  private val _importedFonts: MutableStateFlow<List<String>> = MutableStateFlow(emptyList())
+  val importedFonts: StateFlow<List<String>> = _importedFonts.asStateFlow()
+
+  init {
+    // Restore previously imported fonts so they appear in Settings on startup.
+    refreshImportedFonts()
+  }
 
   private val _skipSilence: MutableStateFlow<Boolean> =
       MutableStateFlow(prefs.getBoolean("skip_silence", false))
@@ -880,6 +895,43 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   fun setAmoledMode(enabled: Boolean) {
     _amoledMode.value = enabled
     prefs.edit().putBoolean("amoled_mode", enabled).apply()
+  }
+
+  fun setAppFont(fontId: String) {
+    _appFontId.value = fontId
+    prefs.edit().putString("app_font", fontId).apply()
+  }
+
+  /** Re-scans the private fonts dir and refreshes [importedFonts]. */
+  fun refreshImportedFonts() {
+    viewModelScope.launch(Dispatchers.IO) {
+      val ids = AppFonts.importedFontFiles(getApplication())
+          .map { AppFonts.CUSTOM_PREFIX + it.name }
+      _importedFonts.value = ids
+    }
+  }
+
+  /**
+   * Copies a user-selected font (SAF uri) into app storage, auto-selects it
+   * and returns the sanitized file name on success.
+   */
+  fun importCustomFont(uri: Uri): Result<String> {
+    val result = AppFonts.importFont(getApplication(), uri)
+    result.onSuccess { fileName ->
+      refreshImportedFonts()
+      setAppFont(AppFonts.CUSTOM_PREFIX + fileName)
+    }
+    return result
+  }
+
+  /** Deletes an imported font; falls back to the system font when it was active. */
+  fun deleteCustomFont(fontId: String): Boolean {
+    val deleted = AppFonts.deleteImportedFont(getApplication(), fontId)
+    if (deleted) {
+      if (appFontId.value == fontId) setAppFont(AppFonts.SYSTEM_DEFAULT)
+      refreshImportedFonts()
+    }
+    return deleted
   }
 
   fun setSkipSilence(enabled: Boolean) {

@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,7 +31,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -57,12 +61,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
 import com.vidmax.player.BuildConfig
 import com.vidmax.player.R
 import com.vidmax.player.ui.components.UpdateResultDialog
+import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.utils.UpdateChecker
 import com.vidmax.player.viewmodel.DarkMode
@@ -108,6 +116,29 @@ fun SettingsScreen(
         DarkMode.Dark -> true
         DarkMode.Light -> false
         DarkMode.System -> isSystemDark
+    }
+
+    // --- Font changer state ---
+    val currentFontId by viewModel.appFontId.collectAsState()
+    val importedFonts by viewModel.importedFonts.collectAsState()
+    var pendingDeleteFont by remember { mutableStateOf<String?>(null) }
+    var isImportingFont by remember { mutableStateOf(false) }
+
+    val fontPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            isImportingFont = true
+            scope.launch {
+                val result = viewModel.importCustomFont(uri)
+                isImportingFont = false
+                val message = result.fold(
+                    onSuccess = { fileName -> "Font \"${fileName.substringBeforeLast('.')}\" imported" },
+                    onFailure = { it.message ?: "Could not import font" }
+                )
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -252,6 +283,58 @@ fun SettingsScreen(
                     enabled = isCurrentlyDark,
                     onCheckedChange = { viewModel.setAmoledMode(it) }
                 )
+            }
+
+            // ── App Font (font changer + importer) ────────────────────────
+            item {
+                SettingsDivider()
+                SettingsSectionHeader(title = "App Font", paddingTop = 4.dp)
+            }
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp, horizontal = 2.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    item {
+                        FontPreviewCard(
+                            sampleText = "Aa Bb",
+                            displayName = "System Default",
+                            fontFamily = FontFamily.Default,
+                            isSelected = currentFontId == AppFonts.SYSTEM_DEFAULT,
+                            onClick = { viewModel.setAppFont(AppFonts.SYSTEM_DEFAULT) }
+                        )
+                    }
+                    items(AppFonts.builtInFonts) { font ->
+                        FontPreviewCard(
+                            sampleText = "VidMax Aa",
+                            displayName = font.displayName,
+                            fontFamily = AppFonts.resolveFontFamily(context, font.id),
+                            isSelected = currentFontId == font.id,
+                            onClick = { viewModel.setAppFont(font.id) }
+                        )
+                    }
+                    items(importedFonts, key = { it }) { fontId ->
+                        FontPreviewCard(
+                            sampleText = "VidMax Aa",
+                            displayName = AppFonts.displayNameFor(fontId),
+                            fontFamily = AppFonts.resolveFontFamily(context, fontId),
+                            isSelected = currentFontId == fontId,
+                            onClick = { viewModel.setAppFont(fontId) },
+                            onDelete = { pendingDeleteFont = fontId }
+                        )
+                    }
+                    item {
+                        ImportFontCard(
+                            isBusy = isImportingFont,
+                            onClick = {
+                                fontPickerLauncher.launch(
+                                    arrayOf("font/ttf", "font/otf", "application/x-font-ttf", "application/x-font-otf", "application/octet-stream")
+                                )
+                            }
+                        )
+                    }
+                }
             }
 
             // ── Advanced player ───────────────────────────────────────────
@@ -426,6 +509,33 @@ fun SettingsScreen(
                 }
             )
         }
+
+        pendingDeleteFont?.let { fontId ->
+            AlertDialog(
+                onDismissRequest = { pendingDeleteFont = null },
+                title = { Text(text = "Remove Font?") },
+                text = {
+                    Text(
+                        text = "\"${AppFonts.displayNameFor(fontId)}\" will be removed from your imported fonts. " +
+                               "The app will switch back to the system default if it was active.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.deleteCustomFont(fontId)
+                        pendingDeleteFont = null
+                    }) {
+                        Text(text = "Remove", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDeleteFont = null }) {
+                        Text(text = "Cancel")
+                    }
+                }
+            )
+        }
     }
 }
 }
@@ -523,6 +633,132 @@ fun AppThemePreviewItem(
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             color = if (isSelected) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+// ── Font Preview Card ─────────────────────────────────────────────────────────
+
+@Composable
+private fun FontPreviewCard(
+    sampleText: String,
+    displayName: String,
+    fontFamily: FontFamily,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .width(104.dp)
+                .height(92.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(
+                    width = if (isSelected) 2.dp else 0.8.dp,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(14.dp)
+                )
+                .clickable { onClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = sampleText,
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 19.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+            if (onDelete != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .clickable { onDelete() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove font",
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = displayName,
+            fontSize = 11.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            color = if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+    }
+}
+
+// ── Import Font Card ──────────────────────────────────────────────────────────
+
+@Composable
+private fun ImportFontCard(
+    isBusy: Boolean,
+    onClick: () -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .width(104.dp)
+                .height(92.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                    shape = RoundedCornerShape(14.dp)
+                )
+                .clickable(enabled = !isBusy) { onClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            if (isBusy) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Import\n.ttf / .otf",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 12.sp
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Add Font",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

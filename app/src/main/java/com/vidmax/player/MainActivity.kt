@@ -17,6 +17,7 @@ import com.vidmax.player.ui.permission.PermissionScreen
 import com.vidmax.player.ui.player.PlayerActivity
 import com.vidmax.player.ui.screen.MainScreen
 import com.vidmax.player.ui.screen.SplashScreen
+import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.VidMaxTheme
 import com.vidmax.player.viewmodel.DarkMode
 import com.vidmax.player.viewmodel.LibraryViewModel
@@ -53,6 +54,12 @@ class MainActivity : ComponentActivity() {
       val darkMode by libraryViewModel.darkMode.collectAsState()
       val amoledMode by libraryViewModel.amoledMode.collectAsState()
 
+      // Font changer — resolves the selected (built-in or imported) font family
+      val appFontId by libraryViewModel.appFontId.collectAsState()
+      val appFontFamily = remember(appFontId) {
+        AppFonts.resolveFontFamily(this@MainActivity, appFontId)
+      }
+
       // ডার্ক মোড লজিক ক্যালকুলেট করা
       val isSystemDark = isSystemInDarkTheme()
       val useDarkTheme = when (darkMode) {
@@ -63,9 +70,10 @@ class MainActivity : ComponentActivity() {
 
       // 🔥 রিয়েল-টাইম থিম ভ্যালু পাস করা হচ্ছে
       VidMaxTheme(
-          appTheme = currentTheme, 
-          useDarkTheme = useDarkTheme, 
-          amoledMode = amoledMode
+          appTheme = currentTheme,
+          useDarkTheme = useDarkTheme,
+          amoledMode = amoledMode,
+          appFontFamily = appFontFamily
       ) {
         // 🔥 স্প্ল্যাশ স্ক্রিন স্টেট
         var showSplash by remember { mutableStateOf(true) }
