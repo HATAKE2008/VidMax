@@ -2,6 +2,8 @@ package com.vidmax.player.ui.screen
 
 import android.app.Application
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -398,7 +401,8 @@ private fun NetworkBrowser(
     onOpenFolder: (NetworkFile) -> Unit,
     onPlayFile: (NetworkFile) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -426,13 +430,6 @@ private fun NetworkBrowser(
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                )
-            }
-            IconButton(onClick = onRefresh) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = "Refresh",
-                    tint = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -466,7 +463,7 @@ private fun NetworkBrowser(
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 130.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     items(items = files, key = { it.path }) { file ->
@@ -480,6 +477,76 @@ private fun NetworkBrowser(
                         }
                     }
                 }
+            }
+        }
+        }
+
+        // mpvRex-style floating pill bottom bar (FloatingBottomBar port):
+        // icon-only tonal buttons in a rounded floating surface.
+        NetworkFloatingBottomBar(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            onUpClick = onBack,
+            onRefreshClick = onRefresh,
+        )
+    }
+}
+
+/**
+ * Ported from mpvRex's FloatingBottomBar: a pill-shaped Surface with
+ * FilledTonalIconButtons, floating above the bottom navigation bar with an
+ * animated offset.
+ */
+@Composable
+private fun NetworkFloatingBottomBar(
+    modifier: Modifier = Modifier,
+    onUpClick: () -> Unit,
+    onRefreshClick: () -> Unit,
+) {
+    val targetBottomPadding = 96.dp
+    val animatedBottomPadding by animateDpAsState(
+        targetValue = targetBottomPadding,
+        animationSpec = tween(220),
+        label = "networkBottomBarPadding",
+    )
+
+    Surface(
+        modifier = modifier.padding(bottom = animatedBottomPadding),
+        shape = RoundedCornerShape(32.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 3.dp,
+        shadowElevation = 8.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            FilledTonalIconButton(
+                onClick = onUpClick,
+                modifier = Modifier.size(42.dp),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Up",
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            FilledTonalIconButton(
+                onClick = onRefreshClick,
+                modifier = Modifier.size(42.dp),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = "Refresh",
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
     }
@@ -524,44 +591,51 @@ private fun NetworkFolderRow(file: NetworkFile, onClick: () -> Unit) {
 
 @Composable
 private fun NetworkVideoRow(file: NetworkFile, onClick: () -> Unit) {
+    // mpvRex NetworkVideoCard-style row: 16:9 thumbnail placeholder on the
+    // left, two-line title and a size chip — playback logic unchanged.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable { onClick() }
-            .padding(vertical = 10.dp, horizontal = 8.dp),
+            .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                .width(110.dp)
+                .height(62.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.DarkGray),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Filled.PlayArrow,
-                contentDescription = "Play",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(26.dp),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.size(36.dp),
             )
         }
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = file.name,
                 color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 14.sp,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (file.size > 0) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = formatFileSize(file.size),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
                 )
             }
         }
