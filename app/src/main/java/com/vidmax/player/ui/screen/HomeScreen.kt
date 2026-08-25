@@ -14,6 +14,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -400,10 +401,11 @@ fun HomeScreen(
             BoxWithConstraints(
                 modifier =
                     Modifier.fillMaxWidth() // Made it full width to fit 4 items comfortably
-                        .height(46.dp) 
+                        .height(48.dp)
                         .clip(RoundedCornerShape(50))
                         .background(
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))) {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .padding(4.dp)) {
                   
                   val segmentWidth = maxWidth / 4f // 4 options now
                   val indicatorOffset by
@@ -440,7 +442,9 @@ fun HomeScreen(
                             viewModel.closeFolder()
                             prefs.edit().putString("home_content_mode", HomeContentMode.VIDEO.name).apply()
                           }
-                        })
+                        }) { tint, scale ->
+                      Icon(painterResource(id = R.drawable.ic_video_library), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+                    }
                     HomeContentSegment(
                         label = "Folder",
                         isActive = currentContentMode == HomeContentMode.FOLDER,
@@ -452,7 +456,9 @@ fun HomeScreen(
                             selectedVideoIds = emptySet()
                             prefs.edit().putString("home_content_mode", HomeContentMode.FOLDER.name).apply()
                           }
-                        })
+                        }) { tint, scale ->
+                      Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+                    }
                     HomeContentSegment(
                         label = "Favs",
                         isActive = currentContentMode == HomeContentMode.FAVORITES,
@@ -464,7 +470,9 @@ fun HomeScreen(
                             selectedVideoIds = emptySet()
                             prefs.edit().putString("home_content_mode", HomeContentMode.FAVORITES.name).apply()
                           }
-                        })
+                        }) { tint, scale ->
+                      Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+                    }
                     HomeContentSegment(
                         label = "Playlists",
                         isActive = currentContentMode == HomeContentMode.PLAYLISTS,
@@ -476,7 +484,9 @@ fun HomeScreen(
                             selectedVideoIds = emptySet()
                             prefs.edit().putString("home_content_mode", HomeContentMode.PLAYLISTS.name).apply()
                           }
-                        })
+                        }) { tint, scale ->
+                      Icon(painterResource(id = R.drawable.ic_playlist), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+                    }
                   }
                 }
         }
@@ -1116,25 +1126,38 @@ fun HomeContentSegment(
     label: String,
     isActive: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    icon: @Composable (Color, Float) -> Unit
 ) {
-  val textColor by
+  // Same animation design as MusicScreen's TabItem: animated tint plus a
+  // low-bouncy spring icon pop when the segment becomes active.
+  val contentColor by
       animateColorAsState(
           targetValue =
               if (isActive) MaterialTheme.colorScheme.onPrimary
-              else MaterialTheme.colorScheme.onSurfaceVariant,
-          animationSpec = tween(250),
-          label = "homeContentSegmentColor")
+              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+          animationSpec = tween(200),
+          label = "homeSegmentColor")
 
-  Box(
-      // 🔥 UPDATE: Slightly smaller text size to fit 4 items comfortably
-      modifier = modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
-      contentAlignment = Alignment.Center) {
+  val iconScale by animateFloatAsState(
+      targetValue = if (isActive) 1.15f else 1.0f,
+      animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+      label = "homeSegmentScale")
+
+  Row(
+      modifier =
+          modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
+      horizontalArrangement = Arrangement.Center,
+      verticalAlignment = Alignment.CenterVertically) {
+        icon(contentColor, iconScale)
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = label,
-            color = textColor,
-            fontSize = 13.sp, // Reduced slightly from 14.sp
-            fontWeight = FontWeight.Bold)
+            color = contentColor,
+            fontSize = 12.sp,
+            fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
       }
 }
 
