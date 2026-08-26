@@ -81,7 +81,9 @@ android {
                 'META-INF/NOTICE',
                 'META-INF/NOTICE.txt',
                 'META-INF/*.kotlin_module',
-                'META-INF/versions/9/OSGI-INF/MANIFEST.MF'
+                'META-INF/versions/9/OSGI-INF/MANIFEST.MF',
+                // BouncyCastle post-quantum parameter blobs — unused (SMB only needs AES/CMAC)
+                'org/bouncycastle/pqc/**'
             ]
         }
         jniLibs {
