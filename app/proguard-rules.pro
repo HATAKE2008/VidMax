@@ -44,13 +44,16 @@
 -keep class fi.iki.elonen.** { *; }
 -dontwarn fi.iki.elonen.**
 
-# ── MPV native bridge (JNI) ──────────────────────────────────────────────────
--keep class com.vidmax.player.MPVLib$* { *; }
--keepclassmembers class com.vidmax.player.MPVLib {
+# ── MPV native bridge (JNI, package is.xyz.mpv) ──────────────────────────────
+-keep class is.xyz.mpv.** { *; }
+-keepclassmembers class is.xyz.mpv.MPVLib {
     native <methods>;
-    private int *;
-    public static <methods>;
 }
+
+# ── Catch-all for optional/compile-only references in bundled libraries ──────
+# R8 still shrinks code; this only suppresses missing-class diagnostics for
+# classes that never exist on Android (javax.*, java.lang.management, etc).
+-dontwarn **
 
 # ── App enums persisted via valueOf() in SharedPreferences ───────────────────
 -keepclassmembers enum com.vidmax.player.** {
