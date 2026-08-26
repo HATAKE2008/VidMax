@@ -19,9 +19,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -35,8 +40,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.SingleSampleMediaSource
+import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.ui.theme.VidMaxTheme
+import com.vidmax.player.viewmodel.DarkMode
 import com.vidmax.player.viewmodel.LoopMode
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
@@ -140,18 +147,10 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-
         prefs = getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
         isResumePlayback = prefs.getBoolean("resume_playback", true)
         audioBoostEnabled = prefs.getBoolean("audio_boost", false)
         val isAutoRotate = prefs.getBoolean("auto_rotate", true)
-
-        val savedThemeName = prefs.getString("app_theme", AppTheme.Default.name) ?: AppTheme.Default.name
-        val currentTheme = try {
-            AppTheme.valueOf(savedThemeName)
-        } catch (e: Exception) {
-            AppTheme.Default
-        }
 
         val savedEngineName = prefs.getString("player_engine", PlayerEngine.EXO.name) ?: PlayerEngine.EXO.name
         val engineToSet = try {
@@ -227,13 +226,54 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         pendingPlayIndex = startIndex
 
         setContent {
+            // 🔥 Reactive theme — mirrors the app Settings (theme, dark mode,
+            // AMOLED, font) live, so the player and its settings panels always
+            // match the rest of the app.
+            var themeState by remember { mutableStateOf(readSavedTheme()) }
+            var darkModeState by remember { mutableStateOf(readSavedDarkMode()) }
+            var amoledState by remember { mutableStateOf(prefs.getBoolean("amoled_mode", false)) }
+            var fontIdState by remember {
+                mutableStateOf(
+                    prefs.getString("app_font", AppFonts.SYSTEM_DEFAULT) ?: AppFonts.SYSTEM_DEFAULT
+                )
+            }
+
+            DisposableEffect(Unit) {
+                val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                    when (key) {
+                        "app_theme" -> themeState = readSavedTheme()
+                        "dark_mode" -> darkModeState = readSavedDarkMode()
+                        "amoled_mode" -> amoledState = prefs.getBoolean("amoled_mode", false)
+                        "app_font" -> fontIdState =
+                            prefs.getString("app_font", AppFonts.SYSTEM_DEFAULT) ?: AppFonts.SYSTEM_DEFAULT
+                    }
+                }
+                prefs.registerOnSharedPreferenceChangeListener(listener)
+                onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+            }
+
+            val isSystemDark = isSystemInDarkTheme()
+            val useDarkTheme = when (darkModeState) {
+                DarkMode.Dark -> true
+                DarkMode.Light -> false
+                DarkMode.System -> isSystemDark
+            }
+            val appFontFamily = remember(fontIdState) {
+                AppFonts.resolveFontFamily(this@PlayerActivity, fontIdState)
+            }
+
             val currentIndex by playerViewModel.currentVideoIndex.collectAsState()
             val currentPath =
                 if (videoPaths.isNotEmpty() && currentIndex < videoPaths.size)
                     videoPaths[currentIndex]
                 else ""
 
-            VidMaxTheme(appTheme = currentTheme) {
+            VidMaxTheme(
+                appTheme = themeState,
+                useDarkTheme = useDarkTheme,
+                amoledMode = amoledState,
+                appFontFamily = appFontFamily
+            ) {
                 PlayerScreen(
                     exoPlayer = exoPlayer,
                     viewModel = playerViewModel,
@@ -261,6 +301,18 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                 }
             }
         }
+    }
+
+    private fun readSavedTheme(): AppTheme = try {
+        AppTheme.valueOf(prefs.getString("app_theme", AppTheme.Default.name) ?: AppTheme.Default.name)
+    } catch (e: Exception) {
+        AppTheme.Default
+    }
+
+    private fun readSavedDarkMode(): DarkMode = try {
+        DarkMode.valueOf(prefs.getString("dark_mode", DarkMode.System.name) ?: DarkMode.System.name)
+    } catch (e: Exception) {
+        DarkMode.System
     }
 
     private fun enterImmersiveMode() {

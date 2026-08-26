@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -54,6 +55,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -80,17 +82,6 @@ private data class ExoTrackInfo(
     val secondary: String,
     val selected: Boolean
 )
-
-// ---------------------------------------------------------------------------
-// Colors from the design spec
-// ---------------------------------------------------------------------------
-private val RailUnselectedIcon = Color(0xFF9AA0A6)
-private val RailSelectedBg = Color(0xFF3D8FD8)
-private val LeadingIconTint = Color(0xFFC7CCD1)
-private val SecondaryText = Color(0xFF9AA0A6)
-private val ValueText = Color(0xFF58A6F0)
-private val CardBackground = Color(0xFF202428)
-private val CardDividerColor = Color.White.copy(alpha = 0.08f)
 
 // ---------------------------------------------------------------------------
 // EXO track helpers
@@ -434,59 +425,13 @@ fun SubtitleAudioPanel(
         }
     }
 
-    Row(modifier = modifier.fillMaxSize()) {
-        // LEFT HALF: transparent so the video stays fully visible underneath.
-        // Tapping it closes the panel.
-        Box(
-            modifier = Modifier
-                .weight(0.5f)
-                .fillMaxHeight()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { onClose() }
-        )
+    val configuration = LocalConfiguration.current
+    val isLandscape =
+        configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-        // RIGHT HALF: the opaque panel
-        Column(
-            modifier = Modifier
-                .weight(0.5f)
-                .fillMaxHeight()
-                .background(Color(0xFF12161A))
-        ) {
-            Row(Modifier.fillMaxSize()) {
-                // ==================== LEFT ICON RAIL ====================
-                Column(
-                    modifier = Modifier
-                        .width(52.dp)
-                        .fillMaxHeight()
-                        .background(Color.Black.copy(alpha = 0.45f))
-                        .padding(top = 60.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    RailButton(Icons.Outlined.FolderOpen, selected = false) { onPickSubtitle() }
-                    RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
-                    RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
-                    RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
-                    RailButton(Icons.Outlined.Speed, selected = false) { onClose(); onOpenSync() }
-                }
-
-                // ==================== MAIN AREA ====================
-                Column(Modifier.weight(1f).fillMaxHeight()) {
-                    PanelTopBar(
-                        title = if (tab == SubtitleAudioTab.SUBTITLE) "Subtitle" else "Audio Track",
-                        onClose = onClose
-                    )
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+    // Shared tab content — rendered by the landscape side panel or the
+    // portrait bottom sheet below.
+    val tabsContent: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
                     if (tab == SubtitleAudioTab.SUBTITLE) {
                         SubtitleTab(
                             isMpv = isMpv,
@@ -559,10 +504,120 @@ fun SubtitleAudioPanel(
                         )
                     }
                 }
+
+        // ==================== LANDSCAPE: right-side panel over video ====================
+        if (isLandscape) {
+            Row(modifier = modifier.fillMaxSize()) {
+                // LEFT HALF: transparent so the video stays fully visible underneath.
+                // Tapping it closes the panel.
+                Box(
+                    modifier = Modifier
+                        .weight(0.5f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onClose() }
+                )
+
+                // RIGHT HALF: the opaque panel
+                Column(
+                    modifier = Modifier
+                        .weight(0.5f)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surface)
+                ) {
+                    Row(Modifier.fillMaxSize()) {
+                        // ==================== LEFT ICON RAIL ====================
+                        Column(
+                            modifier = Modifier
+                                .width(52.dp)
+                                .fillMaxHeight()
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .padding(top = 60.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            RailButton(Icons.Outlined.FolderOpen, selected = false) { onPickSubtitle() }
+                            RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
+                            RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
+                            RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
+                            RailButton(Icons.Outlined.Speed, selected = false) { onClose(); onOpenSync() }
+                        }
+
+                        // ==================== MAIN AREA ====================
+                        Column(Modifier.weight(1f).fillMaxHeight()) {
+                            PanelTopBar(
+                                title = if (tab == SubtitleAudioTab.SUBTITLE) "Subtitle" else "Audio Track",
+                                onClose = onClose
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                tabsContent()
+                            }
+                        }
+                    }
+                }
             }
+        } else {
+            // ==================== PORTRAIT: bottom sheet, capped height ====================
+            Box(modifier = modifier.fillMaxSize()) {
+                // Tap anywhere above the sheet to close.
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onClose() }
+                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .heightIn(max = (configuration.screenHeightDp * 0.75f).dp)
+                        .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                ) {
+                    PanelTopBar(
+                        title = if (tab == SubtitleAudioTab.SUBTITLE) "Subtitle" else "Audio Track",
+                        onClose = onClose
+                    )
+                    // ==================== HORIZONTAL ICON RAIL ====================
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        RailButton(Icons.Outlined.FolderOpen, selected = false) { onPickSubtitle() }
+                        RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
+                        RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
+                        RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
+                        RailButton(Icons.Outlined.Speed, selected = false) { onClose(); onOpenSync() }
+                    }
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = (configuration.screenHeightDp * 0.55f).dp)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        tabsContent()
+                    }
+                }
             }
         }
-    }
 
     // ==================== DIALOGS ====================
     if (showTextColorDialog) {
@@ -990,11 +1045,13 @@ private fun AudioTab(
 private fun RailButton(icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
-            .background(if (selected) RailSelectedBg else Color.Transparent)
+            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, null, tint = if (selected) Color.White else RailUnselectedIcon,
+        Icon(icon, null,
+            tint = if (selected) MaterialTheme.colorScheme.onPrimary
+                   else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp))
     }
 }
@@ -1005,7 +1062,7 @@ private fun PanelTopBar(title: String, onClose: () -> Unit) {
         modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+        Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp, fontWeight = FontWeight.Bold,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f))
         CircleIconButton(Icons.Outlined.Close, "Close", onClose)
@@ -1016,15 +1073,15 @@ private fun PanelTopBar(title: String, onClose: () -> Unit) {
 private fun CircleIconButton(icon: ImageVector, contentDescription: String?, onClick: () -> Unit) {
     Box(
         modifier = Modifier.size(36.dp).clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onClick),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Icon(icon, contentDescription, tint = Color.White, modifier = Modifier.size(18.dp)) }
+    ) { Icon(icon, contentDescription, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp)) }
 }
 
 @Composable
 private fun PanelCard(header: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardBackground)) {
-        Text(header, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+        Text(header, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 6.dp))
         content()
     }
@@ -1048,10 +1105,10 @@ private fun PanelRow(
     ) {
         if (leading != null) leading()
         Column(Modifier.weight(1f)) {
-            Text(label, color = Color.White, fontSize = 14.sp,
+            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (secondary != null)
-                Text(secondary, color = SecondaryText, fontSize = 12.sp,
+                Text(secondary, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (trailing != null) trailing()
@@ -1060,13 +1117,13 @@ private fun PanelRow(
 
 @Composable
 private fun LeadingIcon(icon: ImageVector) {
-    Icon(icon, null, tint = LeadingIconTint, modifier = Modifier.size(20.dp))
+    Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
 }
 
 @Composable
 private fun CardDivider() {
     HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp),
-        thickness = 1.dp, color = CardDividerColor)
+        thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
 }
 
 @Composable
@@ -1080,7 +1137,7 @@ private fun PanelStepper(
         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         StepButton(Icons.Default.Remove, onDecrease, enabled)
         // FIX: Width increased to 56.dp to avoid text clipping
-        Text(valueText, color = ValueText, fontSize = 13.sp, textAlign = TextAlign.Center,
+        Text(valueText, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, textAlign = TextAlign.Center,
             maxLines = 1, modifier = Modifier.width(56.dp))
         StepButton(Icons.Default.Add, onIncrease, enabled)
     }
@@ -1089,10 +1146,10 @@ private fun PanelStepper(
 @Composable
 private fun StepButton(icon: ImageVector, onClick: () -> Unit, enabled: Boolean = true) {
     Box(modifier = Modifier.size(26.dp).clip(CircleShape)
-        .border(1.dp, Color.White.copy(alpha = if (enabled) 0.25f else 0.12f), CircleShape)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (enabled) 1f else 0.5f), CircleShape)
         .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = Color.White.copy(alpha = if (enabled) 1f else 0.5f), modifier = Modifier.size(12.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.5f), modifier = Modifier.size(12.dp))
     }
 }
 
@@ -1102,10 +1159,10 @@ private fun PanelSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
         checked = checked,
         onCheckedChange = onCheckedChange,
         colors = SwitchDefaults.colors(
-            checkedTrackColor = RailSelectedBg,
-            uncheckedTrackColor = Color.Gray,
-            checkedThumbColor = Color.White,
-            uncheckedThumbColor = Color.White
+            checkedTrackColor = MaterialTheme.colorScheme.primary,
+            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
     )
 }
@@ -1113,7 +1170,7 @@ private fun PanelSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
 @Composable
 private fun ColorCircle(color: Color, onClick: () -> Unit) {
     Box(modifier = Modifier.size(30.dp).clip(CircleShape)
-        .border(2.dp, Color.White, CircleShape).clickable(onClick = onClick),
+        .border(2.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape).clickable(onClick = onClick),
         contentAlignment = Alignment.Center) {
         if (color.alpha < 0.01f) Checkerboard()
         else Box(Modifier.fillMaxSize().clip(CircleShape).background(color))
@@ -1141,9 +1198,9 @@ private fun Checkerboard() {
 @Composable
 private fun PanelRadio(selected: Boolean) {
     Box(modifier = Modifier.size(20.dp).clip(CircleShape)
-        .border(2.dp, if (selected) ValueText else Color(0xFF9AA0A6), CircleShape),
+        .border(2.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
         contentAlignment = Alignment.Center) {
-        if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(ValueText))
+        if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
     }
 }
 
@@ -1157,10 +1214,10 @@ private fun ValueChevron(
     Row(modifier = Modifier.then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(value, color = if (accent) ValueText else Color(0xFF9AA0A6), fontSize = 13.sp,
+        Text(value, color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.widthIn(max = 110.dp))
-        Icon(Icons.Default.KeyboardArrowRight, null, tint = Color(0xFF9AA0A6),
+        Icon(Icons.Default.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp))
     }
 }
@@ -1168,15 +1225,15 @@ private fun ValueChevron(
 @Composable
 private fun DefaultBadge() {
     Box(modifier = Modifier.clip(RoundedCornerShape(6.dp))
-        .background(RailSelectedBg.copy(alpha = 0.2f))
+        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
         .padding(horizontal = 5.dp, vertical = 2.dp)) {
-        Text("Default", color = ValueText, fontSize = 11.sp)
+        Text("Default", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
     }
 }
 
 @Composable
 private fun KebabIcon() {
-    Icon(Icons.Outlined.MoreVert, contentDescription = null, tint = Color(0xFF9AA0A6), modifier = Modifier.size(20.dp))
+    Icon(Icons.Outlined.MoreVert, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
 }
 
 // ---------------------------------------------------------------------------
@@ -1192,8 +1249,8 @@ private fun OptionListDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
-        title = { Text(title, color = Color.White, fontWeight = FontWeight.Bold) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        title = { Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 options.forEach { option ->
@@ -1207,16 +1264,16 @@ private fun OptionListDialog(
                     ) {
                         PanelRadio(isSelected)
                         Spacer(Modifier.width(16.dp))
-                        Text(option, color = if (isSelected) ValueText else Color.White, fontSize = 16.sp)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("OK", color = ValueText) }
-        }
-    )
-}
+                        Text(option, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
+                     }
+                 }
+             }
+         },
+         confirmButton = {
+             TextButton(onClick = onDismiss) { Text("OK", color = MaterialTheme.colorScheme.primary) }
+         }
+     )
+ }
 
 @Composable
 private fun StepperDialog(
@@ -1228,11 +1285,11 @@ private fun StepperDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
-        title = { Text(title, color = Color.White, fontWeight = FontWeight.Bold) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        title = { Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
         text = { PanelStepper(valueText, onDecrease, onIncrease) },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Done", color = ValueText) }
+            TextButton(onClick = onDismiss) { Text("Done", color = MaterialTheme.colorScheme.primary) }
         }
     )
 }
@@ -1259,8 +1316,8 @@ private fun ColorPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = CardBackground,
-        title = { Text(title, color = Color.White, fontWeight = FontWeight.Bold) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        title = { Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 PanelColors.chunked(5).forEach { row ->
@@ -1277,7 +1334,7 @@ private fun ColorPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = ValueText) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.primary) }
         }
     )
 }
