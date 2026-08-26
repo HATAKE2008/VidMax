@@ -49,8 +49,9 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.release
-            minifyEnabled false
-            shrinkResources false
+            // 🔥 R8 code shrinking + resource shrinking — much smaller APK
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -125,7 +126,6 @@ dependencies {
     implementation 'androidx.media3:media3-session:1.4.1'
  
     implementation 'androidx.navigation:navigation-compose:2.8.3'
-    implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.7.0'
 
     // 🔥 Coil বাদ দিয়ে Glide Compose যুক্ত করা হলো (রকেট স্পিড থাম্বনেইল ক্যাশিং এর জন্য)
