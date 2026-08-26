@@ -245,7 +245,8 @@ fun PlayerControls(
     var ignoreDrag by remember { mutableStateOf(false) }
     var seekAccumulator by remember { mutableFloatStateOf(0f) }
     var targetSeekPosition by remember { mutableLongStateOf(0L) }
-    var volBase by remember { mutableIntStateOf(-1) }
+    var volBasePercent by remember { mutableFloatStateOf(-1f) }
+    var currentVideoVolumePercent by remember { mutableFloatStateOf(-1f) }
     var brightBase by remember { mutableFloatStateOf(-1f) }
     var brightCurrent by remember { mutableFloatStateOf(-1f) }
 
@@ -376,12 +377,21 @@ fun PlayerControls(
         if (localBoostEnabled) {
             // Boost ON — force 200%: hardware at max + software gain / mpv volume
             applyVideoVolume(200)
+            currentVideoVolumePercent = 200f
+            viewModel.setGestureIndicator(2, 2f)
         } else {
             if (volumeAccumulator > 100f) volumeAccumulator = 100f
             applyVideoVolume(100)
+            currentVideoVolumePercent = 100f
             viewModel.setCurrentVolumePercent(1f)
             viewModel.setGestureIndicator(2, 1f)
         }
+        // Auto-hide the indicator popup shortly after toggling from the button
+        coroutineScope.launch {
+            delay(1200)
+            viewModel.hideGestureOverlay()
+        }
+        Unit
     }
 
     val toggleImmersive = {
@@ -731,7 +741,6 @@ fun PlayerControls(
                         var lastPinchEventNs = 0L
 
                         var lastAppliedBrightness = -1f
-                        var lastAppliedVolume = -1
                         val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
 
                         do {
@@ -811,9 +820,15 @@ fun PlayerControls(
                                         seekAccumulator = 0f
                                         targetSeekPosition = currentPosition
 
-                                        volBase = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                        // Volume is tracked in percent (0..200) so the
+                                        // boosted range continues smoothly from 100%
+                                        if (currentVideoVolumePercent < 0f) {
+                                            currentVideoVolumePercent =
+                                                audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                                    .toFloat() / maxVol * 100f
+                                        }
+                                        volBasePercent = currentVideoVolumePercent
                                         volumeAccumulator = 0f
-                                        lastAppliedVolume = volBase
 
                                         brightBase = activity?.window?.attributes?.screenBrightness ?: -1f
                                         if (brightBase < 0f) {
@@ -849,15 +864,17 @@ fun PlayerControls(
                                         2 -> {
                                             if (volumeGestureEnabled) {
                                                 volumeAccumulator += dy
-                                                val effectiveMax = if (localBoostEnabled) maxVol * 2 else maxVol
-                                                val delta = (-volumeAccumulator / (size.height * 0.5f) * maxVol).roundToInt()
-                                                val newVol = (volBase + delta).coerceIn(0, effectiveMax)
+                                                val maxPercent = if (localBoostEnabled) 200f else 100f
+                                                // half a screen swipe == 100%
+                                                val deltaPercent = (-volumeAccumulator / (size.height * 0.5f)) * 100f
+                                                val newPercent = (volBasePercent + deltaPercent).coerceIn(0f, maxPercent)
 
-                                                if (newVol != lastAppliedVolume) {
-                                                    applyVideoVolume((newVol * 100f / maxVol).roundToInt())
-                                                    lastAppliedVolume = newVol
+                                                if (newPercent != currentVideoVolumePercent) {
+                                                    applyVideoVolume(newPercent.roundToInt())
+                                                    currentVideoVolumePercent = newPercent
                                                 }
-                                                viewModel.setGestureIndicator(2, newVol.toFloat() / effectiveMax)
+                                                // indicator value: 1f == 100%, 2f == 200%
+                                                viewModel.setGestureIndicator(2, newPercent / 100f)
                                             }
                                         }
                                         4 -> {
