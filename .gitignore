@@ -18,3 +18,7 @@ local.properties
 # Build artifacts
 apk/
 *.apk
+
+# Signing keystores - never commit
+*.keystore
+*.jks
