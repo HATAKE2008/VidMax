@@ -6,6 +6,7 @@ on:
       - new-feature
       - video-screeen-new
       - 260823-feat-network-streaming
+      - 260825-chore-app-size-cleanup
       - main
   workflow_dispatch:
 
