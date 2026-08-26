@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.os.Build
@@ -74,6 +75,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   private val audioRepository: AudioRepository = AudioRepository(application.contentResolver)
   private val prefs: SharedPreferences =
       application.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
+
+  private val audioManager: AudioManager =
+      application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
   // Audio Player Engine (ExoPlayer - Media3)
   private var exoPlayer: ExoPlayer? = null
@@ -418,6 +422,18 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     exoPlayer =
         ExoPlayer.Builder(application).build().apply { skipSilenceEnabled = _skipSilence.value }
+
+    // 🔥 Wire a fixed audio session at creation so the LoudnessEnhancer
+    // (volume boost >100%) can always attach — Media3 reports
+    // AUDIO_SESSION_ID_NOT_SET (0) until audio output initialises, which
+    // silently broke the music boost before.
+    try {
+      val sessionId: Int = audioManager.generateAudioSessionId()
+      exoPlayer?.setAudioSessionId(sessionId)
+      loudnessEnhancer = LoudnessEnhancer(sessionId)
+    } catch (e: Exception) {
+    }
+
     setupExoPlayerEvents()
 
     val filter =
@@ -485,20 +501,43 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         })
   }
 
+  /**
+   * Returns the LoudnessEnhancer, creating it on a guaranteed-valid audio
+   * session if needed. Returns null when no player exists yet.
+   */
+  private fun ensureLoudnessEnhancer(): LoudnessEnhancer? {
+    if (loudnessEnhancer != null) return loudnessEnhancer
+    val player = exoPlayer ?: return null
+    var sessionId: Int = try {
+      player.audioSessionId
+    } catch (e: Exception) {
+      0
+    }
+    if (sessionId == 0) {
+      sessionId = audioManager.generateAudioSessionId()
+      try {
+        player.setAudioSessionId(sessionId)
+      } catch (e: Exception) {
+        return null
+      }
+    }
+    return try {
+      LoudnessEnhancer(sessionId).also { loudnessEnhancer = it }
+    } catch (e: Exception) {
+      null
+    }
+  }
+
   private fun applyCurrentVolume() {
     val isBoosted: Boolean = _musicBoostEnabled.value
     try {
-      if (loudnessEnhancer == null && exoPlayer != null) {
-        val sessionId: Int = exoPlayer?.audioSessionId ?: 0
-        if (sessionId != 0) {
-          loudnessEnhancer = LoudnessEnhancer(sessionId)
-        }
-      }
       if (isBoosted) {
         targetExoVolume = 1f
         exoPlayer?.volume = 1f
-        loudnessEnhancer?.setTargetGain(2500)
-        loudnessEnhancer?.enabled = true
+        ensureLoudnessEnhancer()?.apply {
+          setTargetGain(2500)
+          enabled = true
+        }
       } else {
         loudnessEnhancer?.enabled = false
         exoPlayer?.volume = targetExoVolume
@@ -970,13 +1009,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       targetExoVolume = 1f
       exoPlayer?.volume = 1f
       try {
-        if (loudnessEnhancer == null && exoPlayer != null) {
-          val sessionId: Int = exoPlayer?.audioSessionId ?: 0
-          if (sessionId != 0) loudnessEnhancer = LoudnessEnhancer(sessionId)
-        }
-        loudnessEnhancer?.enabled = true
         val boostRatio: Float = (safeVolume - 100f) / 100f
-        loudnessEnhancer?.setTargetGain((boostRatio * 2500).toInt())
+        ensureLoudnessEnhancer()?.apply {
+          setTargetGain((boostRatio * 2500).toInt())
+          enabled = true
+        }
       } catch (e: Exception) {}
     }
   }
