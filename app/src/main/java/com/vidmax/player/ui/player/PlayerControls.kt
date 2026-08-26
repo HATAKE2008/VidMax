@@ -73,6 +73,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import com.vidmax.player.R
 import com.vidmax.player.viewmodel.AspectRatioMode
 import com.vidmax.player.viewmodel.LoopMode
@@ -325,24 +326,61 @@ fun PlayerControls(
         }
     }
 
+    // ── Volume boost (200%) helpers ────────────────────────────────────────
+    // Lazily creates a LoudnessEnhancer on a guaranteed-valid audio session
+    // (Media3 reports AUDIO_SESSION_ID_NOT_SET until audio output initialises,
+    // which silently broke boost before).
+    val ensureVideoEnhancer: () -> LoudnessEnhancer? = {
+        if (loudnessEnhancer != null) {
+            loudnessEnhancer
+        } else {
+            val player = exoPlayer as? ExoPlayer
+            var sessionId = try { player?.audioSessionId ?: 0 } catch (e: Exception) { 0 }
+            if (sessionId == 0 && player != null) {
+                sessionId = audioManager.generateAudioSessionId()
+                try { player.setAudioSessionId(sessionId) } catch (e: Exception) {}
+            }
+            try {
+                LoudnessEnhancer(sessionId).also { loudnessEnhancer = it }
+            } catch (e: Exception) { null }
+        }
+    }
+
+    // percent: 0..200 — above 100 uses software gain (Exo) or mpv volume (MPV)
+    val applyVideoVolume: (Int) -> Unit = { percent ->
+        val clamped = percent.coerceIn(0, 200)
+        if (currentEngine == PlayerEngine.MPV) {
+            try {
+                MPVLib.setPropertyInt("volume-max", 200)
+                MPVLib.setPropertyInt("volume", clamped)
+            } catch (e: Exception) {}
+        } else {
+            val maxSystemVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            if (clamped <= 100) {
+                audioManager.setStreamVolume(
+                    AudioManager.STREAM_MUSIC, (clamped / 100f * maxSystemVol).roundToInt(), 0)
+                try { loudnessEnhancer?.enabled = false } catch (e: Exception) {}
+            } else {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxSystemVol, 0)
+                val enhancer = ensureVideoEnhancer()
+                try {
+                    enhancer?.setTargetGain(((clamped - 100) / 100f * 2500f).roundToInt())
+                    enhancer?.enabled = true
+                } catch (e: Exception) {}
+            }
+        }
+    }
+
     val toggleAudioBoost = {
         localBoostEnabled = !localBoostEnabled
-        if (!localBoostEnabled && volumeAccumulator > 100f) {
-            volumeAccumulator = 100f
-            val maxSystemVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            val currentSystemVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-
-            if (currentSystemVol != maxSystemVol) {
-                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxSystemVol, 0)
-            }
-
-            if (currentEngine == PlayerEngine.MPV) {
-                try { MPVLib.setPropertyInt("volume", 100) } catch (e: Exception) {}
-            } else {
-                try { loudnessEnhancer?.enabled = false } catch (e: Exception) {}
-            }
+        if (localBoostEnabled) {
+            // Boost ON — force 200%: hardware at max + software gain / mpv volume
+            applyVideoVolume(200)
+        } else {
+            if (volumeAccumulator > 100f) volumeAccumulator = 100f
+            applyVideoVolume(100)
             viewModel.setCurrentVolumePercent(1f)
-            viewModel.setGestureIndicator(2, 100f)
+            viewModel.setGestureIndicator(2, 1f)
         }
     }
 
@@ -811,14 +849,15 @@ fun PlayerControls(
                                         2 -> {
                                             if (volumeGestureEnabled) {
                                                 volumeAccumulator += dy
+                                                val effectiveMax = if (localBoostEnabled) maxVol * 2 else maxVol
                                                 val delta = (-volumeAccumulator / (size.height * 0.5f) * maxVol).roundToInt()
-                                                val newVol = (volBase + delta).coerceIn(0, maxVol)
-                                                
+                                                val newVol = (volBase + delta).coerceIn(0, effectiveMax)
+
                                                 if (newVol != lastAppliedVolume) {
-                                                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                                    applyVideoVolume((newVol * 100f / maxVol).roundToInt())
                                                     lastAppliedVolume = newVol
                                                 }
-                                                viewModel.setGestureIndicator(2, newVol.toFloat() / maxVol)
+                                                viewModel.setGestureIndicator(2, newVol.toFloat() / effectiveMax)
                                             }
                                         }
                                         4 -> {
