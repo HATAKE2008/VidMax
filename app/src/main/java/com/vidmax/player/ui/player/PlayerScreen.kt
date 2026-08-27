@@ -69,6 +69,8 @@ fun PlayerScreen(
   val panelMode by viewModel.panelMode.collectAsState()
   val subAudioTab by viewModel.subtitleAudioTab.collectAsState()
   val panelOpen = panelMode != PanelMode.NONE
+  val isLandscape =
+      configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
   var videoScale by remember { mutableFloatStateOf(1f) }
   var videoOffsetX by remember { mutableFloatStateOf(0f) }
@@ -135,10 +137,12 @@ fun PlayerScreen(
     videoOffsetY = 0f
   }
 
-  // While a right-half panel is open the video is shown at scale 1, centered
-  // and clean, so the user gets a live unfiltered preview.
-  LaunchedEffect(panelOpen) {
-    if (panelOpen) {
+  // While a right-half panel is open (landscape side-panel layout) the video is
+  // shown at scale 1, centered and clean, so the user gets a live unfiltered
+  // preview. In portrait the panel is a true overlay, so the video keeps its
+  // current zoom/pan untouched.
+  LaunchedEffect(panelOpen, isLandscape) {
+    if (panelOpen && isLandscape) {
       videoScale = 1f
       videoOffsetX = 0f
       videoOffsetY = 0f
@@ -199,14 +203,14 @@ fun PlayerScreen(
                   }
             },
             modifier =
-                (if (panelOpen) Modifier.fillMaxHeight().fillMaxWidth(0.5f) else Modifier.fillMaxSize())
+                (if (panelOpen && isLandscape) Modifier.fillMaxHeight().fillMaxWidth(0.5f) else Modifier.fillMaxSize())
                     .onSizeChanged { viewSizePx = it; clampVideoOffset() }
                     .graphicsLayer {
-                        val s = if (panelOpen) 1f else liveZoomScale.floatValue
+                        val s = if (panelOpen && isLandscape) 1f else liveZoomScale.floatValue
                         scaleX = s
                         scaleY = s
-                        translationX = if (panelOpen) 0f else videoOffsetX
-                        translationY = if (panelOpen) 0f else videoOffsetY
+                        translationX = if (panelOpen && isLandscape) 0f else videoOffsetX
+                        translationY = if (panelOpen && isLandscape) 0f else videoOffsetY
                     })
       } else {
         AndroidView(
@@ -266,14 +270,14 @@ fun PlayerScreen(
             },
             update = { frameLayout -> frameLayout.requestLayout() },
             modifier =
-                (if (panelOpen) Modifier.fillMaxHeight().fillMaxWidth(0.5f) else Modifier.fillMaxSize())
+                (if (panelOpen && isLandscape) Modifier.fillMaxHeight().fillMaxWidth(0.5f) else Modifier.fillMaxSize())
                     .onSizeChanged { viewSizePx = it; clampVideoOffset() }
                     .graphicsLayer {
-                        val s = if (panelOpen) 1f else liveZoomScale.floatValue
+                        val s = if (panelOpen && isLandscape) 1f else liveZoomScale.floatValue
                         scaleX = s
                         scaleY = s
-                        translationX = if (panelOpen) 0f else videoOffsetX
-                        translationY = if (panelOpen) 0f else videoOffsetY
+                        translationX = if (panelOpen && isLandscape) 0f else videoOffsetX
+                        translationY = if (panelOpen && isLandscape) 0f else videoOffsetY
                     })
       }
     } else {
