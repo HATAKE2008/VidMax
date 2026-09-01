@@ -188,29 +188,23 @@ real screenshots there with these exact filenames, or use GitHub's
 drag-and-drop "user-attachments" links instead — those work from anywhere.
 -->
 
-<p align="center">
-<img src="assets/screenshots/01-videos-tab.jpg" width="24%" alt="Videos"/>
-&nbsp;&nbsp;
-<img src="assets/screenshots/02-music-tab.jpg" width="24%" alt="Music"/>
-&nbsp;&nbsp;
-<img src="assets/screenshots/03-network-tab.jpg" width="24%" alt="Network"/>
-&nbsp;&nbsp;
-<img src="assets/screenshots/04-home-feed.jpg" width="24%" alt="Home"/>
-</p>
-
-<p align="center">
-<img src="assets/screenshots/05-settings-theme.jpg" width="24%" alt="Settings - Theme"/>
-&nbsp;&nbsp;
-<img src="assets/screenshots/06-settings-player.jpg" width="24%" alt="Settings - Player"/>
-&nbsp;&nbsp;
-<img src="assets/screenshots/07-player-subtitle.jpg" width="24%" alt="Player - Subtitle"/>
-&nbsp;&nbsp;
-<img src="assets/screenshots/08-player-controls.jpg" width="24%" alt="Player - Controls"/>
-</p>
-
-<p align="center">
-<img src="assets/screenshots/09-player-landscape.jpg" width="49%" alt="Player - Landscape"/>
-</p>
+<table align="center" width="100%">
+<tr>
+<td align="center" width="25%"><img src="assets/screenshots/01-videos-tab.jpg" alt="Videos" width="100%"/></td>
+<td align="center" width="25%"><img src="assets/screenshots/02-music-tab.jpg" alt="Music" width="100%"/></td>
+<td align="center" width="25%"><img src="assets/screenshots/03-network-tab.jpg" alt="Network" width="100%"/></td>
+<td align="center" width="25%"><img src="assets/screenshots/04-home-feed.jpg" alt="Home" width="100%"/></td>
+</tr>
+<tr>
+<td align="center" width="25%"><img src="assets/screenshots/05-settings-theme.jpg" alt="Settings - Theme" width="100%"/></td>
+<td align="center" width="25%"><img src="assets/screenshots/06-settings-player.jpg" alt="Settings - Player" width="100%"/></td>
+<td align="center" width="25%"><img src="assets/screenshots/07-player-subtitle.jpg" alt="Player - Subtitle" width="100%"/></td>
+<td align="center" width="25%"><img src="assets/screenshots/08-player-controls.jpg" alt="Player - Controls" width="100%"/></td>
+</tr>
+<tr>
+<td colspan="4" align="center"><img src="assets/screenshots/09-player-landscape.jpg" alt="Player - Landscape" width="50%"/></td>
+</tr>
+</table>
 
 ---
 
