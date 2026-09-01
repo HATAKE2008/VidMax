@@ -181,23 +181,29 @@ All themes use **WCAG-compliant contrast** — always readable, no eye strain.
 
 ## 📸 &nbsp;Screenshots
 
-<div align="center">
+<p align="center">
 <img src="assets/screenshots/01-videos-tab.jpg" width="24%" alt="Videos"/>
+&nbsp;&nbsp;
 <img src="assets/screenshots/02-music-tab.jpg" width="24%" alt="Music"/>
+&nbsp;&nbsp;
 <img src="assets/screenshots/03-network-tab.jpg" width="24%" alt="Network"/>
+&nbsp;&nbsp;
 <img src="assets/screenshots/04-home-feed.jpg" width="24%" alt="Home"/>
-</div>
+</p>
 
-<div align="center">
+<p align="center">
 <img src="assets/screenshots/05-settings-theme.jpg" width="24%" alt="Settings - Theme"/>
+&nbsp;&nbsp;
 <img src="assets/screenshots/06-settings-player.jpg" width="24%" alt="Settings - Player"/>
+&nbsp;&nbsp;
 <img src="assets/screenshots/07-player-subtitle.jpg" width="24%" alt="Player - Subtitle"/>
+&nbsp;&nbsp;
 <img src="assets/screenshots/08-player-controls.jpg" width="24%" alt="Player - Controls"/>
-</div>
+</p>
 
-<div align="center">
-<img src="assets/screenshots/09-player-landscape.jpg" width="48%" alt="Player - Landscape"/>
-</div>
+<p align="center">
+<img src="assets/screenshots/09-player-landscape.jpg" width="49%" alt="Player - Landscape"/>
+</p>
 
 ---
 
