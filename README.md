@@ -21,13 +21,13 @@
 
 <br/>
 
-**Latest Release: [VidMax v1.1.4](https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.4) · [⬇ Download APK](https://github.com/HATAKE2008/vidamx/releases/download/v1.1.4/VidMax-v1.1.4-release.apk) (22.7 MB)**
+**Latest Release: [VidMax v1.1.4](https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.4) · [<img src="https://cdn-icons-png.flaticon.com/512/2748/2748558.png" width="14"/> Download APK](https://github.com/HATAKE2008/vidamx/releases/download/v1.1.4/VidMax-v1.1.4-release.apk) (22.7 MB)**
 
 </div>
 
 ---
 
-## ✦ &nbsp;Why VidMax?
+## <img src="https://cdn-icons-png.flaticon.com/512/2107/2107957.png" width="20"/>&nbsp;Why VidMax?
 
 > **No ads. No tracking. No bloat.**
 
@@ -35,54 +35,54 @@ A fast, beautiful media player for local video & music — plus a full-featured 
 
 ---
 
-## 🆕 &nbsp;What's New in v1.1.4
+## <img src="https://cdn-icons-png.flaticon.com/512/942/942748.png" width="20"/>&nbsp;What's New in v1.1.4
 
 > **Massive update** — Network streaming, rebuilt player & tons of polish. [Full changelog →](https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.4)
 
-### 🌐 Network Streaming (SMB / FTP / WebDAV)
-▸ Brand-new **Network tab** to browse and play media directly from your SMB, FTP and WebDAV servers (mpvRex-style proxy streaming)  
-▸ Floating bottom bar + video card design for the Network screen  
-▸ Robust HTTP source handling so remote files play through a local proxy — SMB/WebDAV/FTP playback repaired  
-▸ Re-scan fixes for duplicated recent links when opening the Network tab  
-▸ Scrollable "Add Server" dialog on small screens  
+### <img src="https://cdn-icons-png.flaticon.com/512/1055/1055646.png" width="18"/> Network Streaming (SMB / FTP / WebDAV)
+▸ Brand-new **Network tab** to browse and play media directly from your SMB, FTP and WebDAV servers (mpvRex-style proxy streaming)
+▸ Floating bottom bar + video card design for the Network screen
+▸ Robust HTTP source handling so remote files play through a local proxy — SMB/WebDAV/FTP playback repaired
+▸ Re-scan fixes for duplicated recent links when opening the Network tab
+▸ Scrollable "Add Server" dialog on small screens
 
-### 🔗 Stream Link
-▸ **Stream Link** feature — paste an HTTP stream URL and play it  
-▸ Added **HLS / DASH / SmoothStreaming** support with a more robust HTTP source  
+### <img src="https://cdn-icons-png.flaticon.com/512/1178/1178428.png" width="18"/> Stream Link
+▸ **Stream Link** feature — paste an HTTP stream URL and play it
+▸ Added **HLS / DASH / SmoothStreaming** support with a more robust HTTP source
 
-### ▶ Video Player — Rebuilt
-▸ Rebuilt **mpvRex/MPVEx-style player controls** with a redesigned Settings sheet  
-▸ **Subtitle & Audio track panel** with ExoPlayer subtitle/audio track support  
-▸ Settings sheet redesigned into categories (Controls, Aesthetics, Gestures, Advanced)  
-▸ Smooth MX/VLC-style **pinch zoom** with EMA smoothing, dead zone and 8.0 sensitivity  
-▸ Gesture handling rework — volume, brightness and zoom gestures now use proven math and never drop touches  
-▸ **Volume boost up to 200%** (video + music), shown as a percent-based indicator  
-▸ Settings panels in landscape show as a **right-side panel with a live video preview**; in portrait the sheet properly **overlays the player** without squishing the video  
-▸ Keep the video fitted and centered across aspect-ratio and orientation changes  
+### <img src="https://cdn-icons-png.flaticon.com/512/727/727245.png" width="18"/> Video Player — Rebuilt
+▸ Rebuilt **mpvRex/MPVEx-style player controls** with a redesigned Settings sheet
+▸ **Subtitle & Audio track panel** with ExoPlayer subtitle/audio track support
+▸ Settings sheet redesigned into categories (Controls, Aesthetics, Gestures, Advanced)
+▸ Smooth MX/VLC-style **pinch zoom** with EMA smoothing, dead zone and 8.0 sensitivity
+▸ Gesture handling rework — volume, brightness and zoom gestures now use proven math and never drop touches
+▸ **Volume boost up to 200%** (video + music), shown as a percent-based indicator
+▸ Settings panels in landscape show as a **right-side panel with a live video preview**; in portrait the sheet properly **overlays the player** without squishing the video
+▸ Keep the video fitted and centered across aspect-ratio and orientation changes
 
-### 📚 Library — Video Playlists & Favorites
-▸ mpvRex-style **video playlists & favorites** with a new Library view model  
-▸ Glide Compose thumbnails for playlist details, FAB overlap & detail chrome fixes  
+### <img src="https://cdn-icons-png.flaticon.com/512/3037/3037066.png" width="18"/> Library — Video Playlists & Favorites
+▸ mpvRex-style **video playlists & favorites** with a new Library view model
+▸ Glide Compose thumbnails for playlist details, FAB overlap & detail chrome fixes
 
-### 🏠 Home / Music
-▸ Meld-style **online home feed** with animated sliders, mood playlists and favorites section  
-▸ **No-login recommendation system** for the home feed with randomized suggestions  
-▸ Expandable search bar, song-only filtering, artist discovery  
-▸ HQ thumbnails, online favorites, and a new online player look with a stream badge  
-▸ **Unified online + offline music player** with ExoPlayer streaming playback  
-▸ BloomeeTunes-style animated nav bar (ripple, expanding pill, fade & scale page transitions)  
-▸ Video/Folder segmented toggle on the home top bar  
+### <img src="https://cdn-icons-png.flaticon.com/512/1946/1946488.png" width="18"/> Home / Music
+▸ Meld-style **online home feed** with animated sliders, mood playlists and favorites section
+▸ **No-login recommendation system** for the home feed with randomized suggestions
+▸ Expandable search bar, song-only filtering, artist discovery
+▸ HQ thumbnails, online favorites, and a new online player look with a stream badge
+▸ **Unified online + offline music player** with ExoPlayer streaming playback
+▸ BloomeeTunes-style animated nav bar (ripple, expanding pill, fade & scale page transitions)
+▸ Video/Folder segmented toggle on the home top bar
 
-### ⚙ App & CI
-▸ **In-app GitHub update checker** — the app auto-detects new releases (Settings → Updates)  
-▸ **Font changer** with built-in fonts + TTF/OTF importer  
-▸ Splash screen fixes (no black screen on launch, animated vector logo)  
-▸ App size cleanup — dead code removed, R8 code + resource shrinking enabled (22.7 MB)  
+### <img src="https://cdn-icons-png.flaticon.com/512/2040/2040504.png" width="18"/> App & CI
+▸ **In-app GitHub update checker** — the app auto-detects new releases (Settings → Updates)
+▸ **Font changer** with built-in fonts + TTF/OTF importer
+▸ Splash screen fixes (no black screen on launch, animated vector logo)
+▸ App size cleanup — dead code removed, R8 code + resource shrinking enabled (22.7 MB)
 ▸ Release workflow auto-builds, signs and publishes a GitHub release from a version tag
 
 ---
 
-## ♫ &nbsp;Online Music Streaming &nbsp;[![](https://img.shields.io/badge/-NEW-FF0044?style=flat-square&logo=youtubemusic&logoColor=white)](#)
+## <img src="https://cdn-icons-png.flaticon.com/512/2911/2911643.png" width="20"/>&nbsp;Online Music Streaming &nbsp;<img src="https://img.shields.io/badge/-NEW-FF0044?style=flat-square&logo=youtubemusic&logoColor=white" height="18"/>
 
 Stream millions of songs — **no login, no premium required.**
 
@@ -99,7 +99,7 @@ Stream millions of songs — **no login, no premium required.**
 
 ---
 
-## 🌐 &nbsp;Network Streaming — NEW in v1.1.4
+## <img src="https://cdn-icons-png.flaticon.com/512/1055/1055646.png" width="20"/>&nbsp;Network Streaming — NEW in v1.1.4
 
 Stream directly from your own servers — no cloud needed.
 
@@ -113,48 +113,48 @@ Stream directly from your own servers — no cloud needed.
 
 ---
 
-## ▶ &nbsp;Local Playback
+## <img src="https://cdn-icons-png.flaticon.com/512/727/727245.png" width="20"/>&nbsp;Local Playback
 
 ### Playback — Rebuilt in v1.1.4
-▸ **Media3 + MPV** dual-engine support  
-▸ **Music & Video** — full-featured media player  
-▸ **Modern Player & Wavy Player** UI styles  
-▸ **mpvRex/MPVEx-style controls** with redesigned Settings sheet (Controls / Aesthetics / Gestures / Advanced)  
-▸ **Subtitle & Audio track panel** — ExoPlayer track selection  
-▸ **Animated seekbars** — Classic, Squiggly, or Wavy  
-▸ **Subtitles** — built-in SRT parser  
-▸ **Speed control** — 0.25× to 2×  
-▸ **Aspect ratio** — fit, fill, stretch & more · keep fitted & centered across rotation  
-▸ **Volume boost up to 200%** (video + music) with percent indicator  
-▸ **MX/VLC-style pinch zoom** — EMA smoothing, dead zone, 8.0 sensitivity  
-▸ **Gesture rework** — volume / brightness / zoom never drop touches  
-▸ **Landscape right-side panel** with live preview · portrait sheet overlays without squishing video  
-▸ **Shuffle & Repeat** — all modes  
+▸ **Media3 + MPV** dual-engine support
+▸ **Music & Video** — full-featured media player
+▸ **Modern Player & Wavy Player** UI styles
+▸ **mpvRex/MPVEx-style controls** with redesigned Settings sheet (Controls / Aesthetics / Gestures / Advanced)
+▸ **Subtitle & Audio track panel** — ExoPlayer track selection
+▸ **Animated seekbars** — Classic, Squiggly, or Wavy
+▸ **Subtitles** — built-in SRT parser
+▸ **Speed control** — 0.25× to 2×
+▸ **Aspect ratio** — fit, fill, stretch & more · keep fitted & centered across rotation
+▸ **Volume boost up to 200%** (video + music) with percent indicator
+▸ **MX/VLC-style pinch zoom** — EMA smoothing, dead zone, 8.0 sensitivity
+▸ **Gesture rework** — volume / brightness / zoom never drop touches
+▸ **Landscape right-side panel** with live preview · portrait sheet overlays without squishing video
+▸ **Shuffle & Repeat** — all modes
 
 ### Library
-▸ **Folders view** — browse like your file manager  
-▸ **Video playlists & favorites** — mpvRex-style Library view model  
-▸ **Playlists** — create and manage  
-▸ **Audio mode** — background playback from video files  
-▸ **Smart search** — instant library lookup  
-▸ **Sort & filter chips** — name, date, size, duration  
-▸ **Video/Folder segmented toggle** on home top bar  
+▸ **Folders view** — browse like your file manager
+▸ **Video playlists & favorites** — mpvRex-style Library view model
+▸ **Playlists** — create and manage
+▸ **Audio mode** — background playback from video files
+▸ **Smart search** — instant library lookup
+▸ **Sort & filter chips** — name, date, size, duration
+▸ **Video/Folder segmented toggle** on home top bar
 
 ### UI & Experience
-▸ Material 3 — expressive motion, tonal elevation  
-▸ **BloomeeTunes-style animated nav** — ripple, expanding pill, fade & scale transitions  
-▸ Mini player while browsing  
-▸ **28 handcrafted offline themes**  
-▸ Grid & List view toggle  
-▸ **Font changer** — built-in fonts + TTF/OTF importer *(NEW)*  
-▸ **Splash screen** — animated vector logo, no black screen *(FIXED in v1.1.4)*  
-▸ **No ads. Ever.**  
-▸ In-app update checker via GitHub Releases (Settings → Updates)  
-▸ R8 code + resource shrinking — smaller APK (22.7 MB)  
+▸ Material 3 — expressive motion, tonal elevation
+▸ **BloomeeTunes-style animated nav** — ripple, expanding pill, fade & scale transitions
+▸ Mini player while browsing
+▸ **28 handcrafted offline themes**
+▸ Grid & List view toggle
+▸ **Font changer** — built-in fonts + TTF/OTF importer *(NEW)*
+▸ **Splash screen** — animated vector logo, no black screen *(FIXED in v1.1.4)*
+▸ **No ads. Ever.**
+▸ In-app update checker via GitHub Releases (Settings → Updates)
+▸ R8 code + resource shrinking — smaller APK (22.7 MB)
 
 ---
 
-## ◈ &nbsp;Themes
+## <img src="https://cdn-icons-png.flaticon.com/512/2620/2620396.png" width="20"/>&nbsp;Themes
 
 28 fully offline themes — works on any Android 5+ device. No dynamic color, no wallpaper dependency.
 
@@ -179,7 +179,14 @@ All themes use **WCAG-compliant contrast** — always readable, no eye strain.
 
 ---
 
-## 📸 &nbsp;Screenshots
+## <img src="https://cdn-icons-png.flaticon.com/512/685/685655.png" width="20"/>&nbsp;Screenshots
+
+<!--
+NOTE: These images only render if the files actually exist in the repo
+at /assets/screenshots/*.jpg (relative to README location). Commit the
+real screenshots there with these exact filenames, or use GitHub's
+drag-and-drop "user-attachments" links instead — those work from anywhere.
+-->
 
 <p align="center">
 <img src="assets/screenshots/01-videos-tab.jpg" width="24%" alt="Videos"/>
@@ -207,7 +214,7 @@ All themes use **WCAG-compliant contrast** — always readable, no eye strain.
 
 ---
 
-## 📥 &nbsp;Download
+## <img src="https://cdn-icons-png.flaticon.com/512/2091/2091665.png" width="20"/>&nbsp;Download
 
 | Version | Date | Size | Downloads | Link |
 |---|---|---|---|---|
@@ -222,7 +229,7 @@ All themes use **WCAG-compliant contrast** — always readable, no eye strain.
 
 ---
 
-## ⬡ &nbsp;Architecture
+## <img src="https://cdn-icons-png.flaticon.com/512/2593/2593625.png" width="20"/>&nbsp;Architecture
 
 ```
 UI  (Jetpack Compose)
@@ -249,7 +256,7 @@ Data & Services
 
 ---
 
-## ⌗ &nbsp;Project Structure
+## <img src="https://cdn-icons-png.flaticon.com/512/1997/1997928.png" width="20"/>&nbsp;Project Structure
 
 ```
 app/src/main/java/com/vidmax/player/
@@ -277,7 +284,7 @@ app/src/main/java/com/vidmax/player/
 
 ---
 
-## ↗ &nbsp;Getting Started
+## <img src="https://cdn-icons-png.flaticon.com/512/3524/3524659.png" width="20"/>&nbsp;Getting Started
 
 **Requirements**
 
@@ -295,7 +302,7 @@ Or download the latest APK → [**Releases**](https://github.com/HATAKE2008/vida
 
 ---
 
-## ⇄ &nbsp;Contributing
+## <img src="https://cdn-icons-png.flaticon.com/512/9068/9068699.png" width="20"/>&nbsp;Contributing
 
 1. Fork → Feature branch → Commit → Pull Request
 2. Follow existing Kotlin style and Material 3 guidelines
@@ -304,13 +311,13 @@ Found a bug? Open an [**Issue**](https://github.com/HATAKE2008/vidamx/issues) wi
 
 ---
 
-## ◻ &nbsp;License
+## <img src="https://cdn-icons-png.flaticon.com/512/2179/2179019.png" width="20"/>&nbsp;License
 
 MIT © 2026 HATAKE2008 — see [LICENSE](./LICENSE)
 
 ---
 
-## ◇ &nbsp;Acknowledgements
+## <img src="https://cdn-icons-png.flaticon.com/512/2278/2278992.png" width="20"/>&nbsp;Acknowledgements
 
 [![Media3](https://img.shields.io/badge/Jetpack%20Media3-Primary%20Engine-0F9D58?style=flat-square&logo=google&logoColor=white)](https://developer.android.com/media/media3)
 [![MPV](https://img.shields.io/badge/MPV-Secondary%20Engine-111111?style=flat-square)](https://mpv.io/)
@@ -324,8 +331,8 @@ MIT © 2026 HATAKE2008 — see [LICENSE](./LICENSE)
 
 <div align="center">
 
-Made with ♥ in Kotlin
+Made with <img src="https://cdn-icons-png.flaticon.com/512/833/833472.png" width="14"/> in Kotlin
 
-*Saved from a sketchy ad-filled app? Give it a* ⭐
+*Saved from a sketchy ad-filled app? Give it a* <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" width="16"/>
 
 </div>
