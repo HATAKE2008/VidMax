@@ -1184,6 +1184,74 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     prefs.edit().putBoolean("crossfade_enabled", enabled).apply()
   }
 
+  /**
+   * P4b — re-reads every managed setting from `vidmax_settings` into the
+   * reactive StateFlows after a Settings Import. Parsing mirrors the init
+   * defaults above; unknown enum names fall back to the same defaults.
+   * Excluded data (favorites, recents, bookmarks, resume positions) is
+   * untouched — both here and by the import itself.
+   */
+  fun reloadSettingsFromDisk() {
+    try {
+      setSort(
+          try {
+            SortOrder.valueOf(
+                prefs.getString("video_sort_order", SortOrder.DATE.name) ?: SortOrder.DATE.name)
+          } catch (e: Exception) {
+            SortOrder.DATE
+          },
+          prefs.getBoolean("video_sort_ascending", false))
+    } catch (e: Exception) {}
+    try {
+      setPlayerEngine(
+          try {
+            PlayerEngine.valueOf(
+                prefs.getString("player_engine", PlayerEngine.EXO.name) ?: PlayerEngine.EXO.name)
+          } catch (e: Exception) {
+            PlayerEngine.EXO
+          })
+    } catch (e: Exception) {}
+    setAudioBoost(prefs.getBoolean("audio_boost", false))
+    setResumePlayback(prefs.getBoolean("resume_playback", true))
+    try {
+      setDecoderMode(
+          try {
+            DecoderMode.valueOf(
+                prefs.getString("video_decoder", DecoderMode.AUTO.name) ?: DecoderMode.AUTO.name)
+          } catch (e: Exception) {
+            DecoderMode.AUTO
+          })
+    } catch (e: Exception) {}
+    setAutoRotate(prefs.getBoolean("auto_rotate", true))
+    setLocalMode(prefs.getBoolean("local_mode", false))
+    setMusicPlayerEnabled(prefs.getBoolean("music_player_enabled", true))
+    setMinimalistPlayer(prefs.getBoolean("minimalist_player", false))
+    setPipEnabled(prefs.getBoolean("pip_enabled", true))
+    setShowResolutionBadge(prefs.getBoolean("resolution_badge", true))
+    try {
+      setAppTheme(
+          try {
+            AppTheme.valueOf(
+                prefs.getString("app_theme", AppTheme.Default.name) ?: AppTheme.Default.name)
+          } catch (e: IllegalArgumentException) {
+            AppTheme.Default
+          })
+    } catch (e: Exception) {}
+    try {
+      setDarkMode(
+          try {
+            DarkMode.valueOf(
+                prefs.getString("dark_mode", DarkMode.System.name) ?: DarkMode.System.name)
+          } catch (e: Exception) {
+            DarkMode.System
+          })
+    } catch (e: Exception) {}
+    setAmoledMode(prefs.getBoolean("amoled_mode", false))
+    setAppFont(prefs.getString("app_font", AppFonts.SYSTEM_DEFAULT) ?: AppFonts.SYSTEM_DEFAULT)
+    setSkipSilence(prefs.getBoolean("skip_silence", false))
+    setCrossfade(prefs.getBoolean("crossfade_enabled", true))
+  }
+
   fun setRecentlyPlayedVideo(title: String, path: String) {
     _recentVideoTitle.value = title
     _recentVideoPath.value = path
