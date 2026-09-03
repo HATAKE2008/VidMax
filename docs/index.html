@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VidMax — Free Open Source Android Media Player</title>
+<meta name="description" content="VidMax is a free, open-source Android media player. Local media, network streaming (SMB/FTP/WebDAV), online music, dual engine Media3 + MPV. No ads, no tracking.">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        vidmax: '#40E0D0',
+        dark: '#0A0E1A',
+        card: '#111827'
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { background: #0A0E1A; }
+  .glow { box-shadow: 0 0 40px rgba(64,224,208,.25); }
+  .screenshot { transition: transform .3s ease; }
+  .screenshot:hover { transform: scale(1.03); }
+  .stat-num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="text-gray-200 font-sans antialiased">
+
+<!-- NAV -->
+<nav class="max-w-6xl mx-auto flex items-center justify-between px-5 py-5">
+  <div class="flex items-center gap-3">
+    <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-300 to-cyan-600 flex items-center justify-center text-2xl">▶</div>
+    <span class="text-2xl font-bold text-white">Vid<span class="text-vidmax">Max</span></span>
+  </div>
+  <div class="flex items-center gap-3">
+    <a href="https://github.com/HATAKE2008/vidamx" target="_blank" class="text-sm px-4 py-2 rounded-lg border border-gray-700 hover:border-vidmax transition">⭐ GitHub</a>
+    <a href="#download" class="text-sm px-4 py-2 rounded-lg bg-vidmax text-black font-semibold hover:opacity-90 transition">Download</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="max-w-6xl mx-auto text-center px-5 pt-10 pb-14">
+  <div class="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-teal-500/40 text-teal-300 mb-6">
+    🆓 Free &nbsp;·&nbsp; 📖 Open Source &nbsp;·&nbsp; 🚫 No Ads &nbsp;·&nbsp; 🔒 No Tracking
+  </div>
+  <h1 class="text-5xl md:text-7xl font-extrabold text-white leading-tight">
+    Vid<span class="text-vidmax">Max</span>
+  </h1>
+  <p class="mt-4 text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">
+    A modern, privacy-focused media player for Android.<br>
+    <span class="text-gray-300">Local Media · Network Streaming · Online Music · MPV · Media3</span>
+  </p>
+
+  <!-- LIVE STATS -->
+  <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto">
+    <div class="bg-card rounded-2xl p-5 border border-gray-800">
+      <div id="stat-stars" class="stat-num text-3xl font-bold text-yellow-400">…</div>
+      <div class="text-xs text-gray-500 mt-1">⭐ Stars</div>
+    </div>
+    <div class="bg-card rounded-2xl p-5 border border-gray-800">
+      <div id="stat-downloads" class="stat-num text-3xl font-bold text-vidmax">…</div>
+      <div class="text-xs text-gray-500 mt-1">⬇ Total Downloads</div>
+    </div>
+    <div class="bg-card rounded-2xl p-5 border border-gray-800">
+      <div id="stat-forks" class="stat-num text-3xl font-bold text-purple-400">…</div>
+      <div class="text-xs text-gray-500 mt-1">🍴 Forks</div>
+    </div>
+    <div class="bg-card rounded-2xl p-5 border border-gray-800">
+      <div id="stat-release" class="text-3xl font-bold text-green-400">…</div>
+      <div class="text-xs text-gray-500 mt-1">🚀 Latest Version</div>
+    </div>
+  </div>
+
+  <!-- DOWNLOAD BUTTON -->
+  <div id="download" class="mt-10">
+    <a id="btn-download" href="https://github.com/HATAKE2008/vidamx/releases/latest" target="_blank"
+       class="glow inline-block px-10 py-4 rounded-2xl bg-vidmax text-black text-lg font-bold hover:opacity-90 transition">
+      ⬇ Download Latest APK
+    </a>
+    <p id="download-info" class="mt-3 text-sm text-gray-500">Fetching latest release…</p>
+  </div>
+</header>
+
+<!-- FEATURES -->
+<section class="max-w-6xl mx-auto px-5 py-10">
+  <h2 class="text-3xl font-bold text-white text-center mb-8">✨ Key Features</h2>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🎬</div><div class="font-semibold text-white mt-2 text-sm">Local Playback</div><div class="text-xs text-gray-500">Video & music</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🌐</div><div class="font-semibold text-white mt-2 text-sm">Network Streaming</div><div class="text-xs text-gray-500">SMB · FTP · WebDAV</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🔗</div><div class="font-semibold text-white mt-2 text-sm">Stream Link</div><div class="text-xs text-gray-500">HLS · DASH · HTTP</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🎵</div><div class="font-semibold text-white mt-2 text-sm">Online Music</div><div class="text-xs text-gray-500">Discovery & streaming</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">⚙️</div><div class="font-semibold text-white mt-2 text-sm">Dual Engine</div><div class="text-xs text-gray-500">Media3 + MPV</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🎨</div><div class="font-semibold text-white mt-2 text-sm">28 Themes</div><div class="text-xs text-gray-500">Fully offline + AMOLED</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">💬</div><div class="font-semibold text-white mt-2 text-sm">Subtitles</div><div class="text-xs text-gray-500">SRT + styling</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🔊</div><div class="font-semibold text-white mt-2 text-sm">Volume Boost</div><div class="text-xs text-gray-500">Up to 200%</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">👆</div><div class="font-semibold text-white mt-2 text-sm">Gestures</div><div class="text-xs text-gray-500">Volume · brightness · zoom</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">📋</div><div class="font-semibold text-white mt-2 text-sm">Playlists</div><div class="text-xs text-gray-500">Video + music + favorites</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🔤</div><div class="font-semibold text-white mt-2 text-sm">Font Changer</div><div class="text-xs text-gray-500">Built-in + TTF/OTF import</div></div>
+    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🔄</div><div class="font-semibold text-white mt-2 text-sm">Auto Updates</div><div class="text-xs text-gray-500">GitHub release checker</div></div>
+  </div>
+</section>
+
+<!-- SCREENSHOTS -->
+<section class="max-w-6xl mx-auto px-5 py-10">
+  <h2 class="text-3xl font-bold text-white text-center mb-8">📱 Screenshots</h2>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/01-videos-tab.jpg" alt="Videos" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Videos</p></div>
+    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/02-music-tab.jpg" alt="Music" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Music</p></div>
+    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/03-network-tab.jpg" alt="Network" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Network</p></div>
+    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/04-home-feed.jpg" alt="Home" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Home</p></div>
+    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/05-settings-theme.jpg" alt="Themes" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Themes</p></div>
+    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/06-settings-player.jpg" alt="Player Settings" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Player Settings</p></div>
+    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/07-player-subtitle.jpg" alt="Subtitles" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Subtitles</p></div>
+    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/08-player-controls.jpg" alt="Player" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Player</p></div>
+  </div>
+  <div class="mt-4 rounded-2xl overflow-hidden border border-gray-800 max-w-3xl mx-auto">
+    <img src="assets/screenshots/09-player-landscape.jpg" alt="Landscape Player" loading="lazy" class="w-full">
+    <p class="text-center text-sm py-2 bg-card">Landscape Player</p>
+  </div>
+</section>
+
+<!-- RELEASES -->
+<section class="max-w-6xl mx-auto px-5 py-10">
+  <h2 class="text-3xl font-bold text-white text-center mb-8">📦 All Releases</h2>
+  <div id="release-list" class="max-w-3xl mx-auto space-y-3">
+    <p class="text-center text-gray-500">Loading releases…</p>
+  </div>
+  <p class="text-center mt-6">
+    <a href="https://github.com/HATAKE2008/vidamx/releases" target="_blank" class="text-vidmax hover:underline text-sm">View all on GitHub →</a>
+  </p>
+</section>
+
+<!-- INSTALL -->
+<section class="max-w-3xl mx-auto px-5 py-10">
+  <h2 class="text-3xl font-bold text-white text-center mb-6">📲 Install</h2>
+  <ol class="bg-card border border-gray-800 rounded-2xl p-6 space-y-3 text-sm list-decimal list-inside">
+    <li>Download the APK from above</li>
+    <li>Allow <span class="text-gray-300">"Install from unknown sources"</span> if prompted</li>
+    <li>Open and update over the existing install to keep your data</li>
+  </ol>
+  <p class="text-center text-gray-500 text-sm mt-4">Requires Android 5.0 (SDK 21)+ · ~23 MB</p>
+</section>
+
+<!-- PRIVACY -->
+<section class="max-w-3xl mx-auto px-5 py-6 text-center">
+  <h2 class="text-2xl font-bold text-white mb-3">🔒 Privacy</h2>
+  <p class="text-gray-400 text-sm">No advertising SDK · No ad tracking · No mandatory account · Local-first — your media stays on your device.</p>
+</section>
+
+<!-- FOOTER -->
+<footer class="border-t border-gray-800 mt-10">
+  <div class="max-w-6xl mx-auto px-5 py-10 text-center">
+    <h3 class="text-white font-bold text-lg">If you find VidMax useful, consider giving it a ⭐</h3>
+    <div class="mt-4 flex items-center justify-center gap-3 flex-wrap">
+      <a href="https://github.com/HATAKE2008/vidamx" target="_blank" class="px-5 py-2.5 rounded-xl bg-yellow-400 text-black font-semibold text-sm">⭐ Star on GitHub</a>
+      <a href="https://github.com/HATAKE2008/vidamx/releases" target="_blank" class="px-5 py-2.5 rounded-xl bg-vidmax text-black font-semibold text-sm">⬇ Releases</a>
+      <a href="https://github.com/HATAKE2008/vidamx/issues" target="_blank" class="px-5 py-2.5 rounded-xl border border-gray-700 text-sm">🐞 Issues</a>
+    </div>
+    <div class="mt-6 flex items-center justify-center gap-2 flex-wrap">
+      <img src="https://img.shields.io/github/stars/HATAKE2008/vidamx?style=flat-square&logo=github&label=Stars" alt="stars">
+      <img src="https://img.shields.io/github/forks/HATAKE2008/vidamx?style=flat-square&logo=github&label=Forks" alt="forks">
+      <img src="https://img.shields.io/github/license/HATAKE2008/vidamx?style=flat-square&label=License" alt="license">
+    </div>
+    <p class="mt-6 text-xs text-gray-600">VidMax · MIT License · Copyright © 2026 HATAKE2008 · Made with ♥ in Kotlin</p>
+  </div>
+</footer>
+
+<script>
+const OWNER = 'HATAKE2008';
+const REPO = 'vidamx';
+const fmt = n => n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'k' : n;
+
+async function loadStats() {
+  try {
+    // Repo info: stars, forks
+    const repo = await (await fetch(`https://api.github.com/repos/${OWNER}/${REPO}`)).json();
+    document.getElementById('stat-stars').textContent = fmt(repo.stargazers_count || 0);
+    document.getElementById('stat-forks').textContent = fmt(repo.forks_count || 0);
+
+    // Releases: total downloads + latest + list
+    const rels = await (await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases`)).json();
+    let total = 0, latest = null;
+    const list = document.getElementById('release-list');
+    list.innerHTML = '';
+    rels.forEach(r => {
+      let d = 0;
+      (r.assets || []).forEach(a => { d += (a.download_count || 0); });
+      total += d;
+      if (!latest && !r.draft) latest = { r, d };
+      const apk = (r.assets || []).find(a => a.name.endsWith('.apk'));
+      const size = apk ? (apk.size / 1048576).toFixed(1) + ' MB' : '';
+      const date = new Date(r.published_at).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+      const div = document.createElement('a');
+      div.href = r.html_url; div.target = '_blank';
+      div.className = 'flex items-center justify-between bg-card border border-gray-800 rounded-xl px-5 py-4 hover:border-vidmax transition';
+      div.innerHTML = `<div><div class="text-white font-semibold">${r.name || r.tag_name}</div><div class="text-xs text-gray-500">${date} · ${size}</div></div><div class="text-right"><div class="stat-num text-vidmax font-bold">⬇ ${fmt(d)}</div><div class="text-[11px] text-gray-600">downloads</div></div>`;
+      list.appendChild(div);
+    });
+    document.getElementById('stat-downloads').textContent = fmt(total);
+    if (latest) {
+      document.getElementById('stat-release').textContent = latest.r.tag_name;
+      const apk = (latest.r.assets || []).find(a => a.name.endsWith('.apk'));
+      if (apk) document.getElementById('btn-download').href = apk.browser_download_url;
+      const size = apk ? (apk.size / 1048576).toFixed(1) + ' MB' : '';
+      document.getElementById('download-info').textContent =
+        `${latest.r.name || latest.r.tag_name} · ${size} · ⬇ ${fmt(latest.d)} downloads · Updated ${new Date(latest.r.published_at).toLocaleDateString()}`;
+    }
+  } catch (e) {
+    document.getElementById('download-info').textContent = 'Could not load live stats — see GitHub releases page.';
+  }
+}
+loadStats();
+</script>
+</body>
+</html>
