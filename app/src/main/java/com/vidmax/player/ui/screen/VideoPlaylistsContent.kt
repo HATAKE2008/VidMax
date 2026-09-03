@@ -3,6 +3,8 @@ package com.vidmax.player.ui.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,6 +76,7 @@ import java.io.File
 fun VideoPlaylistsContent(
   viewModel: LibraryViewModel,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
+  onDeleteRequest: (VideoItem) -> Unit,
 ) {
   val playlists by viewModel.videoPlaylists.collectAsState()
   val opened by viewModel.openedVideoPlaylist.collectAsState()
@@ -126,7 +129,7 @@ fun VideoPlaylistsContent(
               Spacer(modifier = Modifier.height(4.dp))
               Text(
                   text =
-                      "Long-press videos to select them, then tap the playlist icon to add",
+                      "Long-press a video and choose Add to Playlist",
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                   fontSize = 13.sp,
                   modifier = Modifier.padding(horizontal = 12.dp))
@@ -175,7 +178,8 @@ fun VideoPlaylistsContent(
         onBack = { viewModel.closeVideoPlaylist() },
         onRename = { showRenameDialog = true },
         onDelete = { showDeleteConfirm = true },
-        onPlayVideos = onPlayVideos)
+        onPlayVideos = onPlayVideos,
+        onDeleteRequest = onDeleteRequest)
   }
 
   if (showCreateDialog) {
@@ -265,7 +269,7 @@ private fun PlaylistCard(name: String, count: Int, onClick: () -> Unit) {
       }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
+@OptIn(ExperimentalGlideComposeApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun PlaylistDetailContent(
   viewModel: LibraryViewModel,
@@ -276,6 +280,7 @@ private fun PlaylistDetailContent(
   onRename: () -> Unit,
   onDelete: () -> Unit,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
+  onDeleteRequest: (VideoItem) -> Unit,
 ) {
   var menuOpen by remember { mutableStateOf(false) }
   var itemQuery by remember { mutableStateOf("") }
@@ -298,6 +303,22 @@ private fun PlaylistDetailContent(
             dateAdded = item.addedAt,
             folderPath = "",
             folderName = "")
+
+  var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
+  VideoActionMenuHost(
+      viewModel = viewModel,
+      video = menuVideo,
+      onPlay = { video ->
+        val list = toVideoItems(visibleItems)
+        val index = list.indexOfFirst { it.id == video.id }
+        if (index >= 0) onPlayVideos(list, index)
+        menuVideo = null
+      },
+      onDeleteRequest = {
+        menuVideo = null
+        onDeleteRequest(it)
+      },
+      onDismiss = { menuVideo = null })
       }
 
   Column(modifier = Modifier.fillMaxSize()) {
@@ -399,12 +420,15 @@ private fun PlaylistDetailContent(
           verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(items = visibleItems, key = { it.id }) { item ->
               val index = visibleItems.indexOf(item)
+              val videoItem = toVideoItems(listOf(item)).first()
               Row(
                   modifier =
                       Modifier.fillMaxWidth()
                           .clip(RoundedCornerShape(12.dp))
                           .background(MaterialTheme.colorScheme.surfaceVariant)
-                          .clickable { onPlayVideos(toVideoItems(visibleItems), index) }
+                          .combinedClickable(
+                              onClick = { onPlayVideos(toVideoItems(visibleItems), index) },
+                              onLongClick = { menuVideo = videoItem })
                           .padding(horizontal = 10.dp, vertical = 10.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                     // Real video thumbnail, same loading path as the folder view.
