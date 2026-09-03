@@ -844,6 +844,16 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
   }
 
+  private fun migrateBookmarkKey(oldPath: String, newPath: String) {
+    if (oldPath == newPath) return
+    val oldKey = com.vidmax.player.ui.player.bookmarkPrefsKey(oldPath)
+    val entries = prefs.getStringSet(oldKey, null) ?: return
+    prefs.edit()
+        .putStringSet(com.vidmax.player.ui.player.bookmarkPrefsKey(newPath), entries)
+        .remove(oldKey)
+        .apply()
+  }
+
   fun renameVideo(video: VideoItem, newBaseName: String, onResult: (Result<String>) -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
@@ -873,6 +883,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
         val newPath = dst.absolutePath
         playlistRepository.updatePathReferences(video.path, newPath, dst.nameWithoutExtension)
+        migrateBookmarkKey(video.path, newPath)
         withContext(Dispatchers.Main) {
           _allVideos.value = _allVideos.value.map {
             if (it.path == video.path) it.copy(title = dst.nameWithoutExtension, path = newPath) else it

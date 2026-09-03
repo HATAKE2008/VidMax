@@ -98,6 +98,10 @@ fun SettingsScreen(
     val appPrefs = remember { context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
     val vidmaxPrefs = remember { context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE) }
     var showIntro by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_startup_intro", true)) }
+    var showSpeedButton by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_speed_button", true)) }
+    var showLoopButton by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_loop_button", true)) }
+    var showZoomButtons by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_zoom_buttons", true)) }
+    var showExtraButtons by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_extra_buttons", true)) }
     var updateNotifications by remember {
         mutableStateOf(appPrefs.getBoolean("update_notifications", true))
     }
@@ -427,6 +431,57 @@ fun SettingsScreen(
                     iconId = R.drawable.ic_music_note,
                     checked = musicPlayerEnabled,
                     onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
+                )
+            }
+
+            // ── Player Buttons ────────────────────────────────────────────
+            item {
+                SettingsDivider()
+                SettingsSectionHeader(title = "Player Buttons", paddingTop = 4.dp)
+            }
+            item {
+                SettingsToggleRow(
+                    title = "Speed Button",
+                    subtitle = "Show the playback speed button",
+                    iconId = R.drawable.ic_play_arrow,
+                    checked = showSpeedButton,
+                    onCheckedChange = { on ->
+                        showSpeedButton = on
+                        vidmaxPrefs.edit().putBoolean("show_speed_button", on).apply()
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsToggleRow(
+                    title = "Loop Button",
+                    subtitle = "Show the repeat/loop button",
+                    iconId = R.drawable.ic_rotate,
+                    checked = showLoopButton,
+                    onCheckedChange = { on ->
+                        showLoopButton = on
+                        vidmaxPrefs.edit().putBoolean("show_loop_button", on).apply()
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsToggleRow(
+                    title = "Zoom Buttons",
+                    subtitle = "Show the zoom and aspect-ratio buttons",
+                    iconId = R.drawable.ic_view_list_custom,
+                    checked = showZoomButtons,
+                    onCheckedChange = { on ->
+                        showZoomButtons = on
+                        vidmaxPrefs.edit().putBoolean("show_zoom_buttons", on).apply()
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsToggleRow(
+                    title = "Extra Buttons",
+                    subtitle = "Show background play, timer, boost and fullscreen buttons",
+                    iconId = R.drawable.ic_gear,
+                    checked = showExtraButtons,
+                    onCheckedChange = { on ->
+                        showExtraButtons = on
+                        vidmaxPrefs.edit().putBoolean("show_extra_buttons", on).apply()
+                    }
                 )
             }
 
