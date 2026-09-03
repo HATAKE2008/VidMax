@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,12 +22,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -81,8 +84,29 @@ fun VideoPlaylistsContent(
   val current = opened
 
   if (current == null) {
-    Box(modifier = Modifier.fillMaxSize()) {
-      if (playlists.isEmpty()) {
+    var playlistQuery by remember { mutableStateOf("") }
+    val visiblePlaylists =
+        remember(playlists, playlistQuery) {
+          if (playlistQuery.isBlank()) playlists
+          else playlists.filter { it.playlist.name.contains(playlistQuery, ignoreCase = true) }
+        }
+    Column(modifier = Modifier.fillMaxSize()) {
+      OutlinedTextField(
+          value = playlistQuery,
+          onValueChange = { playlistQuery = it },
+          label = { Text("Search playlists") },
+          leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
+          trailingIcon = {
+            if (playlistQuery.isNotEmpty()) {
+              IconButton(onClick = { playlistQuery = "" }) {
+                Icon(imageVector = Icons.Filled.Close, contentDescription = "Clear")
+              }
+            }
+          },
+          singleLine = true,
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp))
+      Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        if (playlists.isEmpty()) {
         Column(
             modifier = Modifier.fillMaxSize().padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -106,12 +130,19 @@ fun VideoPlaylistsContent(
                   fontSize = 13.sp,
                   modifier = Modifier.padding(horizontal = 12.dp))
             }
+      } else if (visiblePlaylists.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+          Text(
+              text = "No playlists match \"$playlistQuery\"",
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              fontSize = 14.sp)
+        }
       } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 130.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              items(items = playlists, key = { it.playlist.id }) { entry ->
+              items(items = visiblePlaylists, key = { it.playlist.id }) { entry ->
                 PlaylistCard(
                     name = entry.playlist.name,
                     count = entry.itemCount,
@@ -120,17 +151,18 @@ fun VideoPlaylistsContent(
             }
       }
 
-      FloatingActionButton(
-          onClick = { showCreateDialog = true },
-          containerColor = MaterialTheme.colorScheme.primary,
-          contentColor = MaterialTheme.colorScheme.onPrimary,
-          shape = RoundedCornerShape(16.dp),
-          modifier =
-              Modifier.align(Alignment.BottomEnd)
-                  .padding(end = 20.dp, bottom = 140.dp)
-                  .size(56.dp)) {
-            Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
-          }
+        FloatingActionButton(
+            onClick = { showCreateDialog = true },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = RoundedCornerShape(16.dp),
+            modifier =
+                Modifier.align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = 24.dp)
+                    .size(56.dp)) {
+              Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
+            }
+      }
     }
   } else {
     PlaylistDetailContent(
@@ -244,6 +276,12 @@ private fun PlaylistDetailContent(
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
 ) {
   var menuOpen by remember { mutableStateOf(false) }
+  var itemQuery by remember { mutableStateOf("") }
+  val visibleItems =
+      remember(items, itemQuery) {
+        if (itemQuery.isBlank()) items
+        else items.filter { it.fileName.contains(itemQuery, ignoreCase = true) }
+      }
 
   fun toVideoItems(list: List<VidMaxVideoPlaylistItem>): List<VideoItem> =
       list.map { item ->
@@ -283,8 +321,8 @@ private fun PlaylistDetailContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp)
           }
-          if (items.isNotEmpty()) {
-            IconButton(onClick = { onPlayVideos(toVideoItems(items), 0) }) {
+          if (visibleItems.isNotEmpty()) {
+            IconButton(onClick = { onPlayVideos(toVideoItems(visibleItems), 0) }) {
               Icon(
                   imageVector = Icons.Filled.PlayArrow,
                   contentDescription = "Play all",
@@ -321,10 +359,34 @@ private fun PlaylistDetailContent(
           }
         }
 
+    if (items.size > 1) {
+      OutlinedTextField(
+          value = itemQuery,
+          onValueChange = { itemQuery = it },
+          label = { Text("Search in playlist") },
+          leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
+          trailingIcon = {
+            if (itemQuery.isNotEmpty()) {
+              IconButton(onClick = { itemQuery = "" }) {
+                Icon(imageVector = Icons.Filled.Close, contentDescription = "Clear")
+              }
+            }
+          },
+          singleLine = true,
+          modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
+    }
+
     if (items.isEmpty()) {
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
             text = "This playlist is empty.\nLong-press videos to add them here.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp)
+      }
+    } else if (visibleItems.isEmpty()) {
+      Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            text = "No videos match \"$itemQuery\"",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp)
       }
@@ -333,14 +395,14 @@ private fun PlaylistDetailContent(
           modifier = Modifier.fillMaxSize(),
           contentPadding = PaddingValues(bottom = 130.dp),
           verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(items = items, key = { it.id }) { item ->
-              val index = items.indexOf(item)
+            items(items = visibleItems, key = { it.id }) { item ->
+              val index = visibleItems.indexOf(item)
               Row(
                   modifier =
                       Modifier.fillMaxWidth()
                           .clip(RoundedCornerShape(12.dp))
                           .background(MaterialTheme.colorScheme.surfaceVariant)
-                          .clickable { onPlayVideos(toVideoItems(items), index) }
+                          .clickable { onPlayVideos(toVideoItems(visibleItems), index) }
                           .padding(horizontal = 10.dp, vertical = 10.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                     // Real video thumbnail, same loading path as the folder view.
