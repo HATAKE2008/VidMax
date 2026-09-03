@@ -328,6 +328,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   private val _autoRotate: MutableStateFlow<Boolean> =
       MutableStateFlow(prefs.getBoolean("auto_rotate", true))
   val autoRotate: StateFlow<Boolean> = _autoRotate
+  private val _localMode: MutableStateFlow<Boolean> =
+      MutableStateFlow(prefs.getBoolean("local_mode", false))
+  val localMode: StateFlow<Boolean> = _localMode.asStateFlow()
+  private val _musicPlayerEnabled: MutableStateFlow<Boolean> =
+      MutableStateFlow(prefs.getBoolean("music_player_enabled", true))
+  val musicPlayerEnabled: StateFlow<Boolean> = _musicPlayerEnabled.asStateFlow()
+  private val _minimalistPlayer: MutableStateFlow<Boolean> =
+      MutableStateFlow(prefs.getBoolean("minimalist_player", false))
+  val minimalistPlayer: StateFlow<Boolean> = _minimalistPlayer.asStateFlow()
   private val _pipEnabled: MutableStateFlow<Boolean> =
       MutableStateFlow(prefs.getBoolean("pip_enabled", true))
   val pipEnabled: StateFlow<Boolean> = _pipEnabled
@@ -1001,6 +1010,21 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   fun setAutoRotate(enabled: Boolean) {
     _autoRotate.value = enabled
     prefs.edit().putBoolean("auto_rotate", enabled).apply()
+  }
+
+  fun setLocalMode(enabled: Boolean) {
+    _localMode.value = enabled
+    prefs.edit().putBoolean("local_mode", enabled).apply()
+  }
+
+  fun setMusicPlayerEnabled(enabled: Boolean) {
+    _musicPlayerEnabled.value = enabled
+    prefs.edit().putBoolean("music_player_enabled", enabled).apply()
+  }
+
+  fun setMinimalistPlayer(enabled: Boolean) {
+    _minimalistPlayer.value = enabled
+    prefs.edit().putBoolean("minimalist_player", enabled).apply()
   }
 
   fun setPipEnabled(enabled: Boolean) {

@@ -101,6 +101,7 @@ fun PlayerControls(
     modifier: Modifier = Modifier,
     viewModel: PlayerViewModel,
     currentPath: String,
+    minimalist: Boolean = false,
     audioBoostEnabled: Boolean,
     currentPlaybackSpeed: Float,
     onSpeedChange: (Float) -> Unit,
@@ -1162,7 +1163,8 @@ fun PlayerControls(
                             )
                         }
 
-                        // Engine badge
+                        // Engine badge + extra top-bar actions (hidden in minimalist mode)
+                        if (!minimalist) {
                         Box {
                             Box(
                                 modifier = Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable { viewModel.setShowEngineMenu(true) },
@@ -1265,6 +1267,7 @@ fun PlayerControls(
                                 )
                             }
                         }
+                        }
                     }
 
                     // ==================== CENTER TRANSPORT ====================
@@ -1280,12 +1283,14 @@ fun PlayerControls(
                         horizontalArrangement = Arrangement.spacedBy(24.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        MpvCircleButton(
-                            icon = Icons.Default.SkipPrevious,
-                            contentDescription = "Previous",
-                            onClick = onPrevious,
-                            size = 48.dp
-                        )
+                        if (!minimalist) {
+                            MpvCircleButton(
+                                icon = Icons.Default.SkipPrevious,
+                                contentDescription = "Previous",
+                                onClick = onPrevious,
+                                size = 48.dp
+                            )
+                        }
 
                         // Animated play / pause
                         val interactionSource = remember { MutableInteractionSource() }
@@ -1328,12 +1333,14 @@ fun PlayerControls(
                             }
                         }
 
-                        MpvCircleButton(
-                            icon = Icons.Default.SkipNext,
-                            contentDescription = "Next",
-                            onClick = onNext,
-                            size = 48.dp
-                        )
+                        if (!minimalist) {
+                            MpvCircleButton(
+                                icon = Icons.Default.SkipNext,
+                                contentDescription = "Next",
+                                onClick = onNext,
+                                size = 48.dp
+                            )
+                        }
                     }
                     }
 
@@ -1344,7 +1351,40 @@ fun PlayerControls(
                             .padding(bottom = 20.dp, start = leftSafePadding, end = rightSafePadding),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (bottomControlsBelowSeekbar) {
+                        if (minimalist) {
+                            // Minimalist: lock + rotate stay reachable, everything
+                            // else hides; seekbar below keeps seeking accessible.
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                MpvCircleButton(
+                                    icon = if (isLocked) Icons.Default.Lock else Icons.Outlined.LockOpen,
+                                    contentDescription = "Lock",
+                                    onClick = { viewModel.toggleLock() },
+                                    size = 42.dp,
+                                    active = isLocked,
+                                    hideBackground = hideButtonBackground
+                                )
+                                MpvCircleButton(
+                                    icon = Icons.Outlined.ScreenRotation,
+                                    contentDescription = "Rotate",
+                                    onClick = toggleScreenRotation,
+                                    size = 42.dp,
+                                    hideBackground = hideButtonBackground
+                                )
+                            }
+                            SeekBarRow(
+                                currentPosition = currentPosition,
+                                duration = duration,
+                                whiteSeekbar = whiteSeekbar,
+                                reduceMotion = reduceMotion,
+                                preventTap = preventSeekbarTap,
+                                onSeek = onSeek,
+                                onPositionChange = viewModel::setCurrentPosition
+                            )
+                        } else if (bottomControlsBelowSeekbar) {
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,

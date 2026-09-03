@@ -81,6 +81,22 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     // Selected screen name tracking
     var selectedScreen by rememberSaveable { mutableStateOf(navItemsState.firstOrNull()?.label ?: "Videos") }
 
+    val localMode by viewModel.localMode.collectAsState()
+    val musicPlayerEnabled by viewModel.musicPlayerEnabled.collectAsState()
+
+    val visibleNavItems = remember(navItemsState, localMode, musicPlayerEnabled) {
+        navItemsState.filter { item ->
+            (item.label != "Music" || musicPlayerEnabled) && (item.label != "Network" || !localMode)
+        }
+    }
+    LaunchedEffect(visibleNavItems, localMode) {
+        val labels = visibleNavItems.map { it.label }
+        if ((selectedScreen == "Online" && localMode) ||
+            (selectedScreen != "Online" && selectedScreen !in labels)) {
+            selectedScreen = labels.firstOrNull() ?: "Videos"
+        }
+    }
+
     var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var isMusicPlayerOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -161,7 +177,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
 
     // 🔄 ব্যাক হ্যান্ডলার
     BackHandler(
-        enabled = isMusicPlayerOpen || isSettingsOpen || openedPlaylistTitle.isNotEmpty() || selectedScreen != navItemsState.firstOrNull()?.label || currentFolderPath.isNotEmpty()
+        enabled = isMusicPlayerOpen || isSettingsOpen || openedPlaylistTitle.isNotEmpty() || selectedScreen != visibleNavItems.firstOrNull()?.label || currentFolderPath.isNotEmpty()
     ) {
         if (isMusicPlayerOpen) {
             isMusicPlayerOpen = false
@@ -171,8 +187,8 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
             viewModel.closePlaylist()
         } else if (currentFolderPath.isNotEmpty()) {
             viewModel.closeFolder()
-        } else if (selectedScreen != navItemsState.firstOrNull()?.label) {
-            selectedScreen = navItemsState.firstOrNull()?.label ?: "Videos"
+        } else if (selectedScreen != visibleNavItems.firstOrNull()?.label) {
+            selectedScreen = visibleNavItems.firstOrNull()?.label ?: "Videos"
         }
     }
 
@@ -437,20 +453,28 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                         )
                         .padding(horizontal = 6.dp, vertical = 6.dp)
                 ) {
-                    val averageTabWidthPx = with(LocalDensity.current) { (maxWidth / navItemsState.size).toPx() }
+                    val averageTabWidthPx = with(LocalDensity.current) { (maxWidth / visibleNavItems.size).toPx() }
                     var draggedItemIndex by remember { mutableStateOf<Int?>(null) }
+
+                    // Merges a reordered visible list back into the full tab order,
+                    // keeping hidden tabs (Music/Network when disabled) in place.
+                    fun persistVisibleOrder(newVisible: List<NavItem>) {
+                        val hidden = navItemsState.filter { h -> newVisible.none { it.label == h.label } }
+                        navItemsState = newVisible + hidden
+                        sharedPrefs.edit().putString("nav_order", navItemsState.joinToString(",") { it.label }).apply()
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxSize(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        navItemsState.forEachIndexed { index, item ->
+                        visibleNavItems.forEachIndexed { index, item ->
                             key(item.label) {
                                 var offsetX by remember { mutableStateOf(0f) }
                                 val animatedOffsetX by animateFloatAsState(targetValue = offsetX, label = "dragX")
 
-                                val currentIndex = navItemsState.indexOf(item)
+                                val currentIndex = visibleNavItems.indexOf(item)
                                 val isSelected = selectedScreen == item.label
 
                                 val tabWeight by animateFloatAsState(
@@ -485,7 +509,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                         .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
                                         .pointerInput(item.label) {
                                             detectDragGesturesAfterLongPress(
-                                                onDragStart = { draggedItemIndex = navItemsState.indexOf(item) },
+                                                onDragStart = { draggedItemIndex = visibleNavItems.indexOf(item) },
                                                 onDragEnd = {
                                                     draggedItemIndex = null
                                                     offsetX = 0f
@@ -497,29 +521,27 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                                 onDrag = { change, dragAmount ->
                                                     change.consume()
                                                     offsetX += dragAmount.x
-                                                    val currentActiveIndex = navItemsState.indexOf(item)
+                                                    val currentActiveIndex = visibleNavItems.indexOf(item)
                                                     val offsetThreshold = averageTabWidthPx / 2
 
-                                                    if (offsetX > offsetThreshold && currentActiveIndex < navItemsState.lastIndex) {
-                                                        val newList = navItemsState.toMutableList()
+                                                    if (offsetX > offsetThreshold && currentActiveIndex < visibleNavItems.lastIndex) {
+                                                        val newList = visibleNavItems.toMutableList()
                                                         val temp = newList[currentActiveIndex]
                                                         newList[currentActiveIndex] = newList[currentActiveIndex + 1]
                                                         newList[currentActiveIndex + 1] = temp
 
-                                                        navItemsState = newList
-                                                        sharedPrefs.edit().putString("nav_order", navItemsState.joinToString(",") { it.label }).apply()
+                                                        persistVisibleOrder(newList)
 
                                                         offsetX -= averageTabWidthPx
                                                         draggedItemIndex = currentActiveIndex + 1
                                                     }
                                                     else if (offsetX < -offsetThreshold && currentActiveIndex > 0) {
-                                                        val newList = navItemsState.toMutableList()
+                                                        val newList = visibleNavItems.toMutableList()
                                                         val temp = newList[currentActiveIndex]
                                                         newList[currentActiveIndex] = newList[currentActiveIndex - 1]
                                                         newList[currentActiveIndex - 1] = temp
 
-                                                        navItemsState = newList
-                                                        sharedPrefs.edit().putString("nav_order", navItemsState.joinToString(",") { it.label }).apply()
+                                                        persistVisibleOrder(newList)
 
                                                         offsetX += averageTabWidthPx
                                                         draggedItemIndex = currentActiveIndex - 1
@@ -602,8 +624,9 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     }
                 }
 
-                // Separate Online/Search Circular Button (SOLID - same style as main pill)
+                // Separate Online/Search Circular Button (hidden in Local Mode)
                 val isOnlineSelected = selectedScreen == "Online"
+                if (!localMode) {
 
                 // 🌟 Same inner overlay/box animation as selected tab (Folders screenshot এর মতো)
                 val searchBgAlpha by animateFloatAsState(
@@ -669,6 +692,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                             .size(26.dp)
                             .scale(iconScale)
                     )
+                }
                 }
             }
         }

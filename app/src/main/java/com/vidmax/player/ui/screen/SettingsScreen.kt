@@ -85,6 +85,9 @@ fun SettingsScreen(
 ) {
     val resumePlayback by viewModel.resumePlayback.collectAsState()
     val autoRotate by viewModel.autoRotate.collectAsState()
+    val localMode by viewModel.localMode.collectAsState()
+    val musicPlayerEnabled by viewModel.musicPlayerEnabled.collectAsState()
+    val minimalistPlayer by viewModel.minimalistPlayer.collectAsState()
     val audioBoost by viewModel.audioBoost.collectAsState()
     val currentEngine by viewModel.playerEngine.collectAsState()
     val currentTheme by viewModel.appTheme.collectAsState()
@@ -408,6 +411,37 @@ fun SettingsScreen(
                         showIntro = on
                         vidmaxPrefs.edit().putBoolean("show_startup_intro", on).apply()
                     }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsToggleRow(
+                    title = "Minimalist Player",
+                    subtitle = "Use a cleaner player interface with reduced controls",
+                    iconId = R.drawable.ic_view_list_custom,
+                    checked = minimalistPlayer,
+                    onCheckedChange = { viewModel.setMinimalistPlayer(it) }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsToggleRow(
+                    title = "Music Player",
+                    subtitle = "Enable music player features",
+                    iconId = R.drawable.ic_music_note,
+                    checked = musicPlayerEnabled,
+                    onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
+                )
+            }
+
+            // ── Library / Content ─────────────────────────────────────────
+            item {
+                SettingsDivider()
+                SettingsSectionHeader(title = "Library / Content", paddingTop = 4.dp)
+            }
+            item {
+                SettingsToggleRow(
+                    title = "Local Mode",
+                    subtitle = "Show only local media features and hide streaming-related options",
+                    iconId = R.drawable.ic_folder,
+                    checked = localMode,
+                    onCheckedChange = { viewModel.setLocalMode(it) }
                 )
             }
 
