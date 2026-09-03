@@ -76,7 +76,10 @@ import com.vidmax.player.utils.UpdateChecker
 import com.vidmax.player.viewmodel.DarkMode
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.PlayerEngine
+import com.vidmax.player.data.repository.SettingsBackup
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen(
@@ -97,11 +100,13 @@ fun SettingsScreen(
 
     val appPrefs = remember { context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
     val vidmaxPrefs = remember { context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE) }
-    var showIntro by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_startup_intro", true)) }
-    var showSpeedButton by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_speed_button", true)) }
-    var showLoopButton by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_loop_button", true)) }
-    var showZoomButtons by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_zoom_buttons", true)) }
-    var showExtraButtons by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_extra_buttons", true)) }
+    // Bumped after a Settings Import so remember{} reads below reload from disk.
+    var backupTick by remember { mutableStateOf(0) }
+    var showIntro by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("show_startup_intro", true)) }
+    var showSpeedButton by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("show_speed_button", true)) }
+    var showLoopButton by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("show_loop_button", true)) }
+    var showZoomButtons by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("show_zoom_buttons", true)) }
+    var showExtraButtons by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("show_extra_buttons", true)) }
     var updateNotifications by remember {
         mutableStateOf(appPrefs.getBoolean("update_notifications", true))
     }
@@ -146,6 +151,68 @@ fun SettingsScreen(
                     onFailure = { it.message ?: "Could not import font" }
                 )
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // ── P4b: Backup & Restore (SAF, no storage permission) ──────────────
+    var isBackingUp by remember { mutableStateOf(false) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        if (isBackingUp) return@rememberLauncherForActivityResult
+        isBackingUp = true
+        scope.launch {
+            val ok = runCatching {
+                val json = SettingsBackup.buildBackupJson(vidmaxPrefs)
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(json.toByteArray(Charsets.UTF_8))
+                    } ?: throw IllegalStateException("write")
+                }
+                true
+            }.getOrDefault(false)
+            isBackingUp = false
+            Toast.makeText(
+                context,
+                if (ok) "Settings exported successfully" else "Could not export settings",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result: SettingsBackup.ImportResult = runCatching {
+                val raw = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        val buf = ByteArray(SettingsBackup.MAX_IMPORT_BYTES + 1)
+                        var total = 0
+                        while (true) {
+                            val read = input.read(buf, total, buf.size - total)
+                            if (read < 0) break
+                            total += read
+                            if (total > SettingsBackup.MAX_IMPORT_BYTES) {
+                                throw IllegalStateException("too large")
+                            }
+                        }
+                        buf.copyOf(total).toString(Charsets.UTF_8)
+                    } ?: throw IllegalStateException("read")
+                }
+                SettingsBackup.applyBackupJson(vidmaxPrefs, raw)
+            }.getOrElse { SettingsBackup.ImportResult.Invalid("read") }
+            when (result) {
+                is SettingsBackup.ImportResult.Applied -> {
+                    viewModel.reloadSettingsFromDisk()
+                    backupTick++
+                    Toast.makeText(context, "Settings imported successfully", Toast.LENGTH_SHORT).show()
+                }
+                is SettingsBackup.ImportResult.Invalid -> {
+                    Toast.makeText(context, "Invalid or unsupported settings backup", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -547,6 +614,56 @@ fun SettingsScreen(
                         }
                     },
                     onClick = checkForUpdates
+                )
+            }
+
+            // ── Backup & Restore (P4b) ────────────────────────────────────
+            item {
+                SettingsDivider()
+                SettingsSectionHeader(title = "Backup & Restore", paddingTop = 4.dp)
+            }
+            item {
+                SettingsItemPill(
+                    title = "Export Settings",
+                    subtitle = "Save settings to a JSON backup file",
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_share_custom),
+                            contentDescription = null,
+                            modifier = Modifier.size(19.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailing = {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    enabled = !isBackingUp,
+                    onClick = { exportLauncher.launch("VidMax-settings-backup.json") }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsItemPill(
+                    title = "Import Settings",
+                    subtitle = "Restore settings from a backup file",
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_folder_open),
+                            contentDescription = null,
+                            modifier = Modifier.size(19.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailing = {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    onClick = { importLauncher.launch(arrayOf("application/json")) }
                 )
             }
 
