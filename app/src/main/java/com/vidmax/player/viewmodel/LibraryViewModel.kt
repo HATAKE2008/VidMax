@@ -813,14 +813,40 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
   }
 
+  private val _libraryError: MutableStateFlow<String?> = MutableStateFlow(null)
+  val libraryError: StateFlow<String?> = _libraryError.asStateFlow()
+
+  fun clearLibraryError() {
+    _libraryError.value = null
+  }
+
+  private var loadVideosJob: Job? = null
+  private var refreshJob: Job? = null
+
   fun loadVideos() {
-    viewModelScope.launch {
+    if (_isLoading.value) return
+    loadVideosJob?.cancel()
+    loadVideosJob = viewModelScope.launch {
       _isLoading.value = true
-      val videos: List<VideoItem> = withContext(Dispatchers.IO) { repository.getAllVideos() }
-      _allVideos.value = videos
-      _folders.value = repository.getFolders(videos)
-      applyFilter()
-      _isLoading.value = false
+      _libraryError.value = null
+      try {
+        val videos: List<VideoItem> = withContext(Dispatchers.IO) { repository.getAllVideos() }
+        _allVideos.value = videos
+        _folders.value = withContext(Dispatchers.Default) { repository.getFolders(videos) }
+        applyFilter()
+        pruneStaleRecentVideo(videos)
+        val openPath = _currentFolderPath.value
+        if (openPath.isNotEmpty()) {
+          if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
+          else _currentFolderPath.value = ""
+        }
+      } catch (e: SecurityException) {
+        _libraryError.value = "Storage permission required to browse videos."
+      } catch (e: Exception) {
+        _libraryError.value = "Couldn't load videos. Pull to retry."
+      } finally {
+        _isLoading.value = false
+      }
     }
   }
 
@@ -829,19 +855,46 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
   fun refreshVideos() {
     if (_isRefreshing.value || _isLoading.value) return
-    viewModelScope.launch {
+    refreshJob?.cancel()
+    refreshJob = viewModelScope.launch {
       _isRefreshing.value = true
-      val videos: List<VideoItem> = withContext(Dispatchers.IO) { repository.getAllVideos() }
-      _allVideos.value = videos
-      _folders.value = repository.getFolders(videos)
-      applyFilter()
-      val openPath = _currentFolderPath.value
-      if (openPath.isNotEmpty()) {
-        if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
-        else _currentFolderPath.value = ""
+      _libraryError.value = null
+      try {
+        val videos: List<VideoItem> = withContext(Dispatchers.IO) { repository.getAllVideos() }
+        _allVideos.value = videos
+        _folders.value = withContext(Dispatchers.Default) { repository.getFolders(videos) }
+        applyFilter()
+        pruneStaleRecentVideo(videos)
+        val openPath = _currentFolderPath.value
+        if (openPath.isNotEmpty()) {
+          if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
+          else _currentFolderPath.value = ""
+        }
+      } catch (e: SecurityException) {
+        _libraryError.value = "Storage permission required to browse videos."
+      } catch (e: Exception) {
+        _libraryError.value = "Refresh failed. Pull to retry."
+      } finally {
+        _isRefreshing.value = false
       }
-      _isRefreshing.value = false
     }
+  }
+
+  /** Hides last-played resume when the file is truly gone (missing from scan + File check). */
+  private fun pruneStaleRecentVideo(videos: List<VideoItem>) {
+    val recent = _recentVideoPath.value
+    if (recent.isEmpty() || videos.isEmpty()) return
+    if (videos.any { it.path == recent }) return
+    try {
+      if (File(recent).exists()) return
+    } catch (e: Exception) {
+      return
+    }
+    _recentVideoTitle.value = ""
+    _recentVideoPath.value = ""
+    try {
+      prefs.edit().remove("recent_video_title").remove("recent_video_path").apply()
+    } catch (e: Exception) {}
   }
 
   private fun migrateBookmarkKey(oldPath: String, newPath: String) {
@@ -909,7 +962,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
   private fun loadAudio() {
     viewModelScope.launch {
-      val audio: List<AudioItem> = withContext(Dispatchers.IO) { audioRepository.getAllAudio() }
+      try {
+        val audio: List<AudioItem> = withContext(Dispatchers.IO) { audioRepository.getAllAudio() }
       _allAudio.value = audio
       applyAudioFilter()
 
@@ -922,6 +976,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           _currentQueueIndex.value = idx
           _currentAudioArtist.value = audio[idx].artist
         }
+      }
+      } catch (e: Exception) {
+        _allAudio.value = emptyList()
+        applyAudioFilter()
       }
     }
   }
