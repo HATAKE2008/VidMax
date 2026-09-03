@@ -180,12 +180,12 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             PlayerEngine.EXO
         }
 
-        // Resolve the playlist: small lists arrive via the Intent, large
-        // lists (full Videos library) arrive via the process-local holder so
-        // opening the player never exceeds the binder transaction limit.
+        val intentPaths = intent.getStringArrayListExtra(EXTRA_PATHS)?.takeIf { it.isNotEmpty() }
+        if (intentPaths != null) {
+            pendingPaths = emptyList()
+        }
         val initialPaths: List<String> =
-            intent.getStringArrayListExtra(EXTRA_PATHS)?.takeIf { it.isNotEmpty() }
-                ?: takePendingPaths()
+            (intentPaths ?: takePendingPaths()).filter { it.isNotEmpty() }
 
         // Schemes only mpv can handle (ExoPlayer has no rtsp/rtmp/mms/ftp
         // datasource here): route stream links straight to the MPV engine.
@@ -209,6 +209,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         prefs.getString("player_aspect_ratio", null)?.let { saved ->
             runCatching { playerViewModel.setAspectRatio(AspectRatioMode.valueOf(saved)) }
         }
+        playerViewModel.setPlaybackSpeed(prefs.getFloat("player_speed", 1f).coerceIn(0.25f, 3f))
 
         // 🔥 FIX: MPV শুধু তখনই init হবে যখন engine = MPV
         if (resolvedEngine == PlayerEngine.MPV) {
@@ -224,11 +225,12 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
         videoPaths = initialPaths
 
-        val startIndex: Int = intent.getIntExtra(EXTRA_INDEX, 0)
+        val rawIndex: Int = intent.getIntExtra(EXTRA_INDEX, 0)
         if (videoPaths.isEmpty()) {
             finish()
             return
         }
+        val startIndex: Int = rawIndex.coerceIn(0, videoPaths.size - 1)
 
         playerViewModel.setTotalVideos(videoPaths.size)
 
@@ -337,8 +339,8 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             }
 
             // Persist the video-control preferences across player sessions
-            // and keep ExoPlayer's repeat mode in sync when the loop mode
-            // changes mid-playback.
+            // and keep the native loop in sync when the loop mode
+            // changes mid-playback (no stop/reload, so no black flash).
             LaunchedEffect(Unit) {
                 playerViewModel.loopMode.collect { mode ->
                     prefs.edit().putString("player_loop_mode", mode.name).apply()
@@ -346,6 +348,10 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                         exoPlayer?.repeatMode =
                             if (mode == LoopMode.ONE) Player.REPEAT_MODE_ONE
                             else Player.REPEAT_MODE_OFF
+                    } else if (mpvInitialized) {
+                        try {
+                            MPVLib.setOptionString("loop-file", if (mode == LoopMode.ONE) "inf" else "no")
+                        } catch (e: Exception) {}
                     }
                 }
             }
@@ -441,6 +447,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             if (startPos > 3000L) {
                 exoPlayer?.seekTo(startPos)
             }
+            exoPlayer?.setPlaybackSpeed(playerViewModel.playbackSpeed.value.coerceIn(0.25f, 3f))
             exoPlayer?.play()
         } else {
             // 🔥 FIX: MPV branch এ এসে তবেই MPV init হবে
@@ -468,6 +475,9 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             } catch (e: Exception) {}
 
             MPVLib.command(arrayOf("loadfile", uri.toString(), "replace"))
+            try {
+                MPVLib.setPropertyDouble("speed", playerViewModel.playbackSpeed.value.coerceIn(0.25f, 3f).toDouble())
+            } catch (e: Exception) {}
             MPVLib.setPropertyBoolean("pause", false)
             expectMpvPlayback = true
             playerViewModel.setPlaying(true)
@@ -559,6 +569,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
             MPVLib.MpvEvent.MPV_EVENT_END_FILE -> {
                 if (isTrackChanging) return
+                if (playerViewModel.loopMode.value == LoopMode.ONE) return
                 playerViewModel.setPlaying(false)
                 if (currentPlayingPath.isNotEmpty()) {
                     prefs.edit().putLong("resume_pos_$currentPlayingPath", 0L).apply()
@@ -640,7 +651,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         val loopMode = playerViewModel.loopMode.value
         val currentIndex = playerViewModel.currentVideoIndex.value
         when (loopMode) {
-            LoopMode.ONE -> playVideo(currentIndex)
+            LoopMode.ONE -> return
             LoopMode.ALL -> {
                 if (currentIndex < videoPaths.size - 1) playNext()
                 else playVideo(0)

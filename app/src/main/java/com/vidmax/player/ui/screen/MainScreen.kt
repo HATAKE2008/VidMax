@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
@@ -78,10 +79,10 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     }
 
     // Selected screen name tracking
-    var selectedScreen by remember { mutableStateOf(navItemsState.firstOrNull()?.label ?: "Videos") }
+    var selectedScreen by rememberSaveable { mutableStateOf(navItemsState.firstOrNull()?.label ?: "Videos") }
 
-    var isSettingsOpen by remember { mutableStateOf(false) }
-    var isMusicPlayerOpen by remember { mutableStateOf(false) }
+    var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
+    var isMusicPlayerOpen by rememberSaveable { mutableStateOf(false) }
 
     // 🔄 Automatic update check on launch (GitHub releases), only when enabled
     var updateResult by remember { mutableStateOf<UpdateChecker.CheckResult?>(null) }

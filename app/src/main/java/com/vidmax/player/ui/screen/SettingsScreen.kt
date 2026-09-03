@@ -93,6 +93,8 @@ fun SettingsScreen(
     val context = LocalContext.current
 
     val appPrefs = remember { context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
+    val vidmaxPrefs = remember { context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE) }
+    var showIntro by remember { mutableStateOf(vidmaxPrefs.getBoolean("show_startup_intro", true)) }
     var updateNotifications by remember {
         mutableStateOf(appPrefs.getBoolean("update_notifications", true))
     }
@@ -395,6 +397,17 @@ fun SettingsScreen(
                     iconId = R.drawable.ic_rotate,
                     checked = autoRotate,
                     onCheckedChange = { viewModel.setAutoRotate(it) }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsToggleRow(
+                    title = "Show Startup Intro",
+                    subtitle = "Show logo splash when app opens",
+                    iconId = R.drawable.ic_video_library,
+                    checked = showIntro,
+                    onCheckedChange = { on ->
+                        showIntro = on
+                        vidmaxPrefs.edit().putBoolean("show_startup_intro", on).apply()
+                    }
                 )
             }
 
