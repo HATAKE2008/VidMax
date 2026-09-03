@@ -3,213 +3,416 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VidMax — Free Open Source Android Media Player</title>
+<title>VidMax — Open-source Android media player</title>
 <meta name="description" content="VidMax is a free, open-source Android media player. Local media, network streaming (SMB/FTP/WebDAV), online music, dual engine Media3 + MPV. No ads, no tracking.">
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  theme: {
-    extend: {
-      colors: {
-        vidmax: '#40E0D0',
-        dark: '#0A0E1A',
-        card: '#111827'
-      }
-    }
-  }
-}
-</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
-  body { background: #0A0E1A; }
-  .glow { box-shadow: 0 0 40px rgba(64,224,208,.25); }
-  .screenshot { transition: transform .3s ease; }
-  .screenshot:hover { transform: scale(1.03); }
-  .stat-num { font-variant-numeric: tabular-nums; }
+  :root{
+    --bg:#0A0E14;
+    --surface:#10151D;
+    --line:#212A36;
+    --text:#E7ECF2;
+    --dim:#8592A3;
+    --accent:#33D9BE;
+    --accent-dim:#1F8F80;
+    --warm:#FF7A59;
+    --radius:14px;
+    --wrap:920px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans',sans-serif;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  a{color:inherit;text-decoration:none;}
+  img{max-width:100%;display:block;}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;}
+
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 20px;}
+
+  /* timecode section marker — reused everywhere, ties back to the player itself */
+  .code{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.75rem;letter-spacing:.03em;
+    color:var(--accent);margin-bottom:14px;
+  }
+  .code::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);}
+
+  /* ---------- nav ---------- */
+  nav{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:22px 20px;max-width:var(--wrap);margin:0 auto;
+    gap:12px;flex-wrap:wrap;
+  }
+  .logo{display:flex;align-items:center;gap:10px;font-size:1.25rem;font-weight:700;}
+  .logo .mark{color:var(--accent);}
+  .nav-links{display:flex;align-items:center;gap:10px;}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:10px 18px;border-radius:10px;
+    font-size:.875rem;font-weight:600;white-space:nowrap;
+    transition:background .18s ease, border-color .18s ease, transform .12s ease;
+  }
+  .btn-ghost{border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--accent);}
+  .btn-solid{background:var(--accent);color:#04150F;}
+  .btn-solid:hover{background:#5CE6CF;}
+  .btn:active{transform:scale(.97);}
+
+  /* ---------- hero ---------- */
+  header.hero{padding:56px 20px 40px;max-width:var(--wrap);margin:0 auto;}
+  .hero h1{
+    font-size:clamp(2.6rem,11vw,5rem);
+    line-height:.98;font-weight:700;margin:0;letter-spacing:-.01em;
+  }
+  .hero p.tag{
+    color:var(--dim);font-size:clamp(1rem,2.6vw,1.2rem);
+    max-width:520px;margin:18px 0 0;line-height:1.55;
+  }
+  .hero p.tag strong{color:var(--text);font-weight:500;}
+
+  /* scrubber — the one orchestrated load animation */
+  .scrubber{margin:34px 0 30px;}
+  .scrubber svg{width:100%;height:34px;display:block;}
+  .scrub-line{stroke:var(--line);stroke-width:2;}
+  .scrub-fill{
+    stroke:var(--accent);stroke-width:2;
+    stroke-dasharray:600;stroke-dashoffset:600;
+    animation:draw 1.6s cubic-bezier(.4,0,.2,1) .2s forwards;
+  }
+  .scrub-head{
+    fill:var(--accent);
+    animation:slide 1.6s cubic-bezier(.4,0,.2,1) .2s forwards;
+    offset-path:path("M4,17 H396");
+  }
+  @keyframes draw{to{stroke-dashoffset:0;}}
+  @media (prefers-reduced-motion: reduce){
+    .scrub-fill{animation:none;stroke-dashoffset:0;}
+  }
+
+  .stats{
+    display:flex;gap:28px;flex-wrap:wrap;
+    padding:20px 0 8px;border-top:1px solid var(--line);
+  }
+  .stat{display:flex;align-items:center;gap:8px;}
+  .stat svg{width:16px;height:16px;color:var(--dim);flex:none;}
+  .stat b{font-family:'IBM Plex Mono',monospace;font-size:.95rem;font-weight:500;color:var(--text);}
+  .stat span{font-size:.78rem;color:var(--dim);}
+
+  .hero-cta{margin-top:30px;display:flex;flex-wrap:wrap;align-items:center;gap:14px;}
+  #download-info{font-size:.8rem;color:var(--dim);}
+
+  /* ---------- sections ---------- */
+  section{padding:54px 20px;max-width:var(--wrap);margin:0 auto;border-top:1px solid var(--line);}
+  section h2{font-size:clamp(1.5rem,4vw,2rem);margin:0 0 6px;font-weight:600;}
+  section > p.lede{color:var(--dim);max-width:520px;margin:0 0 30px;font-size:.95rem;line-height:1.6;}
+
+  /* ---------- features: track-list layout, not identical cards ---------- */
+  .tracklist{display:grid;grid-template-columns:1fr;}
+  @media(min-width:720px){.tracklist{grid-template-columns:1fr 1fr;column-gap:32px;}}
+  .track{
+    display:flex;gap:16px;padding:18px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .track .icon{
+    flex:none;width:38px;height:38px;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--surface);border:1px solid var(--line);
+    color:var(--accent);transition:border-color .18s ease, transform .18s ease;
+  }
+  .track:hover .icon{border-color:var(--accent);transform:translateY(-2px);}
+  .track .icon svg{width:19px;height:19px;}
+  .track .icon .glyph{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:.85rem;}
+  .track h3{margin:2px 0 4px;font-size:.98rem;font-weight:600;}
+  .track p{margin:0;color:var(--dim);font-size:.85rem;line-height:1.5;}
+
+  /* ---------- screenshots: scroll-snap on mobile, grid on desktop ---------- */
+  .gallery{
+    display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;
+    padding-bottom:14px;margin:0 -20px;padding-left:20px;padding-right:20px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .gallery::-webkit-scrollbar{height:6px;}
+  .gallery::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;}
+  .gallery figure{
+    flex:none;width:150px;scroll-snap-align:start;margin:0;
+  }
+  .gallery img{
+    border-radius:12px;border:1px solid var(--line);aspect-ratio:9/18;object-fit:cover;
+  }
+  .gallery figcaption{font-size:.75rem;color:var(--dim);margin-top:8px;}
+  @media(min-width:720px){
+    .gallery{overflow-x:visible;flex-wrap:wrap;margin:0;padding:0;}
+    .gallery figure{width:calc(25% - 11px);}
+  }
+
+  /* ---------- releases ---------- */
+  .rel-row{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:16px 18px;border:1px solid var(--line);border-radius:12px;
+    margin-bottom:10px;transition:border-color .18s ease;
+  }
+  .rel-row:hover{border-color:var(--accent-dim);}
+  .rel-row .name{font-weight:600;font-size:.92rem;}
+  .rel-row .meta{font-size:.76rem;color:var(--dim);margin-top:3px;}
+  .rel-row .dl{text-align:right;font-family:'IBM Plex Mono',monospace;color:var(--accent);font-size:.88rem;}
+  .rel-row .dl span{display:block;font-family:'IBM Plex Sans',sans-serif;color:var(--dim);font-size:.7rem;margin-top:2px;}
+
+  /* ---------- install: real sequence, so a timeline is earned ---------- */
+  .timeline{position:relative;padding-left:28px;}
+  .timeline::before{
+    content:"";position:absolute;left:7px;top:6px;bottom:6px;width:1px;background:var(--line);
+  }
+  .step{position:relative;padding-bottom:26px;}
+  .step:last-child{padding-bottom:0;}
+  .step::before{
+    content:"";position:absolute;left:-28px;top:2px;width:14px;height:14px;
+    border-radius:50%;background:var(--bg);border:2px solid var(--accent);
+  }
+  .step .n{font-family:'IBM Plex Mono',monospace;color:var(--accent);font-size:.75rem;}
+  .step p{margin:4px 0 0;color:var(--dim);font-size:.9rem;line-height:1.5;}
+  .step p strong{color:var(--text);font-weight:500;}
+  .req{margin-top:22px;font-size:.8rem;color:var(--dim);}
+
+  .privacy p{color:var(--dim);font-size:.95rem;line-height:1.65;max-width:560px;}
+  .privacy p strong{color:var(--text);font-weight:500;}
+
+  /* ---------- footer ---------- */
+  footer{padding:50px 20px 40px;max-width:var(--wrap);margin:0 auto;border-top:1px solid var(--line);}
+  footer h3{font-size:1.2rem;font-weight:600;margin:0 0 18px;}
+  .foot-links{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:26px;}
+  .badges{display:flex;gap:8px;flex-wrap:wrap;}
+  .badges img{height:20px;border-radius:4px;}
+  .copyright{margin-top:24px;font-size:.75rem;color:var(--dim);}
 </style>
 </head>
-<body class="text-gray-200 font-sans antialiased">
+<body>
 
-<!-- NAV -->
-<nav class="max-w-6xl mx-auto flex items-center justify-between px-5 py-5">
-  <div class="flex items-center gap-3">
-    <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-teal-300 to-cyan-600 flex items-center justify-center text-2xl">▶</div>
-    <span class="text-2xl font-bold text-white">Vid<span class="text-vidmax">Max</span></span>
-  </div>
-  <div class="flex items-center gap-3">
-    <a href="https://github.com/HATAKE2008/vidamx" target="_blank" class="text-sm px-4 py-2 rounded-lg border border-gray-700 hover:border-vidmax transition">⭐ GitHub</a>
-    <a href="#download" class="text-sm px-4 py-2 rounded-lg bg-vidmax text-black font-semibold hover:opacity-90 transition">Download</a>
+<nav>
+  <div class="logo"><span class="mark">▸</span>Vid<span style="color:var(--accent)">Max</span></div>
+  <div class="nav-links">
+    <a class="btn btn-ghost" href="https://github.com/HATAKE2008/vidamx" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2a10 10 0 00-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.26-.45-1.28.1-2.66 0 0 .84-.27 2.75 1.02a9.5 9.5 0 015 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.66.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0012 2z"/></svg>
+      GitHub
+    </a>
+    <a class="btn btn-solid" href="#download">Download</a>
   </div>
 </nav>
 
-<!-- HERO -->
-<header class="max-w-6xl mx-auto text-center px-5 pt-10 pb-14">
-  <div class="inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-teal-500/40 text-teal-300 mb-6">
-    🆓 Free &nbsp;·&nbsp; 📖 Open Source &nbsp;·&nbsp; 🚫 No Ads &nbsp;·&nbsp; 🔒 No Tracking
-  </div>
-  <h1 class="text-5xl md:text-7xl font-extrabold text-white leading-tight">
-    Vid<span class="text-vidmax">Max</span>
-  </h1>
-  <p class="mt-4 text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">
-    A modern, privacy-focused media player for Android.<br>
-    <span class="text-gray-300">Local Media · Network Streaming · Online Music · MPV · Media3</span>
-  </p>
+<header class="hero">
+  <div class="code">00:00 — Overview</div>
+  <h1>VidMax</h1>
+  <p class="tag">A modern, privacy-focused media player for Android. <strong>Local media, network streaming, online music</strong> — built on a dual Media3 / MPV engine.</p>
 
-  <!-- LIVE STATS -->
-  <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl mx-auto">
-    <div class="bg-card rounded-2xl p-5 border border-gray-800">
-      <div id="stat-stars" class="stat-num text-3xl font-bold text-yellow-400">…</div>
-      <div class="text-xs text-gray-500 mt-1">⭐ Stars</div>
-    </div>
-    <div class="bg-card rounded-2xl p-5 border border-gray-800">
-      <div id="stat-downloads" class="stat-num text-3xl font-bold text-vidmax">…</div>
-      <div class="text-xs text-gray-500 mt-1">⬇ Total Downloads</div>
-    </div>
-    <div class="bg-card rounded-2xl p-5 border border-gray-800">
-      <div id="stat-forks" class="stat-num text-3xl font-bold text-purple-400">…</div>
-      <div class="text-xs text-gray-500 mt-1">🍴 Forks</div>
-    </div>
-    <div class="bg-card rounded-2xl p-5 border border-gray-800">
-      <div id="stat-release" class="text-3xl font-bold text-green-400">…</div>
-      <div class="text-xs text-gray-500 mt-1">🚀 Latest Version</div>
-    </div>
+  <div class="scrubber" aria-hidden="true">
+    <svg viewBox="0 0 400 34">
+      <path class="scrub-line" d="M4,17 H396" />
+      <path class="scrub-fill" d="M4,17 H396" pathLength="600"/>
+      <circle class="scrub-head" r="5" cx="4" cy="17"/>
+    </svg>
   </div>
 
-  <!-- DOWNLOAD BUTTON -->
-  <div id="download" class="mt-10">
-    <a id="btn-download" href="https://github.com/HATAKE2008/vidamx/releases/latest" target="_blank"
-       class="glow inline-block px-10 py-4 rounded-2xl bg-vidmax text-black text-lg font-bold hover:opacity-90 transition">
-      ⬇ Download Latest APK
+  <div class="stats">
+    <div class="stat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1L6.6 19.3l1.3-6-4.6-4.1 6.1-.6L12 3z"/></svg>
+      <b id="stat-stars">—</b><span>stars</span>
+    </div>
+    <div class="stat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+      <b id="stat-downloads">—</b><span>downloads</span>
+    </div>
+    <div class="stat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="9" r="2.2"/><path d="M6 8.2V15.8M6 12h6a3 3 0 003-3v0"/></svg>
+      <b id="stat-forks">—</b><span>forks</span>
+    </div>
+    <div class="stat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h7l9 9-7 7-9-9V4z"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"/></svg>
+      <b id="stat-release">—</b><span>latest</span>
+    </div>
+  </div>
+
+  <div class="hero-cta" id="download">
+    <a id="btn-download" class="btn btn-solid" href="https://github.com/HATAKE2008/vidamx/releases/latest" target="_blank" rel="noopener">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+      Download latest APK
     </a>
-    <p id="download-info" class="mt-3 text-sm text-gray-500">Fetching latest release…</p>
+    <span id="download-info">Fetching latest release…</span>
   </div>
 </header>
 
-<!-- FEATURES -->
-<section class="max-w-6xl mx-auto px-5 py-10">
-  <h2 class="text-3xl font-bold text-white text-center mb-8">✨ Key Features</h2>
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🎬</div><div class="font-semibold text-white mt-2 text-sm">Local Playback</div><div class="text-xs text-gray-500">Video & music</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🌐</div><div class="font-semibold text-white mt-2 text-sm">Network Streaming</div><div class="text-xs text-gray-500">SMB · FTP · WebDAV</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🔗</div><div class="font-semibold text-white mt-2 text-sm">Stream Link</div><div class="text-xs text-gray-500">HLS · DASH · HTTP</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🎵</div><div class="font-semibold text-white mt-2 text-sm">Online Music</div><div class="text-xs text-gray-500">Discovery & streaming</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">⚙️</div><div class="font-semibold text-white mt-2 text-sm">Dual Engine</div><div class="text-xs text-gray-500">Media3 + MPV</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🎨</div><div class="font-semibold text-white mt-2 text-sm">28 Themes</div><div class="text-xs text-gray-500">Fully offline + AMOLED</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">💬</div><div class="font-semibold text-white mt-2 text-sm">Subtitles</div><div class="text-xs text-gray-500">SRT + styling</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🔊</div><div class="font-semibold text-white mt-2 text-sm">Volume Boost</div><div class="text-xs text-gray-500">Up to 200%</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">👆</div><div class="font-semibold text-white mt-2 text-sm">Gestures</div><div class="text-xs text-gray-500">Volume · brightness · zoom</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">📋</div><div class="font-semibold text-white mt-2 text-sm">Playlists</div><div class="text-xs text-gray-500">Video + music + favorites</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🔤</div><div class="font-semibold text-white mt-2 text-sm">Font Changer</div><div class="text-xs text-gray-500">Built-in + TTF/OTF import</div></div>
-    <div class="bg-card rounded-xl p-4 border border-gray-800"><div class="text-2xl">🔄</div><div class="font-semibold text-white mt-2 text-sm">Auto Updates</div><div class="text-xs text-gray-500">GitHub release checker</div></div>
-  </div>
-</section>
+<section>
+  <div class="code">00:01 — Features</div>
+  <h2>Everything the player does</h2>
+  <p class="lede">Twelve things VidMax handles well, in place of the fifty it doesn't try to.</p>
 
-<!-- SCREENSHOTS -->
-<section class="max-w-6xl mx-auto px-5 py-10">
-  <h2 class="text-3xl font-bold text-white text-center mb-8">📱 Screenshots</h2>
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/01-videos-tab.jpg" alt="Videos" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Videos</p></div>
-    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/02-music-tab.jpg" alt="Music" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Music</p></div>
-    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/03-network-tab.jpg" alt="Network" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Network</p></div>
-    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/04-home-feed.jpg" alt="Home" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Home</p></div>
-    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/05-settings-theme.jpg" alt="Themes" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Themes</p></div>
-    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/06-settings-player.jpg" alt="Player Settings" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Player Settings</p></div>
-    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/07-player-subtitle.jpg" alt="Subtitles" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Subtitles</p></div>
-    <div class="screenshot rounded-2xl overflow-hidden border border-gray-800"><img src="assets/screenshots/08-player-controls.jpg" alt="Player" loading="lazy" class="w-full"><p class="text-center text-sm py-2 bg-card">Player</p></div>
-  </div>
-  <div class="mt-4 rounded-2xl overflow-hidden border border-gray-800 max-w-3xl mx-auto">
-    <img src="assets/screenshots/09-player-landscape.jpg" alt="Landscape Player" loading="lazy" class="w-full">
-    <p class="text-center text-sm py-2 bg-card">Landscape Player</p>
-  </div>
-</section>
-
-<!-- RELEASES -->
-<section class="max-w-6xl mx-auto px-5 py-10">
-  <h2 class="text-3xl font-bold text-white text-center mb-8">📦 All Releases</h2>
-  <div id="release-list" class="max-w-3xl mx-auto space-y-3">
-    <p class="text-center text-gray-500">Loading releases…</p>
-  </div>
-  <p class="text-center mt-6">
-    <a href="https://github.com/HATAKE2008/vidamx/releases" target="_blank" class="text-vidmax hover:underline text-sm">View all on GitHub →</a>
-  </p>
-</section>
-
-<!-- INSTALL -->
-<section class="max-w-3xl mx-auto px-5 py-10">
-  <h2 class="text-3xl font-bold text-white text-center mb-6">📲 Install</h2>
-  <ol class="bg-card border border-gray-800 rounded-2xl p-6 space-y-3 text-sm list-decimal list-inside">
-    <li>Download the APK from above</li>
-    <li>Allow <span class="text-gray-300">"Install from unknown sources"</span> if prompted</li>
-    <li>Open and update over the existing install to keep your data</li>
-  </ol>
-  <p class="text-center text-gray-500 text-sm mt-4">Requires Android 5.0 (SDK 21)+ · ~23 MB</p>
-</section>
-
-<!-- PRIVACY -->
-<section class="max-w-3xl mx-auto px-5 py-6 text-center">
-  <h2 class="text-2xl font-bold text-white mb-3">🔒 Privacy</h2>
-  <p class="text-gray-400 text-sm">No advertising SDK · No ad tracking · No mandatory account · Local-first — your media stays on your device.</p>
-</section>
-
-<!-- FOOTER -->
-<footer class="border-t border-gray-800 mt-10">
-  <div class="max-w-6xl mx-auto px-5 py-10 text-center">
-    <h3 class="text-white font-bold text-lg">If you find VidMax useful, consider giving it a ⭐</h3>
-    <div class="mt-4 flex items-center justify-center gap-3 flex-wrap">
-      <a href="https://github.com/HATAKE2008/vidamx" target="_blank" class="px-5 py-2.5 rounded-xl bg-yellow-400 text-black font-semibold text-sm">⭐ Star on GitHub</a>
-      <a href="https://github.com/HATAKE2008/vidamx/releases" target="_blank" class="px-5 py-2.5 rounded-xl bg-vidmax text-black font-semibold text-sm">⬇ Releases</a>
-      <a href="https://github.com/HATAKE2008/vidamx/issues" target="_blank" class="px-5 py-2.5 rounded-xl border border-gray-700 text-sm">🐞 Issues</a>
+  <div class="tracklist">
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg></div>
+      <div><h3>Local playback</h3><p>Video and music from your device, no extra setup.</p></div>
     </div>
-    <div class="mt-6 flex items-center justify-center gap-2 flex-wrap">
-      <img src="https://img.shields.io/github/stars/HATAKE2008/vidamx?style=flat-square&logo=github&label=Stars" alt="stars">
-      <img src="https://img.shields.io/github/forks/HATAKE2008/vidamx?style=flat-square&logo=github&label=Forks" alt="forks">
-      <img src="https://img.shields.io/github/license/HATAKE2008/vidamx?style=flat-square&label=License" alt="license">
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="6" rx="2"/><rect x="4" y="14" width="16" height="6" rx="2"/><circle cx="8" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="1" fill="currentColor" stroke="none"/></svg></div>
+      <div><h3>Network streaming</h3><p>Connect over SMB, FTP or WebDAV and browse remote folders directly.</p></div>
     </div>
-    <p class="mt-6 text-xs text-gray-600">VidMax · MIT License · Copyright © 2026 HATAKE2008 · Made with ♥ in Kotlin</p>
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 13a4 4 0 010-6l2-2a4 4 0 016 6l-1 1"/><path d="M16 11a4 4 0 010 6l-2 2a4 4 0 01-6-6l1-1"/></svg></div>
+      <div><h3>Stream link</h3><p>Paste a URL — HLS, DASH, SmoothStreaming or plain HTTP.</p></div>
+    </div>
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></div>
+      <div><h3>Online music</h3><p>Discovery feed and streaming, no account required.</p></div>
+    </div>
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4"/></svg></div>
+      <div><h3>Dual engine</h3><p>Media3 as primary, MPV underneath for wider codec support.</p></div>
+    </div>
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3a9 9 0 100 18 2 2 0 002-2c0-.6-.3-1-.6-1.4-.3-.4-.5-.8-.4-1.3.1-.9.9-1.6 1.8-1.6H16a4 4 0 004-4c0-5-3.6-7.7-8-7.7z"/><circle cx="8" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="14.5" r="1" fill="currentColor" stroke="none"/></svg></div>
+      <div><h3>28 themes</h3><p>Fully offline, including a true AMOLED black.</p></div>
+    </div>
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M6.5 15v-2a1.5 1.5 0 013 0M11.5 15v-2a1.5 1.5 0 013 0"/></svg></div>
+      <div><h3>Subtitles</h3><p>SRT support with adjustable style and position.</p></div>
+    </div>
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 9v6h4l5 4V5L9 9H5z"/><path d="M17 9a4 4 0 010 6"/><path d="M19.5 7a8 8 0 010 10"/></svg></div>
+      <div><h3>Volume boost</h3><p>Push playback up to 200% past device max.</p></div>
+    </div>
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12c4-6 12-6 16 0"/><path d="M16 8l4 4-4 4"/></svg></div>
+      <div><h3>Gestures</h3><p>Swipe for volume and brightness, pinch to zoom.</p></div>
+    </div>
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="4" y1="7" x2="14" y2="7"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/><path d="M17 9l4 3-4 3V9z" fill="currentColor" stroke="none"/></svg></div>
+      <div><h3>Playlists</h3><p>For video and music, plus favorites on both.</p></div>
+    </div>
+    <div class="track">
+      <div class="icon"><span class="glyph">Aa</span></div>
+      <div><h3>Font changer</h3><p>Built-in set, or import your own TTF / OTF.</p></div>
+    </div>
+    <div class="track">
+      <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3"/><path d="M14 4h4v4M10 20H6v-4"/></svg></div>
+      <div><h3>Auto updates</h3><p>Checks GitHub releases and notifies you in-app.</p></div>
+    </div>
   </div>
+</section>
+
+<section>
+  <div class="code">00:02 — Screens</div>
+  <h2>What it looks like</h2>
+  <p class="lede">Swipe through on mobile — this is the actual UI, not mockups.</p>
+  <div class="gallery">
+    <figure><img src="assets/screenshots/01-videos-tab.jpg" alt="Videos tab" loading="lazy"><figcaption>Videos</figcaption></figure>
+    <figure><img src="assets/screenshots/02-music-tab.jpg" alt="Music tab" loading="lazy"><figcaption>Music</figcaption></figure>
+    <figure><img src="assets/screenshots/03-network-tab.jpg" alt="Network tab" loading="lazy"><figcaption>Network</figcaption></figure>
+    <figure><img src="assets/screenshots/04-home-feed.jpg" alt="Home feed" loading="lazy"><figcaption>Home</figcaption></figure>
+    <figure><img src="assets/screenshots/05-settings-theme.jpg" alt="Theme settings" loading="lazy"><figcaption>Themes</figcaption></figure>
+    <figure><img src="assets/screenshots/06-settings-player.jpg" alt="Player settings" loading="lazy"><figcaption>Player settings</figcaption></figure>
+    <figure><img src="assets/screenshots/07-player-subtitle.jpg" alt="Subtitle settings" loading="lazy"><figcaption>Subtitles</figcaption></figure>
+    <figure><img src="assets/screenshots/08-player-controls.jpg" alt="Player controls" loading="lazy"><figcaption>Player</figcaption></figure>
+  </div>
+</section>
+
+<section>
+  <div class="code">00:03 — Releases</div>
+  <h2>Release history</h2>
+  <div id="release-list">
+    <p style="color:var(--dim);font-size:.85rem;">Loading releases…</p>
+  </div>
+  <a href="https://github.com/HATAKE2008/vidamx/releases" target="_blank" rel="noopener" style="font-size:.85rem;color:var(--accent);">View all releases on GitHub →</a>
+</section>
+
+<section>
+  <div class="code">00:04 — Install</div>
+  <h2>Getting it onto your phone</h2>
+  <div class="timeline">
+    <div class="step">
+      <div class="n">01</div>
+      <p><strong>Download the APK</strong> using the button at the top of this page.</p>
+    </div>
+    <div class="step">
+      <div class="n">02</div>
+      <p>Allow <strong>install from unknown sources</strong> if your phone asks.</p>
+    </div>
+    <div class="step">
+      <div class="n">03</div>
+      <p>Open it. Installing over an existing copy keeps your settings and library.</p>
+    </div>
+  </div>
+  <p class="req">Requires Android 5.0 (SDK 21) or newer · around 23 MB</p>
+</section>
+
+<section class="privacy">
+  <div class="code">00:05 — Privacy</div>
+  <h2>What VidMax doesn't do</h2>
+  <p>No advertising SDK, no ad tracking, no mandatory account, no subscription for core playback. <strong>Your media library stays on your device</strong> — network features only reach the servers or links you configure yourself.</p>
+</section>
+
+<footer>
+  <h3>If VidMax is useful to you, a star helps others find it.</h3>
+  <div class="foot-links">
+    <a class="btn btn-solid" href="https://github.com/HATAKE2008/vidamx" target="_blank" rel="noopener">Star on GitHub</a>
+    <a class="btn btn-ghost" href="https://github.com/HATAKE2008/vidamx/releases" target="_blank" rel="noopener">Releases</a>
+    <a class="btn btn-ghost" href="https://github.com/HATAKE2008/vidamx/issues" target="_blank" rel="noopener">Report an issue</a>
+  </div>
+  <div class="badges">
+    <img src="https://img.shields.io/github/stars/HATAKE2008/vidamx?style=flat-square&color=33D9BE&labelColor=10151D" alt="stars">
+    <img src="https://img.shields.io/github/forks/HATAKE2008/vidamx?style=flat-square&color=33D9BE&labelColor=10151D" alt="forks">
+    <img src="https://img.shields.io/github/license/HATAKE2008/vidamx?style=flat-square&color=33D9BE&labelColor=10151D" alt="license">
+  </div>
+  <p class="copyright">VidMax · MIT License · Copyright © 2026 HATAKE2008 · Built in Kotlin</p>
 </footer>
 
 <script>
 const OWNER = 'HATAKE2008';
 const REPO = 'vidamx';
-const fmt = n => n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'k' : n;
+const fmt = n => n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'k' : String(n);
 
-async function loadStats() {
-  try {
-    // Repo info: stars, forks
+async function loadStats(){
+  try{
     const repo = await (await fetch(`https://api.github.com/repos/${OWNER}/${REPO}`)).json();
     document.getElementById('stat-stars').textContent = fmt(repo.stargazers_count || 0);
     document.getElementById('stat-forks').textContent = fmt(repo.forks_count || 0);
 
-    // Releases: total downloads + latest + list
     const rels = await (await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases`)).json();
     let total = 0, latest = null;
     const list = document.getElementById('release-list');
     list.innerHTML = '';
-    rels.forEach(r => {
+    (Array.isArray(rels) ? rels : []).forEach(r => {
       let d = 0;
-      (r.assets || []).forEach(a => { d += (a.download_count || 0); });
+      (r.assets || []).forEach(a => d += (a.download_count || 0));
       total += d;
-      if (!latest && !r.draft) latest = { r, d };
+      if(!latest && !r.draft) latest = { r, d };
       const apk = (r.assets || []).find(a => a.name.endsWith('.apk'));
       const size = apk ? (apk.size / 1048576).toFixed(1) + ' MB' : '';
-      const date = new Date(r.published_at).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
-      const div = document.createElement('a');
-      div.href = r.html_url; div.target = '_blank';
-      div.className = 'flex items-center justify-between bg-card border border-gray-800 rounded-xl px-5 py-4 hover:border-vidmax transition';
-      div.innerHTML = `<div><div class="text-white font-semibold">${r.name || r.tag_name}</div><div class="text-xs text-gray-500">${date} · ${size}</div></div><div class="text-right"><div class="stat-num text-vidmax font-bold">⬇ ${fmt(d)}</div><div class="text-[11px] text-gray-600">downloads</div></div>`;
-      list.appendChild(div);
+      const date = new Date(r.published_at).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+      const row = document.createElement('a');
+      row.href = r.html_url; row.target = '_blank'; row.rel = 'noopener';
+      row.className = 'rel-row';
+      row.innerHTML = `<div><div class="name">${r.name || r.tag_name}</div><div class="meta">${date} · ${size}</div></div><div class="dl">${fmt(d)}<span>downloads</span></div>`;
+      list.appendChild(row);
     });
     document.getElementById('stat-downloads').textContent = fmt(total);
-    if (latest) {
+    if(latest){
       document.getElementById('stat-release').textContent = latest.r.tag_name;
       const apk = (latest.r.assets || []).find(a => a.name.endsWith('.apk'));
-      if (apk) document.getElementById('btn-download').href = apk.browser_download_url;
+      if(apk) document.getElementById('btn-download').href = apk.browser_download_url;
       const size = apk ? (apk.size / 1048576).toFixed(1) + ' MB' : '';
       document.getElementById('download-info').textContent =
-        `${latest.r.name || latest.r.tag_name} · ${size} · ⬇ ${fmt(latest.d)} downloads · Updated ${new Date(latest.r.published_at).toLocaleDateString()}`;
+        `${latest.r.name || latest.r.tag_name} · ${size} · ${fmt(latest.d)} downloads`;
     }
-  } catch (e) {
-    document.getElementById('download-info').textContent = 'Could not load live stats — see GitHub releases page.';
+  }catch(e){
+    document.getElementById('download-info').textContent = 'Could not load live stats — see the GitHub releases page.';
   }
 }
 loadStats();
