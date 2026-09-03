@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -100,6 +101,18 @@ fun HomeScreen(
   val openedVideoPlaylist by viewModel.openedVideoPlaylist.collectAsState()
   var isSearchExpanded by remember { mutableStateOf(false) }
   val inSelectionMode = selectedVideoIds.isNotEmpty()
+
+  // Resume (continue watching) action — lives in the top bar next to Search
+  // so it can never overlap the playlist Create button.
+  val resumeLastVideo = {
+    var targetIndex = videos.indexOfFirst { it.path == recentVideoPath }
+    if (targetIndex == -1 && recentVideoPath.isNotEmpty()) {
+      val recentFileName = File(recentVideoPath).name
+      targetIndex = videos.indexOfFirst { File(it.path).name == recentFileName }
+    }
+    if (targetIndex == -1) targetIndex = 0
+    onVideoClick(videos, targetIndex)
+  }
 
   var currentViewStyle by remember {
     val savedStyle =
@@ -198,6 +211,111 @@ fun HomeScreen(
             Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
           }
         })
+  }
+
+  // Long-press actions for a video inside a Folder (Play, Share, Favorite,
+  // Add to Playlist, Details, Delete).
+  var folderContextVideo by remember { mutableStateOf<VideoItem?>(null) }
+  var folderPlaylistVideo by remember { mutableStateOf<VideoItem?>(null) }
+  var folderDeleteVideo by remember { mutableStateOf<VideoItem?>(null) }
+  var folderDetailsVideo by remember { mutableStateOf<VideoItem?>(null) }
+
+  folderPlaylistVideo?.let { video ->
+    AddToPlaylistDialog(
+        viewModel = viewModel,
+        videos = listOf(video),
+        onDismiss = { folderPlaylistVideo = null })
+  }
+
+  folderDeleteVideo?.let { video ->
+    AlertDialog(
+        onDismissRequest = { folderDeleteVideo = null },
+        title = { Text("Delete Video", fontWeight = FontWeight.Bold) },
+        text = {
+          Text("Are you sure you want to delete \"${video.title}\"? This action cannot be undone.")
+        },
+        confirmButton = {
+          TextButton(
+              onClick = {
+                folderDeleteVideo = null
+                val uri = getVideoUriFromPathForMulti(context, video.path)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && uri != null) {
+                  val pendingIntent =
+                      MediaStore.createDeleteRequest(context.contentResolver, listOf(uri))
+                  deleteLauncher.launch(
+                      IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+                } else {
+                  val deleted =
+                      if (File(video.path).exists()) File(video.path).delete()
+                      else
+                          getVideoUriFromPathForMulti(context, video.path)?.let { u ->
+                            context.contentResolver.delete(u, null, null) > 0
+                          } ?: false
+                  Toast.makeText(
+                          context,
+                          if (deleted) "Video deleted" else "Delete failed",
+                          Toast.LENGTH_SHORT)
+                      .show()
+                }
+              }) {
+                Text(
+                    "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+              }
+        },
+        dismissButton = {
+          TextButton(onClick = { folderDeleteVideo = null }) {
+            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
+          }
+        })
+  }
+
+  folderDetailsVideo?.let { video ->
+    FolderVideoDetailsDialog(
+        video = video, viewModel = viewModel, onDismiss = { folderDetailsVideo = null })
+  }
+
+  folderContextVideo?.let { video ->
+    FolderVideoContextSheet(
+        video = video,
+        isFavorite = viewModel.favoriteVideoPaths.value.contains(video.path),
+        onPlay = {
+          val index = folderVideos.indexOfFirst { it.id == video.id }
+          if (index >= 0) onVideoClick(folderVideos, index)
+          else Toast.makeText(context, "Video not available", Toast.LENGTH_SHORT).show()
+          folderContextVideo = null
+        },
+        onShare = {
+          val uri = getVideoUriFromPathForMulti(context, video.path)
+          if (uri != null) {
+            val intent =
+                Intent(Intent.ACTION_SEND).apply {
+                  type = "video/*"
+                  putExtra(Intent.EXTRA_STREAM, uri as android.os.Parcelable)
+                  addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            context.startActivity(Intent.createChooser(intent, "Share Video"))
+          } else {
+            Toast.makeText(context, "Could not share this video", Toast.LENGTH_SHORT).show()
+          }
+          folderContextVideo = null
+        },
+        onToggleFavorite = {
+          viewModel.toggleVideoFavorite(video.path)
+          folderContextVideo = null
+        },
+        onAddToPlaylist = {
+          folderPlaylistVideo = video
+          folderContextVideo = null
+        },
+        onDetails = {
+          folderDetailsVideo = video
+          folderContextVideo = null
+        },
+        onDelete = {
+          folderDeleteVideo = video
+          folderContextVideo = null
+        },
+        onDismiss = { folderContextVideo = null })
   }
 
   Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -355,6 +473,18 @@ fun HomeScreen(
                       contentDescription = "Search",
                       tint = MaterialTheme.colorScheme.onBackground,
                       modifier = Modifier.size(24.dp))
+                }
+
+                // Continue-watching button in the top bar (moved here so it
+                // can never overlap the playlist Create button).
+                if (videos.isNotEmpty()) {
+                  IconButton(onClick = resumeLastVideo, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Continue Watching",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp))
+                  }
                 }
 
                 IconButton(
@@ -673,7 +803,7 @@ fun HomeScreen(
                                                 resolution = viewModel.getResolutionLabel(video.width, video.height),
                                                 isSelected = false,
                                                 onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = {})
+                                                onLongClick = { folderContextVideo = video })
                                           }
                                         }
                                   }
@@ -691,7 +821,7 @@ fun HomeScreen(
                                                 duration = viewModel.formatDuration(video.duration),
                                                 isSelected = false,
                                                 onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = {})
+                                                onLongClick = { folderContextVideo = video })
                                           }
                                         }
                                   }
@@ -708,7 +838,7 @@ fun HomeScreen(
                                                 size = viewModel.formatSize(video.size),
                                                 isSelected = false,
                                                 onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = {})
+                                                onLongClick = { folderContextVideo = video })
                                           }
                                         }
                                   }
@@ -783,34 +913,6 @@ fun HomeScreen(
           }
         }
       }
-    }
-
-    if (!inSelectionMode && videos.isNotEmpty() && searchQuery.isEmpty()) {
-      FloatingActionButton(
-          onClick = {
-            var targetIndex = videos.indexOfFirst { it.path == recentVideoPath }
-            if (targetIndex == -1 && recentVideoPath.isNotEmpty()) {
-              val recentFileName = File(recentVideoPath).name
-              targetIndex = videos.indexOfFirst { File(it.path).name == recentFileName }
-            }
-            if (targetIndex == -1) targetIndex = 0
-            onVideoClick(videos, targetIndex)
-          },
-          containerColor = MaterialTheme.colorScheme.primary,
-          contentColor = MaterialTheme.colorScheme.onPrimary,
-          shape = RoundedCornerShape(16.dp),
-          elevation =
-              FloatingActionButtonDefaults.elevation(
-                  defaultElevation = 6.dp, pressedElevation = 12.dp),
-          modifier =
-              Modifier.align(Alignment.BottomEnd)
-                  .padding(end = 20.dp, bottom = 110.dp)
-                  .size(56.dp)) {
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = "Continue Watching",
-                modifier = Modifier.size(28.dp))
-          }
     }
   }
 }
@@ -1306,4 +1408,114 @@ fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modif
               }
         }
       }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FolderVideoContextSheet(
+    video: VideoItem,
+    isFavorite: Boolean,
+    onPlay: () -> Unit,
+    onShare: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onDetails: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit
+) {
+  ModalBottomSheet(onDismissRequest = onDismiss) {
+    Column(
+        modifier =
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 32.dp)) {
+          Text(
+              text = video.title,
+              color = MaterialTheme.colorScheme.onSurface,
+              fontSize = 16.sp,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+              modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+          val actions =
+              listOf(
+                  Triple<ImageVector, String, () -> Unit>(
+                      Icons.Filled.PlayArrow, "Play", onPlay),
+                  Triple<ImageVector, String, () -> Unit>(Icons.Filled.Share, "Share", onShare),
+                  Triple<ImageVector, String, () -> Unit>(
+                      if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                      if (isFavorite) "Remove from Favorites" else "Add to Favorites",
+                      onToggleFavorite),
+                  Triple<ImageVector, String, () -> Unit>(
+                      Icons.Filled.PlaylistAdd, "Add to Playlist", onAddToPlaylist),
+                  Triple<ImageVector, String, () -> Unit>(
+                      Icons.Filled.Info, "Details", onDetails),
+                  Triple<ImageVector, String, () -> Unit>(
+                      Icons.Filled.Delete, "Delete", onDelete))
+          actions.forEach { (icon, label, action) ->
+            val isDestructive = label == "Delete"
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .clickable { action() }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                  Icon(
+                      imageVector = icon,
+                      contentDescription = null,
+                      tint =
+                          if (isDestructive) MaterialTheme.colorScheme.error
+                          else MaterialTheme.colorScheme.onSurface,
+                      modifier = Modifier.size(22.dp))
+                  Spacer(modifier = Modifier.width(16.dp))
+                  Text(
+                      text = label,
+                      color =
+                          if (isDestructive) MaterialTheme.colorScheme.error
+                          else MaterialTheme.colorScheme.onSurface,
+                      fontSize = 15.sp)
+                }
+          }
+        }
+  }
+}
+
+@Composable
+fun FolderVideoDetailsDialog(
+    video: VideoItem,
+    viewModel: LibraryViewModel,
+    onDismiss: () -> Unit
+) {
+  AlertDialog(
+      onDismissRequest = onDismiss,
+      title = { Text("Details", fontWeight = FontWeight.Bold) },
+      text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          FolderVideoDetailRow(label = "Title", value = video.title)
+          FolderVideoDetailRow(label = "Folder", value = video.folderName)
+          FolderVideoDetailRow(label = "Path", value = video.path)
+          FolderVideoDetailRow(
+              label = "Duration", value = viewModel.formatDuration(video.duration))
+          FolderVideoDetailRow(label = "Size", value = viewModel.formatSize(video.size))
+          FolderVideoDetailRow(
+              label = "Resolution",
+              value = viewModel.getResolutionLabel(video.width, video.height))
+        }
+      },
+      confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } })
+}
+
+@Composable
+private fun FolderVideoDetailRow(label: String, value: String) {
+  Column {
+    Text(
+        text = label,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold)
+    Text(
+        text = value,
+        color = MaterialTheme.colorScheme.onSurface,
+        fontSize = 14.sp,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis)
+  }
 }
