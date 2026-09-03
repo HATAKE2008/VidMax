@@ -52,6 +52,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -280,7 +281,9 @@ fun PlayerControls(
     var showPropertiesDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs) {
-        if (controlsVisible && !isLocked && autoHideControls && controlsHideDelayMs > 0) {
+        // The lock button + slide-to-unlock overlay also auto-hides, like all
+        // other controls — a tap anywhere brings it back while locked.
+        if (controlsVisible && autoHideControls && controlsHideDelayMs > 0) {
             delay(controlsHideDelayMs.toLong())
             viewModel.setControlsVisible(false)
         }
@@ -530,7 +533,16 @@ fun PlayerControls(
                     val isSelected = aspect == mode
                     Row(
                         modifier = Modifier.fillMaxWidth()
-                            .clickable { viewModel.setAspectRatio(mode); viewModel.setShowAspectSheet(false) }
+                            .clickable {
+                                // Fit means "show the whole frame": drop any
+                                // pinch-zoom/pan so the view returns to its
+                                // default framing instead of staying zoomed.
+                                if (mode == AspectRatioMode.FIT && videoScale != 1f) {
+                                    onVideoScaleChange(1f / videoScale, Offset.Zero, null)
+                                }
+                                viewModel.setAspectRatio(mode)
+                                viewModel.setShowAspectSheet(false)
+                            }
                             .padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1069,12 +1081,40 @@ fun PlayerControls(
         // MPVEx-style controls (shown when not locked)
         // ============================================================
         AnimatedVisibility(
-            visible = controlsVisible || isLocked,
+            // The locked overlay also hides with the controls; a tap brings
+            // it back since gestures stay disabled while locked.
+            visible = controlsVisible,
             enter = fadeIn(tween(300)),
             exit = fadeOut(tween(300)),
             modifier = Modifier.fillMaxSize()
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
+                if (!isLocked) {
+                    // Scrim behind the top/bottom controls so they stay
+                    // readable on bright (white) scenes.
+                    Box(
+                        modifier = Modifier.align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.24f)
+                            .background(
+                                Brush.verticalGradient(
+                                    0f to Color.Black.copy(alpha = 0.55f),
+                                    1f to Color.Black.copy(alpha = 0f)
+                                )
+                            )
+                    )
+                    Box(
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.38f)
+                            .background(
+                                Brush.verticalGradient(
+                                    0f to Color.Black.copy(alpha = 0f),
+                                    1f to Color.Black.copy(alpha = 0.6f)
+                                )
+                            )
+                    )
+                }
                 if (isLocked) {
                     // ---- Locked state: lock button + slide to unlock ----
                     MpvCircleButton(
@@ -1228,8 +1268,15 @@ fun PlayerControls(
                     }
 
                     // ==================== CENTER TRANSPORT ====================
+                    // Hidden while a drag gesture (seek/volume/brightness) is
+                    // in progress so it doesn't overlap the gesture overlay.
+                    AnimatedVisibility(
+                        visible = !isDragging,
+                        enter = fadeIn(tween(150)),
+                        exit = fadeOut(tween(150)),
+                        modifier = Modifier.align(Alignment.Center)
+                    ) {
                     Row(
-                        modifier = Modifier.align(Alignment.Center),
                         horizontalArrangement = Arrangement.spacedBy(24.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1287,6 +1334,7 @@ fun PlayerControls(
                             onClick = onNext,
                             size = 48.dp
                         )
+                    }
                     }
 
                     // ==================== BOTTOM CONTROLS ====================
