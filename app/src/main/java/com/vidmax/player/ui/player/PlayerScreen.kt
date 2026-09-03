@@ -64,6 +64,7 @@ fun PlayerScreen(
   val prefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
 
   var bgPlayEnabled by remember { mutableStateOf(prefs.getBoolean("bg_play_enabled", false)) }
+  val minimalistPlayer = remember { prefs.getBoolean("minimalist_player", false) }
   val aspectRatio by viewModel.aspectRatio.collectAsState()
   val currentEngine by viewModel.currentEngine.collectAsState()
   val panelMode by viewModel.panelMode.collectAsState()
@@ -342,6 +343,7 @@ fun PlayerScreen(
       PlayerControls(
         viewModel = viewModel,
         currentPath = currentPath,
+        minimalist = minimalistPlayer,
         audioBoostEnabled = audioBoostEnabled,
         currentPlaybackSpeed = currentPlaybackSpeed,
         onSpeedChange = { speed ->
