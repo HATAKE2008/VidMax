@@ -2,14 +2,18 @@ package com.vidmax.player.viewmodel
 
 import android.app.Application
 import android.content.BroadcastReceiver
+import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.media.AudioManager
+import android.media.MediaScannerConnection
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -283,6 +287,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       }
   )
   val sortOrder: StateFlow<SortOrder> = _sortOrder
+  private val _sortAscending: MutableStateFlow<Boolean> =
+      MutableStateFlow(prefs.getBoolean("video_sort_ascending", false))
+  val sortAscending: StateFlow<Boolean> = _sortAscending.asStateFlow()
   private val _currentFolderPath: MutableStateFlow<String> = MutableStateFlow("")
   val currentFolderPath: StateFlow<String> = _currentFolderPath
 
@@ -808,6 +815,78 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
   }
 
+  private val _isRefreshing: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+  fun refreshVideos() {
+    if (_isRefreshing.value || _isLoading.value) return
+    viewModelScope.launch {
+      _isRefreshing.value = true
+      val videos: List<VideoItem> = withContext(Dispatchers.IO) { repository.getAllVideos() }
+      _allVideos.value = videos
+      _folders.value = repository.getFolders(videos)
+      applyFilter()
+      val openPath = _currentFolderPath.value
+      if (openPath.isNotEmpty()) {
+        if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
+        else _currentFolderPath.value = ""
+      }
+      _isRefreshing.value = false
+    }
+  }
+
+  fun renameVideo(video: VideoItem, newBaseName: String, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val base = newBaseName.trim()
+        require(base.isNotEmpty()) { "Name cannot be empty" }
+        require(base.none { it in "/\\:*?\"<>|" || it.code < 32 }) { "Name contains invalid characters" }
+        require(!base.endsWith(".")) { "Name cannot end with a dot" }
+        val src = File(video.path)
+        require(src.exists()) { "Original file not found" }
+        val ext = src.name.substringAfterLast('.', "")
+        require(ext.isNotEmpty()) { "File has no extension" }
+        val dst = File(src.parent, "$base.$ext")
+        if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = true) && dst.exists()) {
+          throw IllegalStateException("A file with this name already exists")
+        }
+        if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = false)) {
+          var renamed = false
+          runCatching {
+            val uri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+            val values = ContentValues().apply { put(MediaStore.Video.Media.DISPLAY_NAME, dst.name) }
+            if (getApplication<Application>().contentResolver.update(uri, values, null, null) > 0) renamed = true
+          }
+          if (!renamed) {
+            if (!src.renameTo(dst)) throw IllegalStateException("Rename failed")
+            MediaScannerConnection.scanFile(getApplication(), arrayOf(dst.absolutePath), null, null)
+          }
+        }
+        val newPath = dst.absolutePath
+        playlistRepository.updatePathReferences(video.path, newPath, dst.nameWithoutExtension)
+        withContext(Dispatchers.Main) {
+          _allVideos.value = _allVideos.value.map {
+            if (it.path == video.path) it.copy(title = dst.nameWithoutExtension, path = newPath) else it
+          }
+          _folders.value = repository.getFolders(_allVideos.value)
+          applyFilter()
+          if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
+          val favs = _favoriteVideoPaths.value.toMutableSet()
+          if (favs.remove(video.path)) {
+            favs.add(newPath)
+            _favoriteVideoPaths.value = favs
+            prefs.edit().putStringSet("favorite_videos", favs).apply()
+          }
+          if (_recentVideoPath.value == video.path) {
+            setRecentlyPlayedVideo(dst.nameWithoutExtension, newPath)
+          }
+        }
+        newPath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
   private fun loadAudio() {
     viewModelScope.launch {
       val audio: List<AudioItem> = withContext(Dispatchers.IO) { audioRepository.getAllAudio() }
@@ -838,8 +917,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   }
 
   fun setSortOrder(order: SortOrder) {
+    setSort(order, _sortAscending.value)
+  }
+
+  fun setSort(order: SortOrder, ascending: Boolean) {
     _sortOrder.value = order
-    prefs.edit().putString("video_sort_order", order.name).apply()
+    _sortAscending.value = ascending
+    prefs.edit().putString("video_sort_order", order.name).putBoolean("video_sort_ascending", ascending).apply()
     applyFilter()
     if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
   }
@@ -878,11 +962,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   }
 
   private fun sortVideos(videos: List<VideoItem>): List<VideoItem> {
+    val asc = _sortAscending.value
     return when (_sortOrder.value) {
-      SortOrder.NAME -> videos.sortedBy { it.title.lowercase() }
-      SortOrder.DATE -> videos.sortedByDescending { it.dateAdded }
-      SortOrder.SIZE -> videos.sortedByDescending { it.size }
-      SortOrder.DURATION -> videos.sortedByDescending { it.duration }
+      SortOrder.NAME -> if (asc) videos.sortedBy { it.title.lowercase() } else videos.sortedByDescending { it.title.lowercase() }
+      SortOrder.DATE -> if (asc) videos.sortedBy { it.dateAdded } else videos.sortedByDescending { it.dateAdded }
+      SortOrder.SIZE -> if (asc) videos.sortedBy { it.size } else videos.sortedByDescending { it.size }
+      SortOrder.DURATION -> if (asc) videos.sortedBy { it.duration } else videos.sortedByDescending { it.duration }
     }
   }
 
