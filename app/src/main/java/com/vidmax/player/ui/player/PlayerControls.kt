@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
@@ -33,7 +34,9 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.tryAwaitRelease
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -90,8 +93,10 @@ import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class MpvTrackInfo(val id: Int, val name: String)
 
@@ -136,6 +141,8 @@ fun PlayerControls(
     val isLocked by viewModel.isLocked.collectAsState()
     val controlsVisible by viewModel.controlsVisible.collectAsState()
     val loopMode by viewModel.loopMode.collectAsState()
+    val abPointA by viewModel.abRepeatA.collectAsState()
+    val abPointB by viewModel.abRepeatB.collectAsState()
     val videoTitle by viewModel.videoTitle.collectAsState()
 
     val currentEngine by viewModel.currentEngine.collectAsState()
@@ -280,6 +287,94 @@ fun PlayerControls(
 
     var showMoreMenu by remember { mutableStateOf(false) }
     var showPropertiesDialog by remember { mutableStateOf(false) }
+    var showBookmarkDialog by remember { mutableStateOf(false) }
+    var showBookmarkList by remember { mutableStateOf(false) }
+    var bookmarkLabel by remember { mutableStateOf("") }
+
+    val showSpeedButton = settingsPrefs.getBoolean("show_speed_button", true)
+    val showLoopButton = settingsPrefs.getBoolean("show_loop_button", true)
+    val showZoomButtons = settingsPrefs.getBoolean("show_zoom_buttons", true)
+    val showExtraButtons = settingsPrefs.getBoolean("show_extra_buttons", true)
+
+    var boostPrevSpeed by remember { mutableStateOf<Float?>(null) }
+    val isBoosting = boostPrevSpeed != null
+
+    val bookmarkList =
+        remember(currentPath) {
+          loadBookmarks(settingsPrefs, currentPath).toMutableStateList()
+        }
+
+    fun applyEngineSpeed(speed: Float) {
+      viewModel.setPlaybackSpeed(speed)
+      if (currentEngine == PlayerEngine.MPV) {
+        try {
+          MPVLib.setPropertyDouble("speed", speed.toDouble())
+        } catch (e: Exception) {}
+      } else {
+        exoPlayer?.setPlaybackSpeed(speed)
+      }
+    }
+
+    fun startSpeedBoost() {
+      if (isLocked || boostPrevSpeed != null) return
+      boostPrevSpeed = viewModel.playbackSpeed.value
+      applyEngineSpeed(2f)
+    }
+
+    fun stopSpeedBoost() {
+      val prev = boostPrevSpeed ?: return
+      boostPrevSpeed = null
+      applyEngineSpeed(prev)
+    }
+
+    LaunchedEffect(currentPath) { boostPrevSpeed = null }
+
+    // A-B repeat: loop inside the same file via absolute seek — no reload,
+    // so the restart has no black flash on either engine.
+    LaunchedEffect(currentPosition, abPointA, abPointB) {
+        val a = abPointA
+        val b = abPointB
+        if (a != null && b != null && b > a && currentPosition >= b) {
+            onSeek(a)
+        }
+    }
+
+    fun takeScreenshot() {
+      showMoreMenu = false
+      coroutineScope.launch {
+        val mpvShot = if (currentEngine == PlayerEngine.MPV) File(context.cacheDir, "vidmax_shot.png") else null
+        if (mpvShot != null) {
+          runCatching { MPVLib.command(arrayOf("screenshot-to-file", mpvShot.absolutePath)) }
+          delay(900)
+          if (!mpvShot.exists()) {
+            withContext(Dispatchers.Main) {
+              Toast.makeText(context, "Capture not available for this video", Toast.LENGTH_SHORT).show()
+            }
+            return@launch
+          }
+        }
+        val bitmap: Bitmap? =
+            if (mpvShot == null) runCatching { viewModel.exoVideoTextureView?.bitmap }.getOrNull() else null
+        val baseName = File(currentPath).nameWithoutExtension.ifEmpty { "video" }
+        val ok =
+            if (bitmap != null) {
+              saveBitmapToGallery(context, bitmap, screenshotFileName(baseName, "jpg"))
+            } else if (mpvShot != null) {
+              val saved = saveImageFileToGallery(context, mpvShot, screenshotFileName(baseName, "png"), "image/png")
+              runCatching { mpvShot.delete() }
+              saved
+            } else {
+              false
+            }
+        withContext(Dispatchers.Main) {
+          Toast.makeText(
+                  context,
+                  if (ok) "Frame saved to Pictures/VidMax" else "Capture failed",
+                  Toast.LENGTH_SHORT)
+              .show()
+        }
+      }
+    }
 
     LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs) {
         // The lock button + slide-to-unlock overlay also auto-hides, like all
@@ -651,6 +746,91 @@ fun PlayerControls(
         )
     }
 
+    if (showBookmarkDialog) {
+        AlertDialog(
+            onDismissRequest = { showBookmarkDialog = false },
+            title = { Text("Add bookmark", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Save ${formatTimeHelper(currentPosition)} as a bookmark?", fontSize = 14.sp)
+                    OutlinedTextField(
+                        value = bookmarkLabel,
+                        onValueChange = { bookmarkLabel = it },
+                        label = { Text("Label (optional)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val updated =
+                        (bookmarkList.toList() + VideoBookmark(currentPosition, bookmarkLabel.trim()))
+                            .sortedBy { it.positionMs }
+                            .take(50)
+                    bookmarkList.clear()
+                    bookmarkList.addAll(updated)
+                    saveBookmarks(settingsPrefs, currentPath, updated)
+                    showBookmarkDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = { TextButton(onClick = { showBookmarkDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    if (showBookmarkList) {
+        AlertDialog(
+            onDismissRequest = { showBookmarkList = false },
+            title = { Text("Bookmarks", fontWeight = FontWeight.Bold) },
+            text = {
+                if (bookmarkList.isEmpty()) {
+                    Text("No bookmarks yet. Use More → Add bookmark here.", fontSize = 14.sp)
+                } else {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        bookmarkList.toList().forEach { bm ->
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                                        .clickable {
+                                            onSeek(bm.positionMs)
+                                            viewModel.setCurrentPosition(bm.positionMs)
+                                            showBookmarkList = false
+                                        }
+                                        .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        if (bm.label.isNotEmpty()) bm.label else "Bookmark",
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis)
+                                    Text(
+                                        formatTimeHelper(bm.positionMs),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                IconButton(onClick = {
+                                    bookmarkList.remove(bm)
+                                    saveBookmarks(settingsPrefs, currentPath, bookmarkList.toList())
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Delete,
+                                        contentDescription = "Remove bookmark",
+                                        tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showBookmarkList = false }) { Text("Close") } }
+        )
+    }
+
     // ============================================================
     // Speed & Sync bottom sheet
     // ============================================================
@@ -926,6 +1106,15 @@ fun PlayerControls(
                     }
                 }
                 .pointerInput(isLocked) {
+                    // Press-and-hold anywhere on the video for temporary 2x.
+                    // No onTap here, so normal taps/double-taps still belong
+                    // to the tap detector below; release always restores speed.
+                    detectTapGestures(
+                        onLongPress = { startSpeedBoost() },
+                        onPress = { tryAwaitRelease(); stopSpeedBoost() }
+                    )
+                }
+                .pointerInput(isLocked) {
                     if (!isLocked) {
                         detectTapGestures(
                             onDoubleTap = { offset ->
@@ -1029,6 +1218,21 @@ fun PlayerControls(
                     Text(formatTimeHelper(targetMs), color = MaterialTheme.colorScheme.primary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
                     Text("/ ${formatTimeHelper(duration)}", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
                 }
+            }
+        }
+
+        // ---- 2x hold indicator ----
+        AnimatedVisibility(
+            visible = isBoosting,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150)),
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 96.dp)
+        ) {
+            Box(
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(50)).padding(horizontal = 20.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("2× speed", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -1245,6 +1449,39 @@ fun PlayerControls(
                                     onClick = { showMoreMenu = false; viewModel.setShowSyncSheet(true) }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text("Set A-B point A", color = MaterialTheme.colorScheme.onSurface) },
+                                    leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
+                                    onClick = { showMoreMenu = false; viewModel.setABPointA(currentPosition) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Set A-B point B", color = MaterialTheme.colorScheme.onSurface) },
+                                    enabled = abPointA != null,
+                                    leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
+                                    onClick = { showMoreMenu = false; viewModel.setABPointB(currentPosition) }
+                                )
+                                if (abPointA != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Clear A-B repeat", color = MaterialTheme.colorScheme.onSurface) },
+                                        leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = { showMoreMenu = false; viewModel.clearABRepeat() }
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text("Add bookmark here", color = MaterialTheme.colorScheme.onSurface) },
+                                    leadingIcon = { Icon(Icons.Filled.BookmarkAdd, null, tint = MaterialTheme.colorScheme.primary) },
+                                    onClick = { showMoreMenu = false; bookmarkLabel = ""; showBookmarkDialog = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Bookmarks (${bookmarkList.size})", color = MaterialTheme.colorScheme.onSurface) },
+                                    leadingIcon = { Icon(Icons.Filled.Bookmarks, null, tint = MaterialTheme.colorScheme.primary) },
+                                    onClick = { showMoreMenu = false; showBookmarkList = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Capture frame", color = MaterialTheme.colorScheme.onSurface) },
+                                    leadingIcon = { Icon(Icons.Filled.PhotoCamera, null, tint = MaterialTheme.colorScheme.primary) },
+                                    onClick = { takeScreenshot() }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Share", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
@@ -1351,6 +1588,37 @@ fun PlayerControls(
                             .padding(bottom = 20.dp, start = leftSafePadding, end = rightSafePadding),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        val pinFractions =
+                            if (duration > 0) bookmarkList.map { (it.positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f) }
+                            else emptyList()
+                        if (abPointA != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(50))
+                                    .background(Color.White.copy(alpha = 0.12f))
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text =
+                                        if (abPointB != null) "A-B  ${formatTimeHelper(abPointA)} → ${formatTimeHelper(abPointB)}"
+                                        else "A ${formatTimeHelper(abPointA)} set — pick point B",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "Clear",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable { viewModel.clearABRepeat() }.padding(4.dp)
+                                )
+                            }
+                        }
                         if (minimalist) {
                             // Minimalist: lock + rotate stay reachable, everything
                             // else hides; seekbar below keeps seeking accessible.
@@ -1382,7 +1650,9 @@ fun PlayerControls(
                                 reduceMotion = reduceMotion,
                                 preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
-                                onPositionChange = viewModel::setCurrentPosition
+                                onPositionChange = viewModel::setCurrentPosition,
+                                pins = pinFractions,
+                                onPinClick = { onSeek(it) }
                             )
                         } else if (bottomControlsBelowSeekbar) {
                             SeekBarRow(
@@ -1392,7 +1662,9 @@ fun PlayerControls(
                                 reduceMotion = reduceMotion,
                                 preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
-                                onPositionChange = viewModel::setCurrentPosition
+                                onPositionChange = viewModel::setCurrentPosition,
+                                pins = pinFractions,
+                                onPinClick = { onSeek(it) }
                             )
                             BottomControlsScrollRow(
                                 isLocked = isLocked,
@@ -1414,7 +1686,11 @@ fun PlayerControls(
                                 onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
                                 onImmersive = toggleImmersive,
-                                onKeepVisible = { viewModel.setControlsVisible(true) }
+                                onKeepVisible = { viewModel.setControlsVisible(true) },
+                                showSpeedButton = showSpeedButton,
+                                showLoopButton = showLoopButton,
+                                showZoomButtons = showZoomButtons,
+                                showExtraButtons = showExtraButtons
                             )
                         } else {
                             BottomControlsScrollRow(
@@ -1437,7 +1713,11 @@ fun PlayerControls(
                                 onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
                                 onImmersive = toggleImmersive,
-                                onKeepVisible = { viewModel.setControlsVisible(true) }
+                                onKeepVisible = { viewModel.setControlsVisible(true) },
+                                showSpeedButton = showSpeedButton,
+                                showLoopButton = showLoopButton,
+                                showZoomButtons = showZoomButtons,
+                                showExtraButtons = showExtraButtons
                             )
                             SeekBarRow(
                                 currentPosition = currentPosition,
@@ -1446,7 +1726,9 @@ fun PlayerControls(
                                 reduceMotion = reduceMotion,
                                 preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
-                                onPositionChange = viewModel::setCurrentPosition
+                                onPositionChange = viewModel::setCurrentPosition,
+                                pins = pinFractions,
+                                onPinClick = { onSeek(it) }
                             )
                         }
                     }
@@ -1480,7 +1762,11 @@ private fun BottomControlsScrollRow(
     onBoost: () -> Unit,
     onTimer: () -> Unit,
     onImmersive: () -> Unit,
-    onKeepVisible: () -> Unit
+    onKeepVisible: () -> Unit,
+    showSpeedButton: Boolean = true,
+    showLoopButton: Boolean = true,
+    showZoomButtons: Boolean = true,
+    showExtraButtons: Boolean = true
 ) {
     val scrollState = rememberScrollState()
     LaunchedEffect(scrollState.isScrollInProgress) {
@@ -1504,14 +1790,16 @@ private fun BottomControlsScrollRow(
             active = isLocked,
             hideBackground = hideBackground
         )
-        MpvCircleButton(
-            icon = if (bgPlayEnabled) Icons.Outlined.HeadsetOff else Icons.Outlined.Headset,
-            contentDescription = "Background playback",
-            onClick = onToggleBgPlay,
-            size = 42.dp,
-            active = bgPlayEnabled,
-            hideBackground = hideBackground
-        )
+        if (showExtraButtons) {
+            MpvCircleButton(
+                icon = if (bgPlayEnabled) Icons.Outlined.HeadsetOff else Icons.Outlined.Headset,
+                contentDescription = "Background playback",
+                onClick = onToggleBgPlay,
+                size = 42.dp,
+                active = bgPlayEnabled,
+                hideBackground = hideBackground
+            )
+        }
         MpvCircleButton(
             icon = Icons.Outlined.ScreenRotation,
             contentDescription = "Rotate",
@@ -1519,60 +1807,70 @@ private fun BottomControlsScrollRow(
             size = 42.dp,
             hideBackground = hideBackground
         )
-        MpvCircleButton(
-            icon = Icons.Outlined.ZoomIn,
-            contentDescription = "Zoom",
-            onClick = onZoom,
-            size = 42.dp,
-            active = videoScale != 1f,
-            hideBackground = hideBackground
-        )
-        MpvCircleButton(
-            icon = Icons.Outlined.AspectRatio,
-            contentDescription = "Aspect ratio",
-            onClick = onAspect,
-            size = 42.dp,
-            hideBackground = hideBackground
-        )
-        MpvCircleButton(
-            icon = Icons.Outlined.Speed,
-            contentDescription = "Playback speed",
-            onClick = onSpeed,
-            size = 42.dp,
-            active = currentPlaybackSpeed != 1f,
-            hideBackground = hideBackground
-        )
-        MpvCircleButton(
-            icon = if (loopMode == LoopMode.ONE) Icons.Default.RepeatOne else Icons.Outlined.Repeat,
-            contentDescription = "Repeat",
-            onClick = onRepeat,
-            size = 42.dp,
-            active = loopMode != LoopMode.NONE,
-            hideBackground = hideBackground
-        )
-        MpvCircleButton(
-            icon = Icons.Outlined.VolumeUp,
-            contentDescription = "Volume boost",
-            onClick = onBoost,
-            size = 42.dp,
-            active = localBoostEnabled,
-            hideBackground = hideBackground
-        )
-        MpvCircleButton(
-            icon = Icons.Outlined.Timer,
-            contentDescription = "Sleep timer",
-            onClick = onTimer,
-            size = 42.dp,
-            active = sleepTimerMinutes > 0,
-            hideBackground = hideBackground
-        )
-        MpvCircleButton(
-            icon = if (showImmersive) Icons.Default.Fullscreen else Icons.Default.FullscreenExit,
-            contentDescription = "Fullscreen",
-            onClick = onImmersive,
-            size = 42.dp,
-            hideBackground = hideBackground
-        )
+        if (showZoomButtons) {
+            MpvCircleButton(
+                icon = Icons.Outlined.ZoomIn,
+                contentDescription = "Zoom",
+                onClick = onZoom,
+                size = 42.dp,
+                active = videoScale != 1f,
+                hideBackground = hideBackground
+            )
+            MpvCircleButton(
+                icon = Icons.Outlined.AspectRatio,
+                contentDescription = "Aspect ratio",
+                onClick = onAspect,
+                size = 42.dp,
+                hideBackground = hideBackground
+            )
+        }
+        if (showSpeedButton) {
+            MpvCircleButton(
+                icon = Icons.Outlined.Speed,
+                contentDescription = "Playback speed",
+                onClick = onSpeed,
+                size = 42.dp,
+                active = currentPlaybackSpeed != 1f,
+                hideBackground = hideBackground
+            )
+        }
+        if (showLoopButton) {
+            MpvCircleButton(
+                icon = if (loopMode == LoopMode.ONE) Icons.Default.RepeatOne else Icons.Outlined.Repeat,
+                contentDescription = "Repeat",
+                onClick = onRepeat,
+                size = 42.dp,
+                active = loopMode != LoopMode.NONE,
+                hideBackground = hideBackground
+            )
+        }
+        if (showExtraButtons) {
+            MpvCircleButton(
+                icon = Icons.Outlined.VolumeUp,
+                contentDescription = "Volume boost",
+                onClick = onBoost,
+                size = 42.dp,
+                active = localBoostEnabled,
+                hideBackground = hideBackground
+            )
+            MpvCircleButton(
+                icon = Icons.Outlined.Timer,
+                contentDescription = "Sleep timer",
+                onClick = onTimer,
+                size = 42.dp,
+                active = sleepTimerMinutes > 0,
+                hideBackground = hideBackground
+            )
+        }
+        if (showExtraButtons) {
+            MpvCircleButton(
+                icon = if (showImmersive) Icons.Default.Fullscreen else Icons.Default.FullscreenExit,
+                contentDescription = "Fullscreen",
+                onClick = onImmersive,
+                size = 42.dp,
+                hideBackground = hideBackground
+            )
+        }
     }
 }
 
@@ -1587,7 +1885,9 @@ private fun SeekBarRow(
     reduceMotion: Boolean,
     preventTap: Boolean,
     onSeek: (Long) -> Unit,
-    onPositionChange: (Long) -> Unit
+    onPositionChange: (Long) -> Unit,
+    pins: List<Float> = emptyList(),
+    onPinClick: ((Long) -> Unit)? = null
 ) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         var isDraggingSlider by remember { mutableStateOf(false) }
@@ -1680,6 +1980,22 @@ private fun SeekBarRow(
                     .clip(CircleShape)
                     .background(primaryAccentColor)
             )
+            pins.forEach { frac ->
+                val f = frac.coerceIn(0f, 1f)
+                val pinOffset = (maxWidth * f - 6.dp).coerceIn(0.dp, maxWidth - 12.dp)
+                Box(
+                    modifier = Modifier.align(Alignment.CenterStart)
+                        .offset(x = pinOffset)
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFFD54F))
+                        .let { m ->
+                            if (onPinClick != null) {
+                                m.clickable { onPinClick((f * safeDuration).toLong()) }
+                            } else m
+                        }
+                )
+            }
         }
         Text(
             formatTimeHelper(duration),

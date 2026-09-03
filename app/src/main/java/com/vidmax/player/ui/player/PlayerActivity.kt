@@ -395,6 +395,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         isTrackChanging = true
 
         playerViewModel.setCurrentVideoIndex(index)
+        playerViewModel.clearABRepeat()
         val path = videoPaths[index]
         currentPlayingPath = path
 
