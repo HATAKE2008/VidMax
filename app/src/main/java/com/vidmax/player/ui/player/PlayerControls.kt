@@ -34,7 +34,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.tryAwaitRelease
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -1591,7 +1590,9 @@ fun PlayerControls(
                         val pinFractions =
                             if (duration > 0) bookmarkList.map { (it.positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f) }
                             else emptyList()
-                        if (abPointA != null) {
+                        val abAValue = abPointA
+                        val abBValue = abPointB
+                        if (abAValue != null) {
                             Row(
                                 modifier = Modifier.fillMaxWidth()
                                     .clip(RoundedCornerShape(50))
@@ -1601,8 +1602,8 @@ fun PlayerControls(
                             ) {
                                 Text(
                                     text =
-                                        if (abPointB != null) "A-B  ${formatTimeHelper(abPointA)} → ${formatTimeHelper(abPointB)}"
-                                        else "A ${formatTimeHelper(abPointA)} set — pick point B",
+                                        if (abBValue != null) "A-B  ${formatTimeHelper(abAValue)} → ${formatTimeHelper(abBValue)}"
+                                        else "A ${formatTimeHelper(abAValue)} set — pick point B",
                                     color = Color.White,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
