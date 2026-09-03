@@ -846,6 +846,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _libraryError.value = "Couldn't load videos. Pull to retry."
       } finally {
         _isLoading.value = false
+        // P4a-fix: release a pull gesture that arrived mid-load (see refreshVideos).
+        // Settling flag only; never starts scan work here.
+        _isRefreshing.value = false
       }
     }
   }
@@ -854,10 +857,22 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
   fun refreshVideos() {
-    if (_isRefreshing.value || _isLoading.value) return
+    // Already showing: PullToRefreshBox disables input while refreshing, nothing to acknowledge.
+    if (_isRefreshing.value) return
+    if (_isLoading.value) {
+      // P4a-fix: a pull during initial/permission load hit the old guard and returned
+      // without ever setting _isRefreshing. PullToRefreshBox settles its indicator
+      // solely off the isRefreshing true->false transition, so the indicator froze
+      // mid-pull until the next touch. Acknowledge synchronously; the in-flight
+      // load already reloads data (no duplicate scan), and its finally{} releases us.
+      _isRefreshing.value = true
+      return
+    }
+    // Synchronous acknowledge: PullToRefreshBox commits to the refresh on release and
+    // expects isRefreshing=true in the same frame to drive its settle animation.
+    _isRefreshing.value = true
     refreshJob?.cancel()
     refreshJob = viewModelScope.launch {
-      _isRefreshing.value = true
       _libraryError.value = null
       try {
         val videos: List<VideoItem> = withContext(Dispatchers.IO) { repository.getAllVideos() }
