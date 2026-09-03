@@ -1,7 +1,8 @@
 package com.vidmax.player.ui.screen
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,15 +47,32 @@ import com.vidmax.player.viewmodel.LibraryViewModel
  * the heart action in multi-select mode; persistence mirrors the audio
  * favorites (SharedPreferences path set).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VideoFavoritesContent(
   viewModel: LibraryViewModel,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
+  onDeleteRequest: (VideoItem) -> Unit,
 ) {
   val favorites by viewModel.favoriteVideoPaths.collectAsState()
   val allVideos by viewModel.filteredVideos.collectAsState()
 
   val favoriteVideos = allVideos.filter { favorites.contains(it.path) }
+
+  var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
+  VideoActionMenuHost(
+      viewModel = viewModel,
+      video = menuVideo,
+      onPlay = { video ->
+        val index = favoriteVideos.indexOfFirst { it.id == video.id }
+        if (index >= 0) onPlayVideos(favoriteVideos, index)
+        menuVideo = null
+      },
+      onDeleteRequest = {
+        menuVideo = null
+        onDeleteRequest(it)
+      },
+      onDismiss = { menuVideo = null })
 
   if (favoriteVideos.isEmpty()) {
     Column(
@@ -71,7 +92,7 @@ fun VideoFavoritesContent(
               fontWeight = FontWeight.SemiBold)
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-              text = "Long-press videos and tap the heart to add them here",
+              text = "Long-press a video and choose Add to Favorites",
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               fontSize = 13.sp)
         }
@@ -86,7 +107,9 @@ fun VideoFavoritesContent(
                     Modifier.fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { onPlayVideos(favoriteVideos, index) }
+                        .combinedClickable(
+                            onClick = { onPlayVideos(favoriteVideos, index) },
+                            onLongClick = { menuVideo = video })
                         .padding(horizontal = 10.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                   Box(

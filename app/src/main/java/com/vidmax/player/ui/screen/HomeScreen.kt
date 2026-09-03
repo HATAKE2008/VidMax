@@ -216,12 +216,9 @@ fun HomeScreen(
         })
   }
 
-  // Long-press actions for a video inside a Folder (Play, Rename, Share,
-  // Favorite, Add to Playlist, Details, Delete).
-  var folderContextVideo by remember { mutableStateOf<VideoItem?>(null) }
-  var folderPlaylistVideo by remember { mutableStateOf<VideoItem?>(null) }
-  var folderDeleteVideo by remember { mutableStateOf<VideoItem?>(null) }
-  var folderDetailsVideo by remember { mutableStateOf<VideoItem?>(null) }
+  // Unified long-press video menu (Play, Rename, Share, Favorite,
+  // Add to Playlist, Details, Delete) shared by Videos/Search/Folders.
+  var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
 
   val sortOrder by viewModel.sortOrder.collectAsState()
   val sortAscending by viewModel.sortAscending.collectAsState()
@@ -237,59 +234,46 @@ fun HomeScreen(
     prefs.edit().putInt("home_grid_columns", value).apply()
   }
 
-  folderPlaylistVideo?.let { video ->
-    AddToPlaylistDialog(
-        viewModel = viewModel,
-        videos = listOf(video),
-        onDismiss = { folderPlaylistVideo = null })
+  fun performDeleteRequest(video: VideoItem) {
+    val uri = getVideoUriFromPathForMulti(context, video.path)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && uri != null) {
+      val pendingIntent =
+          MediaStore.createDeleteRequest(context.contentResolver, listOf(uri))
+      deleteLauncher.launch(
+          IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+    } else {
+      val deleted =
+          if (File(video.path).exists()) File(video.path).delete()
+          else
+              getVideoUriFromPathForMulti(context, video.path)?.let { u ->
+                context.contentResolver.delete(u, null, null) > 0
+              } ?: false
+      Toast.makeText(
+              context,
+              if (deleted) "Video deleted" else "Delete failed",
+              Toast.LENGTH_SHORT)
+          .show()
+    }
   }
 
-  folderDeleteVideo?.let { video ->
-    AlertDialog(
-        onDismissRequest = { folderDeleteVideo = null },
-        title = { Text("Delete Video", fontWeight = FontWeight.Bold) },
-        text = {
-          Text("Are you sure you want to delete \"${video.title}\"? This action cannot be undone.")
-        },
-        confirmButton = {
-          TextButton(
-              onClick = {
-                folderDeleteVideo = null
-                val uri = getVideoUriFromPathForMulti(context, video.path)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && uri != null) {
-                  val pendingIntent =
-                      MediaStore.createDeleteRequest(context.contentResolver, listOf(uri))
-                  deleteLauncher.launch(
-                      IntentSenderRequest.Builder(pendingIntent.intentSender).build())
-                } else {
-                  val deleted =
-                      if (File(video.path).exists()) File(video.path).delete()
-                      else
-                          getVideoUriFromPathForMulti(context, video.path)?.let { u ->
-                            context.contentResolver.delete(u, null, null) > 0
-                          } ?: false
-                  Toast.makeText(
-                          context,
-                          if (deleted) "Video deleted" else "Delete failed",
-                          Toast.LENGTH_SHORT)
-                      .show()
-                }
-              }) {
-                Text(
-                    "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-              }
-        },
-        dismissButton = {
-          TextButton(onClick = { folderDeleteVideo = null }) {
-            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
-          }
-        })
+  val playMenuVideo: (VideoItem) -> Unit = { video ->
+    val inVideos = videos.indexOfFirst { it.id == video.id }
+    if (inVideos >= 0) {
+      onVideoClick(videos, inVideos)
+    } else {
+      val inFolder = folderVideos.indexOfFirst { it.id == video.id }
+      if (inFolder >= 0) onVideoClick(folderVideos, inFolder)
+      else Toast.makeText(context, "Video not available", Toast.LENGTH_SHORT).show()
+    }
+    menuVideo = null
   }
 
-  folderDetailsVideo?.let { video ->
-    VideoDetailsDialog(
-        video = video, viewModel = viewModel, onDismiss = { folderDetailsVideo = null })
-  }
+  VideoActionMenuHost(
+      viewModel = viewModel,
+      video = menuVideo,
+      onPlay = playMenuVideo,
+      onDeleteRequest = { performDeleteRequest(it) },
+      onDismiss = { menuVideo = null })
 
   renameTarget?.let { target ->
     RenameVideoDialog(
@@ -318,55 +302,6 @@ fun HomeScreen(
                 .onFailure { renameError = it.message ?: "Rename failed" }
           }
         })
-  }
-
-  folderContextVideo?.let { video ->
-    FolderVideoContextSheet(
-        video = video,
-        isFavorite = viewModel.favoriteVideoPaths.value.contains(video.path),
-        onPlay = {
-          val index = folderVideos.indexOfFirst { it.id == video.id }
-          if (index >= 0) onVideoClick(folderVideos, index)
-          else Toast.makeText(context, "Video not available", Toast.LENGTH_SHORT).show()
-          folderContextVideo = null
-        },
-        onRename = {
-          renameTarget = video
-          renameError = null
-          folderContextVideo = null
-        },
-        onShare = {
-          val uri = getVideoUriFromPathForMulti(context, video.path)
-          if (uri != null) {
-            val intent =
-                Intent(Intent.ACTION_SEND).apply {
-                  type = "video/*"
-                  putExtra(Intent.EXTRA_STREAM, uri as android.os.Parcelable)
-                  addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-            context.startActivity(Intent.createChooser(intent, "Share Video"))
-          } else {
-            Toast.makeText(context, "Could not share this video", Toast.LENGTH_SHORT).show()
-          }
-          folderContextVideo = null
-        },
-        onToggleFavorite = {
-          viewModel.toggleVideoFavorite(video.path)
-          folderContextVideo = null
-        },
-        onAddToPlaylist = {
-          folderPlaylistVideo = video
-          folderContextVideo = null
-        },
-        onDetails = {
-          folderDetailsVideo = video
-          folderContextVideo = null
-        },
-        onDelete = {
-          folderDeleteVideo = video
-          folderContextVideo = null
-        },
-        onDismiss = { folderContextVideo = null })
   }
 
   Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -863,9 +798,7 @@ fun HomeScreen(
                                                 onVideoClick(videos, index)
                                               }
                                             },
-                                            onLongClick = {
-                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                            })
+                                            onLongClick = { menuVideo = video })
                                       }
                                     }
                               }
@@ -897,9 +830,7 @@ fun HomeScreen(
                                                 onVideoClick(videos, index)
                                               }
                                             },
-                                            onLongClick = {
-                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                            })
+                                            onLongClick = { menuVideo = video })
                                       }
                                     }
                                 }
@@ -925,9 +856,7 @@ fun HomeScreen(
                                                 onVideoClick(videos, index)
                                               }
                                             },
-                                            onLongClick = {
-                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                            })
+                                            onLongClick = { menuVideo = video })
                                       }
                                     }
                               }
@@ -1022,7 +951,7 @@ fun HomeScreen(
                                                 resolution = viewModel.getResolutionLabel(video.width, video.height),
                                                 isSelected = false,
                                                 onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = { folderContextVideo = video })
+                                                onLongClick = { menuVideo = video })
                                           }
                                         }
                                   }
@@ -1046,7 +975,7 @@ fun HomeScreen(
                                                   duration = viewModel.formatDuration(video.duration),
                                                   isSelected = false,
                                                   onClick = { onVideoClick(folderVideos, index) },
-                                                  onLongClick = { folderContextVideo = video })
+                                                  onLongClick = { menuVideo = video })
                                             }
                                           }
                                     }
@@ -1064,7 +993,7 @@ fun HomeScreen(
                                                 size = viewModel.formatSize(video.size),
                                                 isSelected = false,
                                                 onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = { folderContextVideo = video })
+                                                onLongClick = { menuVideo = video })
                                           }
                                         }
                                   }
@@ -1134,12 +1063,14 @@ fun HomeScreen(
                     HomeContentMode.FAVORITES -> {
                         VideoFavoritesContent(
                             viewModel = viewModel,
-                            onPlayVideos = onVideoClick)
+                            onPlayVideos = onVideoClick,
+                            onDeleteRequest = { performDeleteRequest(it) })
                     }
                     HomeContentMode.PLAYLISTS -> {
                         VideoPlaylistsContent(
                             viewModel = viewModel,
-                            onPlayVideos = onVideoClick)
+                            onPlayVideos = onVideoClick,
+                            onDeleteRequest = { performDeleteRequest(it) })
                     }
                   }
                 }
@@ -1658,76 +1589,4 @@ fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modif
         }
       }
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun FolderVideoContextSheet(
-    video: VideoItem,
-    isFavorite: Boolean,
-    onPlay: () -> Unit,
-    onRename: () -> Unit,
-    onShare: () -> Unit,
-    onToggleFavorite: () -> Unit,
-    onAddToPlaylist: () -> Unit,
-    onDetails: () -> Unit,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit
-) {
-  ModalBottomSheet(onDismissRequest = onDismiss) {
-    Column(
-        modifier =
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 32.dp)) {
-          Text(
-              text = video.title,
-              color = MaterialTheme.colorScheme.onSurface,
-              fontSize = 16.sp,
-              fontWeight = FontWeight.Bold,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-              modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
-          val actions =
-              listOf(
-                  Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.PlayArrow, "Play", onPlay),
-                  Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.Edit, "Rename", onRename),
-                  Triple<ImageVector, String, () -> Unit>(Icons.Filled.Share, "Share", onShare),
-                  Triple<ImageVector, String, () -> Unit>(
-                      if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                      if (isFavorite) "Remove from Favorites" else "Add to Favorites",
-                      onToggleFavorite),
-                  Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.PlaylistAdd, "Add to Playlist", onAddToPlaylist),
-                  Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.Info, "Details", onDetails),
-                  Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.Delete, "Delete", onDelete))
-          actions.forEach { (icon, label, action) ->
-            val isDestructive = label == "Delete"
-            Row(
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .clickable { action() }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                  Icon(
-                      imageVector = icon,
-                      contentDescription = null,
-                      tint =
-                          if (isDestructive) MaterialTheme.colorScheme.error
-                          else MaterialTheme.colorScheme.onSurface,
-                      modifier = Modifier.size(22.dp))
-                  Spacer(modifier = Modifier.width(16.dp))
-                  Text(
-                      text = label,
-                      color =
-                          if (isDestructive) MaterialTheme.colorScheme.error
-                          else MaterialTheme.colorScheme.onSurface,
-                      fontSize = 15.sp)
-                }
-          }
-        }
-  }
-}
-
 
