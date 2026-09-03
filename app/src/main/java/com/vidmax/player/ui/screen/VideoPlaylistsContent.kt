@@ -303,6 +303,7 @@ private fun PlaylistDetailContent(
             dateAdded = item.addedAt,
             folderPath = "",
             folderName = "")
+      }
 
   var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
   VideoActionMenuHost(
@@ -319,7 +320,6 @@ private fun PlaylistDetailContent(
         onDeleteRequest(it)
       },
       onDismiss = { menuVideo = null })
-      }
 
   Column(modifier = Modifier.fillMaxSize()) {
     Row(
