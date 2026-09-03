@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -143,7 +144,8 @@ fun VideoPlaylistsContent(
         }
       } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            // P4c: cap line length on tablets, same 1100dp pattern as Home.
+            modifier = Modifier.align(Alignment.TopCenter).fillMaxSize().widthIn(max = 1100.dp),
             contentPadding = PaddingValues(bottom = 130.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
               items(items = visiblePlaylists, key = { it.playlist.id }) { entry ->
@@ -415,7 +417,8 @@ private fun PlaylistDetailContent(
       }
     } else {
       LazyColumn(
-          modifier = Modifier.fillMaxSize(),
+          // P4c: cap line length on tablets, same 1100dp pattern as Home.
+          modifier = Modifier.align(Alignment.CenterHorizontally).fillMaxSize().widthIn(max = 1100.dp),
           contentPadding = PaddingValues(bottom = 130.dp),
           verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(items = visibleItems, key = { it.id }) { item ->

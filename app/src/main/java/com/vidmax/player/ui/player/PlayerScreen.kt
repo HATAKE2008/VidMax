@@ -3,7 +3,6 @@
 package com.vidmax.player.ui.player
 
 import android.content.Context
-import android.util.Log
 import android.graphics.SurfaceTexture
 import android.view.LayoutInflater
 import android.view.Surface
@@ -390,7 +389,6 @@ fun PlayerScreen(
             }
             videoScale = newScale
             clampVideoOffset()
-            Log.d("VidMaxGesture", "APPLY scale=$newScale")
           }
         },
         exoPlayer = exoPlayer,

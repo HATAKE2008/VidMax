@@ -43,7 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -932,6 +931,16 @@ fun HomeScreen(
                                 }
                           }
 
+                          if (folderVideos.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center) {
+                              Text(
+                                  text = "This folder is empty.",
+                                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                  fontSize = 15.sp)
+                            }
+                          } else {
                           Crossfade(
                               targetState = currentViewStyle,
                               animationSpec = tween(400),
@@ -999,6 +1008,7 @@ fun HomeScreen(
                                   }
                                 }
                               }
+                        }
                         }
                       } else {
                         Crossfade(
