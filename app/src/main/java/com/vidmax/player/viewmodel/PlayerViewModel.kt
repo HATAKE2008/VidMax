@@ -191,7 +191,13 @@ class PlayerViewModel : ViewModel() {
     if (trackIndex >= 0 && trackIndex < _subtitleTracks.value.size) {
       val list = _subtitleTracks.value[trackIndex].subtitles
       var foundText = ""
+      // P4a: sorted-prefix early exit — fast path for sorted subs, still correct if unsorted.
+      var sortedSoFar = true
+      var prevStart = Long.MIN_VALUE
       for (sub in list) {
+        if (sortedSoFar && sub.startTimeMs > currentMs && sub.startTimeMs >= prevStart) break
+        if (sub.startTimeMs < prevStart) sortedSoFar = false
+        prevStart = sub.startTimeMs
         if (currentMs >= sub.startTimeMs && currentMs <= sub.endTimeMs) {
           foundText = sub.text
           break
@@ -342,5 +348,18 @@ class PlayerViewModel : ViewModel() {
 
   fun setCurrentBrightnessPercent(percent: Float) {
     _currentBrightnessPercent.value = percent.coerceIn(0f, 1f)
+  }
+
+  /** P4a: drop heavy view refs so a retained ViewModel can't leak the player surface. */
+  fun releasePlayerViews() {
+    exoSubtitleView = null
+    exoVideoTextureView = null
+  }
+
+  override fun onCleared() {
+    releasePlayerViews()
+    clearSubtitles()
+    clearABRepeat()
+    super.onCleared()
   }
 }

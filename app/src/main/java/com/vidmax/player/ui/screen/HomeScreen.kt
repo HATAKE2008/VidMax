@@ -94,6 +94,7 @@ fun HomeScreen(
   val searchQuery by viewModel.searchQuery.collectAsState()
   val isLoading by viewModel.isLoading.collectAsState()
   val hasPermission by viewModel.hasPermission.collectAsState()
+  val libraryError by viewModel.libraryError.collectAsState()
 
   val recentVideoPath by viewModel.recentVideoPath.collectAsState()
 
@@ -809,12 +810,22 @@ fun HomeScreen(
           }
           videos.isEmpty() && !(currentContentMode == HomeContentMode.FOLDER && folders.isNotEmpty()) -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-              Text(
-                  text =
-                      if (searchQuery.isNotEmpty()) "No videos match \"$searchQuery\""
-                      else "No videos found on this device.",
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  fontSize = 15.sp)
+              Column(
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.spacedBy(12.dp),
+                  modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text =
+                        if (libraryError != null) libraryError!!
+                        else if (searchQuery.isNotEmpty()) "No videos match \"$searchQuery\""
+                        else "No videos found on this device.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 15.sp,
+                    textAlign = TextAlign.Center)
+                if (libraryError != null && hasPermission) {
+                  Button(onClick = { viewModel.refreshVideos() }) { Text("Retry") }
+                }
+              }
             }
           }
           else -> {
