@@ -43,6 +43,7 @@ import androidx.media3.exoplayer.source.SingleSampleMediaSource
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.ui.theme.VidMaxTheme
+import com.vidmax.player.viewmodel.AspectRatioMode
 import com.vidmax.player.viewmodel.DarkMode
 import com.vidmax.player.viewmodel.LoopMode
 import com.vidmax.player.viewmodel.PlayerEngine
@@ -105,13 +106,33 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         private const val EXTRA_PATHS = "extra_paths"
         private const val EXTRA_INDEX = "extra_index"
 
+        // Passing thousands of file paths as an Intent extra can exceed the
+        // ~1 MB binder transaction limit (TransactionTooLargeException) and
+        // crash the app the instant the player is opened from the full Videos
+        // list. Above this size the playlist travels through a process-local
+        // holder instead, and only the small index goes through the Intent.
+        private const val MAX_PATHS_IN_INTENT = 500
+
+        @Volatile
+        var pendingPaths: List<String> = emptyList()
+
         fun start(context: Context, paths: List<String>, startIndex: Int = 0) {
             val intent = Intent(context, PlayerActivity::class.java)
-            intent.putStringArrayListExtra(EXTRA_PATHS, ArrayList(paths))
+            if (paths.size <= MAX_PATHS_IN_INTENT) {
+                intent.putStringArrayListExtra(EXTRA_PATHS, ArrayList(paths))
+            } else {
+                pendingPaths = paths
+            }
             intent.putExtra(EXTRA_INDEX, startIndex)
             // 🔥 FIX: Application Context থেকে start করার জন্য
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
+        }
+
+        fun takePendingPaths(): List<String> {
+            val p = pendingPaths
+            pendingPaths = emptyList()
+            return p
         }
     }
 
@@ -159,10 +180,16 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             PlayerEngine.EXO
         }
 
+        // Resolve the playlist: small lists arrive via the Intent, large
+        // lists (full Videos library) arrive via the process-local holder so
+        // opening the player never exceeds the binder transaction limit.
+        val initialPaths: List<String> =
+            intent.getStringArrayListExtra(EXTRA_PATHS)?.takeIf { it.isNotEmpty() }
+                ?: takePendingPaths()
+
         // Schemes only mpv can handle (ExoPlayer has no rtsp/rtmp/mms/ftp
         // datasource here): route stream links straight to the MPV engine.
-        val pathsFromIntentEarly = intent.getStringArrayListExtra(EXTRA_PATHS)
-        val firstScheme = pathsFromIntentEarly?.firstOrNull()
+        val firstScheme = initialPaths.firstOrNull()
             ?.let { runCatching { Uri.parse(it).scheme }.getOrNull() }?.lowercase(Locale.US)
         val mpvOnlySchemes = setOf(
             "rtsp", "rtsps", "rtmp", "rtmps", "rtp", "srt",
@@ -171,6 +198,17 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         val resolvedEngine =
             if (firstScheme in mpvOnlySchemes) PlayerEngine.MPV else engineToSet
         playerViewModel.setPlayerEngine(resolvedEngine)
+
+        // Remember the video-control preferences (loop mode, aspect ratio)
+        // across player sessions: restore the last saved values as this
+        // session's defaults. Changes made in the player are persisted back
+        // from the composition below.
+        prefs.getString("player_loop_mode", null)?.let { saved ->
+            runCatching { playerViewModel.setLoopMode(LoopMode.valueOf(saved)) }
+        }
+        prefs.getString("player_aspect_ratio", null)?.let { saved ->
+            runCatching { playerViewModel.setAspectRatio(AspectRatioMode.valueOf(saved)) }
+        }
 
         // 🔥 FIX: MPV শুধু তখনই init হবে যখন engine = MPV
         if (resolvedEngine == PlayerEngine.MPV) {
@@ -184,10 +222,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         enterImmersiveMode()
 
-        val pathsFromIntent = intent.getStringArrayListExtra(EXTRA_PATHS)
-        if (pathsFromIntent != null) {
-            videoPaths = pathsFromIntent
-        }
+        videoPaths = initialPaths
 
         val startIndex: Int = intent.getIntExtra(EXTRA_INDEX, 0)
         if (videoPaths.isEmpty()) {
@@ -300,6 +335,25 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                     pendingPlayIndex = -1
                 }
             }
+
+            // Persist the video-control preferences across player sessions
+            // and keep ExoPlayer's repeat mode in sync when the loop mode
+            // changes mid-playback.
+            LaunchedEffect(Unit) {
+                playerViewModel.loopMode.collect { mode ->
+                    prefs.edit().putString("player_loop_mode", mode.name).apply()
+                    if (playerViewModel.currentEngine.value == PlayerEngine.EXO) {
+                        exoPlayer?.repeatMode =
+                            if (mode == LoopMode.ONE) Player.REPEAT_MODE_ONE
+                            else Player.REPEAT_MODE_OFF
+                    }
+                }
+            }
+            LaunchedEffect(Unit) {
+                playerViewModel.aspectRatio.collect { mode ->
+                    prefs.edit().putString("player_aspect_ratio", mode.name).apply()
+                }
+            }
         }
     }
 
@@ -351,6 +405,11 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             if (mpvInitialized) MPVLib.command(arrayOf("stop"))
             exoPlayer?.stop()
             exoPlayer?.clearMediaItems()
+            // Loop-one restarts are handled seamlessly by ExoPlayer's own
+            // repeat mode, avoiding the black flash of a stop + full reload.
+            exoPlayer?.repeatMode =
+                if (playerViewModel.loopMode.value == LoopMode.ONE) Player.REPEAT_MODE_ONE
+                else Player.REPEAT_MODE_OFF
 
             val externalSub = externalSubUri
             if (externalSub != null) {
@@ -398,6 +457,15 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             } else {
                 MPVLib.setOptionString("start", "none")
             }
+
+            // Loop-one restarts inside mpv itself so the video loops
+            // seamlessly instead of going through a full reload.
+            try {
+                MPVLib.setOptionString(
+                    "loop-file",
+                    if (playerViewModel.loopMode.value == LoopMode.ONE) "inf" else "no"
+                )
+            } catch (e: Exception) {}
 
             MPVLib.command(arrayOf("loadfile", uri.toString(), "replace"))
             MPVLib.setPropertyBoolean("pause", false)
@@ -537,7 +605,10 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playerViewModel.currentEngine.value == PlayerEngine.EXO &&
-                    playbackState == Player.STATE_ENDED) {
+                    playbackState == Player.STATE_ENDED &&
+                    // Seamless loop handled by ExoPlayer itself — a manual
+                    // reload here would flash black between restarts.
+                    exoPlayer?.repeatMode != Player.REPEAT_MODE_ONE) {
                     playerViewModel.setPlaying(false)
                     if (currentPlayingPath.isNotEmpty()) {
                         prefs.edit().putLong("resume_pos_$currentPlayingPath", 0L).apply()
