@@ -75,7 +75,7 @@ fun PlayerScreen(
   var videoScale by remember { mutableFloatStateOf(1f) }
   var videoOffsetX by remember { mutableFloatStateOf(0f) }
   var videoOffsetY by remember { mutableFloatStateOf(0f) }
-  var currentPlaybackSpeed by remember { mutableFloatStateOf(1f) }
+  var currentPlaybackSpeed by remember { mutableFloatStateOf(prefs.getFloat("player_speed", 1f).coerceIn(0.25f, 3f)) }
 
   // Live zoom layer: written every pinch frame by PlayerControls (no
   // recomposition), kept in sync with the committed scale otherwise.
@@ -171,7 +171,14 @@ fun PlayerScreen(
     if (currentEngine == PlayerEngine.MPV) {
       MpvScaling.applyAspectMode(aspectRatio)
     }
-    clampVideoOffset()
+    if (aspectRatio == AspectRatioMode.FIT) {
+      videoScale = 1f
+      videoOffsetX = 0f
+      videoOffsetY = 0f
+      liveZoomScale.floatValue = 1f
+    } else {
+      clampVideoOffset()
+    }
   }
 
   Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -339,6 +346,8 @@ fun PlayerScreen(
         currentPlaybackSpeed = currentPlaybackSpeed,
         onSpeedChange = { speed ->
           currentPlaybackSpeed = speed
+          prefs.edit().putFloat("player_speed", speed).apply()
+          viewModel.setPlaybackSpeed(speed)
           if (currentEngine == PlayerEngine.MPV) {
             try {
               MPVLib.setPropertyDouble("speed", speed.toDouble())

@@ -275,7 +275,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   val folderVideos: StateFlow<List<VideoItem>> = _folderVideos
   private val _searchQuery: MutableStateFlow<String> = MutableStateFlow("")
   val searchQuery: StateFlow<String> = _searchQuery
-  private val _sortOrder: MutableStateFlow<SortOrder> = MutableStateFlow(SortOrder.DATE)
+  private val _sortOrder: MutableStateFlow<SortOrder> = MutableStateFlow(
+      try {
+          SortOrder.valueOf(prefs.getString("video_sort_order", SortOrder.DATE.name) ?: SortOrder.DATE.name)
+      } catch (e: Exception) {
+          SortOrder.DATE
+      }
+  )
   val sortOrder: StateFlow<SortOrder> = _sortOrder
   private val _currentFolderPath: MutableStateFlow<String> = MutableStateFlow("")
   val currentFolderPath: StateFlow<String> = _currentFolderPath
@@ -833,6 +839,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
   fun setSortOrder(order: SortOrder) {
     _sortOrder.value = order
+    prefs.edit().putString("video_sort_order", order.name).apply()
     applyFilter()
     if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
   }

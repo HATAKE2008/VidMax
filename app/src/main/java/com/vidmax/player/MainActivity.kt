@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.vidmax.player.ui.permission.PermissionScreen
@@ -78,8 +79,9 @@ class MainActivity : ComponentActivity() {
           amoledMode = amoledMode,
           appFontFamily = appFontFamily
       ) {
-        // 🔥 স্প্ল্যাশ স্ক্রিন স্টেট
-        var showSplash by remember { mutableStateOf(true) }
+        val vidmaxPrefs = remember { getSharedPreferences("vidmax_settings", MODE_PRIVATE) }
+        val introEnabled = remember { vidmaxPrefs.getBoolean("show_startup_intro", true) }
+        var showSplash by rememberSaveable { mutableStateOf(savedInstanceState == null && introEnabled) }
 
         if (showSplash) {
           SplashScreen(onSplashFinished = { showSplash = false })
@@ -89,8 +91,16 @@ class MainActivity : ComponentActivity() {
             MainScreen(
                 viewModel = libraryViewModel,
                 onVideoClick = { videos, index ->
-                  libraryViewModel.setRecentlyPlayedVideo(videos[index].title, videos[index].path)
-                  PlayerActivity.start(this@MainActivity, videos.map { it.path }, index)
+                  if (videos.isNotEmpty()) {
+                    val safeIndex = index.coerceIn(0, videos.size - 1)
+                    val paths = videos.mapNotNull { it.path.takeIf { p -> p.isNotEmpty() } }
+                    if (paths.isNotEmpty()) {
+                      val clickedPath = videos[safeIndex].path
+                      val resolvedIndex = paths.indexOf(clickedPath).takeIf { it >= 0 } ?: 0
+                      libraryViewModel.setRecentlyPlayedVideo(videos[safeIndex].title, videos[safeIndex].path)
+                      PlayerActivity.start(this@MainActivity, paths, resolvedIndex)
+                    }
+                  }
                 })
           } else {
             PermissionScreen(onRequestPermission = { requestStoragePermissions() })
