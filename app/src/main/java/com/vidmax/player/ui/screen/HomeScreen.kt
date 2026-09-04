@@ -117,10 +117,20 @@ fun HomeScreen(
     onVideoClick(videos, targetIndex)
   }
 
+  // LIST = single-column list, GRID_MEDIUM = auto 2-3 column grid.
+  // Legacy GRID_LARGE persists as LIST.
   var currentViewStyle by remember {
     val savedStyle =
         prefs.getString("home_view_style", HomeViewStyle.LIST.name) ?: HomeViewStyle.LIST.name
-    mutableStateOf(HomeViewStyle.valueOf(savedStyle))
+    mutableStateOf(
+        try {
+          when (HomeViewStyle.valueOf(savedStyle)) {
+            HomeViewStyle.GRID_LARGE -> HomeViewStyle.LIST
+            else -> HomeViewStyle.valueOf(savedStyle)
+          }
+        } catch (e: IllegalArgumentException) {
+          HomeViewStyle.LIST
+        })
   }
 
   var currentContentMode by remember {
@@ -250,12 +260,6 @@ fun HomeScreen(
   var renameTarget by remember { mutableStateOf<VideoItem?>(null) }
   var renameError by remember { mutableStateOf<String?>(null) }
   var renameBusy by remember { mutableStateOf(false) }
-  var gridColumnsOverride by remember { mutableIntStateOf(prefs.getInt("home_grid_columns", 0)) }
-
-  fun setGridColumns(value: Int) {
-    gridColumnsOverride = value
-    prefs.edit().putInt("home_grid_columns", value).apply()
-  }
 
   fun performDeleteRequest(video: VideoItem) {
     val uri = getVideoUriFromPathForMulti(context, video.path)
@@ -551,27 +555,6 @@ fun HomeScreen(
                               showSortMenu = false
                             })
                         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                        val columnOptions = listOf(0, 2, 3, 4, 6, 12)
-                        columnOptions.forEach { cols ->
-                          DropdownMenuItem(
-                              text = {
-                                Text(
-                                    if (cols == 0) "Grid: Auto" else "Grid: $cols columns")
-                              },
-                              trailingIcon = {
-                                if (gridColumnsOverride == cols) {
-                                  Icon(
-                                      imageVector = Icons.Filled.Check,
-                                      contentDescription = null,
-                                      tint = MaterialTheme.colorScheme.primary)
-                                }
-                              },
-                              onClick = {
-                                setGridColumns(cols)
-                                showSortMenu = false
-                              })
-                        }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                         DropdownMenuItem(
                             text = { Text("Refresh") },
                             leadingIcon = {
@@ -588,26 +571,23 @@ fun HomeScreen(
 
                 IconButton(
                     onClick = {
+                      // Single toggle: the icon always shows the NEXT layout.
                       val newStyle =
-                          when (currentViewStyle) {
-                            HomeViewStyle.LIST -> HomeViewStyle.GRID_MEDIUM
-                            HomeViewStyle.GRID_MEDIUM -> HomeViewStyle.GRID_LARGE
-                            HomeViewStyle.GRID_LARGE -> HomeViewStyle.LIST
-                          }
+                          if (currentViewStyle == HomeViewStyle.LIST) HomeViewStyle.GRID_MEDIUM
+                          else HomeViewStyle.LIST
                       currentViewStyle = newStyle
                       prefs.edit().putString("home_view_style", newStyle.name).apply()
                     },
                     modifier = Modifier.padding(horizontal = 8.dp).size(36.dp)) {
-                      Crossfade(targetState = currentViewStyle, label = "iconAnim") { style ->
-                        val iconRes =
-                            when (style) {
-                              HomeViewStyle.LIST -> R.drawable.ic_view_list_custom
-                              HomeViewStyle.GRID_MEDIUM -> R.drawable.ic_view_grid_custom
-                              HomeViewStyle.GRID_LARGE -> R.drawable.ic_view_list_custom
-                            }
+                      Crossfade(
+                          targetState = currentViewStyle == HomeViewStyle.LIST,
+                          label = "iconAnim") { isList ->
                         Icon(
-                            painter = painterResource(id = iconRes),
-                            contentDescription = "Change View",
+                            painter = painterResource(
+                                id = if (isList) R.drawable.ic_view_grid_custom
+                                else R.drawable.ic_view_list_custom),
+                            contentDescription =
+                                if (isList) "Switch to grid view" else "Switch to list view",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp))
                       }
@@ -818,11 +798,10 @@ fun HomeScreen(
                               }
                               HomeViewStyle.GRID_MEDIUM -> {
                                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                  val autoColumns =
-                                      (maxWidth / 170.dp).toInt().coerceIn(2, 12)
+                                  // Auto responsive grid: 2 columns on narrow
+                                  // phones, 3 on wider/landscape/tablets. Max 3.
                                   val gridColumns =
-                                      if (gridColumnsOverride == 0) autoColumns
-                                      else gridColumnsOverride.coerceIn(1, 12)
+                                      (maxWidth / 170.dp).toInt().coerceIn(2, 3)
                                   LazyVerticalGrid(
                                       columns = GridCells.Fixed(gridColumns),
                                       horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -981,11 +960,10 @@ fun HomeScreen(
                                   }
                                   HomeViewStyle.GRID_MEDIUM -> {
                                     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                      val autoColumns =
-                                          (maxWidth / 170.dp).toInt().coerceIn(2, 12)
+                                      // Auto responsive grid: 2 columns on narrow
+                                      // phones, 3 on wider/landscape/tablets. Max 3.
                                       val gridColumns =
-                                          if (gridColumnsOverride == 0) autoColumns
-                                          else gridColumnsOverride.coerceIn(1, 12)
+                                          (maxWidth / 170.dp).toInt().coerceIn(2, 3)
                                       LazyVerticalGrid(
                                           columns = GridCells.Fixed(gridColumns),
                                           horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1046,11 +1024,10 @@ fun HomeScreen(
                                 }
                                 HomeViewStyle.GRID_MEDIUM -> {
                                   BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                    val autoColumns =
-                                        (maxWidth / 170.dp).toInt().coerceIn(2, 12)
-                                    val gridColumns =
-                                        if (gridColumnsOverride == 0) autoColumns
-                                        else gridColumnsOverride.coerceIn(1, 12)
+                                        // Auto responsive grid: 2 columns on narrow
+                                        // phones, 3 on wider/landscape/tablets. Max 3.
+                                        val gridColumns =
+                                            (maxWidth / 170.dp).toInt().coerceIn(2, 3)
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(gridColumns),
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
