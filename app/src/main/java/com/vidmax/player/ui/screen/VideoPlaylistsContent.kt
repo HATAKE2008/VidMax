@@ -33,7 +33,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -59,7 +58,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
+import com.vidmax.player.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -100,7 +101,7 @@ fun VideoPlaylistsContent(
           value = playlistQuery,
           onValueChange = { playlistQuery = it },
           label = { Text("Search playlists") },
-          leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
+          leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_search), contentDescription = null) },
           trailingIcon = {
             if (playlistQuery.isNotEmpty()) {
               IconButton(onClick = { playlistQuery = "" }) {
@@ -389,7 +390,7 @@ private fun PlaylistDetailContent(
           value = itemQuery,
           onValueChange = { itemQuery = it },
           label = { Text("Search in playlist") },
-          leadingIcon = { Icon(imageVector = Icons.Filled.Search, contentDescription = null) },
+          leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_search), contentDescription = null) },
           trailingIcon = {
             if (itemQuery.isNotEmpty()) {
               IconButton(onClick = { itemQuery = "" }) {

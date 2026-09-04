@@ -498,7 +498,7 @@ fun HomeScreen(
               Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { isSearchExpanded = true }, modifier = Modifier.size(36.dp)) {
                   Icon(
-                      imageVector = Icons.Filled.Search,
+                      painter = painterResource(id = R.drawable.ic_search),
                       contentDescription = "Search",
                       tint = MaterialTheme.colorScheme.onBackground,
                       modifier = Modifier.size(24.dp))

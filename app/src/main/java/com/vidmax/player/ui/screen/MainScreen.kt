@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -685,7 +684,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     )
 
                     Icon(
-                        imageVector = Icons.Default.Search,
+                        painter = painterResource(id = R.drawable.ic_search),
                         contentDescription = "Online",
                         tint = searchIconColor,
                         modifier = Modifier
