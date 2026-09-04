@@ -13,6 +13,7 @@ import android.media.MediaScannerConnection
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -35,6 +36,7 @@ import com.vidmax.player.ui.theme.AppTheme
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -848,13 +850,33 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _isLoading.value = false
         // P4a-fix: release a pull gesture that arrived mid-load (see refreshVideos).
         // Settling flag only; never starts scan work here.
-        _isRefreshing.value = false
+        settleRefreshing()
       }
     }
   }
 
   private val _isRefreshing: MutableStateFlow<Boolean> = MutableStateFlow(false)
   val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+  /**
+   * Minimum time the refresh spinner stays visible once shown.
+   * PullToRefreshBox pins its indicator on release and hides it only on an
+   * OBSERVED isRefreshing true->false transition. A scan finishing within the
+   * same frame would otherwise leave the indicator pinned until the next
+   * touch, so fast refreshes are held briefly to keep the transition
+   * observable. Duplicate-scan protection (the _isRefreshing guard in
+   * refreshVideos) is unchanged.
+   */
+  private val minRefreshVisibleMs = 600L
+  private var refreshShownAtMs = 0L
+
+  private suspend fun settleRefreshing() {
+    val remaining = minRefreshVisibleMs - (SystemClock.uptimeMillis() - refreshShownAtMs)
+    if (remaining > 0) {
+      withContext(NonCancellable) { delay(remaining) }
+    }
+    _isRefreshing.value = false
+  }
 
   fun refreshVideos() {
     // Already showing: PullToRefreshBox disables input while refreshing, nothing to acknowledge.
@@ -865,11 +887,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       // solely off the isRefreshing true->false transition, so the indicator froze
       // mid-pull until the next touch. Acknowledge synchronously; the in-flight
       // load already reloads data (no duplicate scan), and its finally{} releases us.
+      refreshShownAtMs = SystemClock.uptimeMillis()
       _isRefreshing.value = true
       return
     }
     // Synchronous acknowledge: PullToRefreshBox commits to the refresh on release and
     // expects isRefreshing=true in the same frame to drive its settle animation.
+    refreshShownAtMs = SystemClock.uptimeMillis()
     _isRefreshing.value = true
     refreshJob?.cancel()
     refreshJob = viewModelScope.launch {
@@ -890,7 +914,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       } catch (e: Exception) {
         _libraryError.value = "Refresh failed. Pull to retry."
       } finally {
-        _isRefreshing.value = false
+        settleRefreshing()
       }
     }
   }
