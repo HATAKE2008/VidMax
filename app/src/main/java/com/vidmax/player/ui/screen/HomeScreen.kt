@@ -103,6 +103,7 @@ fun HomeScreen(
   var showAddToPlaylistDialog by remember { mutableStateOf(false) }
   val openedVideoPlaylist by viewModel.openedVideoPlaylist.collectAsState()
   var isVideoSearchOpen by rememberSaveable { mutableStateOf(false) }
+  var folderSearchPath by rememberSaveable { mutableStateOf<String?>(null) }
   val inSelectionMode = selectedVideoIds.isNotEmpty()
 
   // Resume (continue watching) action — lives in the top bar next to Search
@@ -478,7 +479,7 @@ fun HomeScreen(
                   fontWeight = FontWeight.ExtraBold)
 
               Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { isVideoSearchOpen = true }, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = { folderSearchPath = null; isVideoSearchOpen = true }, modifier = Modifier.size(36.dp)) {
                   Icon(
                       painter = painterResource(id = R.drawable.ic_search),
                       contentDescription = "Search",
@@ -893,7 +894,7 @@ fun HomeScreen(
                                       tint = MaterialTheme.colorScheme.primary)
                                 }
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                   Text(
                                       text = folderName,
                                       color = MaterialTheme.colorScheme.onBackground,
@@ -905,6 +906,18 @@ fun HomeScreen(
                                       text = "${folderVideos.size} videos",
                                       color = MaterialTheme.colorScheme.onSurfaceVariant,
                                       fontSize = 12.sp)
+                                }
+                                IconButton(
+                                    onClick = {
+                                      folderSearchPath = currentFolderPath
+                                      isVideoSearchOpen = true
+                                    },
+                                    modifier = Modifier.size(36.dp)) {
+                                  Icon(
+                                      painter = painterResource(id = R.drawable.ic_search),
+                                      contentDescription = "Search in folder",
+                                      tint = MaterialTheme.colorScheme.primary,
+                                      modifier = Modifier.size(24.dp))
                                 }
                               }
 
@@ -1106,13 +1119,20 @@ fun HomeScreen(
     }
   }
 
-  BackHandler(enabled = isVideoSearchOpen) { isVideoSearchOpen = false }
+  BackHandler(enabled = isVideoSearchOpen) {
+    isVideoSearchOpen = false
+    folderSearchPath = null
+  }
 
   if (isVideoSearchOpen) {
     SearchScreen(
         scope = SearchScope.VIDEOS,
         viewModel = viewModel,
-        onBack = { isVideoSearchOpen = false },
+        folderPath = folderSearchPath,
+        onBack = {
+          isVideoSearchOpen = false
+          folderSearchPath = null
+        },
         onPlayVideos = { videos, index -> onVideoClick(videos, index) },
         onDeleteVideo = { performDeleteRequest(it) })
   }

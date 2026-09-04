@@ -1013,19 +1013,54 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
    * Stateless library search over the already-indexed in-memory data (no
    * rescan). Used by the dedicated SearchScreen; the Home/Music inline
    * filters keep working through setSearchQuery/setAudioSearchQuery.
+   *
+   * Matching is token-based over title + file name (+ folder name for
+   * videos) with separators normalized, so every indexed file whose
+   * name contains the query is returned regardless of MediaStore TITLE
+   * quirks (missing extension, different casing, underscores/dashes).
    */
   fun searchVideos(query: String): List<VideoItem> {
-    val q: String = query.trim().lowercase()
-    if (q.isEmpty()) return emptyList()
-    return sortVideos(_allVideos.value.filter { it.title.lowercase().contains(q) })
+    val tokens: List<String> = tokenizeQuery(query)
+    if (tokens.isEmpty()) return emptyList()
+    return sortVideos(_allVideos.value.filter { matchesVideo(it, tokens) })
   }
 
   fun searchAudio(query: String): List<AudioItem> {
-    val q: String = query.trim().lowercase()
-    if (q.isEmpty()) return emptyList()
-    return _allAudio.value.filter {
-      it.title.lowercase().contains(q) || it.artist.lowercase().contains(q)
-    }
+    val tokens: List<String> = tokenizeQuery(query)
+    if (tokens.isEmpty()) return emptyList()
+    return _allAudio.value.filter { matchesAudio(it, tokens) }
+  }
+
+  fun searchFolderVideos(query: String, folderPath: String): List<VideoItem> {
+    val tokens: List<String> = tokenizeQuery(query)
+    if (folderPath.isEmpty()) return searchVideos(query)
+    val base: List<VideoItem> = _allVideos.value.filter { it.folderPath == folderPath }
+    if (tokens.isEmpty()) return sortVideos(base)
+    return sortVideos(base.filter { matchesVideo(it, tokens) })
+  }
+
+  private fun tokenizeQuery(query: String): List<String> {
+    return normalizeForSearch(query).split(" ").filter { it.isNotEmpty() }
+  }
+
+  private fun normalizeForSearch(raw: String): String {
+    return raw.lowercase().map { c -> if (c.isLetterOrDigit()) c else ' ' }.joinToString("")
+  }
+
+  private fun videoHaystack(video: VideoItem): String {
+    val fileName: String = video.path.substringAfterLast('/').substringBeforeLast('.')
+    return normalizeForSearch("${video.title} $fileName ${video.folderName}")
+  }
+
+  private fun matchesVideo(video: VideoItem, tokens: List<String>): Boolean {
+    val haystack: String = videoHaystack(video)
+    return tokens.all { haystack.contains(it) }
+  }
+
+  private fun matchesAudio(audio: AudioItem, tokens: List<String>): Boolean {
+    val fileName: String = audio.path.substringAfterLast('/').substringBeforeLast('.')
+    val haystack: String = normalizeForSearch("${audio.title} ${audio.artist} $fileName")
+    return tokens.all { haystack.contains(it) }
   }
 
   // --- Search history (dedicated SearchScreen; plain strings only) ---
@@ -1103,21 +1138,18 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   }
 
   private fun applyFilter() {
-    val query: String = _searchQuery.value.lowercase()
+    val tokens: List<String> = tokenizeQuery(_searchQuery.value)
     val base: List<VideoItem> =
-        if (query.isEmpty()) _allVideos.value
-        else _allVideos.value.filter { it.title.lowercase().contains(query) }
+        if (tokens.isEmpty()) _allVideos.value
+        else _allVideos.value.filter { matchesVideo(it, tokens) }
     _filteredVideos.value = sortVideos(base)
   }
 
   private fun applyAudioFilter() {
-    val query: String = _audioSearchQuery.value.lowercase()
+    val tokens: List<String> = tokenizeQuery(_audioSearchQuery.value)
     val base: List<AudioItem> =
-        if (query.isEmpty()) _allAudio.value
-        else
-            _allAudio.value.filter {
-              it.title.lowercase().contains(query) || it.artist.lowercase().contains(query)
-            }
+        if (tokens.isEmpty()) _allAudio.value
+        else _allAudio.value.filter { matchesAudio(it, tokens) }
     _filteredAudio.value = base
   }
 

@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import android.content.Context
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +26,11 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -92,6 +98,7 @@ fun SearchScreen(
     scope: SearchScope,
     viewModel: LibraryViewModel,
     networkFiles: List<NetworkFile> = emptyList(),
+    folderPath: String? = null,
     onBack: () -> Unit,
     onPlayVideos: (List<VideoItem>, Int) -> Unit = { _, _ -> },
     onDeleteVideo: (VideoItem) -> Unit = {},
@@ -106,8 +113,8 @@ fun SearchScreen(
   val playingPath by viewModel.recentlyPlayedPath.collectAsState()
   val audioPlaying by viewModel.isAudioPlaying.collectAsState()
 
-  var query by rememberSaveable(scope) { mutableStateOf("") }
-  var visibleQuery by rememberSaveable(scope) { mutableStateOf("") }
+  var query by rememberSaveable(scope, folderPath) { mutableStateOf("") }
+  var visibleQuery by rememberSaveable(scope, folderPath) { mutableStateOf("") }
   var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
   var showClearHistoryConfirm by remember { mutableStateOf(false) }
 
@@ -133,9 +140,26 @@ fun SearchScreen(
   // libraryTick/audioTick subscribe to library changes so results refresh
   // after rename/delete while the screen is open.
 
+  val context = LocalContext.current
+  val prefs = remember {
+    context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
+  }
+  val viewStyleName =
+      prefs.getString("home_view_style", HomeViewStyle.LIST.name) ?: HomeViewStyle.LIST.name
+  val viewStyle = try {
+    HomeViewStyle.valueOf(viewStyleName)
+  } catch (e: IllegalArgumentException) {
+    HomeViewStyle.LIST
+  }
+  val gridColumnsPref = prefs.getInt("home_grid_columns", 0)
+
   val trimmed = visibleQuery.trim()
-  val videoResults = remember(trimmed, libraryTick, scope) {
-    if (scope == SearchScope.VIDEOS) viewModel.searchVideos(trimmed) else emptyList()
+  val inFolder = scope == SearchScope.VIDEOS && !folderPath.isNullOrEmpty()
+  val videoResults = remember(trimmed, libraryTick, scope, folderPath) {
+    if (scope == SearchScope.VIDEOS) {
+      if (!folderPath.isNullOrEmpty()) viewModel.searchFolderVideos(trimmed, folderPath)
+      else viewModel.searchVideos(trimmed)
+    } else emptyList()
   }
   val audioResults = remember(trimmed, audioTick, scope) {
     if (scope == SearchScope.MUSIC) viewModel.searchAudio(trimmed) else emptyList()
@@ -162,7 +186,7 @@ fun SearchScreen(
   }
 
   val hint = when (scope) {
-    SearchScope.VIDEOS -> "Search videos…"
+    SearchScope.VIDEOS -> if (inFolder) "Search in folder…" else "Search videos…"
     SearchScope.MUSIC -> "Search songs or artists…"
     SearchScope.NETWORK -> "Search this folder…"
   }
@@ -390,24 +414,70 @@ fun SearchScreen(
                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
                 when (scope) {
                   SearchScope.VIDEOS -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                          itemsIndexed(
-                              items = videoResults,
-                              key = { _, video -> video.id }) { index, video ->
-                            PremiumVideoListCard(
-                                video = video,
-                                duration = viewModel.formatDuration(video.duration),
-                                size = viewModel.formatSize(video.size),
-                                resolution =
-                                    viewModel.getResolutionLabel(video.width, video.height),
-                                isSelected = false,
-                                onClick = { onPlayVideos(videoResults, index) },
-                                onLongClick = { menuVideo = video })
-                          }
+                    when (viewStyle) {
+                      HomeViewStyle.LIST -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                              itemsIndexed(
+                                  items = videoResults,
+                                  key = { _, video -> video.id }) { index, video ->
+                                PremiumVideoListCard(
+                                    video = video,
+                                    duration = viewModel.formatDuration(video.duration),
+                                    size = viewModel.formatSize(video.size),
+                                    resolution =
+                                        viewModel.getResolutionLabel(video.width, video.height),
+                                    isSelected = false,
+                                    onClick = { onPlayVideos(videoResults, index) },
+                                    onLongClick = { menuVideo = video })
+                              }
+                            }
+                      }
+                      HomeViewStyle.GRID_MEDIUM -> {
+                        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                          val autoColumns = (maxWidth / 170.dp).toInt().coerceIn(2, 12)
+                          val gridColumns =
+                              if (gridColumnsPref == 0) autoColumns
+                              else gridColumnsPref.coerceIn(1, 12)
+                          LazyVerticalGrid(
+                              columns = GridCells.Fixed(gridColumns),
+                              horizontalArrangement = Arrangement.spacedBy(12.dp),
+                              verticalArrangement = Arrangement.spacedBy(12.dp),
+                              contentPadding = PaddingValues(bottom = 24.dp)) {
+                                gridItemsIndexed(
+                                    items = videoResults,
+                                    key = { _, video -> video.id }) { index, video ->
+                                  CustomVideoGridCard(
+                                      video = video,
+                                      duration = viewModel.formatDuration(video.duration),
+                                      isSelected = false,
+                                      onClick = { onPlayVideos(videoResults, index) },
+                                      onLongClick = { menuVideo = video })
+                                }
+                              }
                         }
+                      }
+                      HomeViewStyle.GRID_LARGE -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                              itemsIndexed(
+                                  items = videoResults,
+                                  key = { _, video -> video.id }) { index, video ->
+                                CustomVideoLargeCard(
+                                    video = video,
+                                    duration = viewModel.formatDuration(video.duration),
+                                    size = viewModel.formatSize(video.size),
+                                    isSelected = false,
+                                    onClick = { onPlayVideos(videoResults, index) },
+                                    onLongClick = { menuVideo = video })
+                              }
+                            }
+                      }
+                    }
                   }
                   SearchScope.MUSIC -> {
                     LazyColumn(
