@@ -64,7 +64,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
     // 💾 শেয়ার্ড প্রেফারেন্সেস এবং ট্যাব অর্ডার (Online বাদ দিয়ে)
     val sharedPrefs = remember { context.getSharedPreferences("NavPrefs", Context.MODE_PRIVATE) }
     var navItemsState by remember {
-        val defaultTabs = listOf("Videos", "Music", "Network", "Search")
+        val defaultTabs = listOf("Videos", "Music", "Network")
         val savedOrderStr = sharedPrefs.getString("nav_order", "") ?: ""
 
         val initialList = if (savedOrderStr.isNotBlank()) {
@@ -85,12 +85,13 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
 
     val visibleNavItems = remember(navItemsState, localMode, musicPlayerEnabled) {
         navItemsState.filter { item ->
-            (item.label != "Music" || musicPlayerEnabled) && (item.label != "Network" || !localMode) && (item.label != "Search" || !localMode)
+            (item.label != "Music" || musicPlayerEnabled) && (item.label != "Network" || !localMode)
         }
     }
     LaunchedEffect(visibleNavItems, localMode) {
         val labels = visibleNavItems.map { it.label }
-        if (selectedScreen !in labels) {
+        if ((selectedScreen == "Online" && localMode) ||
+            (selectedScreen != "Online" && selectedScreen !in labels)) {
             selectedScreen = labels.firstOrNull() ?: "Videos"
         }
     }
@@ -245,7 +246,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 onOpenFavorites = { viewModel.openFavorites() },
                                 onOpenMyMix = { viewModel.openMyMix() }
                             )
-                            "Search" -> {
+                            "Online" -> {
                                 OnlineMusicScreen(
                                     homeViewModel = homeViewModel,
                                     searchViewModel = searchViewModel,
@@ -579,7 +580,6 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                             "Videos" -> R.drawable.ic_video_library
                                             "Music" -> R.drawable.ic_music_note
                                             "Network" -> R.drawable.ic_network
-                                            "Search" -> R.drawable.ic_search
                                             else -> R.drawable.ic_video_library
                                         }
                                         Icon(
@@ -621,6 +621,77 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                             }
                         }
                     }
+                }
+
+                // Separate Online/Search Circular Button (hidden in Local Mode)
+                val isOnlineSelected = selectedScreen == "Online"
+                if (!localMode) {
+
+                // 🌟 Same inner overlay/box animation as selected tab (Folders screenshot এর মতো)
+                val searchBgAlpha by animateFloatAsState(
+                    targetValue = if (isOnlineSelected) 1f else 0f,
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                    label = "searchBgAlpha"
+                )
+                val searchIconColor by animateColorAsState(
+                    targetValue = if (isOnlineSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                    animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    label = "searchIconColor"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = CircleShape,
+                            ambientColor = Color.Black.copy(alpha = 0.05f),
+                            spotColor = Color.Black.copy(alpha = 0.10f)
+                        )
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(
+                            1.2.dp,
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            CircleShape
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(),
+                            onClick = {
+                                selectedScreen = "Online"
+                                viewModel.closeFolder()
+                                viewModel.closePlaylist()
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Active overlay box (primary tint) - solid surface এর উপরে, তাই কখনো transparent না
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(
+                                if (searchBgAlpha > 0.01f) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * searchBgAlpha)
+                                else Color.Transparent
+                            )
+                    )
+
+                    val iconScale by animateFloatAsState(
+                        targetValue = if (isOnlineSelected) 1.15f else 1.0f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                        label = "searchScaleAnim"
+                    )
+
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_search),
+                        contentDescription = "Online",
+                        tint = searchIconColor,
+                        modifier = Modifier
+                            .size(26.dp)
+                            .scale(iconScale)
+                    )
+                }
                 }
             }
         }
