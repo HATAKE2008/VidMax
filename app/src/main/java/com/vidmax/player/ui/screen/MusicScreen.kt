@@ -81,6 +81,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,7 +108,6 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.signature.ObjectKey
 import com.vidmax.player.R
 import com.vidmax.player.data.model.AudioItem
-import com.vidmax.player.ui.components.VidMaxSearchBar
 import com.vidmax.player.viewmodel.LibraryViewModel
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -202,7 +202,6 @@ fun MusicScreen(
 ) {
   val context = LocalContext.current
   val audioList by viewModel.filteredAudio.collectAsState()
-  val searchQuery by viewModel.audioSearchQuery.collectAsState()
 
   val currentlyPlayingPath by viewModel.recentlyPlayedPath.collectAsState()
   val isAudioPlaying by viewModel.isAudioPlaying.collectAsState()
@@ -212,7 +211,7 @@ fun MusicScreen(
   var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
   val inSelectionMode = selectedAudioIds.isNotEmpty()
-  var isSearchExpanded by remember { mutableStateOf(false) }
+  var isMusicSearchOpen by rememberSaveable { mutableStateOf(false) }
 
   var currentTab by remember { mutableStateOf("Songs") }
 
@@ -287,17 +286,14 @@ fun MusicScreen(
 
   BackHandler(
       enabled = inSelectionMode ||
-          isSearchExpanded ||
+          isMusicSearchOpen ||
           activePlaylist != null ||
           activeFolderName != null ||
           activeAlbumName != null
   ) {
     when {
       inSelectionMode -> selectedAudioIds = emptySet()
-      isSearchExpanded -> {
-        isSearchExpanded = false
-        viewModel.setAudioSearchQuery("")
-      }
+      isMusicSearchOpen -> isMusicSearchOpen = false
       activePlaylist != null -> activePlaylist = null
       activeFolderName != null -> activeFolderName = null
       activeAlbumName != null -> activeAlbumName = null
@@ -593,31 +589,6 @@ fun MusicScreen(
           }
         }
       }
-    } else if (isSearchExpanded) {
-      Row(
-          modifier = Modifier
-              .fillMaxWidth()
-              .padding(bottom = 6.dp),
-          verticalAlignment = Alignment.CenterVertically) {
-        IconButton(
-            onClick = {
-              isSearchExpanded = false
-              viewModel.setAudioSearchQuery("")
-            }) {
-          Icon(
-              imageVector = Icons.Default.ArrowBack,
-              contentDescription = "Back",
-              tint = MaterialTheme.colorScheme.onBackground
-          )
-        }
-        Box(modifier = Modifier.weight(1f)) {
-          VidMaxSearchBar(
-              query = searchQuery,
-              onQueryChange = { viewModel.setAudioSearchQuery(it) },
-              placeholder = "Search songs..."
-          )
-        }
-      }
     } else {
       Row(
           modifier = Modifier
@@ -659,7 +630,7 @@ fun MusicScreen(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-          IconButton(onClick = { isSearchExpanded = true }, modifier = Modifier.size(36.dp)) {
+          IconButton(onClick = { isMusicSearchOpen = true }, modifier = Modifier.size(36.dp)) {
             Icon(painterResource(id = R.drawable.ic_search), contentDescription = "Search", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
           }
           IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
@@ -963,6 +934,14 @@ fun MusicScreen(
         }
       }
     }
+  }
+
+  if (isMusicSearchOpen) {
+    SearchScreen(
+        scope = SearchScope.MUSIC,
+        viewModel = viewModel,
+        onBack = { isMusicSearchOpen = false },
+        onPlayAudio = { list, index -> onAudioClick(list, index) })
   }
 }
 

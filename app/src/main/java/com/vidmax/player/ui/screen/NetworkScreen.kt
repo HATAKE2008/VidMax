@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,17 +34,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vidmax.player.R
 import com.vidmax.player.data.model.ConnectionStatus
 import com.vidmax.player.data.model.NetworkConnection
 import com.vidmax.player.data.model.NetworkFile
 import com.vidmax.player.ui.components.AddConnectionDialog
 import com.vidmax.player.ui.components.RecentStreamLinkRow
 import com.vidmax.player.ui.components.StreamLinkSection
+import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.NetworkViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun NetworkScreen() {
+fun NetworkScreen(libraryViewModel: LibraryViewModel) {
     val app = LocalContext.current.applicationContext as Application
     val viewModel: NetworkViewModel = viewModel(factory = NetworkViewModel.factory(app))
 
@@ -58,14 +61,16 @@ fun NetworkScreen() {
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingConnection by remember { mutableStateOf<NetworkConnection?>(null) }
+    var isNetworkSearchOpen by rememberSaveable { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // Internal back navigation: folder up -> close connection -> (falls through
-    // to MainScreen's tab back handling)
-    BackHandler(enabled = currentConnection != null) {
-        viewModel.navigateUp()
+    // Internal back navigation: search -> folder up -> close connection ->
+    // (falls through to MainScreen's tab back handling)
+    BackHandler(enabled = isNetworkSearchOpen || currentConnection != null) {
+        if (isNetworkSearchOpen) isNetworkSearchOpen = false
+        else viewModel.navigateUp()
     }
 
     LaunchedEffect(error) {
@@ -115,9 +120,28 @@ fun NetworkScreen() {
                 isLoading = isLoading,
                 onBack = { viewModel.navigateUp() },
                 onRefresh = { viewModel.refresh() },
+                onSearchClick = { isNetworkSearchOpen = true },
                 onOpenFolder = { viewModel.navigateInto(it) },
                 onPlayFile = { viewModel.playFile(it) },
             )
+        }
+
+        if (isNetworkSearchOpen) {
+            SearchScreen(
+                scope = SearchScope.NETWORK,
+                viewModel = libraryViewModel,
+                networkFiles = files,
+                onBack = { isNetworkSearchOpen = false },
+                onPlayNetworkFile = { file ->
+                    isNetworkSearchOpen = false
+                    viewModel.playFile(file)
+                },
+                onOpenNetworkFolder = { folder ->
+                    isNetworkSearchOpen = false
+                    viewModel.navigateInto(folder)
+                },
+            )
+        }
         }
 
         SnackbarHost(
@@ -398,6 +422,7 @@ private fun NetworkBrowser(
     isLoading: Boolean,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
+    onSearchClick: () -> Unit,
     onOpenFolder: (NetworkFile) -> Unit,
     onPlayFile: (NetworkFile) -> Unit,
 ) {
@@ -430,6 +455,13 @@ private fun NetworkBrowser(
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(onClick = onSearchClick) {
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_search),
+                    contentDescription = "Search",
+                    tint = MaterialTheme.colorScheme.primary,
                 )
             }
         }

@@ -257,7 +257,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 )
                             }
                             "Network" -> {
-                                NetworkScreen()
+                                NetworkScreen(libraryViewModel = viewModel)
                             }
                         }
                     }
