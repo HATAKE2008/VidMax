@@ -37,7 +37,7 @@
 
 <br/><br/>
 
-<strong>Latest Release: <a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.2.0">VidMax v1.2.0</a></strong>
+<strong>Latest Release: <a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.5">VidMax v1.1.5</a></strong>
 
 </div>
 
@@ -129,7 +129,7 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 
 ---
 
-## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.2.0
+## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.1.5
 
 > **Library UX update — smoother browsing, smarter views, one-click screenshot, Telegram community and Settings Backup & Restore.**
 
@@ -145,7 +145,7 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 - Settings Backup & Restore (JSON, UTF-8, SAF picker, strict validation)
 - General performance, UI and stability improvements
 
-<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.2.0">View Full Changelog →</a>
+<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.5">View Full Changelog →</a>
 
 ---
 
@@ -503,7 +503,7 @@ When a new release is available, the application can notify the user.
 
 <div align="center">
 
-<h3>VidMax v1.2.0</h3>
+<h3>VidMax v1.1.5</h3>
 
 <br/><br/>
 
@@ -513,7 +513,7 @@ When a new release is available, the application can notify the user.
 
 <br/><br/>
 
-<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.2.0">View Release Notes</a>
+<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.5">View Release Notes</a>
 
 </div>
 
@@ -521,7 +521,7 @@ When a new release is available, the application can notify the user.
 
 | Version | Date | Size |
 |---|---|---|
-| v1.2.0 | 2026-09-04 | See release page |
+| v1.1.5 | 2026-09-04 | See release page |
 | v1.1.4 | 2026-08-29 | 22.7 MB |
 | v1.1.3 | 2026-08-12 | 33.2 MB |
 | v1.1.1 | 2026-08-07 | 32.4 MB |

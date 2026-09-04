@@ -123,6 +123,18 @@ jobs:
             - **APK**: VidMax-${{ steps.version.outputs.version }}-release.apk
 
             ## What's new
+            - Improved video library navigation and interactions
+            - Consistent long-press actions (Delete, Share, etc.) across Videos, Folder, Favorites and other video screens
+            - Improved pull-to-refresh behavior
+            - Advanced sorting for large libraries (Newest/Oldest, Name A-Z/Z-A, Largest, Longest)
+            - Unified Grid/List view control with automatic 2-3 column grid layout
+            - Dedicated improved search experience with history
+            - One-click video screenshot capture from the player menu
+            - Telegram community integration
+            - Settings Backup & Restore
+            - General performance, UI and stability improvements
+
+            ## Commits
             ${{ steps.notes.outputs.notes }}
 
             ## Install
