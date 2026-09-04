@@ -1476,11 +1476,6 @@ fun PlayerControls(
                                     onClick = { showMoreMenu = false; showBookmarkList = true }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Capture frame", color = MaterialTheme.colorScheme.onSurface) },
-                                    leadingIcon = { Icon(Icons.Filled.PhotoCamera, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { takeScreenshot() }
-                                )
-                                DropdownMenuItem(
                                     text = { Text("Share", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
@@ -1688,6 +1683,7 @@ fun PlayerControls(
                                 onTimer = { showTimerDialog = true },
                                 onImmersive = toggleImmersive,
                                 onKeepVisible = { viewModel.setControlsVisible(true) },
+                                onScreenshot = { takeScreenshot() },
                                 showSpeedButton = showSpeedButton,
                                 showLoopButton = showLoopButton,
                                 showZoomButtons = showZoomButtons,
@@ -1715,6 +1711,7 @@ fun PlayerControls(
                                 onTimer = { showTimerDialog = true },
                                 onImmersive = toggleImmersive,
                                 onKeepVisible = { viewModel.setControlsVisible(true) },
+                                onScreenshot = { takeScreenshot() },
                                 showSpeedButton = showSpeedButton,
                                 showLoopButton = showLoopButton,
                                 showZoomButtons = showZoomButtons,
@@ -1764,6 +1761,7 @@ private fun BottomControlsScrollRow(
     onTimer: () -> Unit,
     onImmersive: () -> Unit,
     onKeepVisible: () -> Unit,
+    onScreenshot: () -> Unit,
     showSpeedButton: Boolean = true,
     showLoopButton: Boolean = true,
     showZoomButtons: Boolean = true,
@@ -1846,6 +1844,13 @@ private fun BottomControlsScrollRow(
             )
         }
         if (showExtraButtons) {
+            MpvCircleButton(
+                icon = Icons.Filled.PhotoCamera,
+                contentDescription = "Screenshot",
+                onClick = onScreenshot,
+                size = 42.dp,
+                hideBackground = hideBackground
+            )
             MpvCircleButton(
                 icon = Icons.Outlined.VolumeUp,
                 contentDescription = "Volume boost",
