@@ -37,7 +37,7 @@
 
 <br/><br/>
 
-<strong>Latest Release: <a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.4">VidMax v1.1.4</a> · 22.7 MB</strong>
+<strong>Latest Release: <a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.2.0">VidMax v1.2.0</a></strong>
 
 </div>
 
@@ -126,6 +126,26 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 | <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="18"/> Auto Updates | GitHub release checker |
 | <img src="https://cdn-icons-png.flaticon.com/512/565/565547.png" width="18"/> Ads | None |
 | <img src="https://cdn-icons-png.flaticon.com/512/2913/2913133.png" width="18"/> Privacy | No unnecessary tracking |
+
+---
+
+## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.2.0
+
+> **Library UX update — smoother browsing, smarter views, one-click screenshot, Telegram community and Settings Backup & Restore.**
+
+- Improved video library navigation and interactions
+- Consistent long-press actions (Delete, Share, etc.) across Videos, Folder, Favorites and other video screens
+- Improved pull-to-refresh behavior — no extra tap needed after refresh
+- Advanced sorting for large libraries: Newest first, Oldest first, Name A-Z, Name Z-A, Largest first, Longest first, with refresh at the bottom of the sort menu
+- Unified Grid/List view control — single top-bar icon toggles the current view
+- Automatic 2–3 column grid layout adapting to screen width
+- Dedicated improved search experience with history (mpvRex-style SearchScreen)
+- One-click video screenshot capture from the player 3-dot menu
+- Telegram community integration (`vidmax_opensource`) with Join / Not now options
+- Settings Backup & Restore (JSON, UTF-8, SAF picker, strict validation)
+- General performance, UI and stability improvements
+
+<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.2.0">View Full Changelog →</a>
 
 ---
 
@@ -483,8 +503,7 @@ When a new release is available, the application can notify the user.
 
 <div align="center">
 
-<h3>VidMax v1.1.4</h3>
-<strong>22.7 MB</strong>
+<h3>VidMax v1.2.0</h3>
 
 <br/><br/>
 
@@ -494,7 +513,7 @@ When a new release is available, the application can notify the user.
 
 <br/><br/>
 
-<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.4">View Release Notes</a>
+<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.2.0">View Release Notes</a>
 
 </div>
 
@@ -502,6 +521,7 @@ When a new release is available, the application can notify the user.
 
 | Version | Date | Size |
 |---|---|---|
+| v1.2.0 | 2026-09-04 | See release page |
 | v1.1.4 | 2026-08-29 | 22.7 MB |
 | v1.1.3 | 2026-08-12 | 33.2 MB |
 | v1.1.1 | 2026-08-07 | 32.4 MB |
