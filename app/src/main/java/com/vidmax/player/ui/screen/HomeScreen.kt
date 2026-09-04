@@ -219,6 +219,29 @@ fun HomeScreen(
   // Add to Playlist, Details, Delete) shared by Videos/Search/Folders.
   var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
 
+  // Telegram community promo: top-bar icon stays available forever; the
+  // first-launch invitation shows only until it has been handled once.
+  var showTelegramSheet by remember { mutableStateOf(false) }
+  var showTelegramPromo by remember {
+    mutableStateOf(!prefs.getBoolean("telegram_promo_dismissed", false))
+  }
+  fun dismissTelegramPromo() {
+    prefs.edit().putBoolean("telegram_promo_dismissed", true).apply()
+    showTelegramPromo = false
+  }
+  if (showTelegramPromo || showTelegramSheet) {
+    TelegramPromoSheet(
+        onJoin = {
+          dismissTelegramPromo()
+          showTelegramSheet = false
+          openTelegramCommunity(context)
+        },
+        onDismiss = {
+          if (showTelegramPromo) dismissTelegramPromo()
+          showTelegramSheet = false
+        })
+  }
+
   val sortOrder by viewModel.sortOrder.collectAsState()
   val sortAscending by viewModel.sortAscending.collectAsState()
   val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -606,6 +629,16 @@ fun HomeScreen(
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp))
                       }
+                    }
+
+                IconButton(
+                    onClick = { showTelegramSheet = true },
+                    modifier = Modifier.size(36.dp)) {
+                      Icon(
+                          painter = painterResource(id = R.drawable.ic_telegram),
+                          contentDescription = "Join VidMax on Telegram",
+                          tint = MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.size(24.dp))
                     }
 
                 IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
