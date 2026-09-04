@@ -19,6 +19,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,7 +60,6 @@ import com.vidmax.player.R
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
-import com.vidmax.player.ui.components.VidMaxSearchBar
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.SortOrder
 import java.io.File
@@ -101,7 +102,7 @@ fun HomeScreen(
   var showDeleteConfirmDialog by remember { mutableStateOf(false) }
   var showAddToPlaylistDialog by remember { mutableStateOf(false) }
   val openedVideoPlaylist by viewModel.openedVideoPlaylist.collectAsState()
-  var isSearchExpanded by remember { mutableStateOf(false) }
+  var isVideoSearchOpen by rememberSaveable { mutableStateOf(false) }
   val inSelectionMode = selectedVideoIds.isNotEmpty()
 
   // Resume (continue watching) action — lives in the top bar next to Search
@@ -457,25 +458,6 @@ fun HomeScreen(
                 }
               }
             }
-      } else if (isSearchExpanded) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-              IconButton(
-                  onClick = {
-                    isSearchExpanded = false
-                    viewModel.setSearchQuery("")
-                  }) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onBackground)
-                  }
-              Box(modifier = Modifier.weight(1f)) {
-                VidMaxSearchBar(
-                    query = searchQuery, onQueryChange = { viewModel.setSearchQuery(it) })
-              }
-            }
       } else {
         // Inside a folder or playlist detail, the screen shows only its own
         // back button + title — hide the home header and category toggle.
@@ -496,7 +478,7 @@ fun HomeScreen(
                   fontWeight = FontWeight.ExtraBold)
 
               Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { isSearchExpanded = true }, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = { isVideoSearchOpen = true }, modifier = Modifier.size(36.dp)) {
                   Icon(
                       painter = painterResource(id = R.drawable.ic_search),
                       contentDescription = "Search",
@@ -1122,6 +1104,17 @@ fun HomeScreen(
         }
       }
     }
+  }
+
+  BackHandler(enabled = isVideoSearchOpen) { isVideoSearchOpen = false }
+
+  if (isVideoSearchOpen) {
+    SearchScreen(
+        scope = SearchScope.VIDEOS,
+        viewModel = viewModel,
+        onBack = { isVideoSearchOpen = false },
+        onPlayVideos = { videos, index -> onVideoClick(videos, index) },
+        onDeleteVideo = { performDeleteRequest(it) })
   }
 }
 

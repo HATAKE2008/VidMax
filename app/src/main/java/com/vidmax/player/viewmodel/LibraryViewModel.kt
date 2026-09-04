@@ -1009,6 +1009,78 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     applyAudioFilter()
   }
 
+  /**
+   * Stateless library search over the already-indexed in-memory data (no
+   * rescan). Used by the dedicated SearchScreen; the Home/Music inline
+   * filters keep working through setSearchQuery/setAudioSearchQuery.
+   */
+  fun searchVideos(query: String): List<VideoItem> {
+    val q: String = query.trim().lowercase()
+    if (q.isEmpty()) return emptyList()
+    return sortVideos(_allVideos.value.filter { it.title.lowercase().contains(q) })
+  }
+
+  fun searchAudio(query: String): List<AudioItem> {
+    val q: String = query.trim().lowercase()
+    if (q.isEmpty()) return emptyList()
+    return _allAudio.value.filter {
+      it.title.lowercase().contains(q) || it.artist.lowercase().contains(q)
+    }
+  }
+
+  // --- Search history (dedicated SearchScreen; plain strings only) ---
+  companion object {
+    const val SEARCH_HISTORY_KEY: String = "search_history"
+    const val SEARCH_HISTORY_MAX: Int = 20
+  }
+
+  private val _searchHistory: MutableStateFlow<List<String>> =
+      MutableStateFlow(loadSearchHistory())
+  val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
+
+  private fun loadSearchHistory(): List<String> {
+    return runCatching {
+      val raw = prefs.getString(SEARCH_HISTORY_KEY, null) ?: return emptyList()
+      val arr = org.json.JSONArray(raw)
+      List(arr.length()) { i -> arr.optString(i, "") }
+          .map { it.trim() }
+          .filter { it.isNotEmpty() }
+          .take(SEARCH_HISTORY_MAX)
+    }.getOrDefault(emptyList())
+  }
+
+  private fun persistSearchHistory(history: List<String>) {
+    runCatching {
+      prefs.edit()
+          .putString(SEARCH_HISTORY_KEY, org.json.JSONArray(history).toString())
+          .apply()
+    }
+  }
+
+  /** Saves a query: trims, ignores blanks, dedupes, most-recent first (max 20). */
+  fun addSearchHistory(rawQuery: String) {
+    val query = rawQuery.trim()
+    if (query.isEmpty()) return
+    val updated = ([query] + _searchHistory.value.filter { it != query })
+        .take(SEARCH_HISTORY_MAX)
+    if (updated == _searchHistory.value) return
+    _searchHistory.value = updated
+    persistSearchHistory(updated)
+  }
+
+  fun removeSearchHistoryEntry(query: String) {
+    val updated = _searchHistory.value.filter { it != query }
+    if (updated == _searchHistory.value) return
+    _searchHistory.value = updated
+    persistSearchHistory(updated)
+  }
+
+  fun clearSearchHistory() {
+    if (_searchHistory.value.isEmpty()) return
+    _searchHistory.value = emptyList()
+    persistSearchHistory(emptyList())
+  }
+
   fun setSortOrder(order: SortOrder) {
     setSort(order, _sortAscending.value)
   }
