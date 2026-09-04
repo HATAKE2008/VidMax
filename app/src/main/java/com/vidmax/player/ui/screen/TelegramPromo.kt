@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -90,6 +91,8 @@ private val TELEGRAM_BENEFITS: List<String> = listOf(
 /**
  * Polished VidMax-styled bottom sheet promoting the Telegram community.
  * Used both for the first-launch invitation and the Home top-bar action.
+ * All colors come from MaterialTheme.colorScheme, so it automatically
+ * matches whichever of the 28 themes is currently active.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,42 +108,51 @@ fun TelegramPromoSheet(
             .padding(horizontal = 20.dp)
             .padding(bottom = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
+
+          // Solid theme-primary circle behind the telegram icon
           Box(
-              modifier = Modifier.size(64.dp)
+              modifier = Modifier.size(72.dp)
                   .clip(CircleShape)
-                  .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                  .background(MaterialTheme.colorScheme.primary),
               contentAlignment = Alignment.Center) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_telegram),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp))
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(34.dp))
               }
-          Spacer(modifier = Modifier.height(12.dp))
+
+          Spacer(modifier = Modifier.height(14.dp))
           Text(
-              text = "Join VidMax on Telegram",
-              color = MaterialTheme.colorScheme.onSurface,
-              fontSize = 19.sp,
+              text = "Join us on Telegram!",
+              color = MaterialTheme.colorScheme.primary,
+              fontSize = 20.sp,
               fontWeight = FontWeight.Bold,
               textAlign = TextAlign.Center)
-          Spacer(modifier = Modifier.height(6.dp))
+          Spacer(modifier = Modifier.height(4.dp))
           Text(
-              text = "Join our Telegram community to stay updated and help us improve VidMax.",
+              text = "Join our Telegram channel to get:",
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               fontSize = 14.sp,
-              lineHeight = 20.sp,
               textAlign = TextAlign.Center)
-          Spacer(modifier = Modifier.height(14.dp))
+
+          Spacer(modifier = Modifier.height(16.dp))
           Column(
               modifier = Modifier.fillMaxWidth(),
-              verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 TELEGRAM_BENEFITS.forEach { benefit ->
                   Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp))
+                    Box(
+                        modifier = Modifier.size(20.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center) {
+                          Icon(
+                              imageVector = Icons.Filled.Check,
+                              contentDescription = null,
+                              tint = MaterialTheme.colorScheme.onPrimary,
+                              modifier = Modifier.size(13.dp))
+                        }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = benefit,
@@ -149,17 +161,27 @@ fun TelegramPromoSheet(
                   }
                 }
               }
-          Spacer(modifier = Modifier.height(14.dp))
+
+          Spacer(modifier = Modifier.height(16.dp))
           Text(
-              text = "Your feedback helps us make VidMax better.",
+              text = "Help us improve VidMax by staying connected.",
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               fontSize = 13.sp,
               fontWeight = FontWeight.Medium,
               textAlign = TextAlign.Center)
+
           Spacer(modifier = Modifier.height(16.dp))
           Button(
               onClick = onJoin,
+              colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.primary,
+                  contentColor = MaterialTheme.colorScheme.onPrimary),
               modifier = Modifier.fillMaxWidth()) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_telegram),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(text = "Join Telegram", fontSize = 15.sp, fontWeight = FontWeight.Bold)
               }
           TextButton(
