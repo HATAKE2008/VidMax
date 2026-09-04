@@ -3,7 +3,6 @@
 package com.vidmax.player.ui.player
 
 import android.content.Context
-import android.util.Log
 import android.graphics.SurfaceTexture
 import android.view.LayoutInflater
 import android.view.Surface
@@ -64,6 +63,7 @@ fun PlayerScreen(
   val prefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
 
   var bgPlayEnabled by remember { mutableStateOf(prefs.getBoolean("bg_play_enabled", false)) }
+  val minimalistPlayer = remember { prefs.getBoolean("minimalist_player", false) }
   val aspectRatio by viewModel.aspectRatio.collectAsState()
   val currentEngine by viewModel.currentEngine.collectAsState()
   val panelMode by viewModel.panelMode.collectAsState()
@@ -75,7 +75,7 @@ fun PlayerScreen(
   var videoScale by remember { mutableFloatStateOf(1f) }
   var videoOffsetX by remember { mutableFloatStateOf(0f) }
   var videoOffsetY by remember { mutableFloatStateOf(0f) }
-  var currentPlaybackSpeed by remember { mutableFloatStateOf(1f) }
+  var currentPlaybackSpeed by remember { mutableFloatStateOf(prefs.getFloat("player_speed", 1f).coerceIn(0.25f, 3f)) }
 
   // Live zoom layer: written every pinch frame by PlayerControls (no
   // recomposition), kept in sync with the committed scale otherwise.
@@ -171,7 +171,14 @@ fun PlayerScreen(
     if (currentEngine == PlayerEngine.MPV) {
       MpvScaling.applyAspectMode(aspectRatio)
     }
-    clampVideoOffset()
+    if (aspectRatio == AspectRatioMode.FIT) {
+      videoScale = 1f
+      videoOffsetX = 0f
+      videoOffsetY = 0f
+      liveZoomScale.floatValue = 1f
+    } else {
+      clampVideoOffset()
+    }
   }
 
   Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
@@ -188,6 +195,7 @@ fun PlayerScreen(
                   .apply {
                     player = exoPlayer
                     viewModel.exoSubtitleView = subtitleView
+                    viewModel.exoVideoTextureView = videoSurfaceView as? TextureView
                     // Fit the video inside the view, preserving its aspect ratio
                     // and centering it (professional player default).
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
@@ -335,10 +343,13 @@ fun PlayerScreen(
       PlayerControls(
         viewModel = viewModel,
         currentPath = currentPath,
+        minimalist = minimalistPlayer,
         audioBoostEnabled = audioBoostEnabled,
         currentPlaybackSpeed = currentPlaybackSpeed,
         onSpeedChange = { speed ->
           currentPlaybackSpeed = speed
+          prefs.edit().putFloat("player_speed", speed).apply()
+          viewModel.setPlaybackSpeed(speed)
           if (currentEngine == PlayerEngine.MPV) {
             try {
               MPVLib.setPropertyDouble("speed", speed.toDouble())
@@ -378,7 +389,6 @@ fun PlayerScreen(
             }
             videoScale = newScale
             clampVideoOffset()
-            Log.d("VidMaxGesture", "APPLY scale=$newScale")
           }
         },
         exoPlayer = exoPlayer,

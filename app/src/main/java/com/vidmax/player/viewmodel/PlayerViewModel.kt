@@ -1,5 +1,6 @@
 package com.vidmax.player.viewmodel
 
+import android.view.TextureView
 import androidx.lifecycle.ViewModel
 import androidx.media3.ui.SubtitleView
 import com.vidmax.player.utils.SubtitleItem
@@ -41,6 +42,29 @@ data class SubtitleTrack(val name: String, val subtitles: List<SubtitleItem>)
 class PlayerViewModel : ViewModel() {
 
   var exoSubtitleView: SubtitleView? = null
+  var exoVideoTextureView: TextureView? = null
+
+  private val _abRepeatA: MutableStateFlow<Long?> = MutableStateFlow(null)
+  val abRepeatA: StateFlow<Long?> = _abRepeatA
+
+  private val _abRepeatB: MutableStateFlow<Long?> = MutableStateFlow(null)
+  val abRepeatB: StateFlow<Long?> = _abRepeatB
+
+  fun setABPointA(positionMs: Long) {
+    _abRepeatA.value = positionMs.coerceAtLeast(0L)
+    if (_abRepeatB.value != null && _abRepeatB.value!! <= positionMs) _abRepeatB.value = null
+  }
+
+  fun setABPointB(positionMs: Long) {
+    val a = _abRepeatA.value ?: return
+    if (positionMs <= a) return
+    _abRepeatB.value = positionMs
+  }
+
+  fun clearABRepeat() {
+    _abRepeatA.value = null
+    _abRepeatB.value = null
+  }
 
   // 🔥 New: State for currently active engine
   private val _currentEngine: MutableStateFlow<PlayerEngine> = MutableStateFlow(PlayerEngine.EXO)
@@ -167,7 +191,13 @@ class PlayerViewModel : ViewModel() {
     if (trackIndex >= 0 && trackIndex < _subtitleTracks.value.size) {
       val list = _subtitleTracks.value[trackIndex].subtitles
       var foundText = ""
+      // P4a: sorted-prefix early exit — fast path for sorted subs, still correct if unsorted.
+      var sortedSoFar = true
+      var prevStart = Long.MIN_VALUE
       for (sub in list) {
+        if (sortedSoFar && sub.startTimeMs > currentMs && sub.startTimeMs >= prevStart) break
+        if (sub.startTimeMs < prevStart) sortedSoFar = false
+        prevStart = sub.startTimeMs
         if (currentMs >= sub.startTimeMs && currentMs <= sub.endTimeMs) {
           foundText = sub.text
           break
@@ -318,5 +348,18 @@ class PlayerViewModel : ViewModel() {
 
   fun setCurrentBrightnessPercent(percent: Float) {
     _currentBrightnessPercent.value = percent.coerceIn(0f, 1f)
+  }
+
+  /** P4a: drop heavy view refs so a retained ViewModel can't leak the player surface. */
+  fun releasePlayerViews() {
+    exoSubtitleView = null
+    exoVideoTextureView = null
+  }
+
+  override fun onCleared() {
+    releasePlayerViews()
+    clearSubtitles()
+    clearABRepeat()
+    super.onCleared()
   }
 }

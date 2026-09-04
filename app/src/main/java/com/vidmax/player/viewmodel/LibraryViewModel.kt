@@ -2,14 +2,18 @@ package com.vidmax.player.viewmodel
 
 import android.app.Application
 import android.content.BroadcastReceiver
+import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.media.AudioManager
+import android.media.MediaScannerConnection
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -275,8 +279,17 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   val folderVideos: StateFlow<List<VideoItem>> = _folderVideos
   private val _searchQuery: MutableStateFlow<String> = MutableStateFlow("")
   val searchQuery: StateFlow<String> = _searchQuery
-  private val _sortOrder: MutableStateFlow<SortOrder> = MutableStateFlow(SortOrder.DATE)
+  private val _sortOrder: MutableStateFlow<SortOrder> = MutableStateFlow(
+      try {
+          SortOrder.valueOf(prefs.getString("video_sort_order", SortOrder.DATE.name) ?: SortOrder.DATE.name)
+      } catch (e: Exception) {
+          SortOrder.DATE
+      }
+  )
   val sortOrder: StateFlow<SortOrder> = _sortOrder
+  private val _sortAscending: MutableStateFlow<Boolean> =
+      MutableStateFlow(prefs.getBoolean("video_sort_ascending", false))
+  val sortAscending: StateFlow<Boolean> = _sortAscending.asStateFlow()
   private val _currentFolderPath: MutableStateFlow<String> = MutableStateFlow("")
   val currentFolderPath: StateFlow<String> = _currentFolderPath
 
@@ -315,6 +328,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   private val _autoRotate: MutableStateFlow<Boolean> =
       MutableStateFlow(prefs.getBoolean("auto_rotate", true))
   val autoRotate: StateFlow<Boolean> = _autoRotate
+  private val _localMode: MutableStateFlow<Boolean> =
+      MutableStateFlow(prefs.getBoolean("local_mode", false))
+  val localMode: StateFlow<Boolean> = _localMode.asStateFlow()
+  private val _musicPlayerEnabled: MutableStateFlow<Boolean> =
+      MutableStateFlow(prefs.getBoolean("music_player_enabled", true))
+  val musicPlayerEnabled: StateFlow<Boolean> = _musicPlayerEnabled.asStateFlow()
+  private val _minimalistPlayer: MutableStateFlow<Boolean> =
+      MutableStateFlow(prefs.getBoolean("minimalist_player", false))
+  val minimalistPlayer: StateFlow<Boolean> = _minimalistPlayer.asStateFlow()
   private val _pipEnabled: MutableStateFlow<Boolean> =
       MutableStateFlow(prefs.getBoolean("pip_enabled", true))
   val pipEnabled: StateFlow<Boolean> = _pipEnabled
@@ -791,20 +813,172 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
   }
 
+  private val _libraryError: MutableStateFlow<String?> = MutableStateFlow(null)
+  val libraryError: StateFlow<String?> = _libraryError.asStateFlow()
+
+  fun clearLibraryError() {
+    _libraryError.value = null
+  }
+
+  private var loadVideosJob: Job? = null
+  private var refreshJob: Job? = null
+
   fun loadVideos() {
-    viewModelScope.launch {
+    if (_isLoading.value) return
+    loadVideosJob?.cancel()
+    loadVideosJob = viewModelScope.launch {
       _isLoading.value = true
-      val videos: List<VideoItem> = withContext(Dispatchers.IO) { repository.getAllVideos() }
-      _allVideos.value = videos
-      _folders.value = repository.getFolders(videos)
-      applyFilter()
-      _isLoading.value = false
+      _libraryError.value = null
+      try {
+        val videos: List<VideoItem> = withContext(Dispatchers.IO) { repository.getAllVideos() }
+        _allVideos.value = videos
+        _folders.value = withContext(Dispatchers.Default) { repository.getFolders(videos) }
+        applyFilter()
+        pruneStaleRecentVideo(videos)
+        val openPath = _currentFolderPath.value
+        if (openPath.isNotEmpty()) {
+          if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
+          else _currentFolderPath.value = ""
+        }
+      } catch (e: SecurityException) {
+        _libraryError.value = "Storage permission required to browse videos."
+      } catch (e: Exception) {
+        _libraryError.value = "Couldn't load videos. Pull to retry."
+      } finally {
+        _isLoading.value = false
+        // P4a-fix: release a pull gesture that arrived mid-load (see refreshVideos).
+        // Settling flag only; never starts scan work here.
+        _isRefreshing.value = false
+      }
+    }
+  }
+
+  private val _isRefreshing: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+  fun refreshVideos() {
+    // Already showing: PullToRefreshBox disables input while refreshing, nothing to acknowledge.
+    if (_isRefreshing.value) return
+    if (_isLoading.value) {
+      // P4a-fix: a pull during initial/permission load hit the old guard and returned
+      // without ever setting _isRefreshing. PullToRefreshBox settles its indicator
+      // solely off the isRefreshing true->false transition, so the indicator froze
+      // mid-pull until the next touch. Acknowledge synchronously; the in-flight
+      // load already reloads data (no duplicate scan), and its finally{} releases us.
+      _isRefreshing.value = true
+      return
+    }
+    // Synchronous acknowledge: PullToRefreshBox commits to the refresh on release and
+    // expects isRefreshing=true in the same frame to drive its settle animation.
+    _isRefreshing.value = true
+    refreshJob?.cancel()
+    refreshJob = viewModelScope.launch {
+      _libraryError.value = null
+      try {
+        val videos: List<VideoItem> = withContext(Dispatchers.IO) { repository.getAllVideos() }
+        _allVideos.value = videos
+        _folders.value = withContext(Dispatchers.Default) { repository.getFolders(videos) }
+        applyFilter()
+        pruneStaleRecentVideo(videos)
+        val openPath = _currentFolderPath.value
+        if (openPath.isNotEmpty()) {
+          if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
+          else _currentFolderPath.value = ""
+        }
+      } catch (e: SecurityException) {
+        _libraryError.value = "Storage permission required to browse videos."
+      } catch (e: Exception) {
+        _libraryError.value = "Refresh failed. Pull to retry."
+      } finally {
+        _isRefreshing.value = false
+      }
+    }
+  }
+
+  /** Hides last-played resume when the file is truly gone (missing from scan + File check). */
+  private fun pruneStaleRecentVideo(videos: List<VideoItem>) {
+    val recent = _recentVideoPath.value
+    if (recent.isEmpty() || videos.isEmpty()) return
+    if (videos.any { it.path == recent }) return
+    try {
+      if (File(recent).exists()) return
+    } catch (e: Exception) {
+      return
+    }
+    _recentVideoTitle.value = ""
+    _recentVideoPath.value = ""
+    try {
+      prefs.edit().remove("recent_video_title").remove("recent_video_path").apply()
+    } catch (e: Exception) {}
+  }
+
+  private fun migrateBookmarkKey(oldPath: String, newPath: String) {
+    if (oldPath == newPath) return
+    val oldKey = com.vidmax.player.ui.player.bookmarkPrefsKey(oldPath)
+    val entries = prefs.getStringSet(oldKey, null) ?: return
+    prefs.edit()
+        .putStringSet(com.vidmax.player.ui.player.bookmarkPrefsKey(newPath), entries)
+        .remove(oldKey)
+        .apply()
+  }
+
+  fun renameVideo(video: VideoItem, newBaseName: String, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val base = newBaseName.trim()
+        require(base.isNotEmpty()) { "Name cannot be empty" }
+        require(base.none { it in "/\\:*?\"<>|" || it.code < 32 }) { "Name contains invalid characters" }
+        require(!base.endsWith(".")) { "Name cannot end with a dot" }
+        val src = File(video.path)
+        require(src.exists()) { "Original file not found" }
+        val ext = src.name.substringAfterLast('.', "")
+        require(ext.isNotEmpty()) { "File has no extension" }
+        val dst = File(src.parent, "$base.$ext")
+        if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = true) && dst.exists()) {
+          throw IllegalStateException("A file with this name already exists")
+        }
+        if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = false)) {
+          var renamed = false
+          runCatching {
+            val uri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+            val values = ContentValues().apply { put(MediaStore.Video.Media.DISPLAY_NAME, dst.name) }
+            if (getApplication<Application>().contentResolver.update(uri, values, null, null) > 0) renamed = true
+          }
+          if (!renamed) {
+            if (!src.renameTo(dst)) throw IllegalStateException("Rename failed")
+            MediaScannerConnection.scanFile(getApplication(), arrayOf(dst.absolutePath), null, null)
+          }
+        }
+        val newPath = dst.absolutePath
+        playlistRepository.updatePathReferences(video.path, newPath, dst.nameWithoutExtension)
+        migrateBookmarkKey(video.path, newPath)
+        withContext(Dispatchers.Main) {
+          _allVideos.value = _allVideos.value.map {
+            if (it.path == video.path) it.copy(title = dst.nameWithoutExtension, path = newPath) else it
+          }
+          _folders.value = repository.getFolders(_allVideos.value)
+          applyFilter()
+          if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
+          val favs = _favoriteVideoPaths.value.toMutableSet()
+          if (favs.remove(video.path)) {
+            favs.add(newPath)
+            _favoriteVideoPaths.value = favs
+            prefs.edit().putStringSet("favorite_videos", favs).apply()
+          }
+          if (_recentVideoPath.value == video.path) {
+            setRecentlyPlayedVideo(dst.nameWithoutExtension, newPath)
+          }
+        }
+        newPath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
     }
   }
 
   private fun loadAudio() {
     viewModelScope.launch {
-      val audio: List<AudioItem> = withContext(Dispatchers.IO) { audioRepository.getAllAudio() }
+      try {
+        val audio: List<AudioItem> = withContext(Dispatchers.IO) { audioRepository.getAllAudio() }
       _allAudio.value = audio
       applyAudioFilter()
 
@@ -817,6 +991,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           _currentQueueIndex.value = idx
           _currentAudioArtist.value = audio[idx].artist
         }
+      }
+      } catch (e: Exception) {
+        _allAudio.value = emptyList()
+        applyAudioFilter()
       }
     }
   }
@@ -831,8 +1009,86 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     applyAudioFilter()
   }
 
+  /**
+   * Stateless library search over the already-indexed in-memory data (no
+   * rescan). Used by the dedicated SearchScreen; the Home/Music inline
+   * filters keep working through setSearchQuery/setAudioSearchQuery.
+   */
+  fun searchVideos(query: String): List<VideoItem> {
+    val q: String = query.trim().lowercase()
+    if (q.isEmpty()) return emptyList()
+    return sortVideos(_allVideos.value.filter { it.title.lowercase().contains(q) })
+  }
+
+  fun searchAudio(query: String): List<AudioItem> {
+    val q: String = query.trim().lowercase()
+    if (q.isEmpty()) return emptyList()
+    return _allAudio.value.filter {
+      it.title.lowercase().contains(q) || it.artist.lowercase().contains(q)
+    }
+  }
+
+  // --- Search history (dedicated SearchScreen; plain strings only) ---
+  companion object {
+    const val SEARCH_HISTORY_KEY: String = "search_history"
+    const val SEARCH_HISTORY_MAX: Int = 20
+  }
+
+  private val _searchHistory: MutableStateFlow<List<String>> =
+      MutableStateFlow(loadSearchHistory())
+  val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
+
+  private fun loadSearchHistory(): List<String> {
+    return runCatching {
+      val raw = prefs.getString(SEARCH_HISTORY_KEY, null) ?: return emptyList()
+      val arr = org.json.JSONArray(raw)
+      List(arr.length()) { i -> arr.optString(i, "") }
+          .map { it.trim() }
+          .filter { it.isNotEmpty() }
+          .take(SEARCH_HISTORY_MAX)
+    }.getOrDefault(emptyList())
+  }
+
+  private fun persistSearchHistory(history: List<String>) {
+    runCatching {
+      prefs.edit()
+          .putString(SEARCH_HISTORY_KEY, org.json.JSONArray(history).toString())
+          .apply()
+    }
+  }
+
+  /** Saves a query: trims, ignores blanks, dedupes, most-recent first (max 20). */
+  fun addSearchHistory(rawQuery: String) {
+    val query = rawQuery.trim()
+    if (query.isEmpty()) return
+    val updated = (listOf(query) + _searchHistory.value.filter { it != query })
+        .take(SEARCH_HISTORY_MAX)
+    if (updated == _searchHistory.value) return
+    _searchHistory.value = updated
+    persistSearchHistory(updated)
+  }
+
+  fun removeSearchHistoryEntry(query: String) {
+    val updated = _searchHistory.value.filter { it != query }
+    if (updated == _searchHistory.value) return
+    _searchHistory.value = updated
+    persistSearchHistory(updated)
+  }
+
+  fun clearSearchHistory() {
+    if (_searchHistory.value.isEmpty()) return
+    _searchHistory.value = emptyList()
+    persistSearchHistory(emptyList())
+  }
+
   fun setSortOrder(order: SortOrder) {
+    setSort(order, _sortAscending.value)
+  }
+
+  fun setSort(order: SortOrder, ascending: Boolean) {
     _sortOrder.value = order
+    _sortAscending.value = ascending
+    prefs.edit().putString("video_sort_order", order.name).putBoolean("video_sort_ascending", ascending).apply()
     applyFilter()
     if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
   }
@@ -871,11 +1127,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   }
 
   private fun sortVideos(videos: List<VideoItem>): List<VideoItem> {
+    val asc = _sortAscending.value
     return when (_sortOrder.value) {
-      SortOrder.NAME -> videos.sortedBy { it.title.lowercase() }
-      SortOrder.DATE -> videos.sortedByDescending { it.dateAdded }
-      SortOrder.SIZE -> videos.sortedByDescending { it.size }
-      SortOrder.DURATION -> videos.sortedByDescending { it.duration }
+      SortOrder.NAME -> if (asc) videos.sortedBy { it.title.lowercase() } else videos.sortedByDescending { it.title.lowercase() }
+      SortOrder.DATE -> if (asc) videos.sortedBy { it.dateAdded } else videos.sortedByDescending { it.dateAdded }
+      SortOrder.SIZE -> if (asc) videos.sortedBy { it.size } else videos.sortedByDescending { it.size }
+      SortOrder.DURATION -> if (asc) videos.sortedBy { it.duration } else videos.sortedByDescending { it.duration }
     }
   }
 
@@ -909,6 +1166,21 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   fun setAutoRotate(enabled: Boolean) {
     _autoRotate.value = enabled
     prefs.edit().putBoolean("auto_rotate", enabled).apply()
+  }
+
+  fun setLocalMode(enabled: Boolean) {
+    _localMode.value = enabled
+    prefs.edit().putBoolean("local_mode", enabled).apply()
+  }
+
+  fun setMusicPlayerEnabled(enabled: Boolean) {
+    _musicPlayerEnabled.value = enabled
+    prefs.edit().putBoolean("music_player_enabled", enabled).apply()
+  }
+
+  fun setMinimalistPlayer(enabled: Boolean) {
+    _minimalistPlayer.value = enabled
+    prefs.edit().putBoolean("minimalist_player", enabled).apply()
   }
 
   fun setPipEnabled(enabled: Boolean) {
@@ -982,6 +1254,74 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   fun setCrossfade(enabled: Boolean) {
     _crossfadeEnabled.value = enabled
     prefs.edit().putBoolean("crossfade_enabled", enabled).apply()
+  }
+
+  /**
+   * P4b — re-reads every managed setting from `vidmax_settings` into the
+   * reactive StateFlows after a Settings Import. Parsing mirrors the init
+   * defaults above; unknown enum names fall back to the same defaults.
+   * Excluded data (favorites, recents, bookmarks, resume positions) is
+   * untouched — both here and by the import itself.
+   */
+  fun reloadSettingsFromDisk() {
+    try {
+      setSort(
+          try {
+            SortOrder.valueOf(
+                prefs.getString("video_sort_order", SortOrder.DATE.name) ?: SortOrder.DATE.name)
+          } catch (e: Exception) {
+            SortOrder.DATE
+          },
+          prefs.getBoolean("video_sort_ascending", false))
+    } catch (e: Exception) {}
+    try {
+      setPlayerEngine(
+          try {
+            PlayerEngine.valueOf(
+                prefs.getString("player_engine", PlayerEngine.EXO.name) ?: PlayerEngine.EXO.name)
+          } catch (e: Exception) {
+            PlayerEngine.EXO
+          })
+    } catch (e: Exception) {}
+    setAudioBoost(prefs.getBoolean("audio_boost", false))
+    setResumePlayback(prefs.getBoolean("resume_playback", true))
+    try {
+      setDecoderMode(
+          try {
+            DecoderMode.valueOf(
+                prefs.getString("video_decoder", DecoderMode.AUTO.name) ?: DecoderMode.AUTO.name)
+          } catch (e: Exception) {
+            DecoderMode.AUTO
+          })
+    } catch (e: Exception) {}
+    setAutoRotate(prefs.getBoolean("auto_rotate", true))
+    setLocalMode(prefs.getBoolean("local_mode", false))
+    setMusicPlayerEnabled(prefs.getBoolean("music_player_enabled", true))
+    setMinimalistPlayer(prefs.getBoolean("minimalist_player", false))
+    setPipEnabled(prefs.getBoolean("pip_enabled", true))
+    setShowResolutionBadge(prefs.getBoolean("resolution_badge", true))
+    try {
+      setAppTheme(
+          try {
+            AppTheme.valueOf(
+                prefs.getString("app_theme", AppTheme.Default.name) ?: AppTheme.Default.name)
+          } catch (e: IllegalArgumentException) {
+            AppTheme.Default
+          })
+    } catch (e: Exception) {}
+    try {
+      setDarkMode(
+          try {
+            DarkMode.valueOf(
+                prefs.getString("dark_mode", DarkMode.System.name) ?: DarkMode.System.name)
+          } catch (e: Exception) {
+            DarkMode.System
+          })
+    } catch (e: Exception) {}
+    setAmoledMode(prefs.getBoolean("amoled_mode", false))
+    setAppFont(prefs.getString("app_font", AppFonts.SYSTEM_DEFAULT) ?: AppFonts.SYSTEM_DEFAULT)
+    setSkipSilence(prefs.getBoolean("skip_silence", false))
+    setCrossfade(prefs.getBoolean("crossfade_enabled", true))
   }
 
   fun setRecentlyPlayedVideo(title: String, path: String) {
