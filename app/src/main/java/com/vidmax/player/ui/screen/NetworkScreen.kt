@@ -142,7 +142,6 @@ fun NetworkScreen(libraryViewModel: LibraryViewModel) {
                 },
             )
         }
-        }
 
         SnackbarHost(
             hostState = snackbarHostState,
