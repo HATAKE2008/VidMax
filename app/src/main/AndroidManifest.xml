@@ -23,6 +23,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|colorMode|density|fontScale|layoutDirection"
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/Theme.VidMax.Splash" >
@@ -43,7 +44,7 @@
 
         <activity
             android:name=".ui.player.PlayerActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|colorMode|density|fontScale|layoutDirection"
             android:exported="false"
             android:launchMode="singleTop" />
 

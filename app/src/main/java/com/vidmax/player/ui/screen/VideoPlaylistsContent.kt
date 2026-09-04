@@ -3,6 +3,8 @@ package com.vidmax.player.ui.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,15 +14,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
@@ -52,7 +58,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
+import com.vidmax.player.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -70,6 +78,7 @@ import java.io.File
 fun VideoPlaylistsContent(
   viewModel: LibraryViewModel,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
+  onDeleteRequest: (VideoItem) -> Unit,
 ) {
   val playlists by viewModel.videoPlaylists.collectAsState()
   val opened by viewModel.openedVideoPlaylist.collectAsState()
@@ -81,8 +90,29 @@ fun VideoPlaylistsContent(
   val current = opened
 
   if (current == null) {
-    Box(modifier = Modifier.fillMaxSize()) {
-      if (playlists.isEmpty()) {
+    var playlistQuery by remember { mutableStateOf("") }
+    val visiblePlaylists =
+        remember(playlists, playlistQuery) {
+          if (playlistQuery.isBlank()) playlists
+          else playlists.filter { it.playlist.name.contains(playlistQuery, ignoreCase = true) }
+        }
+    Column(modifier = Modifier.fillMaxSize()) {
+      OutlinedTextField(
+          value = playlistQuery,
+          onValueChange = { playlistQuery = it },
+          label = { Text("Search playlists") },
+          leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_search), contentDescription = null) },
+          trailingIcon = {
+            if (playlistQuery.isNotEmpty()) {
+              IconButton(onClick = { playlistQuery = "" }) {
+                Icon(imageVector = Icons.Filled.Close, contentDescription = "Clear")
+              }
+            }
+          },
+          singleLine = true,
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp))
+      Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        if (playlists.isEmpty()) {
         Column(
             modifier = Modifier.fillMaxSize().padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -101,17 +131,25 @@ fun VideoPlaylistsContent(
               Spacer(modifier = Modifier.height(4.dp))
               Text(
                   text =
-                      "Long-press videos to select them, then tap the playlist icon to add",
+                      "Long-press a video and choose Add to Playlist",
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                   fontSize = 13.sp,
                   modifier = Modifier.padding(horizontal = 12.dp))
             }
+      } else if (visiblePlaylists.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+          Text(
+              text = "No playlists match \"$playlistQuery\"",
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              fontSize = 14.sp)
+        }
       } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            // P4c: cap line length on tablets, same 1100dp pattern as Home.
+            modifier = Modifier.align(Alignment.TopCenter).fillMaxSize().widthIn(max = 1100.dp),
             contentPadding = PaddingValues(bottom = 130.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              items(items = playlists, key = { it.playlist.id }) { entry ->
+              items(items = visiblePlaylists, key = { it.playlist.id }) { entry ->
                 PlaylistCard(
                     name = entry.playlist.name,
                     count = entry.itemCount,
@@ -120,17 +158,19 @@ fun VideoPlaylistsContent(
             }
       }
 
-      FloatingActionButton(
-          onClick = { showCreateDialog = true },
-          containerColor = MaterialTheme.colorScheme.primary,
-          contentColor = MaterialTheme.colorScheme.onPrimary,
-          shape = RoundedCornerShape(16.dp),
-          modifier =
-              Modifier.align(Alignment.BottomEnd)
-                  .padding(end = 20.dp, bottom = 140.dp)
-                  .size(56.dp)) {
-            Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
-          }
+        FloatingActionButton(
+            onClick = { showCreateDialog = true },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = RoundedCornerShape(16.dp),
+            modifier =
+                Modifier.align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(end = 20.dp, bottom = 148.dp)
+                    .size(56.dp)) {
+              Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
+            }
+      }
     }
   } else {
     PlaylistDetailContent(
@@ -141,7 +181,8 @@ fun VideoPlaylistsContent(
         onBack = { viewModel.closeVideoPlaylist() },
         onRename = { showRenameDialog = true },
         onDelete = { showDeleteConfirm = true },
-        onPlayVideos = onPlayVideos)
+        onPlayVideos = onPlayVideos,
+        onDeleteRequest = onDeleteRequest)
   }
 
   if (showCreateDialog) {
@@ -231,7 +272,7 @@ private fun PlaylistCard(name: String, count: Int, onClick: () -> Unit) {
       }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
+@OptIn(ExperimentalGlideComposeApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun PlaylistDetailContent(
   viewModel: LibraryViewModel,
@@ -242,8 +283,15 @@ private fun PlaylistDetailContent(
   onRename: () -> Unit,
   onDelete: () -> Unit,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
+  onDeleteRequest: (VideoItem) -> Unit,
 ) {
   var menuOpen by remember { mutableStateOf(false) }
+  var itemQuery by remember { mutableStateOf("") }
+  val visibleItems =
+      remember(items, itemQuery) {
+        if (itemQuery.isBlank()) items
+        else items.filter { it.fileName.contains(itemQuery, ignoreCase = true) }
+      }
 
   fun toVideoItems(list: List<VidMaxVideoPlaylistItem>): List<VideoItem> =
       list.map { item ->
@@ -259,6 +307,22 @@ private fun PlaylistDetailContent(
             folderPath = "",
             folderName = "")
       }
+
+  var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
+  VideoActionMenuHost(
+      viewModel = viewModel,
+      video = menuVideo,
+      onPlay = { video ->
+        val list = toVideoItems(visibleItems)
+        val index = list.indexOfFirst { it.id == video.id }
+        if (index >= 0) onPlayVideos(list, index)
+        menuVideo = null
+      },
+      onDeleteRequest = {
+        menuVideo = null
+        onDeleteRequest(it)
+      },
+      onDismiss = { menuVideo = null })
 
   Column(modifier = Modifier.fillMaxSize()) {
     Row(
@@ -283,8 +347,8 @@ private fun PlaylistDetailContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp)
           }
-          if (items.isNotEmpty()) {
-            IconButton(onClick = { onPlayVideos(toVideoItems(items), 0) }) {
+          if (visibleItems.isNotEmpty()) {
+            IconButton(onClick = { onPlayVideos(toVideoItems(visibleItems), 0) }) {
               Icon(
                   imageVector = Icons.Filled.PlayArrow,
                   contentDescription = "Play all",
@@ -321,6 +385,23 @@ private fun PlaylistDetailContent(
           }
         }
 
+    if (items.size > 1) {
+      OutlinedTextField(
+          value = itemQuery,
+          onValueChange = { itemQuery = it },
+          label = { Text("Search in playlist") },
+          leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_search), contentDescription = null) },
+          trailingIcon = {
+            if (itemQuery.isNotEmpty()) {
+              IconButton(onClick = { itemQuery = "" }) {
+                Icon(imageVector = Icons.Filled.Close, contentDescription = "Clear")
+              }
+            }
+          },
+          singleLine = true,
+          modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
+    }
+
     if (items.isEmpty()) {
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
@@ -328,19 +409,30 @@ private fun PlaylistDetailContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp)
       }
+    } else if (visibleItems.isEmpty()) {
+      Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            text = "No videos match \"$itemQuery\"",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 14.sp)
+      }
     } else {
       LazyColumn(
-          modifier = Modifier.fillMaxSize(),
+          // P4c: cap line length on tablets, same 1100dp pattern as Home.
+          modifier = Modifier.align(Alignment.CenterHorizontally).fillMaxSize().widthIn(max = 1100.dp),
           contentPadding = PaddingValues(bottom = 130.dp),
           verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(items = items, key = { it.id }) { item ->
-              val index = items.indexOf(item)
+            items(items = visibleItems, key = { it.id }) { item ->
+              val index = visibleItems.indexOf(item)
+              val videoItem = toVideoItems(listOf(item)).first()
               Row(
                   modifier =
                       Modifier.fillMaxWidth()
                           .clip(RoundedCornerShape(12.dp))
                           .background(MaterialTheme.colorScheme.surfaceVariant)
-                          .clickable { onPlayVideos(toVideoItems(items), index) }
+                          .combinedClickable(
+                              onClick = { onPlayVideos(toVideoItems(visibleItems), index) },
+                              onLongClick = { menuVideo = videoItem })
                           .padding(horizontal = 10.dp, vertical = 10.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                     // Real video thumbnail, same loading path as the folder view.

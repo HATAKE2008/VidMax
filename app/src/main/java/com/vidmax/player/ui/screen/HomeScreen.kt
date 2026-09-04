@@ -19,6 +19,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,8 +35,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,8 +60,8 @@ import com.vidmax.player.R
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
-import com.vidmax.player.ui.components.VidMaxSearchBar
 import com.vidmax.player.viewmodel.LibraryViewModel
+import com.vidmax.player.viewmodel.SortOrder
 import java.io.File
 
 enum class HomeViewStyle {
@@ -75,7 +78,7 @@ enum class HomeContentMode {
   PLAYLISTS
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: LibraryViewModel,
@@ -91,6 +94,7 @@ fun HomeScreen(
   val searchQuery by viewModel.searchQuery.collectAsState()
   val isLoading by viewModel.isLoading.collectAsState()
   val hasPermission by viewModel.hasPermission.collectAsState()
+  val libraryError by viewModel.libraryError.collectAsState()
 
   val recentVideoPath by viewModel.recentVideoPath.collectAsState()
 
@@ -98,8 +102,20 @@ fun HomeScreen(
   var showDeleteConfirmDialog by remember { mutableStateOf(false) }
   var showAddToPlaylistDialog by remember { mutableStateOf(false) }
   val openedVideoPlaylist by viewModel.openedVideoPlaylist.collectAsState()
-  var isSearchExpanded by remember { mutableStateOf(false) }
+  var isVideoSearchOpen by rememberSaveable { mutableStateOf(false) }
   val inSelectionMode = selectedVideoIds.isNotEmpty()
+
+  // Resume (continue watching) action — lives in the top bar next to Search
+  // so it can never overlap the playlist Create button.
+  val resumeLastVideo = {
+    var targetIndex = videos.indexOfFirst { it.path == recentVideoPath }
+    if (targetIndex == -1 && recentVideoPath.isNotEmpty()) {
+      val recentFileName = File(recentVideoPath).name
+      targetIndex = videos.indexOfFirst { File(it.path).name == recentFileName }
+    }
+    if (targetIndex == -1) targetIndex = 0
+    onVideoClick(videos, targetIndex)
+  }
 
   var currentViewStyle by remember {
     val savedStyle =
@@ -200,8 +216,125 @@ fun HomeScreen(
         })
   }
 
+  // Unified long-press video menu (Play, Rename, Share, Favorite,
+  // Add to Playlist, Details, Delete) shared by Videos/Search/Folders.
+  var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
+
+  // Telegram community promo: top-bar icon stays available forever; the
+  // first-launch invitation shows only until it has been handled once.
+  var showTelegramSheet by remember { mutableStateOf(false) }
+  var showTelegramPromo by remember {
+    mutableStateOf(!prefs.getBoolean("telegram_promo_dismissed", false))
+  }
+  fun dismissTelegramPromo() {
+    prefs.edit().putBoolean("telegram_promo_dismissed", true).apply()
+    showTelegramPromo = false
+  }
+  if (showTelegramPromo || showTelegramSheet) {
+    TelegramPromoSheet(
+        onJoin = {
+          dismissTelegramPromo()
+          showTelegramSheet = false
+          openTelegramCommunity(context)
+        },
+        onDismiss = {
+          if (showTelegramPromo) dismissTelegramPromo()
+          showTelegramSheet = false
+        })
+  }
+
+  val sortOrder by viewModel.sortOrder.collectAsState()
+  val sortAscending by viewModel.sortAscending.collectAsState()
+  val isRefreshing by viewModel.isRefreshing.collectAsState()
+  var showSortMenu by remember { mutableStateOf(false) }
+  var renameTarget by remember { mutableStateOf<VideoItem?>(null) }
+  var renameError by remember { mutableStateOf<String?>(null) }
+  var renameBusy by remember { mutableStateOf(false) }
+  var gridColumnsOverride by remember { mutableIntStateOf(prefs.getInt("home_grid_columns", 0)) }
+
+  fun setGridColumns(value: Int) {
+    gridColumnsOverride = value
+    prefs.edit().putInt("home_grid_columns", value).apply()
+  }
+
+  fun performDeleteRequest(video: VideoItem) {
+    val uri = getVideoUriFromPathForMulti(context, video.path)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && uri != null) {
+      val pendingIntent =
+          MediaStore.createDeleteRequest(context.contentResolver, listOf(uri))
+      deleteLauncher.launch(
+          IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+    } else {
+      val deleted =
+          if (File(video.path).exists()) File(video.path).delete()
+          else
+              getVideoUriFromPathForMulti(context, video.path)?.let { u ->
+                context.contentResolver.delete(u, null, null) > 0
+              } ?: false
+      Toast.makeText(
+              context,
+              if (deleted) "Video deleted" else "Delete failed",
+              Toast.LENGTH_SHORT)
+          .show()
+    }
+  }
+
+  val playMenuVideo: (VideoItem) -> Unit = { video ->
+    val inVideos = videos.indexOfFirst { it.id == video.id }
+    if (inVideos >= 0) {
+      onVideoClick(videos, inVideos)
+    } else {
+      val inFolder = folderVideos.indexOfFirst { it.id == video.id }
+      if (inFolder >= 0) onVideoClick(folderVideos, inFolder)
+      else Toast.makeText(context, "Video not available", Toast.LENGTH_SHORT).show()
+    }
+    menuVideo = null
+  }
+
+  VideoActionMenuHost(
+      viewModel = viewModel,
+      video = menuVideo,
+      onPlay = playMenuVideo,
+      onDeleteRequest = { performDeleteRequest(it) },
+      onDismiss = { menuVideo = null })
+
+  renameTarget?.let { target ->
+    RenameVideoDialog(
+        currentBaseName =
+            File(target.path).nameWithoutExtension.ifEmpty { target.title },
+        extension = File(target.path).extension.ifEmpty { "mp4" },
+        error = renameError,
+        busy = renameBusy,
+        onDismiss = {
+          if (!renameBusy) {
+            renameTarget = null
+            renameError = null
+          }
+        },
+        onConfirm = { base ->
+          renameBusy = true
+          renameError = null
+          viewModel.renameVideo(target, base) { result ->
+            renameBusy = false
+            result
+                .onSuccess {
+                  renameTarget = null
+                  renameError = null
+                  Toast.makeText(context, "Renamed", Toast.LENGTH_SHORT).show()
+                }
+                .onFailure { renameError = it.message ?: "Rename failed" }
+          }
+        })
+  }
+
   Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(
+        modifier =
+            Modifier.align(Alignment.TopCenter)
+                .fillMaxHeight()
+                .fillMaxWidth()
+                .widthIn(max = 1100.dp)
+                .padding(horizontal = 16.dp)) {
       Spacer(modifier = Modifier.height(6.dp))
 
       if (inSelectionMode) {
@@ -301,6 +434,21 @@ fun HomeScreen(
                           tint = MaterialTheme.colorScheme.primary,
                           modifier = Modifier.size(24.dp))
                     }
+                if (selectedVideoIds.size == 1) {
+                  IconButton(
+                      onClick = {
+                        videos.find { it.id == selectedVideoIds.first() }?.let {
+                          renameTarget = it
+                          renameError = null
+                        }
+                      }) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Rename",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp))
+                      }
+                }
                 IconButton(onClick = { showDeleteConfirmDialog = true }) {
                   Icon(
                       painter = painterResource(id = R.drawable.ic_delete_custom),
@@ -308,25 +456,6 @@ fun HomeScreen(
                       tint = MaterialTheme.colorScheme.error,
                       modifier = Modifier.size(24.dp))
                 }
-              }
-            }
-      } else if (isSearchExpanded) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-              IconButton(
-                  onClick = {
-                    isSearchExpanded = false
-                    viewModel.setSearchQuery("")
-                  }) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onBackground)
-                  }
-              Box(modifier = Modifier.weight(1f)) {
-                VidMaxSearchBar(
-                    query = searchQuery, onQueryChange = { viewModel.setSearchQuery(it) })
               }
             }
       } else {
@@ -349,12 +478,112 @@ fun HomeScreen(
                   fontWeight = FontWeight.ExtraBold)
 
               Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { isSearchExpanded = true }, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = { isVideoSearchOpen = true }, modifier = Modifier.size(36.dp)) {
                   Icon(
-                      imageVector = Icons.Filled.Search,
+                      painter = painterResource(id = R.drawable.ic_search),
                       contentDescription = "Search",
                       tint = MaterialTheme.colorScheme.onBackground,
                       modifier = Modifier.size(24.dp))
+                }
+
+                // Continue-watching button in the top bar (moved here so it
+                // can never overlap the playlist Create button).
+                if (videos.isNotEmpty()) {
+                  IconButton(onClick = resumeLastVideo, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Continue Watching",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp))
+                  }
+                }
+
+                Box {
+                  IconButton(onClick = { showSortMenu = true }, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = Icons.Filled.Sort,
+                        contentDescription = "Sort",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp))
+                  }
+                  DropdownMenu(
+                      expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
+                        HomeSortItem(
+                            label = "Newest first",
+                            checked = sortOrder == SortOrder.DATE && !sortAscending,
+                            onClick = {
+                              viewModel.setSort(SortOrder.DATE, false)
+                              showSortMenu = false
+                            })
+                        HomeSortItem(
+                            label = "Oldest first",
+                            checked = sortOrder == SortOrder.DATE && sortAscending,
+                            onClick = {
+                              viewModel.setSort(SortOrder.DATE, true)
+                              showSortMenu = false
+                            })
+                        HomeSortItem(
+                            label = "Name A-Z",
+                            checked = sortOrder == SortOrder.NAME && sortAscending,
+                            onClick = {
+                              viewModel.setSort(SortOrder.NAME, true)
+                              showSortMenu = false
+                            })
+                        HomeSortItem(
+                            label = "Name Z-A",
+                            checked = sortOrder == SortOrder.NAME && !sortAscending,
+                            onClick = {
+                              viewModel.setSort(SortOrder.NAME, false)
+                              showSortMenu = false
+                            })
+                        HomeSortItem(
+                            label = "Largest first",
+                            checked = sortOrder == SortOrder.SIZE && !sortAscending,
+                            onClick = {
+                              viewModel.setSort(SortOrder.SIZE, false)
+                              showSortMenu = false
+                            })
+                        HomeSortItem(
+                            label = "Longest first",
+                            checked = sortOrder == SortOrder.DURATION && !sortAscending,
+                            onClick = {
+                              viewModel.setSort(SortOrder.DURATION, false)
+                              showSortMenu = false
+                            })
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        val columnOptions = listOf(0, 2, 3, 4, 6, 12)
+                        columnOptions.forEach { cols ->
+                          DropdownMenuItem(
+                              text = {
+                                Text(
+                                    if (cols == 0) "Grid: Auto" else "Grid: $cols columns")
+                              },
+                              trailingIcon = {
+                                if (gridColumnsOverride == cols) {
+                                  Icon(
+                                      imageVector = Icons.Filled.Check,
+                                      contentDescription = null,
+                                      tint = MaterialTheme.colorScheme.primary)
+                                }
+                              },
+                              onClick = {
+                                setGridColumns(cols)
+                                showSortMenu = false
+                              })
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        DropdownMenuItem(
+                            text = { Text("Refresh") },
+                            leadingIcon = {
+                              Icon(
+                                  imageVector = Icons.Filled.Refresh,
+                                  contentDescription = null)
+                            },
+                            onClick = {
+                              viewModel.refreshVideos()
+                              showSortMenu = false
+                            })
+                      }
                 }
 
                 IconButton(
@@ -382,6 +611,16 @@ fun HomeScreen(
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp))
                       }
+                    }
+
+                IconButton(
+                    onClick = { showTelegramSheet = true },
+                    modifier = Modifier.size(36.dp)) {
+                      Icon(
+                          painter = painterResource(id = R.drawable.ic_telegram),
+                          contentDescription = "Join VidMax on Telegram",
+                          tint = MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.size(24.dp))
                     }
 
                 IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
@@ -496,8 +735,12 @@ fun HomeScreen(
 
       Spacer(modifier = Modifier.height(4.dp))
 
-      Crossfade(targetState = isLoading, animationSpec = tween(400), label = "loadingAnim") {
-          loading ->
+      PullToRefreshBox(
+          isRefreshing = isRefreshing,
+          onRefresh = { viewModel.refreshVideos() },
+          modifier = Modifier.fillMaxWidth().weight(1f)) {
+        Crossfade(targetState = isLoading, animationSpec = tween(400), label = "loadingAnim") {
+            loading ->
         when {
           loading -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -516,12 +759,22 @@ fun HomeScreen(
           }
           videos.isEmpty() && !(currentContentMode == HomeContentMode.FOLDER && folders.isNotEmpty()) -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-              Text(
-                  text =
-                      if (searchQuery.isNotEmpty()) "No videos match \"$searchQuery\""
-                      else "No videos found on this device.",
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  fontSize = 15.sp)
+              Column(
+                  horizontalAlignment = Alignment.CenterHorizontally,
+                  verticalArrangement = Arrangement.spacedBy(12.dp),
+                  modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text =
+                        if (libraryError != null) libraryError!!
+                        else if (searchQuery.isNotEmpty()) "No videos match \"$searchQuery\""
+                        else "No videos found on this device.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 15.sp,
+                    textAlign = TextAlign.Center)
+                if (libraryError != null && hasPermission) {
+                  Button(onClick = { viewModel.refreshVideos() }) { Text("Retry") }
+                }
+              }
             }
           }
           else -> {
@@ -559,20 +812,24 @@ fun HomeScreen(
                                                 onVideoClick(videos, index)
                                               }
                                             },
-                                            onLongClick = {
-                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                            })
+                                            onLongClick = { menuVideo = video })
                                       }
                                     }
                               }
                               HomeViewStyle.GRID_MEDIUM -> {
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(2),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(bottom = 130.dp)) {
-                                      itemsIndexed(
-                                          items = videos, key = { _, video -> video.id }) {
+                                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                                  val autoColumns =
+                                      (maxWidth / 170.dp).toInt().coerceIn(2, 12)
+                                  val gridColumns =
+                                      if (gridColumnsOverride == 0) autoColumns
+                                      else gridColumnsOverride.coerceIn(1, 12)
+                                  LazyVerticalGrid(
+                                      columns = GridCells.Fixed(gridColumns),
+                                      horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                      verticalArrangement = Arrangement.spacedBy(12.dp),
+                                      contentPadding = PaddingValues(bottom = 130.dp)) {
+                                        itemsIndexed(
+                                            items = videos, key = { _, video -> video.id }) {
                                           index,
                                           video ->
                                         val isSelected = selectedVideoIds.contains(video.id)
@@ -587,11 +844,10 @@ fun HomeScreen(
                                                 onVideoClick(videos, index)
                                               }
                                             },
-                                            onLongClick = {
-                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                            })
+                                            onLongClick = { menuVideo = video })
                                       }
                                     }
+                                }
                               }
                               HomeViewStyle.GRID_LARGE -> {
                                 LazyColumn(
@@ -614,9 +870,7 @@ fun HomeScreen(
                                                 onVideoClick(videos, index)
                                               }
                                             },
-                                            onLongClick = {
-                                              selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
-                                            })
+                                            onLongClick = { menuVideo = video })
                                       }
                                     }
                               }
@@ -654,6 +908,54 @@ fun HomeScreen(
                                 }
                               }
 
+                          val lastPlayedIndex =
+                              remember(folderVideos, recentVideoPath) {
+                                folderVideos.indexOfFirst { it.path == recentVideoPath }
+                              }
+                          if (lastPlayedIndex >= 0) {
+                            val lastVideo = folderVideos[lastPlayedIndex]
+                            Row(
+                                modifier =
+                                    Modifier.fillMaxWidth()
+                                        .padding(bottom = 8.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                        .clickable { onVideoClick(folderVideos, lastPlayedIndex) }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                  Icon(
+                                      imageVector = Icons.Filled.PlayArrow,
+                                      contentDescription = null,
+                                      tint = MaterialTheme.colorScheme.primary,
+                                      modifier = Modifier.size(20.dp))
+                                  Spacer(modifier = Modifier.width(8.dp))
+                                  Text(
+                                      text = "Last played: ${lastVideo.title}",
+                                      color = MaterialTheme.colorScheme.onSurface,
+                                      fontSize = 13.sp,
+                                      fontWeight = FontWeight.SemiBold,
+                                      maxLines = 1,
+                                      overflow = TextOverflow.Ellipsis,
+                                      modifier = Modifier.weight(1f))
+                                  Text(
+                                      text = "Jump",
+                                      color = MaterialTheme.colorScheme.primary,
+                                      fontSize = 13.sp,
+                                      fontWeight = FontWeight.Bold)
+                                }
+                          }
+
+                          if (folderVideos.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center) {
+                              Text(
+                                  text = "This folder is empty.",
+                                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                  fontSize = 15.sp)
+                            }
+                          } else {
                           Crossfade(
                               targetState = currentViewStyle,
                               animationSpec = tween(400),
@@ -673,27 +975,34 @@ fun HomeScreen(
                                                 resolution = viewModel.getResolutionLabel(video.width, video.height),
                                                 isSelected = false,
                                                 onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = {})
+                                                onLongClick = { menuVideo = video })
                                           }
                                         }
                                   }
                                   HomeViewStyle.GRID_MEDIUM -> {
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(2),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        contentPadding = PaddingValues(bottom = 130.dp)) {
-                                          itemsIndexed(
-                                              items = folderVideos,
-                                              key = { _, video -> video.id }) { index, video ->
-                                            CustomVideoGridCard(
-                                                video = video,
-                                                duration = viewModel.formatDuration(video.duration),
-                                                isSelected = false,
-                                                onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = {})
+                                    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                                      val autoColumns =
+                                          (maxWidth / 170.dp).toInt().coerceIn(2, 12)
+                                      val gridColumns =
+                                          if (gridColumnsOverride == 0) autoColumns
+                                          else gridColumnsOverride.coerceIn(1, 12)
+                                      LazyVerticalGrid(
+                                          columns = GridCells.Fixed(gridColumns),
+                                          horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                          verticalArrangement = Arrangement.spacedBy(12.dp),
+                                          contentPadding = PaddingValues(bottom = 130.dp)) {
+                                            itemsIndexed(
+                                                items = folderVideos,
+                                                key = { _, video -> video.id }) { index, video ->
+                                              CustomVideoGridCard(
+                                                  video = video,
+                                                  duration = viewModel.formatDuration(video.duration),
+                                                  isSelected = false,
+                                                  onClick = { onVideoClick(folderVideos, index) },
+                                                  onLongClick = { menuVideo = video })
+                                            }
                                           }
-                                        }
+                                    }
                                   }
                                   HomeViewStyle.GRID_LARGE -> {
                                     LazyColumn(
@@ -708,12 +1017,13 @@ fun HomeScreen(
                                                 size = viewModel.formatSize(video.size),
                                                 isSelected = false,
                                                 onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = {})
+                                                onLongClick = { menuVideo = video })
                                           }
                                         }
                                   }
                                 }
                               }
+                        }
                         }
                       } else {
                         Crossfade(
@@ -735,19 +1045,26 @@ fun HomeScreen(
                                       }
                                 }
                                 HomeViewStyle.GRID_MEDIUM -> {
-                                  LazyVerticalGrid(
-                                      columns = GridCells.Fixed(2),
-                                      horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                      verticalArrangement = Arrangement.spacedBy(12.dp),
-                                      contentPadding = PaddingValues(bottom = 130.dp)) {
-                                        itemsIndexed(
-                                            items = folders,
-                                            key = { _, folder -> folder.path }) { _, folder ->
-                                          HomeFolderGridCard(
-                                              folder = folder,
-                                              onClick = { viewModel.openFolder(folder.path) })
+                                  BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                                    val autoColumns =
+                                        (maxWidth / 170.dp).toInt().coerceIn(2, 12)
+                                    val gridColumns =
+                                        if (gridColumnsOverride == 0) autoColumns
+                                        else gridColumnsOverride.coerceIn(1, 12)
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(gridColumns),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        contentPadding = PaddingValues(bottom = 130.dp)) {
+                                          itemsIndexed(
+                                              items = folders,
+                                              key = { _, folder -> folder.path }) { _, folder ->
+                                            HomeFolderGridCard(
+                                                folder = folder,
+                                                onClick = { viewModel.openFolder(folder.path) })
+                                          }
                                         }
-                                      }
+                                  }
                                 }
                                 HomeViewStyle.GRID_LARGE -> {
                                   LazyColumn(
@@ -771,47 +1088,33 @@ fun HomeScreen(
                     HomeContentMode.FAVORITES -> {
                         VideoFavoritesContent(
                             viewModel = viewModel,
-                            onPlayVideos = onVideoClick)
+                            onPlayVideos = onVideoClick,
+                            onDeleteRequest = { performDeleteRequest(it) })
                     }
                     HomeContentMode.PLAYLISTS -> {
                         VideoPlaylistsContent(
                             viewModel = viewModel,
-                            onPlayVideos = onVideoClick)
+                            onPlayVideos = onVideoClick,
+                            onDeleteRequest = { performDeleteRequest(it) })
                     }
                   }
                 }
           }
         }
+        }
       }
     }
+  }
 
-    if (!inSelectionMode && videos.isNotEmpty() && searchQuery.isEmpty()) {
-      FloatingActionButton(
-          onClick = {
-            var targetIndex = videos.indexOfFirst { it.path == recentVideoPath }
-            if (targetIndex == -1 && recentVideoPath.isNotEmpty()) {
-              val recentFileName = File(recentVideoPath).name
-              targetIndex = videos.indexOfFirst { File(it.path).name == recentFileName }
-            }
-            if (targetIndex == -1) targetIndex = 0
-            onVideoClick(videos, targetIndex)
-          },
-          containerColor = MaterialTheme.colorScheme.primary,
-          contentColor = MaterialTheme.colorScheme.onPrimary,
-          shape = RoundedCornerShape(16.dp),
-          elevation =
-              FloatingActionButtonDefaults.elevation(
-                  defaultElevation = 6.dp, pressedElevation = 12.dp),
-          modifier =
-              Modifier.align(Alignment.BottomEnd)
-                  .padding(end = 20.dp, bottom = 110.dp)
-                  .size(56.dp)) {
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = "Continue Watching",
-                modifier = Modifier.size(28.dp))
-          }
-    }
+  BackHandler(enabled = isVideoSearchOpen) { isVideoSearchOpen = false }
+
+  if (isVideoSearchOpen) {
+    SearchScreen(
+        scope = SearchScope.VIDEOS,
+        viewModel = viewModel,
+        onBack = { isVideoSearchOpen = false },
+        onPlayVideos = { videos, index -> onVideoClick(videos, index) },
+        onDeleteVideo = { performDeleteRequest(it) })
   }
 }
 
@@ -1163,6 +1466,21 @@ fun HomeContentSegment(
 }
 
 @Composable
+private fun HomeSortItem(label: String, checked: Boolean, onClick: () -> Unit) {
+  DropdownMenuItem(
+      text = { Text(label) },
+      trailingIcon = {
+        if (checked) {
+          Icon(
+              imageVector = Icons.Filled.Check,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary)
+        }
+      },
+      onClick = onClick)
+}
+
+@Composable
 fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
   Row(
       modifier =
@@ -1307,3 +1625,4 @@ fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modif
         }
       }
 }
+

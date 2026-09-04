@@ -36,7 +36,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -513,7 +512,21 @@ private fun OnlineHeader(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             HeaderIconButton(icon = Icons.Default.AccountCircle, onClick = onProfileClick)
-            HeaderIconButton(icon = Icons.Default.Search, onClick = onSearchClick)
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(onClick = onSearchClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_search),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
             HeaderIconButton(icon = Icons.Default.Settings, onClick = onSettingsClick)
         }
     }
@@ -1952,7 +1965,7 @@ fun OnlineSearchBar(
                 }
             } else {
                 Icon(
-                    Icons.Default.Search, 
+                    androidx.compose.ui.res.painterResource(id = R.drawable.ic_search),
                     contentDescription = "Search", 
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onSurface

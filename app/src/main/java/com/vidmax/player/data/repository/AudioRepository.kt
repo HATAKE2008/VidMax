@@ -27,7 +27,7 @@ class AudioRepository(private val contentResolver: ContentResolver) {
     val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
 
     // selection প্যারামিটারটা অ্যাড করে দিয়েছি
-    val cursor: Cursor? = contentResolver.query(uri, projection, selection, null, sortOrder)
+    val cursor: Cursor? = runCatching { contentResolver.query(uri, projection, selection, null, sortOrder) }.getOrNull()
 
     cursor?.use {
       val idColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)

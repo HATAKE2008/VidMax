@@ -23,13 +23,15 @@ MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
 MediaStore.Video.Media.BUCKET_ID
 )
 val sortOrder: String = MediaStore.Video.Media.DATE_ADDED + " DESC"
-val cursor: Cursor? = contentResolver.query(
+val cursor: Cursor? = runCatching {
+contentResolver.query(
 MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
 projection,
 null,
 null,
 sortOrder
 )
+}.getOrNull()
 cursor?.use { c: Cursor ->
 val idCol: Int = c.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
 val titleCol: Int = c.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
@@ -83,14 +85,15 @@ existing.add(video)
 val folders: MutableList<FolderItem> = mutableListOf()
 for (entry: Map.Entry<String, MutableList<VideoItem>> in folderMap.entries) {
 val list: List<VideoItem> = entry.value
+val first: VideoItem = list.first()
 val totalSize: Long = list.fold(0L) { acc: Long, v: VideoItem -> acc + v.size }
 folders.add(
 FolderItem(
 path = entry.key,
-name = list.first().folderName,
+name = first.folderName,
 videoCount = list.size,
 totalSize = totalSize,
-firstVideoPath = list.first().path
+firstVideoPath = first.path
 )
 )
 }
