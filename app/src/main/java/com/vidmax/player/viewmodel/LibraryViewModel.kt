@@ -1061,7 +1061,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   fun addSearchHistory(rawQuery: String) {
     val query = rawQuery.trim()
     if (query.isEmpty()) return
-    val updated = ([query] + _searchHistory.value.filter { it != query })
+    val updated = (listOf(query) + _searchHistory.value.filter { it != query })
         .take(SEARCH_HISTORY_MAX)
     if (updated == _searchHistory.value) return
     _searchHistory.value = updated
