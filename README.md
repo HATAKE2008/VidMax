@@ -131,19 +131,74 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 
 ## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.1.5
 
-> **Library UX update — smoother browsing, smarter views, one-click screenshot, Telegram community and Settings Backup & Restore.**
+> **Library UX update — smarter browsing, unified views, powerful search, one-click screenshot, Telegram community and Settings Backup & Restore.**
 
-- Improved video library navigation and interactions
-- Consistent long-press actions (Delete, Share, etc.) across Videos, Folder, Favorites and other video screens
-- Improved pull-to-refresh behavior — no extra tap needed after refresh
-- Advanced sorting for large libraries: Newest first, Oldest first, Name A-Z, Name Z-A, Largest first, Longest first, with refresh at the bottom of the sort menu
-- Unified Grid/List view control — single top-bar icon toggles the current view
-- Automatic 2–3 column grid layout adapting to screen width
-- Dedicated improved search experience with history (mpvRex-style SearchScreen)
-- One-click video screenshot capture from the player 3-dot menu
-- Telegram community integration (`vidmax_opensource`) with Join / Not now options
-- Settings Backup & Restore (JSON, UTF-8, SAF picker, strict validation)
-- General performance, UI and stability improvements
+<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.5">View Full Changelog →</a>
+
+### <img src="https://cdn-icons-png.flaticon.com/512/3059/3059446.png" width="20"/> Video Library
+
+- Long-press any video for actions: Play, Rename, Share, Favorite, Add to Playlist, Details, Delete
+- Same long-press menu across Videos, Search, Folders, Favorites and Playlists
+- In-place rename with MediaStore update — playlists and bookmarks follow the new name
+- Safe delete through the system media dialog
+- Pull-to-refresh with clean settle — no extra tap needed after refresh
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/1827/1827951.png" width="20"/> Sorting & Grid Views
+
+- 6 sort orders for large libraries: Newest first, Oldest first, Name A-Z, Name Z-A, Largest first, Longest first
+- Sort choice is remembered between sessions
+- Refresh action at the bottom of the sort menu
+- Unified Grid/List control — one top-bar icon toggles the current view
+- Grid Auto adapts column count to screen width (minimum 2), manual override stays in the sort menu
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/741/741407.png" width="20"/> Dedicated Search
+
+- Proper search screen for Videos, Music and Network files with autofocus and keyboard search
+- Search history that is saved, de-duplicated and reusable
+- New search icons in every top bar
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/2991/2991108.png" width="20"/> Player Upgrades
+
+- One-click Screenshot from the player 3-dot menu, saved to gallery
+- Video Bookmarks — mark moments, jump back from the bookmark list
+- Loop mode, aspect ratio and playback speed are remembered across sessions
+- Minimalist player option
+- Large queue fix — opening the player from huge lists no longer crashes
+- Rich video Details dialog (codec, bitrate and more)
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/2111/2111644.png" width="20"/> Telegram Community
+
+- Telegram icon in the top bar opens the VidMax community (`vidmax_opensource`)
+- First-run welcome sheet with Join Telegram / Not now — dismiss is remembered
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="20"/> Settings Backup & Restore
+
+- Export settings to JSON (UTF-8) and import them back
+- System file picker — no storage permission needed
+- Strict format validation with clear success/error feedback
+- Session, media, favorites and recent data stay untouched
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/685/685655.png" width="20"/> App Shell & Stability
+
+- Startup intro screen can be turned off in Settings
+- Safer video launching with empty-path guards
+- Rotation, theme and font-scale changes no longer restart screens abruptly
+- Network tab hides in local mode, Music tab hides when the music player is off
+- Reorderable bottom tabs with hidden tabs kept in place
+- Crash guards around media library queries
+- Refreshed Settings layout with clearer sections
 
 <a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.5">View Full Changelog →</a>
 
