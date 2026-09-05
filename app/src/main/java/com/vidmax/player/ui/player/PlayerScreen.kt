@@ -55,7 +55,8 @@ fun PlayerScreen(
     onPrevious: () -> Unit,
     onSeekForward: () -> Unit,
     onSeekBackward: () -> Unit,
-    onPickSubtitle: () -> Unit
+    onPickSubtitle: () -> Unit,
+    onStereoModeChange: (String) -> Unit = {}
 ) {
   val context = LocalContext.current
   val density = LocalDensity.current
@@ -332,7 +333,8 @@ fun PlayerScreen(
               onOpenSync = {
                 viewModel.setPanelMode(PanelMode.NONE)
                 viewModel.setShowSyncSheet(true)
-              })
+              },
+              onStereoModeChange = onStereoModeChange)
         PanelMode.SETTINGS ->
           PlayerSettingsSheet(
               viewModel = viewModel,
