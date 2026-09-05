@@ -297,6 +297,8 @@ fun PlayerControls(
 
     var boostPrevSpeed by remember { mutableStateOf<Float?>(null) }
     val isBoosting = boostPrevSpeed != null
+    // Release after a real 2x hold must not leak into tap handling below.
+    var boostTapLatch by remember { mutableStateOf(false) }
 
     val bookmarkList =
         remember(currentPath) {
@@ -323,10 +325,14 @@ fun PlayerControls(
     fun stopSpeedBoost() {
       val prev = boostPrevSpeed ?: return
       boostPrevSpeed = null
+      boostTapLatch = true
       applyEngineSpeed(prev)
     }
 
-    LaunchedEffect(currentPath) { boostPrevSpeed = null }
+    LaunchedEffect(currentPath) {
+      boostPrevSpeed = null
+      boostTapLatch = false
+    }
 
     // A-B repeat: loop inside the same file via absolute seek — no reload,
     // so the restart has no black flash on either engine.
@@ -1000,7 +1006,7 @@ fun PlayerControls(
                                     accX += dx
                                     accY += dy
                                     
-                                    if (sqrt(accX * accX + accY * accY) > 40f) {
+                                    if (sqrt(accX * accX + accY * accY) > 40f && boostPrevSpeed == null) {
                                         isDraggingLocal = true
                                         dragType = if (abs(accX) > abs(accY)) {
                                             // horizontal seek, only outside bottom dead zone
@@ -1142,7 +1148,12 @@ fun PlayerControls(
                                     }
                                 }
                             },
+                            onPress = { boostTapLatch = false },
                             onTap = {
+                                if (boostTapLatch) {
+                                    boostTapLatch = false
+                                    return@detectTapGestures
+                                }
                                 when (singleTapAction) {
                                     "play_pause" -> onPlayPause()
                                     else -> viewModel.setControlsVisible(!controlsVisible)
@@ -1150,7 +1161,15 @@ fun PlayerControls(
                             }
                         )
                     } else {
-                        detectTapGestures(onTap = { viewModel.setControlsVisible(true) })
+                        detectTapGestures(
+                            onPress = { boostTapLatch = false },
+                            onTap = {
+                                if (boostTapLatch) {
+                                    boostTapLatch = false
+                                    return@detectTapGestures
+                                }
+                                viewModel.setControlsVisible(true)
+                            })
                     }
                 }
         )
