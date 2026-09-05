@@ -1,6 +1,7 @@
 package com.vidmax.player.viewmodel
 
 import android.app.Application
+import android.app.RecoverableSecurityException
 import android.content.BroadcastReceiver
 import android.content.ContentUris
 import android.content.ContentValues
@@ -61,6 +62,14 @@ enum class SortOrder {
   SIZE,
   DURATION
 }
+
+/**
+ * Thrown by [LibraryViewModel.renameVideo] when the MediaStore rename needs
+ * scoped-storage user consent. The UI should fire
+ * MediaStore.createWriteRequest([uris]) and retry the rename on success.
+ */
+class RenameConsentRequiredException(val uris: List<Uri>) :
+    Exception("Storage permission needed to rename this file.")
 
 enum class DecoderMode {
   AUTO,
@@ -963,12 +972,23 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
         if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = false)) {
           var renamed = false
+          var consentUris: List<Uri>? = null
           runCatching {
             val uri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
             val values = ContentValues().apply { put(MediaStore.Video.Media.DISPLAY_NAME, dst.name) }
             if (getApplication<Application>().contentResolver.update(uri, values, null, null) > 0) renamed = true
+          }.onFailure { e ->
+            // Scoped storage: renaming media we don't own needs user consent via
+            // MediaStore.createWriteRequest. Surfacing it lets the UI request
+            // consent and retry; falling through to File.renameTo would always fail.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                e is RecoverableSecurityException) {
+              consentUris = listOf(
+                  ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id))
+            }
           }
           if (!renamed) {
+            consentUris?.let { throw RenameConsentRequiredException(it) }
             if (!src.renameTo(dst)) throw IllegalStateException("Rename failed")
             MediaScannerConnection.scanFile(getApplication(), arrayOf(dst.absolutePath), null, null)
           }

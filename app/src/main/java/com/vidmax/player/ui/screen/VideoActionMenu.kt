@@ -1,8 +1,14 @@
 package com.vidmax.player.ui.screen
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
 import com.vidmax.player.viewmodel.LibraryViewModel
+import com.vidmax.player.viewmodel.RenameConsentRequiredException
 import java.io.File
 
 /**
@@ -95,6 +102,52 @@ fun VideoActionMenuHost(
   var renameOpen by remember(video) { mutableStateOf(false) }
   var renameError by remember(video) { mutableStateOf<String?>(null) }
   var renameBusy by remember(video) { mutableStateOf(false) }
+  var pendingRename by remember(video) { mutableStateOf<Pair<VideoItem, String>?>(null) }
+
+  fun succeedRename() {
+    renameBusy = false
+    renameOpen = false
+    renameError = null
+    pendingRename = null
+    onDismiss()
+    Toast.makeText(context, "Renamed", Toast.LENGTH_SHORT).show()
+  }
+
+  fun failRename(message: String?) {
+    renameBusy = false
+    renameError = message ?: "Rename failed"
+  }
+
+  val renameWriteLauncher =
+      rememberLauncherForActivityResult(
+          contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            val pending = pendingRename
+            pendingRename = null
+            if (result.resultCode == Activity.RESULT_OK && pending != null) {
+              viewModel.renameVideo(pending.first, pending.second) { retryResult ->
+                retryResult.onSuccess { succeedRename() }.onFailure { failRename(it.message) }
+              }
+            } else {
+              failRename("Rename cancelled")
+            }
+          }
+
+  fun handleRenameResult(target: VideoItem, base: String, result: Result<String>) {
+    result
+        .onSuccess { succeedRename() }
+        .onFailure {
+          if (it is RenameConsentRequiredException &&
+              Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            pendingRename = target to base
+            val pendingIntent =
+                MediaStore.createWriteRequest(context.contentResolver, it.uris)
+            renameWriteLauncher.launch(
+                IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+          } else {
+            failRename(it.message)
+          }
+        }
+  }
 
   val subDialogOpen = showPlaylist || showDeleteConfirm || showDetails || renameOpen
 
@@ -190,15 +243,7 @@ fun VideoActionMenuHost(
           renameBusy = true
           renameError = null
           viewModel.renameVideo(video, base) { result ->
-            renameBusy = false
-            result
-                .onSuccess {
-                  renameOpen = false
-                  renameError = null
-                  onDismiss()
-                  Toast.makeText(context, "Renamed", Toast.LENGTH_SHORT).show()
-                }
-                .onFailure { renameError = it.message ?: "Rename failed" }
+            handleRenameResult(video, base, result)
           }
         })
   }

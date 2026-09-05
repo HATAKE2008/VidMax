@@ -61,6 +61,7 @@ import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
 import com.vidmax.player.viewmodel.LibraryViewModel
+import com.vidmax.player.viewmodel.RenameConsentRequiredException
 import com.vidmax.player.viewmodel.SortOrder
 import java.io.File
 
@@ -251,6 +252,52 @@ fun HomeScreen(
   var renameTarget by remember { mutableStateOf<VideoItem?>(null) }
   var renameError by remember { mutableStateOf<String?>(null) }
   var renameBusy by remember { mutableStateOf(false) }
+  var pendingRename by remember { mutableStateOf<Pair<VideoItem, String>?>(null) }
+
+  fun succeedRename() {
+    renameBusy = false
+    renameTarget = null
+    renameError = null
+    pendingRename = null
+    Toast.makeText(context, "Renamed", Toast.LENGTH_SHORT).show()
+  }
+
+  fun failRename(message: String?) {
+    renameBusy = false
+    renameError = message ?: "Rename failed"
+  }
+
+  val renameWriteLauncher =
+      rememberLauncherForActivityResult(
+          contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            val pending = pendingRename
+            pendingRename = null
+            if (result.resultCode == Activity.RESULT_OK && pending != null) {
+              viewModel.renameVideo(pending.first, pending.second) { retryResult ->
+                retryResult.onSuccess { succeedRename() }.onFailure { failRename(it.message) }
+              }
+            } else {
+              failRename("Rename cancelled")
+            }
+          }
+
+  fun handleRenameResult(target: VideoItem, base: String, result: Result<String>) {
+    result
+        .onSuccess { succeedRename() }
+        .onFailure {
+          if (it is RenameConsentRequiredException &&
+              Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            pendingRename = target to base
+            val pendingIntent =
+                MediaStore.createWriteRequest(context.contentResolver, it.uris)
+            renameWriteLauncher.launch(
+                IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+          } else {
+            failRename(it.message)
+          }
+        }
+  }
+
   var gridColumnsOverride by remember { mutableIntStateOf(prefs.getInt("home_grid_columns", 0)) }
 
   fun setGridColumns(value: Int) {
@@ -316,14 +363,7 @@ fun HomeScreen(
           renameBusy = true
           renameError = null
           viewModel.renameVideo(target, base) { result ->
-            renameBusy = false
-            result
-                .onSuccess {
-                  renameTarget = null
-                  renameError = null
-                  Toast.makeText(context, "Renamed", Toast.LENGTH_SHORT).show()
-                }
-                .onFailure { renameError = it.message ?: "Rename failed" }
+            handleRenameResult(target, base, result)
           }
         })
   }
