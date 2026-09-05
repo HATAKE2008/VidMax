@@ -78,6 +78,8 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.vidmax.player.R
+import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.ui.screen.VideoDetailsDialog
 import com.vidmax.player.viewmodel.AspectRatioMode
 import com.vidmax.player.viewmodel.LoopMode
 import com.vidmax.player.viewmodel.PanelMode
@@ -285,7 +287,7 @@ fun PlayerControls(
     val bottomDeadZonePx = remember(density) { with(density) { 120.dp.toPx() } }
 
     var showMoreMenu by remember { mutableStateOf(false) }
-    var showPropertiesDialog by remember { mutableStateOf(false) }
+    var showDetailsDialog by remember { mutableStateOf(false) }
     var showBookmarkDialog by remember { mutableStateOf(false) }
     var showBookmarkList by remember { mutableStateOf(false) }
     var bookmarkLabel by remember { mutableStateOf("") }
@@ -732,28 +734,26 @@ fun PlayerControls(
     }
 
     // ============================================================
-    // Video properties dialog
+    // Details dialog (shared library dialog, no separate Properties UI)
     // ============================================================
-    if (showPropertiesDialog) {
-        val file = File(currentPath)
-        val fileSizeMb = if (file.exists()) String.format(Locale.US, "%.2f MB", file.length() / (1024.0 * 1024.0)) else "Unknown"
-        AlertDialog(
-            onDismissRequest = { showPropertiesDialog = false },
-            title = { Text("Video Properties", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Title: $videoTitle", fontSize = 14.sp)
-                    Text("Path: $currentPath", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Size: $fileSizeMb", fontSize = 14.sp)
-                    Text(
-                        "Engine: ${if (currentEngine == PlayerEngine.EXO) "ExoPlayer (Media3)" else "MPV Engine (HW)"}",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
-            confirmButton = { TextButton(onClick = { showPropertiesDialog = false }) { Text("Close") } }
-        )
+    if (showDetailsDialog) {
+        val detailsFile = remember(currentPath) { File(currentPath) }
+        val detailsVideo = remember(currentPath, videoTitle, duration) {
+            VideoItem(
+                id = 0L,
+                title = videoTitle.ifEmpty { detailsFile.nameWithoutExtension },
+                path = currentPath,
+                duration = duration,
+                size = runCatching { detailsFile.length() }.getOrDefault(0L),
+                width = 0,
+                height = 0,
+                dateAdded = 0L,
+                folderPath = runCatching { detailsFile.parent }.getOrNull() ?: "",
+                folderName = runCatching { detailsFile.parentFile?.name }.getOrNull() ?: "")
+        }
+        VideoDetailsDialog(
+            video = detailsVideo,
+            onDismiss = { showDetailsDialog = false })
     }
 
     if (showBookmarkDialog) {
@@ -1522,9 +1522,9 @@ fun PlayerControls(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Properties", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text("Details", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; showPropertiesDialog = true }
+                                    onClick = { showMoreMenu = false; showDetailsDialog = true }
                                 )
                             }
                         }
