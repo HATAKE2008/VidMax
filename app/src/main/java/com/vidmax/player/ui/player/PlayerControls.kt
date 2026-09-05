@@ -299,6 +299,8 @@ fun PlayerControls(
     val isBoosting = boostPrevSpeed != null
     // Release after a real 2x hold must not leak into tap handling below.
     var boostTapLatch by remember { mutableStateOf(false) }
+    // Generation guard so only the latest double-tap feedback reset clears.
+    var doubleTapFeedbackGen by remember { mutableIntStateOf(0) }
 
     val bookmarkList =
         remember(currentPath) {
@@ -332,6 +334,9 @@ fun PlayerControls(
     LaunchedEffect(currentPath) {
       boostPrevSpeed = null
       boostTapLatch = false
+      doubleTapFeedbackGen++
+      showDoubleTapRipple = 0
+      viewModel.hideGestureOverlay()
     }
 
     // A-B repeat: loop inside the same file via absolute seek — no reload,
@@ -1142,9 +1147,15 @@ fun PlayerControls(
                                 viewModel.setCurrentPosition(target)
                                 if (showDoubleTapIndicator) {
                                     showDoubleTapRipple = if (seekBackward) -1 else 1
+                                    viewModel.setGestureIndicator(4, target.toFloat())
+                                    doubleTapFeedbackGen++
+                                    val feedbackGen = doubleTapFeedbackGen
                                     coroutineScope.launch {
-                                        delay(600)
-                                        showDoubleTapRipple = 0
+                                        delay(1000)
+                                        if (feedbackGen == doubleTapFeedbackGen) {
+                                            showDoubleTapRipple = 0
+                                            if (!isDragging) viewModel.hideGestureOverlay()
+                                        }
                                     }
                                 }
                             },
