@@ -121,6 +121,34 @@ private fun exoMimeShortName(mime: String): String =
         else -> mime.substringAfter('/').uppercase(Locale.US)
     }
 
+fun applyMpvStereoMode(mode: String) {
+    try {
+        when (mode) {
+            "Mono" -> {
+                MPVLib.command(arrayOf("af", "clr"))
+                MPVLib.setPropertyString("audio-channels", "mono")
+            }
+            "Stereo" -> {
+                MPVLib.command(arrayOf("af", "clr"))
+                MPVLib.setPropertyString("audio-channels", "stereo")
+            }
+            "Reverse" -> {
+                MPVLib.setPropertyString("audio-channels", "auto")
+                val channels = MPVLib.getPropertyInt("audio-params/channel-count") ?: 2
+                if (channels >= 2) {
+                    MPVLib.command(arrayOf("af", "set", "lavfi=[pan=stereo|c0=c1|c1=c0]"))
+                } else {
+                    MPVLib.command(arrayOf("af", "clr"))
+                }
+            }
+            else -> {
+                MPVLib.command(arrayOf("af", "clr"))
+                MPVLib.setPropertyString("audio-channels", "auto")
+            }
+        }
+    } catch (e: Exception) {}
+}
+
 // ---------------------------------------------------------------------------
 // Right-side Compact Overlay: Subtitle / Audio Track panel
 // ---------------------------------------------------------------------------
@@ -134,6 +162,7 @@ fun SubtitleAudioPanel(
     onPickSubtitle: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenSync: () -> Unit,
+    onStereoModeChange: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -652,6 +681,7 @@ fun SubtitleAudioPanel(
             onSelect = {
                 stereoMode = it
                 prefs.edit().putString("audio_stereo_mode", it).apply()
+                if (isMpv) applyMpvStereoMode(it) else onStereoModeChange(it)
                 showStereoDialog = false
             },
             onDismiss = { showStereoDialog = false }
