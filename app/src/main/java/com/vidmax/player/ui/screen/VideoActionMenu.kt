@@ -219,7 +219,6 @@ fun VideoActionMenuHost(
   if (showDetails) {
     VideoDetailsDialog(
         video = video,
-        viewModel = viewModel,
         onDismiss = {
           showDetails = false
           onDismiss()
