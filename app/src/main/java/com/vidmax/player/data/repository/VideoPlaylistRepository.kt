@@ -104,6 +104,10 @@ class VideoPlaylistRepository(private val videoPlaylistDao: VideoPlaylistDao) {
     videoPlaylistDao.updateItemPath(oldPath, newPath, newName)
   }
 
+  suspend fun removeItemsByPath(path: String) {
+    videoPlaylistDao.deleteItemsByPath(path)
+  }
+
   suspend fun clearPlaylist(playlistId: Int) {
     videoPlaylistDao.deleteAllItemsFromPlaylist(playlistId)
     getPlaylistById(playlistId)?.let { playlist ->

@@ -199,6 +199,20 @@ fun HomeScreen(
           TextButton(
               onClick = {
                 showDeleteConfirmDialog = false
+                if (viewModel.hasFullStorageAccess()) {
+                  // All-files access: direct delete, no consent dialog.
+                  val targets = videos.filter { selectedVideoIds.contains(it.id) }
+                  viewModel.deleteVideos(targets) { result ->
+                    result.onSuccess { count ->
+                      Toast.makeText(context, "$count video(s) deleted", Toast.LENGTH_SHORT)
+                          .show()
+                      selectedVideoIds = emptySet()
+                    }.onFailure {
+                      Toast.makeText(context, it.message ?: "Delete failed", Toast.LENGTH_SHORT)
+                          .show()
+                    }
+                  }
+                } else {
                 val urisToDelete =
                     selectedVideoIds.mapNotNull { id ->
                       val path = videos.find { it.id == id }?.path ?: return@mapNotNull null
@@ -228,6 +242,7 @@ fun HomeScreen(
                   Toast.makeText(context, "$deletedCount video(s) deleted", Toast.LENGTH_SHORT)
                       .show()
                   selectedVideoIds = emptySet()
+                }
                 }
               }) {
                 Text(
@@ -329,6 +344,17 @@ fun HomeScreen(
   }
 
   fun performDeleteRequest(video: VideoItem) {
+    if (viewModel.hasFullStorageAccess()) {
+      // All-files access: direct delete, no "Allow VidMax to delete?" prompt.
+      viewModel.deleteVideo(video) { result ->
+        result.onSuccess {
+          Toast.makeText(context, "Video deleted", Toast.LENGTH_SHORT).show()
+        }.onFailure {
+          Toast.makeText(context, it.message ?: "Delete failed", Toast.LENGTH_SHORT).show()
+        }
+      }
+      return
+    }
     val uri = getVideoUriFromPathForMulti(context, video.path)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && uri != null) {
       val pendingIntent =

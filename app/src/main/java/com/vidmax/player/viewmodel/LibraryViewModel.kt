@@ -34,6 +34,7 @@ import com.vidmax.player.data.repository.VideoRepository
 import com.vidmax.player.service.AudioService
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
+import com.vidmax.player.utils.StorageAccess
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -996,6 +997,16 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           throw IllegalStateException("A file with this name already exists")
         }
         if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = false)) {
+          if (hasFullStorageAccess()) {
+            // All-files access: direct filesystem rename, no consent dialogs.
+            // Source is removed only after the destination is verified.
+            require(directMoveFile(src, dst)) { "Rename failed" }
+            moveSidecars(src, dst)
+            syncMediaStoreAfterDirectOp(dst.absolutePath, video.id)
+            val newPath = dst.absolutePath
+            applyPathChange(video, newPath, dst.nameWithoutExtension)
+            return@runCatching newPath
+          }
           var renamed = false
           var consentUris: List<Uri>? = null
           runCatching {
@@ -1096,6 +1107,22 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           "Already in this folder"
         }
         val dst = resolveMoveDestination(destDir, src.name)
+        if (hasFullStorageAccess()) {
+          // All-files access: true filesystem move with strict ordering.
+          // SOURCE -> verify -> move atomically -> verify destination ->
+          // only then drop the source MediaStore row -> refresh library.
+          // Never triggers the system delete-consent dialog.
+          val srcLen = src.length()
+          require(directMoveFile(src, dst)) { "Move failed" }
+          require(dst.exists() && (srcLen <= 0L || dst.length() == srcLen)) {
+            "Move failed: destination not verified"
+          }
+          moveSidecars(src, dst)
+          syncMediaStoreAfterDirectOp(dst.absolutePath, video.id)
+          val newPath = dst.absolutePath
+          applyPathChange(video, newPath, dst.nameWithoutExtension)
+          return@runCatching newPath
+        }
         if (runCatching { src.renameTo(dst) }.getOrDefault(false)) {
           MediaScannerConnection.scanFile(
               getApplication(), arrayOf(dst.absolutePath, src.absolutePath), null, null)
@@ -1210,6 +1237,237 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             getApplication(), arrayOf(pending.newPath), null, null)
         applyPathChange(pending.video, pending.newPath, pending.newTitle)
         pending.newPath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  // ── Full storage access (MANAGE_EXTERNAL_STORAGE) ─────────────────────
+  //
+  // Root cause of the old "Move to folder" bug: without all-files access,
+  // every MediaStore delete/update on a file VidMax doesn't own throws
+  // RecoverableSecurityException, so the system showed
+  // "Allow VidMax to delete this video?" AFTER the destination copy already
+  // existed. Denying/cancelling left BOTH files behind (duplicate), and the
+  // in-memory-only applyPathChange could not reconcile the two MediaStore
+  // rows. The branches below bypass that path entirely when the user grants
+  // All files access: one verified filesystem move, then MediaStore sync.
+
+  /** True when VidMax holds All files access (R+) or legacy write grant. */
+  fun hasFullStorageAccess(): Boolean {
+    return StorageAccess.hasFullStorageAccess(getApplication())
+  }
+
+  /**
+   * Moves [src] to [dst], preferring an atomic same-volume rename.
+   * Cross-volume fallback is copy -> VERIFY -> delete source. The source is
+   * never removed unless the destination exists and matches the source size.
+   * Returns true only when the destination is verified and the source is gone.
+   */
+  private fun directMoveFile(src: File, dst: File): Boolean {
+    if (src.renameTo(dst)) return dst.exists()
+    return runCatching {
+      require(src.exists()) { "Original file not found" }
+      dst.parentFile?.mkdirs()
+      val srcLen = src.length()
+      src.inputStream().use { input ->
+        dst.outputStream().use { output -> input.copyTo(output) }
+      }
+      if (!dst.exists()) return false
+      if (srcLen > 0 && dst.length() != srcLen) {
+        runCatching { dst.delete() }
+        return false
+      }
+      if (!src.delete()) {
+        // Source not removed: roll the copy back so no duplicate remains.
+        runCatching { dst.delete() }
+        return false
+      }
+      true
+    }.getOrDefault(false)
+  }
+
+  private val sidecarExtensions = setOf("srt", "ass", "ssa", "vtt", "sub", "smi", "lrc")
+
+  /**
+   * Moves subtitle/sidecar files sitting next to [src] along with [dst]
+   * (e.g. movie.srt follows movie.mp4 on rename AND on folder move).
+   * Best effort: never fails the main operation.
+   */
+  private fun moveSidecars(src: File, dst: File) {
+    runCatching {
+      val parent = src.parentFile ?: return
+      val destDir = dst.parentFile ?: return
+      val srcBase = src.nameWithoutExtension
+      val dstBase = dst.nameWithoutExtension
+      parent.listFiles()?.forEach { sibling ->
+        if (!sibling.isFile || sibling == src) return@forEach
+        if (sibling.nameWithoutExtension != srcBase) return@forEach
+        if (sibling.extension.lowercase() !in sidecarExtensions) return@forEach
+        val target = File(destDir, "$dstBase.${sibling.extension}")
+        if (target.exists()) return@forEach
+        if (!sibling.renameTo(target)) {
+          runCatching {
+            val len = sibling.length()
+            sibling.inputStream().use { input ->
+              target.outputStream().use { output -> input.copyTo(output) }
+            }
+            if (target.exists() && target.length() == len) sibling.delete()
+            else runCatching { target.delete() }
+          }
+        }
+      }
+    }
+  }
+
+  /** Best-effort sidecar cleanup after a delete. Never throws. */
+  private fun deleteSidecars(file: File) {
+    runCatching {
+      val parent = file.parentFile ?: return
+      val base = file.nameWithoutExtension
+      parent.listFiles()?.forEach { sibling ->
+        if (!sibling.isFile) return@forEach
+        if (sibling.nameWithoutExtension != base) return@forEach
+        if (sibling.extension.lowercase() !in sidecarExtensions) return@forEach
+        runCatching { sibling.delete() }
+      }
+    }
+  }
+
+  /**
+   * Reconciles MediaStore after a verified direct-filesystem op: drops the
+   * stale row for [staleVideoId] (direct delete works with all-files access,
+   * no consent prompt) and scans [newPath] so the new location is indexed.
+   * The in-memory library is updated separately via [applyPathChange] /
+   * [removePathsFromLibrary], so no transient duplicate is ever shown.
+   */
+  private fun syncMediaStoreAfterDirectOp(newPath: String, staleVideoId: Long) {
+    val app = getApplication<Application>()
+    runCatching {
+      val staleUri = ContentUris.withAppendedId(
+          MediaStore.Video.Media.EXTERNAL_CONTENT_URI, staleVideoId)
+      app.contentResolver.delete(staleUri, null, null)
+    }
+    runCatching {
+      MediaScannerConnection.scanFile(app, arrayOf(newPath), null, null)
+    }
+  }
+
+  /** Drops [paths] from the in-memory library, favorites, recents and playlists. */
+  private suspend fun removePathsFromLibrary(paths: Set<String>) {
+    if (paths.isEmpty()) return
+    runCatching {
+      paths.forEach { playlistRepository.removeItemsByPath(it) }
+    }
+    withContext(Dispatchers.Main) {
+      _allVideos.value = _allVideos.value.filterNot { paths.contains(it.path) }
+      _folders.value = repository.getFolders(_allVideos.value)
+      applyFilter()
+      if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
+      val favs = _favoriteVideoPaths.value.toMutableSet()
+      if (favs.removeAll(paths)) {
+        _favoriteVideoPaths.value = favs
+        prefs.edit().putStringSet("favorite_videos", favs).apply()
+      }
+      if (paths.contains(_recentVideoPath.value)) {
+        _recentVideoTitle.value = ""
+        _recentVideoPath.value = ""
+        try {
+          prefs.edit().remove("recent_video_title").remove("recent_video_path").apply()
+        } catch (e: Exception) {}
+      }
+    }
+  }
+
+  /**
+   * Deletes a video with full storage access: direct filesystem + MediaStore
+   * removal, no system delete-consent dialog. Falls back to a plain attempt
+   * (callers may still route RecoverableSecurityException to the consent UI)
+   * when all-files access is missing.
+   */
+  fun deleteVideo(video: VideoItem, onResult: (Result<Unit>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val file = File(video.path)
+        if (file.exists() && !file.delete()) {
+          // With all-files access this direct delete succeeds; without it
+          // the MediaStore row delete below surfaces consent to the caller.
+          val uri = ContentUris.withAppendedId(
+              MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+          val rows = getApplication<Application>().contentResolver.delete(uri, null, null)
+          if (rows <= 0) throw IllegalStateException("Delete failed")
+          removePathsFromLibrary(setOf(video.path))
+          return@runCatching Unit
+        }
+        runCatching {
+          val uri = ContentUris.withAppendedId(
+              MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+          getApplication<Application>().contentResolver.delete(uri, null, null)
+        }
+        deleteSidecars(file)
+        MediaScannerConnection.scanFile(getApplication(), arrayOf(video.path), null, null)
+        removePathsFromLibrary(setOf(video.path))
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /** Batch delete used by multi-select; reports how many items were removed. */
+  fun deleteVideos(videos: List<VideoItem>, onResult: (Result<Int>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val removedPaths = mutableSetOf<String>()
+      val result = runCatching {
+        var removed = 0
+        val app = getApplication<Application>()
+        videos.forEach { video ->
+          val ok = runCatching {
+            val file = File(video.path)
+            if (file.exists() && !file.delete()) {
+              val uri = ContentUris.withAppendedId(
+                  MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+              require(app.contentResolver.delete(uri, null, null) > 0) { "Delete failed" }
+            } else {
+              runCatching {
+                val uri = ContentUris.withAppendedId(
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+                app.contentResolver.delete(uri, null, null)
+              }
+              deleteSidecars(file)
+              MediaScannerConnection.scanFile(app, arrayOf(video.path), null, null)
+            }
+            removedPaths.add(video.path)
+            removed++
+          }.getOrDefault(false)
+          if (!ok) throw IllegalStateException("Could not delete all selected videos")
+        }
+        removed
+      }
+      // Always purge whatever was actually removed, even on partial failure,
+      // so the library never shows stale entries.
+      removePathsFromLibrary(removedPaths)
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /** Creates a folder under [parentPath]. Requires all-files access on R+. */
+  fun createFolder(parentPath: String, name: String, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val base = name.trim()
+        require(base.isNotEmpty()) { "Name cannot be empty" }
+        require(base.none { it in "/\\:*?\"<>|" || it.code < 32 }) {
+          "Name contains invalid characters"
+        }
+        val parent = File(parentPath)
+        require(parent.isDirectory || parent.mkdirs()) { "Parent folder not found" }
+        if (!hasFullStorageAccess() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+          throw IllegalStateException("Full storage access required to create folders")
+        }
+        val dir = File(parent, base)
+        require(!dir.exists()) { "A folder with this name already exists" }
+        require(dir.mkdirs() && dir.isDirectory) { "Could not create folder" }
+        MediaScannerConnection.scanFile(getApplication(), arrayOf(dir.absolutePath), null, null)
+        dir.absolutePath
       }
       withContext(Dispatchers.Main) { onResult(result) }
     }

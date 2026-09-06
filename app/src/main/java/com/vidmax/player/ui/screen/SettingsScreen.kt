@@ -50,6 +50,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,7 +71,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vidmax.player.BuildConfig
 import com.vidmax.player.R
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.vidmax.player.data.repository.SettingsBackup
+import com.vidmax.player.utils.StorageAccess
 import com.vidmax.player.ui.components.UpdateResultDialog
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
@@ -98,6 +102,24 @@ fun SettingsScreen(
     val darkMode by viewModel.darkMode.collectAsState()
     val amoledMode by viewModel.amoledMode.collectAsState()
     val context = LocalContext.current
+
+    // ── Storage Access (All files access) state ──────────────────────
+    // Re-checked every ON_RESUME so returning from the system settings page
+    // immediately reflects the grant without manual refresh.
+    val settingsActivity = remember(context) {
+        context as? androidx.activity.ComponentActivity
+    }
+    var fullAccessTick by remember { mutableStateOf(0) }
+    DisposableEffect(settingsActivity) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) fullAccessTick++
+        }
+        settingsActivity?.lifecycle?.addObserver(observer)
+        onDispose { settingsActivity?.lifecycle?.removeObserver(observer) }
+    }
+    val hasFullAccess = remember(context, fullAccessTick) {
+        StorageAccess.hasFullStorageAccess(context)
+    }
 
     val appPrefs = remember { context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
     val vidmaxPrefs = remember { context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE) }
@@ -562,6 +584,79 @@ fun SettingsScreen(
                         checked = localMode,
                         onCheckedChange = { viewModel.setLocalMode(it) }
                     )
+                }
+
+                // ── Storage Access (All files access) ─────────────────────────
+                item {
+                    SettingsDivider()
+                    SettingsSectionHeader(title = "Storage Access", paddingTop = 4.dp)
+                }
+                item {
+                    SettingsItemPill(
+                        title = "All Files Access",
+                        subtitle = if (hasFullAccess)
+                            "✓ Full storage access enabled"
+                        else
+                            "Full storage management permission",
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_folder_open),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        trailing = {
+                            if (hasFullAccess) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Enabled",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onClick = {
+                            if (!hasFullAccess) {
+                                StorageAccess.openAllFilesAccessSettings(context)
+                            } else {
+                                fullAccessTick++
+                                Toast.makeText(
+                                    context,
+                                    StorageAccess.statusText(context),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    )
+                    if (!hasFullAccess) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsItemPill(
+                            title = "Allow All Files Access",
+                            subtitle = "Required for move, rename, create folder and delete without extra prompts",
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_folder),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = { StorageAccess.openAllFilesAccessSettings(context) }
+                        )
+                    }
                 }
 
                 // ── Updates ───────────────────────────────────────────────────

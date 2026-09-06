@@ -175,7 +175,14 @@ fun VideoActionMenuHost(
 
   fun failMove(message: String?) {
     moveBusy = false
-    moveError = message ?: "Move failed"
+    val base = message ?: "Move failed"
+    moveError = if (!viewModel.hasFullStorageAccess() &&
+        (base.contains("Move failed", ignoreCase = true) ||
+            base.contains("permission", ignoreCase = true))) {
+      "$base — enable All Files Access in Settings for reliable move."
+    } else {
+      base
+    }
   }
 
   val moveDeleteLauncher =
