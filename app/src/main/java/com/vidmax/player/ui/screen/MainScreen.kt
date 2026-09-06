@@ -423,6 +423,10 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
             }
 
             // BOTTOM NAVIGATION BAR (Detached Online/Search Button Style)
+            // A single remaining tab needs no pill: hiding it avoids dead space
+            // when Music and Network are both disabled.
+            val showTabPill = visibleNavItems.size > 1
+            if (showTabPill || !localMode) {
             Row(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
@@ -433,6 +437,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Main Navigation Pill (SOLID - never transparent)
+                if (showTabPill) {
                 BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f)
@@ -622,6 +627,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                         }
                     }
                 }
+                }
 
                 // Separate Online/Search Circular Button (hidden in Local Mode)
                 val isOnlineSelected = selectedScreen == "Online"
@@ -693,6 +699,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     )
                 }
                 }
+            }
             }
         }
 

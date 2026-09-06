@@ -15,14 +15,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
@@ -51,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
 import com.vidmax.player.viewmodel.LibraryViewModel
+import com.vidmax.player.viewmodel.MoveDeleteConsentRequired
 import com.vidmax.player.viewmodel.RenameConsentRequiredException
 import java.io.File
 
@@ -149,7 +155,62 @@ fun VideoActionMenuHost(
         }
   }
 
-  val subDialogOpen = showPlaylist || showDeleteConfirm || showDetails || renameOpen
+  var moveOpen by remember(video) { mutableStateOf(false) }
+  var moveError by remember(video) { mutableStateOf<String?>(null) }
+  var moveBusy by remember(video) { mutableStateOf(false) }
+  var pendingMoveDelete by remember(video) { mutableStateOf<MoveDeleteConsentRequired?>(null) }
+  val folders by viewModel.folders.collectAsState()
+
+  fun succeedMove() {
+    moveBusy = false
+    moveOpen = false
+    moveError = null
+    pendingMoveDelete = null
+    onDismiss()
+    Toast.makeText(context, "Moved", Toast.LENGTH_SHORT).show()
+  }
+
+  fun failMove(message: String?) {
+    moveBusy = false
+    moveError = message ?: "Move failed"
+  }
+
+  val moveDeleteLauncher =
+      rememberLauncherForActivityResult(
+          contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            val pending = pendingMoveDelete
+            pendingMoveDelete = null
+            if (result.resultCode == Activity.RESULT_OK && pending != null) {
+              viewModel.completeMoveDelete(pending) { retryResult ->
+                retryResult.onSuccess { succeedMove() }.onFailure { failMove(it.message) }
+              }
+            } else {
+              failMove("Original kept: delete not permitted")
+            }
+          }
+
+  fun handleMoveResult(result: Result<String>) {
+    result
+        .onSuccess { succeedMove() }
+        .onFailure {
+          if (it is MoveDeleteConsentRequired) {
+            pendingMoveDelete = it
+            val pendingIntent =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                  MediaStore.createDeleteRequest(context.contentResolver, listOf(it.srcUri))
+                } else {
+                  MediaStore.createWriteRequest(context.contentResolver, listOf(it.srcUri))
+                }
+            moveDeleteLauncher.launch(
+                IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+          } else {
+            failMove(it.message)
+          }
+        }
+  }
+
+  val subDialogOpen =
+      showPlaylist || showDeleteConfirm || showDetails || renameOpen || moveOpen
 
   if (!subDialogOpen) {
     VideoActionSheet(
@@ -169,9 +230,82 @@ fun VideoActionMenuHost(
           onDismiss()
         },
         onAddToPlaylist = { showPlaylist = true },
+        onMove = {
+          moveError = null
+          moveOpen = true
+        },
         onDetails = { showDetails = true },
         onDelete = { showDeleteConfirm = true },
         onDismiss = onDismiss)
+  }
+
+  if (moveOpen) {
+    val currentDir = File(video.path).parent ?: ""
+    val destinations = folders.filter { it.path != currentDir }
+    AlertDialog(
+        onDismissRequest = {
+          if (!moveBusy) {
+            moveOpen = false
+            moveError = null
+          }
+        },
+        title = { Text("Move to folder", fontWeight = FontWeight.Bold) },
+        text = {
+          Column {
+            if (destinations.isEmpty()) {
+              Text("No other folders found.", fontSize = 14.sp)
+            } else {
+              LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
+                items(destinations, key = { it.path }) { folder ->
+                  Row(
+                      modifier = Modifier.fillMaxWidth()
+                          .clickable(enabled = !moveBusy) {
+                            moveBusy = true
+                            moveError = null
+                            viewModel.moveVideoToFolder(video, folder.path) { result ->
+                              handleMoveResult(result)
+                            }
+                          }
+                          .padding(vertical = 10.dp),
+                      verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Folder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                          Text(
+                              text = folder.name,
+                              fontSize = 15.sp,
+                              fontWeight = FontWeight.SemiBold,
+                              maxLines = 1,
+                              overflow = TextOverflow.Ellipsis)
+                          Text(
+                              text = "${folder.videoCount} videos",
+                              fontSize = 12.sp,
+                              color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                      }
+                }
+              }
+            }
+            if (moveError != null) {
+              Spacer(modifier = Modifier.height(8.dp))
+              Text(
+                  text = moveError!!,
+                  fontSize = 13.sp,
+                  color = MaterialTheme.colorScheme.error)
+            }
+          }
+        },
+        confirmButton = {},
+        dismissButton = {
+          TextButton(enabled = !moveBusy, onClick = {
+            moveOpen = false
+            moveError = null
+          }) { Text("Cancel") }
+        })
   }
 
   if (showPlaylist) {
@@ -258,6 +392,7 @@ fun VideoActionSheet(
     onShare: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onMove: () -> Unit,
     onDetails: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit
@@ -287,6 +422,8 @@ fun VideoActionSheet(
                       onToggleFavorite),
                   Triple<ImageVector, String, () -> Unit>(
                       Icons.Filled.PlaylistAdd, "Add to Playlist", onAddToPlaylist),
+                  Triple<ImageVector, String, () -> Unit>(
+                      Icons.Filled.DriveFileMove, "Move to folder", onMove),
                   Triple<ImageVector, String, () -> Unit>(
                       Icons.Filled.Info, "Details", onDetails),
                   Triple<ImageVector, String, () -> Unit>(

@@ -71,6 +71,19 @@ enum class SortOrder {
 class RenameConsentRequiredException(val uris: List<Uri>) :
     Exception("Storage permission needed to rename this file.")
 
+/**
+ * Thrown by [LibraryViewModel.moveVideoToFolder] when the file was copied to
+ * its new home but deleting the original needs scoped-storage user consent.
+ * The UI should fire MediaStore.createDeleteRequest([srcUri]) and then call
+ * [LibraryViewModel.completeMoveDelete] on grant.
+ */
+class MoveDeleteConsentRequired(
+    val srcUri: Uri,
+    val video: VideoItem,
+    val newPath: String,
+    val newTitle: String
+) : Exception("Storage permission needed to finish moving this file.")
+
 enum class DecoderMode {
   AUTO,
   HARDWARE,
@@ -994,26 +1007,149 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           }
         }
         val newPath = dst.absolutePath
-        playlistRepository.updatePathReferences(video.path, newPath, dst.nameWithoutExtension)
-        migrateBookmarkKey(video.path, newPath)
-        withContext(Dispatchers.Main) {
-          _allVideos.value = _allVideos.value.map {
-            if (it.path == video.path) it.copy(title = dst.nameWithoutExtension, path = newPath) else it
-          }
-          _folders.value = repository.getFolders(_allVideos.value)
-          applyFilter()
-          if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
-          val favs = _favoriteVideoPaths.value.toMutableSet()
-          if (favs.remove(video.path)) {
-            favs.add(newPath)
-            _favoriteVideoPaths.value = favs
-            prefs.edit().putStringSet("favorite_videos", favs).apply()
-          }
-          if (_recentVideoPath.value == video.path) {
-            setRecentlyPlayedVideo(dst.nameWithoutExtension, newPath)
-          }
-        }
+        applyPathChange(video, newPath, dst.nameWithoutExtension)
         newPath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /**
+   * Shared path-change finalization for rename/move: playlist, bookmark,
+   * favorite and last-played references plus library refresh. Runs the state
+   * updates on Main; call from any dispatcher.
+   */
+  suspend fun applyPathChange(video: VideoItem, newPath: String, newTitle: String) {
+    playlistRepository.updatePathReferences(video.path, newPath, newTitle)
+    migrateBookmarkKey(video.path, newPath)
+    withContext(Dispatchers.Main) {
+      _allVideos.value = _allVideos.value.map {
+        if (it.path == video.path) it.copy(title = newTitle, path = newPath) else it
+      }
+      _folders.value = repository.getFolders(_allVideos.value)
+      applyFilter()
+      if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
+      val favs = _favoriteVideoPaths.value.toMutableSet()
+      if (favs.remove(video.path)) {
+        favs.add(newPath)
+        _favoriteVideoPaths.value = favs
+        prefs.edit().putStringSet("favorite_videos", favs).apply()
+      }
+      if (_recentVideoPath.value == video.path) {
+        setRecentlyPlayedVideo(newTitle, newPath)
+      }
+    }
+  }
+
+  private fun videoMimeType(fileName: String): String {
+    return when (fileName.substringAfterLast('.', "").lowercase()) {
+      "mp4", "m4v" -> "video/mp4"
+      "mkv" -> "video/x-matroska"
+      "avi" -> "video/x-msvideo"
+      "mov" -> "video/quicktime"
+      "wmv" -> "video/x-ms-wmv"
+      "flv" -> "video/x-flv"
+      "webm" -> "video/webm"
+      "mpeg", "mpg" -> "video/mpeg"
+      "3gp" -> "video/3gpp"
+      "ts" -> "video/mp2t"
+      else -> "video/*"
+    }
+  }
+
+  private fun resolveMoveDestination(destDir: File, fileName: String): File {
+    var candidate = File(destDir, fileName)
+    if (!candidate.exists()) return candidate
+    val base = fileName.substringBeforeLast('.')
+    val ext = fileName.substringAfterLast('.', "")
+    var index = 1
+    while (candidate.exists() && index < 1000) {
+      val name = if (ext.isNotEmpty()) "$base ($index).$ext" else "$base ($index)"
+      candidate = File(destDir, name)
+      index++
+    }
+    return candidate
+  }
+
+  fun moveVideoToFolder(video: VideoItem, destFolderPath: String, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val src = File(video.path)
+        require(src.exists()) { "Original file not found" }
+        val destDir = File(destFolderPath)
+        require(destDir.isDirectory) { "Destination folder not found" }
+        require(!destDir.absolutePath.equals(src.parent, ignoreCase = false)) {
+          "Already in this folder"
+        }
+        val dst = resolveMoveDestination(destDir, src.name)
+        if (runCatching { src.renameTo(dst) }.getOrDefault(false)) {
+          MediaScannerConnection.scanFile(
+              getApplication(), arrayOf(dst.absolutePath, src.absolutePath), null, null)
+          runCatching {
+            val staleUri = ContentUris.withAppendedId(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+            getApplication<Application>().contentResolver.delete(staleUri, null, null)
+          }
+          val newPath = dst.absolutePath
+          applyPathChange(video, newPath, dst.nameWithoutExtension)
+          return@runCatching newPath
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+          throw IllegalStateException("Move failed")
+        }
+        val resolver = getApplication<Application>().contentResolver
+        val externalRoot = android.os.Environment.getExternalStorageDirectory().absolutePath
+        require(destDir.absolutePath.startsWith(externalRoot)) { "Cannot move there" }
+        val relativePath = destDir.absolutePath.removePrefix(externalRoot).trim('/') + "/"
+        val srcUri = ContentUris.withAppendedId(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+        val pendingValues = ContentValues().apply {
+          put(MediaStore.Video.Media.DISPLAY_NAME, dst.name)
+          put(MediaStore.Video.Media.MIME_TYPE, videoMimeType(dst.name))
+          put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+          put(MediaStore.Video.Media.IS_PENDING, 1)
+        }
+        val newUri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, pendingValues)
+            ?: throw IllegalStateException("Move failed")
+        try {
+          resolver.openInputStream(srcUri)?.use { input ->
+            resolver.openOutputStream(newUri)?.use { output -> input.copyTo(output) }
+                ?: throw IllegalStateException("Move failed")
+          } ?: throw IllegalStateException("Move failed")
+          ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }.let { done ->
+            resolver.update(newUri, done, null, null)
+          }
+        } catch (e: Exception) {
+          runCatching { resolver.delete(newUri, null, null) }
+          throw e
+        }
+        val deleteOutcome = runCatching { resolver.delete(srcUri, null, null) }
+        val deleteError = deleteOutcome.exceptionOrNull()
+        if (deleteError is RecoverableSecurityException) {
+          throw MoveDeleteConsentRequired(
+              srcUri, video, dst.absolutePath, dst.nameWithoutExtension)
+        }
+        if (deleteOutcome.getOrDefault(0) <= 0) {
+          runCatching { resolver.delete(newUri, null, null) }
+          throw IllegalStateException("Move failed")
+        }
+        MediaScannerConnection.scanFile(getApplication(), arrayOf(dst.absolutePath), null, null)
+        val newPath = dst.absolutePath
+        applyPathChange(video, newPath, dst.nameWithoutExtension)
+        newPath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  fun completeMoveDelete(pending: MoveDeleteConsentRequired, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        getApplication<Application>().contentResolver.delete(pending.srcUri, null, null)
+        MediaScannerConnection.scanFile(
+            getApplication(), arrayOf(pending.newPath), null, null)
+        applyPathChange(pending.video, pending.newPath, pending.newTitle)
+        pending.newPath
       }
       withContext(Dispatchers.Main) { onResult(result) }
     }
