@@ -1002,7 +1002,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             // Source is removed only after the destination is verified.
             require(directMoveFile(src, dst)) { "Rename failed" }
             moveSidecars(src, dst)
-            syncMediaStoreAfterDirectOp(dst.absolutePath, video.id)
+            syncMediaStoreAfterDirectMove(video.path, dst.absolutePath)
             val newPath = dst.absolutePath
             applyPathChange(video, newPath, dst.nameWithoutExtension)
             return@runCatching newPath
@@ -1118,7 +1118,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             "Move failed: destination not verified"
           }
           moveSidecars(src, dst)
-          syncMediaStoreAfterDirectOp(dst.absolutePath, video.id)
+          syncMediaStoreAfterDirectMove(video.path, dst.absolutePath)
           val newPath = dst.absolutePath
           applyPathChange(video, newPath, dst.nameWithoutExtension)
           return@runCatching newPath
@@ -1335,21 +1335,35 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   }
 
   /**
-   * Reconciles MediaStore after a verified direct-filesystem op: drops the
-   * stale row for [staleVideoId] (direct delete works with all-files access,
-   * no consent prompt) and scans [newPath] so the new location is indexed.
-   * The in-memory library is updated separately via [applyPathChange] /
-   * [removePathsFromLibrary], so no transient duplicate is ever shown.
+   * Reconciles MediaStore after a verified direct-filesystem move/rename.
+   *
+   * SAFETY: the stale row is addressed strictly BY OLD PATH and ONLY while
+   * no file exists there anymore. Addressing by MediaStore id is banned
+   * here: every scan issues a NEW row id, so an in-memory id can be stale
+   * (repeat moves, refresh races) and could hit the wrong row — deleting a
+   * live file. With the missing-file guard, deleting a live file through
+   * this path is impossible by construction.
+   *
+   * After the scan completes, the library is re-queried so the UI converges
+   * to MediaStore truth (fresh row ids, real metadata). Until then the
+   * immediate [applyPathChange] keeps the moved video visible, so it never
+   * looks "deleted from the phone".
    */
-  private fun syncMediaStoreAfterDirectOp(newPath: String, staleVideoId: Long) {
+  private fun syncMediaStoreAfterDirectMove(oldPath: String, newPath: String) {
     val app = getApplication<Application>()
     runCatching {
-      val staleUri = ContentUris.withAppendedId(
-          MediaStore.Video.Media.EXTERNAL_CONTENT_URI, staleVideoId)
-      app.contentResolver.delete(staleUri, null, null)
+      if (!File(oldPath).exists()) {
+        app.contentResolver.delete(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            "${MediaStore.Video.Media.DATA} = ?",
+            arrayOf(oldPath)
+        )
+      }
     }
     runCatching {
-      MediaScannerConnection.scanFile(app, arrayOf(newPath), null, null)
+      MediaScannerConnection.scanFile(app, arrayOf(newPath), null) { _, _ ->
+        refreshVideos()
+      }
     }
   }
 
