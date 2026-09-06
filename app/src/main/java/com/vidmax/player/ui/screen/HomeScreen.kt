@@ -12,8 +12,11 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -27,10 +30,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -123,6 +128,24 @@ fun HomeScreen(
     val savedStyle =
         prefs.getString("home_view_style", HomeViewStyle.LIST.name) ?: HomeViewStyle.LIST.name
     mutableStateOf(HomeViewStyle.valueOf(savedStyle))
+  }
+
+  // Scroll states for the Videos list layouts; the Last played bar shows
+  // only while the visible list is scrolled back to the very top.
+  val videoListState = rememberLazyListState()
+  val videoGridState = rememberLazyGridState()
+  val videoLargeListState = rememberLazyListState()
+  val videoListAtTop by remember {
+    derivedStateOf {
+      when (currentViewStyle) {
+        HomeViewStyle.LIST -> videoListState.firstVisibleItemIndex == 0 &&
+            videoListState.firstVisibleItemScrollOffset == 0
+        HomeViewStyle.GRID_MEDIUM -> videoGridState.firstVisibleItemIndex == 0 &&
+            videoGridState.firstVisibleItemScrollOffset == 0
+        HomeViewStyle.GRID_LARGE -> videoLargeListState.firstVisibleItemIndex == 0 &&
+            videoLargeListState.firstVisibleItemScrollOffset == 0
+      }
+    }
   }
 
   var currentContentMode by remember {
@@ -527,18 +550,6 @@ fun HomeScreen(
                       modifier = Modifier.size(24.dp))
                 }
 
-                // Continue-watching button in the top bar (moved here so it
-                // can never overlap the playlist Create button).
-                if (videos.isNotEmpty()) {
-                  IconButton(onClick = resumeLastVideo, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Continue Watching",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp))
-                  }
-                }
-
                 Box {
                   IconButton(onClick = { showSortMenu = true }, modifier = Modifier.size(36.dp)) {
                     Icon(
@@ -831,8 +842,12 @@ fun HomeScreen(
                             remember(videos, recentVideoPath) {
                               videos.indexOfFirst { it.path == recentVideoPath }
                             }
-                        if (lastPlayedVideoIndex >= 0) {
-                          val lastVideo = videos[lastPlayedVideoIndex]
+                        AnimatedVisibility(
+                            visible = lastPlayedVideoIndex >= 0 && videoListAtTop,
+                            enter = fadeIn(),
+                            exit = fadeOut()) {
+                          val lastVideo = videos.getOrNull(lastPlayedVideoIndex)
+                              ?: return@AnimatedVisibility
                           Row(
                               modifier =
                                   Modifier.fillMaxWidth()
@@ -872,6 +887,7 @@ fun HomeScreen(
                             when (style) {
                               HomeViewStyle.LIST -> {
                                 LazyColumn(
+                                    state = videoListState,
                                     verticalArrangement = Arrangement.spacedBy(10.dp),
                                     contentPadding = PaddingValues(bottom = 130.dp)) {
                                       itemsIndexed(
@@ -904,6 +920,7 @@ fun HomeScreen(
                                       if (gridColumnsOverride == 0) autoColumns
                                       else gridColumnsOverride.coerceIn(1, 12)
                                   LazyVerticalGrid(
+                                      state = videoGridState,
                                       columns = GridCells.Fixed(gridColumns),
                                       horizontalArrangement = Arrangement.spacedBy(12.dp),
                                       verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -931,6 +948,7 @@ fun HomeScreen(
                               }
                               HomeViewStyle.GRID_LARGE -> {
                                 LazyColumn(
+                                    state = videoLargeListState,
                                     verticalArrangement = Arrangement.spacedBy(16.dp),
                                     contentPadding = PaddingValues(bottom = 130.dp)) {
                                       itemsIndexed(
