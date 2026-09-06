@@ -1488,6 +1488,165 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
   }
 
+  // ── Batch copy / move (REX-style selection operations) ────────────────
+  //
+  // Adapted from REX Player's CopyPasteOps (performCopyOperation /
+  // performMoveOperation): validate inputs -> prepare destination -> filter
+  // valid sources -> disk-space check -> per-file op with verification ->
+  // single media scan + library refresh. Unlike REX's generic engine, the
+  // VidMax variants reuse this ViewModel's own MediaStore sync
+  // (missing-file-guarded row delete by path), sidecar handling and
+  // applyPathChange, so playlists / favorites / bookmarks / last-played stay
+  // consistent and no duplicate or ghost entries appear.
+
+  /** Shared result for batch copy/move: verified new paths + skipped count. */
+  data class BatchFileResult(val newPaths: List<String>, val skipped: Int)
+
+  private fun prepareBatchDestination(destFolderPath: String): File {
+    val destDir = File(destFolderPath)
+    require(destDir.isDirectory || destDir.mkdirs()) { "Destination folder not found" }
+    require(destDir.canWrite()) { "Destination is not writable" }
+    return destDir
+  }
+
+  private fun requireBatchFullAccess(action: String) {
+    if (!hasFullStorageAccess()) {
+      throw IllegalStateException(
+          "Full storage access required to $action. Enable All Files Access in Settings.")
+    }
+  }
+
+  private fun hasEnoughDiskSpace(directory: File, requiredBytes: Long): Boolean {
+    return runCatching {
+      val stat = android.os.StatFs(directory.absolutePath)
+      stat.availableBlocksLong * stat.blockSizeLong >= requiredBytes
+    }.getOrDefault(true)
+  }
+
+  /**
+   * Copies [videos] into [destFolderPath]. The source is never touched.
+   * Each copy gets a unique name, is size-verified, and the batch ends with
+   * a single media scan + library refresh.
+   */
+  fun copyVideosToFolder(
+      videos: List<VideoItem>,
+      destFolderPath: String,
+      onResult: (Result<BatchFileResult>) -> Unit
+  ) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        require(videos.isNotEmpty()) { "No files to copy" }
+        requireBatchFullAccess("copy files")
+        val destDir = prepareBatchDestination(destFolderPath)
+        val valid = videos.filter {
+          File(it.path).exists() && File(it.path).parent != destDir.absolutePath
+        }
+        val skipped = videos.size - valid.size
+        require(valid.isNotEmpty()) { "No valid files to copy" }
+        val totalBytes = valid.sumOf { File(it.path).length() }
+        require(hasEnoughDiskSpace(destDir, totalBytes)) { "Not enough disk space" }
+        val newPaths = mutableListOf<String>()
+        valid.forEach { video ->
+          val src = File(video.path)
+          val dst = resolveMoveDestination(destDir, src.name)
+          copyFileVerified(src, dst)
+          newPaths.add(dst.absolutePath)
+        }
+        MediaScannerConnection.scanFile(
+            getApplication(), newPaths.toTypedArray(), null) { _, _ -> refreshVideos() }
+        BatchFileResult(newPaths, skipped)
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /**
+   * Moves [videos] into [destFolderPath] with strict per-file verification
+   * (destination must exist and match the source size before the source is
+   * dropped). Stale MediaStore rows are removed by old path under the
+   * missing-file guard, so a live file can never be deleted and no
+   * duplicates appear. Finishes with a single scan + library refresh.
+   */
+  fun moveVideosToFolder(
+      videos: List<VideoItem>,
+      destFolderPath: String,
+      onResult: (Result<BatchFileResult>) -> Unit
+  ) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        require(videos.isNotEmpty()) { "No files to move" }
+        requireBatchFullAccess("move files")
+        val destDir = prepareBatchDestination(destFolderPath)
+        var skipped = 0
+        val newPaths = mutableListOf<String>()
+        val pathChanges = mutableListOf<Triple<VideoItem, String, String>>()
+        videos.forEach { video ->
+          val src = File(video.path)
+          if (!src.exists()) {
+            skipped++
+            return@forEach
+          }
+          if (src.parent == destDir.absolutePath) {
+            skipped++
+            return@forEach
+          }
+          val dst = resolveMoveDestination(destDir, src.name)
+          val srcLen = src.length()
+          require(directMoveFile(src, dst)) { "Move failed: ${src.name}" }
+          require(dst.exists() && (srcLen <= 0L || dst.length() == srcLen)) {
+            "Move failed: destination not verified"
+          }
+          moveSidecars(src, dst)
+          newPaths.add(dst.absolutePath)
+          pathChanges.add(Triple(video, dst.absolutePath, dst.nameWithoutExtension))
+        }
+        require(newPaths.isNotEmpty()) { "Nothing to move" }
+        // Guarded row cleanup per old path (missing-file only, never by id).
+        val app = getApplication<Application>()
+        pathChanges.forEach { (video, _, _) ->
+          runCatching {
+            if (!File(video.path).exists()) {
+              app.contentResolver.delete(
+                  MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                  "${MediaStore.Video.Media.DATA} = ?",
+                  arrayOf(video.path))
+            }
+          }
+        }
+        pathChanges.forEach { (video, newPath, newTitle) ->
+          applyPathChange(video, newPath, newTitle)
+        }
+        MediaScannerConnection.scanFile(
+            app, newPaths.toTypedArray(), null) { _, _ -> refreshVideos() }
+        BatchFileResult(newPaths, skipped)
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /**
+   * Stream copy with size verification. Cleans up partial copies on error,
+   * so a failed copy never leaves a ghost file behind.
+   */
+  private fun copyFileVerified(src: File, dst: File) {
+    require(src.exists()) { "Original file not found: ${src.name}" }
+    dst.parentFile?.mkdirs()
+    val srcLen = src.length()
+    try {
+      src.inputStream().use { input ->
+        dst.outputStream().use { output -> input.copyTo(output) }
+      }
+      dst.setLastModified(src.lastModified())
+    } catch (e: Exception) {
+      runCatching { dst.delete() }
+      throw e
+    }
+    if (!dst.exists() || (srcLen > 0 && dst.length() != srcLen)) {
+      runCatching { dst.delete() }
+      throw IllegalStateException("Copy verification failed: ${src.name}")
+    }
+  }
+
   private fun loadAudio() {
     viewModelScope.launch {
       try {

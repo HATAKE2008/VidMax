@@ -65,6 +65,9 @@ import com.vidmax.player.R
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
+import com.vidmax.player.ui.components.FolderPickerDialog
+import com.vidmax.player.ui.components.SelectionBottomBar
+import com.vidmax.player.ui.selection.VideoSelection
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.RenameConsentRequiredException
 import com.vidmax.player.viewmodel.SortOrder
@@ -104,13 +107,24 @@ fun HomeScreen(
 
   val recentVideoPath by viewModel.recentVideoPath.collectAsState()
 
-  var selectedVideoIds by remember { mutableStateOf(setOf<Long>()) }
   var showDeleteConfirmDialog by remember { mutableStateOf(false) }
   var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+  // Path-keyed selection (REX-inspired): MediaStore ids change on every
+  // rescan, so ids silently broke selection across refreshes. Paths are
+  // stable, survive recomposition + refresh, and resolve against the
+  // current list on every read.
+  var selection by remember { mutableStateOf(VideoSelection()) }
+  val inSelectionMode = selection.isInSelectionMode
+  val selectedVideos = selection.getSelected(videos)
+  // Copy/Move destination picker: "copy", "move", or null when closed.
+  var folderPickerMode by remember { mutableStateOf<String?>(null) }
+  var pickerBusy by remember { mutableStateOf(false) }
+  var pickerError by remember { mutableStateOf<String?>(null) }
+  var detailsVideo by remember { mutableStateOf<VideoItem?>(null) }
+  var topOverflowOpen by remember { mutableStateOf(false) }
   val openedVideoPlaylist by viewModel.openedVideoPlaylist.collectAsState()
   var isVideoSearchOpen by rememberSaveable { mutableStateOf(false) }
   var folderSearchPath by rememberSaveable { mutableStateOf<String?>(null) }
-  val inSelectionMode = selectedVideoIds.isNotEmpty()
 
   // Resume (continue watching) action — lives in the top bar next to Search
   // so it can never overlap the playlist Create button.
@@ -171,7 +185,7 @@ fun HomeScreen(
             if (result.resultCode == Activity.RESULT_OK) {
               Toast.makeText(context, "Selected videos deleted successfully", Toast.LENGTH_SHORT)
                   .show()
-              selectedVideoIds = emptySet()
+              selection = selection.clear()
             } else {
               Toast.makeText(context, "Delete Cancelled", Toast.LENGTH_SHORT).show()
             }
@@ -180,10 +194,10 @@ fun HomeScreen(
   if (showAddToPlaylistDialog) {
     AddToPlaylistDialog(
         viewModel = viewModel,
-        videos = videos.filter { selectedVideoIds.contains(it.id) },
+        videos = selectedVideos,
         onDismiss = {
           showAddToPlaylistDialog = false
-          selectedVideoIds = emptySet()
+          selection = selection.clear()
         })
   }
 
@@ -193,20 +207,22 @@ fun HomeScreen(
         title = { Text("Delete Videos", fontWeight = FontWeight.Bold) },
         text = {
           Text(
-              "Are you sure you want to delete ${selectedVideoIds.size} selected videos? This action cannot be undone.")
+              "Are you sure you want to delete ${selectedVideos.size} selected videos? This action cannot be undone.")
         },
         confirmButton = {
           TextButton(
               onClick = {
                 showDeleteConfirmDialog = false
-                if (viewModel.hasFullStorageAccess()) {
+                val targets = selection.getSelected(videos)
+                if (targets.isEmpty()) {
+                  selection = selection.clear()
+                } else if (viewModel.hasFullStorageAccess()) {
                   // All-files access: direct delete, no consent dialog.
-                  val targets = videos.filter { selectedVideoIds.contains(it.id) }
                   viewModel.deleteVideos(targets) { result ->
                     result.onSuccess { count ->
                       Toast.makeText(context, "$count video(s) deleted", Toast.LENGTH_SHORT)
                           .show()
-                      selectedVideoIds = emptySet()
+                      selection = selection.clear()
                     }.onFailure {
                       Toast.makeText(context, it.message ?: "Delete failed", Toast.LENGTH_SHORT)
                           .show()
@@ -214,9 +230,8 @@ fun HomeScreen(
                   }
                 } else {
                 val urisToDelete =
-                    selectedVideoIds.mapNotNull { id ->
-                      val path = videos.find { it.id == id }?.path ?: return@mapNotNull null
-                      getVideoUriFromPathForMulti(context, path)
+                    targets.mapNotNull { video ->
+                      getVideoUriFromPathForMulti(context, video.path)
                     }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && urisToDelete.isNotEmpty()) {
@@ -226,8 +241,8 @@ fun HomeScreen(
                       IntentSenderRequest.Builder(pendingIntent.intentSender).build())
                 } else {
                   var deletedCount = 0
-                  selectedVideoIds.forEach { id ->
-                    val path = videos.find { it.id == id }?.path ?: return@forEach
+                  targets.forEach { video ->
+                    val path = video.path
                     val file = File(path)
                     if (file.exists() && file.delete()) {
                       deletedCount++
@@ -241,7 +256,7 @@ fun HomeScreen(
                   }
                   Toast.makeText(context, "$deletedCount video(s) deleted", Toast.LENGTH_SHORT)
                       .show()
-                  selectedVideoIds = emptySet()
+                  selection = selection.clear()
                 }
                 }
               }) {
@@ -297,6 +312,8 @@ fun HomeScreen(
     renameTarget = null
     renameError = null
     pendingRename = null
+    // REX renameSelected: exit selection mode after a successful op.
+    selection = selection.clear()
     Toast.makeText(context, "Renamed", Toast.LENGTH_SHORT).show()
   }
 
@@ -438,7 +455,7 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
               Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { selectedVideoIds = emptySet() }) {
+                IconButton(onClick = { selection = selection.clear() }) {
                   Icon(
                       painter = painterResource(id = R.drawable.ic_close_custom),
                       contentDescription = "Close",
@@ -446,105 +463,116 @@ fun HomeScreen(
                       modifier = Modifier.size(24.dp))
                 }
                 Text(
-                    text = "${selectedVideoIds.size} Selected",
+                    text = "${selection.selectedCount} / ${videos.size} Selected",
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold)
               }
-              Row {
+              Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = {
-                      selectedVideoIds =
-                          if (selectedVideoIds.size == videos.size) emptySet()
-                          else videos.map { it.id }.toSet()
-                    }) {
-                      Icon(
-                          painter = painterResource(id = R.drawable.ic_select_all),
-                          contentDescription = "Select All",
-                          tint = MaterialTheme.colorScheme.primary,
-                          modifier = Modifier.size(24.dp))
-                    }
-                IconButton(
-                    onClick = {
-                      val uris =
-                          selectedVideoIds
-                              .mapNotNull { id ->
-                                val path =
-                                    videos.find { it.id == id }?.path ?: return@mapNotNull null
-                                getVideoUriFromPathForMulti(context, path)
-                              }
-                              .toCollection(ArrayList())
-
-                      if (uris.isNotEmpty()) {
-                        val intent =
-                            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                              type = "video/*"
-                              putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-                              addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                        context.startActivity(
-                            Intent.createChooser(intent, "Share ${uris.size} Videos"))
-                        selectedVideoIds = emptySet()
+                      // REX playSelected: play the selection as a queue, then exit mode.
+                      if (selectedVideos.isNotEmpty()) {
+                        onVideoClick(selectedVideos, 0)
+                        selection = selection.clear()
                       }
                     }) {
                       Icon(
-                          painter = painterResource(id = R.drawable.ic_share_custom),
-                          contentDescription = "Share",
+                          imageVector = Icons.Filled.PlayArrow,
+                          contentDescription = "Play selected",
                           tint = MaterialTheme.colorScheme.primary,
                           modifier = Modifier.size(24.dp))
                     }
-                IconButton(
-                    onClick = {
-                      val selected = videos.filter { selectedVideoIds.contains(it.id) }
-                      if (selected.isNotEmpty()) {
-                        showAddToPlaylistDialog = true
-                      }
-                    }) {
-                      Icon(
-                          imageVector = Icons.Filled.PlaylistAdd,
-                          contentDescription = "Add to Playlist",
-                          tint = MaterialTheme.colorScheme.primary,
-                          modifier = Modifier.size(24.dp))
-                    }
-                IconButton(
-                    onClick = {
-                      val selected = videos.filter { selectedVideoIds.contains(it.id) }
-                      val allFavorite =
-                          selected.isNotEmpty() &&
-                              selected.all { viewModel.favoriteVideoPaths.value.contains(it.path) }
-                      selected.forEach { video ->
-                        if (allFavorite == viewModel.favoriteVideoPaths.value.contains(video.path)) {
-                          viewModel.toggleVideoFavorite(video.path)
-                        }
-                      }
-                    }) {
-                      Icon(
-                          imageVector = Icons.Filled.Favorite,
-                          contentDescription = "Toggle Favorite",
-                          tint = MaterialTheme.colorScheme.primary,
-                          modifier = Modifier.size(24.dp))
-                    }
-                if (selectedVideoIds.size == 1) {
+                if (selection.isSingleSelection) {
                   IconButton(
-                      onClick = {
-                        videos.find { it.id == selectedVideoIds.first() }?.let {
-                          renameTarget = it
-                          renameError = null
-                        }
-                      }) {
+                      onClick = { detailsVideo = selectedVideos.firstOrNull() }) {
                         Icon(
-                            imageVector = Icons.Filled.Edit,
-                            contentDescription = "Rename",
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = "Details",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp))
                       }
                 }
-                IconButton(onClick = { showDeleteConfirmDialog = true }) {
-                  Icon(
-                      painter = painterResource(id = R.drawable.ic_delete_custom),
-                      contentDescription = "Delete",
-                      tint = MaterialTheme.colorScheme.error,
-                      modifier = Modifier.size(24.dp))
+                Box {
+                  IconButton(onClick = { topOverflowOpen = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = "More options",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp))
+                  }
+                  DropdownMenu(
+                      expanded = topOverflowOpen,
+                      onDismissRequest = { topOverflowOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Share") },
+                            leadingIcon = {
+                              Icon(
+                                  painter = painterResource(id = R.drawable.ic_share_custom),
+                                  contentDescription = null,
+                                  modifier = Modifier.size(20.dp))
+                            },
+                            onClick = {
+                              topOverflowOpen = false
+                              val uris =
+                                  selectedVideos
+                                      .mapNotNull { video ->
+                                        getVideoUriFromPathForMulti(context, video.path)
+                                      }
+                                      .toCollection(ArrayList())
+                              if (uris.isNotEmpty()) {
+                                val intent =
+                                    Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                      type = "video/*"
+                                      putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                                      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                context.startActivity(
+                                    Intent.createChooser(intent, "Share ${uris.size} Videos"))
+                                selection = selection.clear()
+                              }
+                            })
+                        DropdownMenuItem(
+                            text = {
+                              Text(
+                                  if (selection.selectedCount == videos.size) "Deselect all"
+                                  else "Select all")
+                            },
+                            leadingIcon = {
+                              Icon(
+                                  painter = painterResource(id = R.drawable.ic_select_all),
+                                  contentDescription = null,
+                                  modifier = Modifier.size(20.dp))
+                            },
+                            onClick = {
+                              topOverflowOpen = false
+                              selection =
+                                  if (selection.selectedCount == videos.size) selection.clear()
+                                  else selection.selectAll(videos.map { it.path })
+                            })
+                        DropdownMenuItem(
+                            text = { Text("Toggle Favorite") },
+                            leadingIcon = {
+                              Icon(
+                                  imageVector = Icons.Filled.Favorite,
+                                  contentDescription = null,
+                                  modifier = Modifier.size(20.dp))
+                            },
+                            onClick = {
+                              topOverflowOpen = false
+                              val allFavorite =
+                                  selectedVideos.isNotEmpty() &&
+                                      selectedVideos.all {
+                                        viewModel.favoriteVideoPaths.value.contains(it.path)
+                                      }
+                              selectedVideos.forEach { video ->
+                                if (allFavorite ==
+                                    viewModel.favoriteVideoPaths.value.contains(video.path)) {
+                                  viewModel.toggleVideoFavorite(video.path)
+                                }
+                              }
+                            })
+                      }
                 }
               }
             }
@@ -771,7 +799,7 @@ fun HomeScreen(
                           if (currentContentMode != HomeContentMode.FOLDER) {
                             currentContentMode = HomeContentMode.FOLDER
                             viewModel.closeFolder()
-                            selectedVideoIds = emptySet()
+                            selection = selection.clear()
                             prefs.edit().putString("home_content_mode", HomeContentMode.FOLDER.name).apply()
                           }
                         }) { tint, scale ->
@@ -785,7 +813,7 @@ fun HomeScreen(
                           if (currentContentMode != HomeContentMode.FAVORITES) {
                             currentContentMode = HomeContentMode.FAVORITES
                             viewModel.closeFolder()
-                            selectedVideoIds = emptySet()
+                            selection = selection.clear()
                             prefs.edit().putString("home_content_mode", HomeContentMode.FAVORITES.name).apply()
                           }
                         }) { tint, scale ->
@@ -799,7 +827,7 @@ fun HomeScreen(
                           if (currentContentMode != HomeContentMode.PLAYLISTS) {
                             currentContentMode = HomeContentMode.PLAYLISTS
                             viewModel.closeFolder()
-                            selectedVideoIds = emptySet()
+                            selection = selection.clear()
                             prefs.edit().putString("home_content_mode", HomeContentMode.PLAYLISTS.name).apply()
                           }
                         }) { tint, scale ->
@@ -920,7 +948,7 @@ fun HomeScreen(
                                           items = videos, key = { _, video -> video.id }) {
                                           index,
                                           video ->
-                                        val isSelected = selectedVideoIds.contains(video.id)
+                                        val isSelected = selection.isSelected(video.path)
                                         PremiumVideoListCard(
                                             video = video,
                                             duration = viewModel.formatDuration(video.duration),
@@ -929,13 +957,17 @@ fun HomeScreen(
                                             isSelected = isSelected,
                                             onClick = {
                                               if (inSelectionMode) {
-                                                selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
+                                                selection = selection.toggle(video.path)
                                               } else {
                                                 onVideoClick(videos, index)
                                               }
                                             },
-                                            onLongClick = { menuVideo = video })
-                                      }
+                                            onLongClick = {
+                                              // REX handleLongClick: long-press enters
+                                              // selection mode instead of opening the menu.
+                                              selection = selection.toggle(video.path)
+                                            })
+                                        }
                                     }
                               }
                               HomeViewStyle.GRID_MEDIUM -> {
@@ -955,19 +987,21 @@ fun HomeScreen(
                                             items = videos, key = { _, video -> video.id }) {
                                           index,
                                           video ->
-                                        val isSelected = selectedVideoIds.contains(video.id)
+                                        val isSelected = selection.isSelected(video.path)
                                         CustomVideoGridCard(
                                             video = video,
                                             duration = viewModel.formatDuration(video.duration),
                                             isSelected = isSelected,
                                             onClick = {
                                               if (inSelectionMode) {
-                                                selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
+                                                selection = selection.toggle(video.path)
                                               } else {
                                                 onVideoClick(videos, index)
                                               }
                                             },
-                                            onLongClick = { menuVideo = video })
+                                            onLongClick = {
+                                              selection = selection.toggle(video.path)
+                                            })
                                       }
                                     }
                                 }
@@ -981,7 +1015,7 @@ fun HomeScreen(
                                           items = videos, key = { _, video -> video.id }) {
                                           index,
                                           video ->
-                                        val isSelected = selectedVideoIds.contains(video.id)
+                                        val isSelected = selection.isSelected(video.path)
                                         CustomVideoLargeCard(
                                             video = video,
                                             duration = viewModel.formatDuration(video.duration),
@@ -989,12 +1023,14 @@ fun HomeScreen(
                                             isSelected = isSelected,
                                             onClick = {
                                               if (inSelectionMode) {
-                                                selectedVideoIds = if (isSelected) selectedVideoIds - video.id else selectedVideoIds + video.id
+                                                selection = selection.toggle(video.path)
                                               } else {
                                                 onVideoClick(videos, index)
                                               }
                                             },
-                                            onLongClick = { menuVideo = video })
+                                            onLongClick = {
+                                              selection = selection.toggle(video.path)
+                                            })
                                       }
                                     }
                               }
@@ -1237,15 +1273,114 @@ fun HomeScreen(
                   }
                 }
           }
-        }
+          }
         }
       }
     }
+
+    // ── REX-style selection overlay: floating bottom action bar ──────────
+    // Pure overlay above the untouched bottom navigation; visible only in
+    // selection mode (AnimatedVisibility exit plays on clear).
+    SelectionBottomBar(
+        visible = inSelectionMode,
+        isSingleSelection = selection.isSingleSelection,
+        onCopyClick = {
+          pickerError = null
+          folderPickerMode = "copy"
+        },
+        onMoveClick = {
+          pickerError = null
+          folderPickerMode = "move"
+        },
+        onRenameClick = {
+          selectedVideos.firstOrNull()?.let {
+            renameTarget = it
+            renameError = null
+          }
+        },
+        onAddToPlaylistClick = {
+          if (selectedVideos.isNotEmpty()) showAddToPlaylistDialog = true
+        },
+        onDeleteClick = { showDeleteConfirmDialog = true },
+        modifier = Modifier.align(Alignment.BottomCenter)
+            .navigationBarsPadding()
+            .padding(bottom = 92.dp))
+  }
+
+  BackHandler(enabled = inSelectionMode) {
+    selection = selection.clear()
   }
 
   BackHandler(enabled = isVideoSearchOpen) {
     isVideoSearchOpen = false
     folderSearchPath = null
+  }
+
+  // ── Copy/Move destination picker (REX CopyPasteDialog destination role,
+  // VidMax folder-list look). Batch ops verify every file, then scan once
+  // and refresh; selection clears on success like REX onOperationComplete.
+  folderPickerMode?.let { mode ->
+    val isCopy = mode == "copy"
+    FolderPickerDialog(
+        title = if (isCopy) "Copy to folder" else "Move to folder",
+        folders = folders,
+        busy = pickerBusy,
+        error = pickerError,
+        emptyText = "No folders found.",
+        onFolderClick = { folder ->
+          val targets = selection.getSelected(videos)
+          if (targets.isEmpty()) {
+            folderPickerMode = null
+            selection = selection.clear()
+          } else {
+            pickerBusy = true
+            pickerError = null
+            if (isCopy) {
+              viewModel.copyVideosToFolder(targets, folder.path) { result ->
+                pickerBusy = false
+                result.onSuccess { r ->
+                  folderPickerMode = null
+                  selection = selection.clear()
+                  val skipNote = if (r.skipped > 0) " (${r.skipped} skipped)" else ""
+                  Toast.makeText(
+                          context,
+                          "Copied ${r.newPaths.size} video(s)$skipNote",
+                          Toast.LENGTH_SHORT)
+                      .show()
+                }.onFailure {
+                  pickerError = it.message ?: "Copy failed"
+                }
+              }
+            } else {
+              viewModel.moveVideosToFolder(targets, folder.path) { result ->
+                pickerBusy = false
+                result.onSuccess { r ->
+                  folderPickerMode = null
+                  selection = selection.clear()
+                  val skipNote = if (r.skipped > 0) " (${r.skipped} already here)" else ""
+                  Toast.makeText(
+                          context,
+                          "Moved ${r.newPaths.size} video(s)$skipNote",
+                          Toast.LENGTH_SHORT)
+                      .show()
+                }.onFailure {
+                  pickerError = it.message ?: "Move failed"
+                }
+              }
+            }
+          }
+        },
+        onDismiss = {
+          if (!pickerBusy) {
+            folderPickerMode = null
+            pickerError = null
+          }
+        })
+  }
+
+  // REX top-bar Info action: rich details for the single selected video.
+  detailsVideo?.let { v ->
+    VideoDetailsDialog(video = v, onDismiss = { detailsVideo = null })
   }
 
   if (isVideoSearchOpen) {
