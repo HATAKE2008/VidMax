@@ -1,6 +1,7 @@
 package com.vidmax.player.ui.screen
 
 import android.app.Activity
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -57,6 +58,7 @@ import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MoveDeleteConsentRequired
+import com.vidmax.player.viewmodel.MoveWriteConsentRequired
 import com.vidmax.player.viewmodel.RenameConsentRequiredException
 import java.io.File
 
@@ -159,6 +161,7 @@ fun VideoActionMenuHost(
   var moveError by remember(video) { mutableStateOf<String?>(null) }
   var moveBusy by remember(video) { mutableStateOf(false) }
   var pendingMoveDelete by remember(video) { mutableStateOf<MoveDeleteConsentRequired?>(null) }
+  var pendingMoveWrite by remember(video) { mutableStateOf<MoveWriteConsentRequired?>(null) }
   val folders by viewModel.folders.collectAsState()
 
   fun succeedMove() {
@@ -189,11 +192,34 @@ fun VideoActionMenuHost(
             }
           }
 
+  val moveWriteLauncher =
+      rememberLauncherForActivityResult(
+          contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            val pending = pendingMoveWrite
+            pendingMoveWrite = null
+            if (result.resultCode == Activity.RESULT_OK && pending != null) {
+              viewModel.retryMoveAfterWriteConsent(pending) { retryResult ->
+                retryResult.onSuccess { succeedMove() }.onFailure { failMove(it.message) }
+              }
+            } else {
+              failMove("Move cancelled")
+            }
+          }
+
   fun handleMoveResult(result: Result<String>) {
     result
         .onSuccess { succeedMove() }
         .onFailure {
-          if (it is MoveDeleteConsentRequired) {
+          if (it is MoveWriteConsentRequired &&
+              Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            pendingMoveWrite = it
+            val videoUri = ContentUris.withAppendedId(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI, it.video.id)
+            val pendingIntent = MediaStore.createWriteRequest(
+                context.contentResolver, listOf(videoUri))
+            moveWriteLauncher.launch(
+                IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+          } else if (it is MoveDeleteConsentRequired) {
             pendingMoveDelete = it
             val pendingIntent =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

@@ -84,6 +84,18 @@ class MoveDeleteConsentRequired(
     val newTitle: String
 ) : Exception("Storage permission needed to finish moving this file.")
 
+/**
+ * Thrown by [LibraryViewModel.moveVideoToFolder] when relocating the
+ * MediaStore row needs scoped-storage user consent. The UI should fire
+ * MediaStore.createWriteRequest for the video URI and then call
+ * [LibraryViewModel.retryMoveAfterWriteConsent] on grant.
+ */
+class MoveWriteConsentRequired(
+    val video: VideoItem,
+    val destFolderPath: String,
+    val fileName: String
+) : Exception("Storage permission needed to move this file.")
+
 enum class DecoderMode {
   AUTO,
   HARDWARE,
@@ -1023,8 +1035,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     playlistRepository.updatePathReferences(video.path, newPath, newTitle)
     migrateBookmarkKey(video.path, newPath)
     withContext(Dispatchers.Main) {
-      _allVideos.value = _allVideos.value.map {
-        if (it.path == video.path) it.copy(title = newTitle, path = newPath) else it
+      _allVideos.value = _allVideos.value.mapNotNull {
+        if (it.path == video.path) it.copy(title = newTitle, path = newPath)
+        else if (it.id == video.id) null
+        else it
       }
       _folders.value = repository.getFolders(_allVideos.value)
       applyFilter()
@@ -1103,6 +1117,20 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val relativePath = destDir.absolutePath.removePrefix(externalRoot).trim('/') + "/"
         val srcUri = ContentUris.withAppendedId(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+        val moveValues = ContentValues().apply {
+          put(MediaStore.Video.Media.DISPLAY_NAME, dst.name)
+          put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+        }
+        val moveOutcome = runCatching { resolver.update(srcUri, moveValues, null, null) }
+        val moveError = moveOutcome.exceptionOrNull()
+        if (moveError is RecoverableSecurityException) {
+          throw MoveWriteConsentRequired(video, destFolderPath, src.name)
+        }
+        if (moveOutcome.getOrDefault(0) > 0) {
+          val newPath = dst.absolutePath
+          applyPathChange(video, newPath, dst.nameWithoutExtension)
+          return@runCatching newPath
+        }
         val pendingValues = ContentValues().apply {
           put(MediaStore.Video.Media.DISPLAY_NAME, dst.name)
           put(MediaStore.Video.Media.MIME_TYPE, videoMimeType(dst.name))
@@ -1136,6 +1164,38 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         MediaScannerConnection.scanFile(getApplication(), arrayOf(dst.absolutePath), null, null)
         val newPath = dst.absolutePath
         applyPathChange(video, newPath, dst.nameWithoutExtension)
+        newPath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  fun retryMoveAfterWriteConsent(pending: MoveWriteConsentRequired, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val src = File(pending.video.path)
+        require(src.exists()) { "Original file not found" }
+        val destDir = File(pending.destFolderPath)
+        require(destDir.isDirectory) { "Destination folder not found" }
+        val dst = resolveMoveDestination(destDir, pending.fileName)
+        val resolver = getApplication<Application>().contentResolver
+        val externalRoot = android.os.Environment.getExternalStorageDirectory().absolutePath
+        require(destDir.absolutePath.startsWith(externalRoot)) { "Cannot move there" }
+        val relativePath = destDir.absolutePath.removePrefix(externalRoot).trim('/') + "/"
+        val srcUri = ContentUris.withAppendedId(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI, pending.video.id)
+        val moveValues = ContentValues().apply {
+          put(MediaStore.Video.Media.DISPLAY_NAME, dst.name)
+          put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+        }
+        val moved = try {
+          resolver.update(srcUri, moveValues, null, null) > 0
+        } catch (e: RecoverableSecurityException) {
+          throw IllegalStateException("Move not permitted")
+        }
+        require(moved) { "Move failed" }
+        val newPath = dst.absolutePath
+        applyPathChange(pending.video, newPath, dst.nameWithoutExtension)
         newPath
       }
       withContext(Dispatchers.Main) { onResult(result) }
