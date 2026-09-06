@@ -1,18 +1,18 @@
 package com.vidmax.player.ui.screen
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import android.content.Context
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,7 +29,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -47,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -62,6 +61,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -84,14 +85,6 @@ enum class SearchScope {
   NETWORK
 }
 
-/**
- * Dedicated full search screen (Videos / Music / Network files).
- *
- * UX is inspired by mpvRex's SearchScreen (autofocus, IME search, clear
- * action, empty/loading/results states) but implemented natively on VidMax
- * architecture: existing indexed library data (no rescan), existing cards,
- * existing unified video action menu, history in `vidmax_settings`.
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(
@@ -107,7 +100,6 @@ fun SearchScreen(
     onOpenNetworkFolder: (NetworkFile) -> Unit = {},
 ) {
   val history by viewModel.searchHistory.collectAsState()
-  // Subscriptions only — recompute results when the library changes.
   val libraryTick by viewModel.filteredVideos.collectAsState()
   val audioTick by viewModel.filteredAudio.collectAsState()
   val playingPath by viewModel.recentlyPlayedPath.collectAsState()
@@ -132,13 +124,10 @@ fun SearchScreen(
     keyboard?.show()
   }
 
-  // Small debounce so huge libraries don't recompute on every keystroke.
   LaunchedEffect(query) {
     delay(150)
     visibleQuery = query
   }
-  // libraryTick/audioTick subscribe to library changes so results refresh
-  // after rename/delete while the screen is open.
 
   val context = LocalContext.current
   val prefs = remember {
@@ -231,53 +220,79 @@ fun SearchScreen(
                 .fillMaxHeight()
                 .fillMaxWidth()
                 .widthIn(max = 1100.dp)
-                .statusBarsPadding()
+                // .statusBarsPadding() সরানো হয়েছে কারণ প্যারেন্ট Scaffold ইতিমধ্যেই প্যাডিং দিচ্ছে
                 .navigationBarsPadding()
                 .imePadding()
-                .padding(horizontal = 16.dp)) {
-              // ── Top bar: back + field ──
+                .padding(horizontal = 12.dp)) {
+
+              // ── Top bar: Sleek compact Search Bar ──
               Row(
-                  modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(top = 4.dp, bottom = 4.dp),
                   verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack, modifier = Modifier.size(42.dp)) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(40.dp)) {
                       Icon(
                           imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                           contentDescription = "Back",
                           tint = MaterialTheme.colorScheme.onBackground)
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
-                        placeholder = { Text(text = hint) },
+                        placeholder = {
+                          Text(
+                              text = hint,
+                              fontSize = 15.sp,
+                              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                        },
                         leadingIcon = {
                           Icon(
                               painter = painterResource(id = R.drawable.ic_search),
                               contentDescription = "Search",
                               tint = MaterialTheme.colorScheme.primary,
-                              modifier = Modifier.size(22.dp))
+                              modifier = Modifier.size(20.dp))
                         },
                         trailingIcon = {
                           if (query.isNotEmpty()) {
-                            IconButton(onClick = { query = ""; visibleQuery = "" }) {
+                            IconButton(
+                                onClick = { query = ""; visibleQuery = "" },
+                                modifier = Modifier.size(32.dp)) {
                               Icon(
                                   imageVector = Icons.Filled.Close,
                                   contentDescription = "Clear search",
-                                  tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                  modifier = Modifier.size(18.dp))
                             }
                           }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = Color.Transparent
+                        ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { submit(query) }),
-                        modifier = Modifier.weight(1f).focusRequester(focusRequester))
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .focusRequester(focusRequester))
                   }
-              Spacer(modifier = Modifier.height(4.dp))
+
               if (isTyping) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .padding(top = 2.dp))
               }
-              Spacer(modifier = Modifier.height(8.dp))
+              Spacer(modifier = Modifier.height(4.dp))
 
               if (trimmed.isEmpty()) {
                 if (history.isEmpty()) {
@@ -287,16 +302,16 @@ fun SearchScreen(
                       horizontalAlignment = Alignment.CenterHorizontally,
                       verticalArrangement = Arrangement.Center) {
                         Box(
-                            modifier = Modifier.size(72.dp)
+                            modifier = Modifier.size(68.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center) {
                               Icon(
                                   imageVector = Icons.Filled.Search,
                                   contentDescription = null,
                                   tint = MaterialTheme.colorScheme.primary,
-                                  modifier = Modifier.size(34.dp))
+                                  modifier = Modifier.size(32.dp))
                             }
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
@@ -379,7 +394,7 @@ fun SearchScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center) {
                       Box(
-                          modifier = Modifier.size(72.dp)
+                          modifier = Modifier.size(68.dp)
                               .clip(CircleShape)
                               .background(
                                   MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
@@ -388,7 +403,7 @@ fun SearchScreen(
                                 painter = painterResource(id = R.drawable.ic_search),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(32.dp))
+                                modifier = Modifier.size(30.dp))
                           }
                       Spacer(modifier = Modifier.height(16.dp))
                       Text(
