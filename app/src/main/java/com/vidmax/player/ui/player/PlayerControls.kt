@@ -17,6 +17,7 @@ import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -291,6 +292,7 @@ fun PlayerControls(
     var showBookmarkDialog by remember { mutableStateOf(false) }
     var showBookmarkList by remember { mutableStateOf(false) }
     var bookmarkLabel by remember { mutableStateOf("") }
+    var bookmarkPosition by remember(currentPath) { mutableLongStateOf(0L) }
 
     val showSpeedButton = settingsPrefs.getBoolean("show_speed_button", true)
     val showLoopButton = settingsPrefs.getBoolean("show_loop_button", true)
@@ -388,10 +390,14 @@ fun PlayerControls(
       }
     }
 
-    LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs) {
+    val keepRepeatControlsVisible = !isLocked &&
+        (abPointA != null || showBookmarkDialog || showBookmarkList)
+    LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs, keepRepeatControlsVisible) {
         // The lock button + slide-to-unlock overlay also auto-hides, like all
         // other controls — a tap anywhere brings it back while locked.
-        if (controlsVisible && autoHideControls && controlsHideDelayMs > 0) {
+        if (keepRepeatControlsVisible) {
+            viewModel.setControlsVisible(true)
+        } else if (controlsVisible && autoHideControls && controlsHideDelayMs > 0) {
             delay(controlsHideDelayMs.toLong())
             viewModel.setControlsVisible(false)
         }
@@ -756,89 +762,125 @@ fun PlayerControls(
             onDismiss = { showDetailsDialog = false })
     }
 
-    if (showBookmarkDialog) {
-        AlertDialog(
-            onDismissRequest = { showBookmarkDialog = false },
-            title = { Text("Add bookmark", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Save ${formatTimeHelper(currentPosition)} as a bookmark?", fontSize = 14.sp)
-                    OutlinedTextField(
-                        value = bookmarkLabel,
-                        onValueChange = { bookmarkLabel = it },
-                        label = { Text("Label (optional)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth())
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val updated =
-                        (bookmarkList.toList() + VideoBookmark(currentPosition, bookmarkLabel.trim()))
-                            .sortedBy { it.positionMs }
-                            .take(50)
-                    bookmarkList.clear()
-                    bookmarkList.addAll(updated)
-                    saveBookmarks(settingsPrefs, currentPath, updated)
-                    showBookmarkDialog = false
-                }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = { TextButton(onClick = { showBookmarkDialog = false }) { Text("Cancel") } }
-        )
+    BackHandler(enabled = showBookmarkDialog || showBookmarkList) {
+        showBookmarkDialog = false
+        showBookmarkList = false
     }
 
-    if (showBookmarkList) {
-        AlertDialog(
-            onDismissRequest = { showBookmarkList = false },
-            title = { Text("Bookmarks", fontWeight = FontWeight.Bold) },
-            text = {
-                if (bookmarkList.isEmpty()) {
-                    Text("No bookmarks yet. Use More → Add bookmark here.", fontSize = 14.sp)
-                } else {
-                    Column(
-                        modifier = Modifier.verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        bookmarkList.toList().forEach { bm ->
-                            Row(
-                                modifier =
-                                    Modifier.fillMaxWidth()
-                                        .clickable {
-                                            onSeek(bm.positionMs)
-                                            viewModel.setCurrentPosition(bm.positionMs)
-                                            showBookmarkList = false
+    // Shared inline content sits immediately above the seekbar in all three layouts.
+    val repeatBookmarkPanel: @Composable () -> Unit = {
+        if (abPointA != null || showBookmarkDialog || showBookmarkList) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().widthIn(max = 360.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    abPointA?.let { a ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "A ${formatTimeHelper(a)}  /  B ${abPointB?.let(::formatTimeHelper) ?: "--:--"}",
+                                modifier = Modifier.weight(1f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                            TextButton(
+                                enabled = currentPosition > a,
+                                onClick = { viewModel.setABPointB(currentPosition) }) {
+                                Text("Set B", fontSize = 12.sp)
+                            }
+                            TextButton(onClick = { viewModel.clearABRepeat() }) {
+                                Text("Clear", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    if (showBookmarkDialog) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "Bookmark ${formatTimeHelper(bookmarkPosition)}",
+                                modifier = Modifier.weight(1f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold)
+                            IconButton(onClick = { showBookmarkDialog = false }) {
+                                Icon(Icons.Default.Close, contentDescription = "Cancel bookmark")
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = bookmarkLabel,
+                                onValueChange = { bookmarkLabel = it },
+                                label = { Text("Label (optional)") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f))
+                            TextButton(onClick = {
+                                val updated =
+                                    (bookmarkList.toList() + VideoBookmark(bookmarkPosition, bookmarkLabel.trim()))
+                                        .sortedBy { it.positionMs }
+                                        .take(50)
+                                bookmarkList.clear()
+                                bookmarkList.addAll(updated)
+                                saveBookmarks(settingsPrefs, currentPath, updated)
+                                showBookmarkDialog = false
+                            }) {
+                                Text("Save")
+                            }
+                        }
+                    }
+                    if (showBookmarkList) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Bookmarks (${bookmarkList.size})", modifier = Modifier.weight(1f),
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            IconButton(onClick = { showBookmarkList = false }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close bookmarks")
+                            }
+                        }
+                        if (bookmarkList.isEmpty()) {
+                            Text("No bookmarks yet. Use More > Add bookmark here.", fontSize = 12.sp)
+                        } else {
+                            Column(
+                                modifier = Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                bookmarkList.toList().forEach { bm ->
+                                    Row(
+                                        modifier =
+                                            Modifier.fillMaxWidth()
+                                                .clickable {
+                                                    onSeek(bm.positionMs)
+                                                    viewModel.setCurrentPosition(bm.positionMs)
+                                                    showBookmarkList = false
+                                                }
+                                                .padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                if (bm.label.isNotEmpty()) bm.label else "Bookmark",
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 14.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis)
+                                            Text(
+                                                formatTimeHelper(bm.positionMs),
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
-                                        .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        if (bm.label.isNotEmpty()) bm.label else "Bookmark",
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 14.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis)
-                                    Text(
-                                        formatTimeHelper(bm.positionMs),
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                IconButton(onClick = {
-                                    bookmarkList.remove(bm)
-                                    saveBookmarks(settingsPrefs, currentPath, bookmarkList.toList())
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Delete,
-                                        contentDescription = "Remove bookmark",
-                                        tint = MaterialTheme.colorScheme.error)
+                                        IconButton(onClick = {
+                                            bookmarkList.remove(bm)
+                                            saveBookmarks(settingsPrefs, currentPath, bookmarkList.toList())
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Delete,
+                                                contentDescription = "Remove bookmark",
+                                                tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            },
-            confirmButton = { TextButton(onClick = { showBookmarkList = false }) { Text("Close") } }
-        )
+            }
+        }
     }
 
     // ============================================================
@@ -1317,7 +1359,7 @@ fun PlayerControls(
         AnimatedVisibility(
             // The locked overlay also hides with the controls; a tap brings
             // it back since gestures stay disabled while locked.
-            visible = controlsVisible,
+            visible = controlsVisible || keepRepeatControlsVisible,
             enter = fadeIn(tween(300)),
             exit = fadeOut(tween(300)),
             modifier = Modifier.fillMaxSize()
@@ -1498,12 +1540,22 @@ fun PlayerControls(
                                 DropdownMenuItem(
                                     text = { Text("Add bookmark here", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Filled.BookmarkAdd, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; bookmarkLabel = ""; showBookmarkDialog = true }
+                                    onClick = {
+                                        showMoreMenu = false
+                                        bookmarkLabel = ""
+                                        bookmarkPosition = currentPosition
+                                        showBookmarkList = false
+                                        showBookmarkDialog = true
+                                    }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Bookmarks (${bookmarkList.size})", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Filled.Bookmarks, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; showBookmarkList = true }
+                                    onClick = {
+                                        showMoreMenu = false
+                                        showBookmarkDialog = false
+                                        showBookmarkList = true
+                                    }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Share", color = MaterialTheme.colorScheme.onSurface) },
@@ -1609,42 +1661,13 @@ fun PlayerControls(
                     Column(
                         modifier = Modifier.align(Alignment.BottomCenter)
                             .fillMaxWidth()
+                            .imePadding()
                             .padding(bottom = 20.dp, start = leftSafePadding, end = rightSafePadding),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         val pinFractions =
                             if (duration > 0) bookmarkList.map { (it.positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f) }
                             else emptyList()
-                        val abAValue = abPointA
-                        val abBValue = abPointB
-                        if (abAValue != null) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth()
-                                    .clip(RoundedCornerShape(50))
-                                    .background(Color.White.copy(alpha = 0.12f))
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text =
-                                        if (abBValue != null) "A-B  ${formatTimeHelper(abAValue)} → ${formatTimeHelper(abBValue)}"
-                                        else "A ${formatTimeHelper(abAValue)} set — pick point B",
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    text = "Clear",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable { viewModel.clearABRepeat() }.padding(4.dp)
-                                )
-                            }
-                        }
                         if (minimalist) {
                             // Minimalist: lock + rotate stay reachable, everything
                             // else hides; seekbar below keeps seeking accessible.
@@ -1669,6 +1692,7 @@ fun PlayerControls(
                                     hideBackground = hideButtonBackground
                                 )
                             }
+                            repeatBookmarkPanel()
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,
@@ -1681,6 +1705,7 @@ fun PlayerControls(
                                 onPinClick = { onSeek(it) }
                             )
                         } else if (bottomControlsBelowSeekbar) {
+                            repeatBookmarkPanel()
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,
@@ -1747,6 +1772,7 @@ fun PlayerControls(
                                 showZoomButtons = showZoomButtons,
                                 showExtraButtons = showExtraButtons
                             )
+                            repeatBookmarkPanel()
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,
