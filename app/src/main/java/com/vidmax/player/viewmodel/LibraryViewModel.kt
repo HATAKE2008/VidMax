@@ -1437,6 +1437,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             }
             removedPaths.add(video.path)
             removed++
+            true
           }.getOrDefault(false)
           if (!ok) throw IllegalStateException("Could not delete all selected videos")
         }
