@@ -826,9 +826,48 @@ fun HomeScreen(
                   when (mode) {
                     HomeContentMode.VIDEO -> {
                       // existing video logic...
+                      Column(modifier = Modifier.fillMaxSize()) {
+                        val lastPlayedVideoIndex =
+                            remember(videos, recentVideoPath) {
+                              videos.indexOfFirst { it.path == recentVideoPath }
+                            }
+                        if (lastPlayedVideoIndex >= 0) {
+                          val lastVideo = videos[lastPlayedVideoIndex]
+                          Row(
+                              modifier =
+                                  Modifier.fillMaxWidth()
+                                      .padding(bottom = 8.dp)
+                                      .clip(RoundedCornerShape(12.dp))
+                                      .background(
+                                          MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                      .clickable { resumeLastVideo() }
+                                      .padding(horizontal = 12.dp, vertical = 10.dp),
+                              verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.PlayArrow,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Last played: ${lastVideo.title}",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f))
+                                Text(
+                                    text = "Jump",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold)
+                              }
+                        }
                       Crossfade(
                           targetState = currentViewStyle,
                           animationSpec = tween(400),
+                          modifier = Modifier.weight(1f),
                           label = "videoViewAnim") { style ->
                             when (style) {
                               HomeViewStyle.LIST -> {
@@ -917,6 +956,7 @@ fun HomeScreen(
                               }
                             }
                           }
+                      }
                     }
                     HomeContentMode.FOLDER -> {
                       // existing folder logic...
