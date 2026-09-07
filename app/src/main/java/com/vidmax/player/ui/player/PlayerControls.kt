@@ -45,6 +45,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Segment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -148,6 +149,7 @@ fun PlayerControls(
     val loopMode by viewModel.loopMode.collectAsState()
     val abPointA by viewModel.abRepeatA.collectAsState()
     val abPointB by viewModel.abRepeatB.collectAsState()
+    val abLoopEnabled by viewModel.abLoopEnabled.collectAsState()
     val showABPanel by viewModel.showABPanel.collectAsState()
     val videoTitle by viewModel.videoTitle.collectAsState()
 
@@ -376,10 +378,10 @@ fun PlayerControls(
 
     // A-B repeat: loop inside the same file via absolute seek — no reload,
     // so the restart has no black flash on either engine.
-    LaunchedEffect(currentPosition, abPointA, abPointB) {
+    LaunchedEffect(currentPosition, abPointA, abPointB, abLoopEnabled) {
         val a = abPointA
         val b = abPointB
-        if (a != null && b != null && b > a && currentPosition >= b) {
+        if (abLoopEnabled && a != null && b != null && b > a && currentPosition >= b) {
             onSeek(a)
         }
     }
@@ -422,7 +424,7 @@ fun PlayerControls(
     }
 
     val keepRepeatControlsVisible = !isLocked &&
-        (abPointA != null || abPointB != null || showBookmarkDialog || showBookmarkList)
+        (showABPanel || abPointA != null || abPointB != null || showBookmarkDialog || showBookmarkList)
     LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs, keepRepeatControlsVisible) {
         // The lock button + slide-to-unlock overlay also auto-hides, like all
         // other controls — a tap anywhere brings it back while locked.
@@ -800,34 +802,35 @@ fun PlayerControls(
 
     // Shared inline content sits immediately above the seekbar in all three layouts.
     val repeatBookmarkPanel: @Composable () -> Unit = {
-        if (abPointA != null || abPointB != null || showBookmarkDialog || showBookmarkList) {
+        if (showABPanel || abPointA != null || abPointB != null || showBookmarkDialog || showBookmarkList) {
             Surface(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 360.dp),
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    if (abPointA != null || abPointB != null) {
-                        // REX-style A/B chips: letter when unset, timestamp when
-                        // set (highlighted). Tapping a chip sets the point at
-                        // the current position, or clears it if already set.
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ABPointChip(
-                                letter = "A",
-                                timestamp = abPointA?.let(::formatTimeHelper),
-                                modifier = Modifier.weight(1f),
-                                onClick = { viewModel.setABPointA(currentPosition) })
-                            ABPointChip(
-                                letter = "B",
-                                timestamp = abPointB?.let(::formatTimeHelper),
-                                modifier = Modifier.weight(1f),
-                                onClick = { viewModel.setABPointB(currentPosition) })
-                            IconButton(onClick = { viewModel.clearABRepeat() }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear A-B repeat")
-                            }
-                        }
+                    if (showABPanel) {
+                        // REX-style compact A-B panel (see ABLoopPanel).
+                        ABLoopPanel(
+                            pointA = abPointA,
+                            pointB = abPointB,
+                            loopEnabled = abLoopEnabled,
+                            onSetA = { viewModel.setABPointA(currentPosition) },
+                            onSetB = { viewModel.setABPointB(currentPosition) },
+                            onClear = {
+                                viewModel.clearABRepeat()
+                                viewModel.setShowABPanel(false)
+                            },
+                            onToggleLoop = {
+                                if (abPointA != null && abPointB != null) {
+                                    viewModel.setABLoopEnabled(!abLoopEnabled)
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Set both A and B first",
+                                        Toast.LENGTH_SHORT).show()
+                                }
+                            })
                     }
                     if (showBookmarkDialog) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1390,23 +1393,6 @@ fun PlayerControls(
             }
         }
 
-        // ---- Floating A-B repeat pill ----
-        // Right edge, vertically centered: clear of the centered transport
-        // controls and the top title bar. Persists (no auto-hide) while AB
-        // mode is on; the X button clears the loop and closes the pill.
-        if (showABPanel && !isLocked) {
-            ABRepeatPill(
-                pointA = abPointA,
-                pointB = abPointB,
-                onSetA = { viewModel.setABPointA(currentPosition) },
-                onSetB = { viewModel.setABPointB(currentPosition) },
-                onClear = {
-                    viewModel.clearABRepeat()
-                    viewModel.setShowABPanel(false)
-                },
-                modifier = Modifier.align(Alignment.CenterEnd).padding(end = 16.dp))
-        }
-
         // ---- Brightness gesture overlay ----
         AnimatedVisibility(
             visible = isGestureOverlayVisible && !isLocked && gestureIndicatorType == 1,
@@ -1619,52 +1605,6 @@ fun PlayerControls(
                                     leadingIcon = { Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { showMoreMenu = false; viewModel.setShowSyncSheet(true) }
                                 )
-                                // Floating A-B pill entry point: toggles the
-                                // persistent on-screen A / clear / B control.
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (showABPanel) "Hide A-B panel"
-                                            else "Show A-B panel",
-                                            color = MaterialTheme.colorScheme.onSurface)
-                                    },
-                                    leadingIcon = {
-                                        ABBadge(
-                                            active = showABPanel,
-                                            tint = MaterialTheme.colorScheme.primary)
-                                    },
-                                    onClick = {
-                                        showMoreMenu = false
-                                        viewModel.setShowABPanel(!showABPanel)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (abPointA != null) "Clear A-B point A"
-                                            else "Set A-B point A",
-                                            color = MaterialTheme.colorScheme.onSurface)
-                                    },
-                                    leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; viewModel.setABPointA(currentPosition) }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            if (abPointB != null) "Clear A-B point B"
-                                            else "Set A-B point B",
-                                            color = MaterialTheme.colorScheme.onSurface)
-                                    },
-                                    leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; viewModel.setABPointB(currentPosition) }
-                                )
-                                if (abPointA != null || abPointB != null) {
-                                    DropdownMenuItem(
-                                        text = { Text("Clear A-B repeat", color = MaterialTheme.colorScheme.onSurface) },
-                                        leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
-                                        onClick = { showMoreMenu = false; viewModel.clearABRepeat() }
-                                    )
-                                }
                                 DropdownMenuItem(
                                     text = { Text("Add bookmark here", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Filled.BookmarkAdd, null, tint = MaterialTheme.colorScheme.primary) },
@@ -1873,6 +1813,8 @@ fun PlayerControls(
                                 onImmersive = toggleImmersive,
                                 onKeepVisible = { viewModel.setControlsVisible(true) },
                                 onScreenshot = { takeScreenshot() },
+                                abPanelOpen = showABPanel,
+                                onABToggle = { viewModel.setShowABPanel(!showABPanel) },
                                 showSpeedButton = showSpeedButton,
                                 showLoopButton = showLoopButton,
                                 showZoomButtons = showZoomButtons,
@@ -1901,6 +1843,8 @@ fun PlayerControls(
                                 onImmersive = toggleImmersive,
                                 onKeepVisible = { viewModel.setControlsVisible(true) },
                                 onScreenshot = { takeScreenshot() },
+                                abPanelOpen = showABPanel,
+                                onABToggle = { viewModel.setShowABPanel(!showABPanel) },
                                 showSpeedButton = showSpeedButton,
                                 showLoopButton = showLoopButton,
                                 showZoomButtons = showZoomButtons,
@@ -1952,6 +1896,8 @@ private fun BottomControlsScrollRow(
     onImmersive: () -> Unit,
     onKeepVisible: () -> Unit,
     onScreenshot: () -> Unit,
+    abPanelOpen: Boolean,
+    onABToggle: () -> Unit,
     showSpeedButton: Boolean = true,
     showLoopButton: Boolean = true,
     showZoomButtons: Boolean = true,
@@ -2033,6 +1979,17 @@ private fun BottomControlsScrollRow(
                 hideBackground = hideBackground
             )
         }
+        // REX-style circular AB entry button (PlayerButton.AB_LOOP): toggles
+        // the compact A-B panel above the seekbar. Always visible so the
+        // panel is reachable in every layout, portrait and landscape.
+        MpvCircleButton(
+            icon = Icons.AutoMirrored.Outlined.Segment,
+            contentDescription = "A-B repeat",
+            onClick = onABToggle,
+            size = 42.dp,
+            active = abPanelOpen,
+            hideBackground = hideBackground
+        )
         if (showExtraButtons) {
             MpvCircleButton(
                 icon = Icons.Filled.PhotoCamera,
@@ -2074,146 +2031,118 @@ private fun BottomControlsScrollRow(
 // Seek bar row
 // ============================================================
 /**
- * REX-style A-B point chip: shows the letter when unset and the timestamp
- * (highlighted) when set. Tapping toggles the point at the current position.
+ * REX-style compact A-B panel: A → X → B → loop toggle in one rounded pill.
+ *
+ * Adapted from REX Player's floating AB loop panel
+ * (ui/player/controls/PlayerControls.kt): the same 40dp circles, 2dp
+ * spacing, tertiaryContainer point highlight and bordered translucent
+ * container. Only the 4th circle differs — REX opens clip-cut there, while
+ * VidMax shows a loop enable/disable toggle (primaryContainer when the
+ * loop is armed), since VidMax has no clip export.
  */
 @Composable
-private fun ABPointChip(
-    letter: String,
-    timestamp: String?,
-    onClick: () -> Unit,
+private fun ABLoopPanel(
+    pointA: Long?,
+    pointB: Long?,
+    loopEnabled: Boolean,
+    onSetA: () -> Unit,
+    onSetB: () -> Unit,
+    onClear: () -> Unit,
+    onToggleLoop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isSet = timestamp != null
+    val buttonSize = 40.dp
+    val canLoop = pointA != null && pointB != null
+    val looping = canLoop && loopEnabled
     Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSet) MaterialTheme.colorScheme.tertiaryContainer else Color.Transparent,
-        border = BorderStroke(
-            1.dp,
-            if (isSet) MaterialTheme.colorScheme.tertiaryContainer
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = modifier.height(buttonSize)
     ) {
-        Text(
-            text = timestamp ?: letter,
-            color = if (isSet) MaterialTheme.colorScheme.onTertiaryContainer
-            else MaterialTheme.colorScheme.onSurface,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
-    }
-}
-
-/**
- * Circular "AB" badge used as the overflow-menu entry icon. Highlights with
- * the theme accent while the floating A-B pill is visible.
- */
-@Composable
-private fun ABBadge(active: Boolean, tint: Color) {
-    Surface(
-        shape = CircleShape,
-        color = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
-        else Color.Transparent,
-        border = BorderStroke(1.5.dp, tint),
-        modifier = Modifier.size(28.dp)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = "AB",
-                color = if (active) MaterialTheme.colorScheme.onPrimary else tint,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        ) {
+            ABLoopCircle(
+                text = pointA?.let(::formatTimeHelper) ?: "A",
+                highlighted = pointA != null,
+                onClick = onSetA)
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .size(buttonSize - 4.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onClear)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear A-B repeat",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(16.dp))
+                }
+            }
+            ABLoopCircle(
+                text = pointB?.let(::formatTimeHelper) ?: "B",
+                highlighted = pointB != null,
+                onClick = onSetB)
+            Surface(
+                shape = CircleShape,
+                color = if (looping) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
+                border = BorderStroke(
+                    1.dp,
+                    if (looping) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .size(buttonSize - 4.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onToggleLoop)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.Repeat,
+                        contentDescription = "Enable or disable A-B loop",
+                        tint = if (looping) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        modifier = Modifier.size(16.dp))
+                }
+            }
         }
     }
 }
 
 /**
- * Text version of [MpvCircleButton]: identical translucent circular styling
- * (same shape, surface, border and press-scale), but renders a letter for
- * the floating A-B pill's A/B buttons.
+ * Single A/B point circle for [ABLoopPanel]: letter when unset, timestamp
+ * (highlighted) when set. Tapping toggles the point.
  */
 @Composable
-private fun MpvTextCircleButton(
+private fun ABLoopCircle(
     text: String,
-    active: Boolean,
+    highlighted: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    size: Dp = 42.dp
+    buttonSize: Dp = 40.dp
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.86f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "mpvTextButtonScale"
-    )
-
     Surface(
-        onClick = onClick,
-        modifier = modifier.size(size).scale(scale),
         shape = CircleShape,
-        color = when {
-            active -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
-            else -> Color.White.copy(alpha = 0.12f)
-        },
-        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else Color.White,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-        interactionSource = interactionSource
+        color = if (highlighted) MaterialTheme.colorScheme.tertiaryContainer else Color.Transparent,
+        modifier = Modifier
+            .height(buttonSize - 4.dp)
+            .widthIn(min = buttonSize - 4.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = text,
-                color = if (active) MaterialTheme.colorScheme.onPrimary else Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.ExtraBold)
-        }
-    }
-}
-
-/**
- * Floating A-B repeat pill: persistent on-screen A / clear / B control on
- * the right edge, vertically centered. Only calls into the existing
- * setABPointA / setABPointB / clearABRepeat functions — the loop-back logic
- * itself is untouched. Highlighted buttons mirror the set points, so both
- * lit means the loop is active.
- */
-@Composable
-private fun ABRepeatPill(
-    pointA: Long?,
-    pointB: Long?,
-    onSetA: () -> Unit,
-    onSetB: () -> Unit,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        color = Color.Black.copy(alpha = 0.55f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            MpvTextCircleButton(
-                text = "A",
-                active = pointA != null,
-                onClick = onSetA,
-                size = 44.dp)
-            MpvCircleButton(
-                icon = Icons.Default.Close,
-                contentDescription = "Clear A-B repeat",
-                onClick = onClear,
-                size = 44.dp)
-            MpvTextCircleButton(
-                text = "B",
-                active = pointB != null,
-                onClick = onSetB,
-                size = 44.dp)
+                style = MaterialTheme.typography.labelLarge,
+                color = if (highlighted) MaterialTheme.colorScheme.onTertiaryContainer
+                else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = if (highlighted) 8.dp else 0.dp))
         }
     }
 }

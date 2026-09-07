@@ -50,6 +50,11 @@ class PlayerViewModel : ViewModel() {
   private val _abRepeatB: MutableStateFlow<Long?> = MutableStateFlow(null)
   val abRepeatB: StateFlow<Long?> = _abRepeatB
 
+  // Whether an A-B loop actively loops (separate from the points so the
+  // REX-style panel can enable/disable looping with both points kept).
+  private val _abLoopEnabled: MutableStateFlow<Boolean> = MutableStateFlow(true)
+  val abLoopEnabled: StateFlow<Boolean> = _abLoopEnabled
+
   // A-B repeat (REX Player semantics): each point toggles independently —
   // tapping a set point clears just that point. Either point may be set
   // first; when both are set with A >= B they are swapped so A is always
@@ -88,6 +93,11 @@ class PlayerViewModel : ViewModel() {
   fun clearABRepeat() {
     _abRepeatA.value = null
     _abRepeatB.value = null
+    _abLoopEnabled.value = true
+  }
+
+  fun setABLoopEnabled(enabled: Boolean) {
+    _abLoopEnabled.value = enabled
   }
 
   // 🔥 New: State for currently active engine
