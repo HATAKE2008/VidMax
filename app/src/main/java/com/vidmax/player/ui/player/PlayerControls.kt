@@ -1957,7 +1957,6 @@ private fun BottomControlsScrollRow(
 // ============================================================
 // Seek bar row
 // ============================================================
-@Composable
 /**
  * REX-style A-B point chip: shows the letter when unset and the timestamp
  * (highlighted) when set. Tapping toggles the point at the current position.
@@ -1991,6 +1990,7 @@ private fun ABPointChip(
     }
 }
 
+@Composable
 private fun SeekBarRow(
     currentPosition: Long,
     duration: Long,
