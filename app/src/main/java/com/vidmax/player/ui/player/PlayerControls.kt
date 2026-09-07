@@ -807,11 +807,12 @@ fun PlayerControls(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (showABPanel) {
-                    // Compact content-sized pill, centered like REX — never
-                    // stretched across the player width.
+                    // Compact content-sized pill pinned to the RIGHT side,
+                    // aligned with the bottom controls (REX placement), with
+                    // a margin so it never touches the screen edge.
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center) {
+                        modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
+                        horizontalArrangement = Arrangement.End) {
                         // REX-style compact A-B panel (see ABLoopPanel).
                         ABLoopPanel(
                             pointA = abPointA,
