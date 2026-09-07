@@ -42,6 +42,7 @@ fun PlayerSettingsSheet(
     val activity = context as? Activity
     val currentEngine by viewModel.currentEngine.collectAsState()
     val subtitleSize by viewModel.subtitleSize.collectAsState()
+    val playerVolumeBoost by viewModel.playerVolumeBoost.collectAsState()
 
     val primary = MaterialTheme.colorScheme.primary
     val isMpv = currentEngine == PlayerEngine.MPV
@@ -172,6 +173,13 @@ fun PlayerSettingsSheet(
                     showControlsOnPlay = it
                     savePrefs("show_controls_on_play", it)
                 }
+            )
+            SettingsSwitchRow(
+                title = "Volume Booster (200%)",
+                subtitle = "Amplify volume beyond device limits",
+                icon = Icons.Outlined.VolumeUp,
+                checked = playerVolumeBoost == true,
+                onCheckedChange = { viewModel.setPlayerVolumeBoost(it) }
             )
             SettingsSwitchRow(
                 title = "Controls Below Seek Bar",

@@ -203,6 +203,17 @@ class PlayerViewModel : ViewModel() {
   private val _currentBrightnessPercent: MutableStateFlow<Float> = MutableStateFlow(0f)
   val currentBrightnessPercent: StateFlow<Float> = _currentBrightnessPercent
 
+  // Player volume-booster mirror: owned/applied by PlayerControls (audio
+  // session routing stays there); the Settings sheet reads/toggles through
+  // this shared state so the booster remains accessible without its
+  // bottom-bar shortcut. Null until PlayerControls publishes its state.
+  private val _playerVolumeBoost: MutableStateFlow<Boolean?> = MutableStateFlow(null)
+  val playerVolumeBoost: StateFlow<Boolean?> = _playerVolumeBoost
+
+  fun setPlayerVolumeBoost(enabled: Boolean) {
+    _playerVolumeBoost.value = enabled
+  }
+
   // --- Engine Switch Logic ---
   fun setPlayerEngine(engine: PlayerEngine) {
     _currentEngine.value = engine

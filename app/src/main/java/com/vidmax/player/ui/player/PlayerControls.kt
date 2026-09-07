@@ -144,6 +144,19 @@ fun PlayerControls(
     val currentPosition by viewModel.currentPosition.collectAsState()
     val duration by viewModel.duration.collectAsState()
     val isLocked by viewModel.isLocked.collectAsState()
+    // Lock overlay visibility: shown on lock, auto-hides after ~2.8s of
+    // inactivity, toggled by taps while locked (hide when visible, reveal
+    // + restart countdown when hidden). Unlock restores full controls.
+    var lockUiVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(isLocked) {
+        if (isLocked) lockUiVisible = true
+    }
+    LaunchedEffect(isLocked, lockUiVisible, controlsVisible) {
+        if (isLocked && lockUiVisible && controlsVisible) {
+            delay(2800)
+            lockUiVisible = false
+        }
+    }
     val controlsVisible by viewModel.controlsVisible.collectAsState()
     val loopMode by viewModel.loopMode.collectAsState()
     val abPointA by viewModel.abRepeatA.collectAsState()
@@ -541,6 +554,19 @@ fun PlayerControls(
             viewModel.hideGestureOverlay()
         }
         Unit
+    }
+
+    // Settings-sheet booster bridge: publishes the local booster state on
+    // open and applies sheet toggles through the untouched toggle above.
+    val playerVolumeBoost by viewModel.playerVolumeBoost.collectAsState()
+    LaunchedEffect(Unit) {
+        if (playerVolumeBoost != localBoostEnabled) {
+            viewModel.setPlayerVolumeBoost(localBoostEnabled)
+        }
+    }
+    LaunchedEffect(playerVolumeBoost) {
+        val target = playerVolumeBoost ?: return@LaunchedEffect
+        if (target != localBoostEnabled) toggleAudioBoost()
     }
 
     val toggleImmersive = {
@@ -1289,7 +1315,16 @@ fun PlayerControls(
                                     boostTapLatch = false
                                     return@detectTapGestures
                                 }
-                                viewModel.setControlsVisible(true)
+                                // Locked taps only toggle the unlock UI: hide
+                                // it when visible, reveal + restart the
+                                // auto-hide countdown when hidden. Seeking and
+                                // all other interactions stay locked.
+                                if (lockUiVisible) {
+                                    viewModel.setControlsVisible(false)
+                                } else {
+                                    lockUiVisible = true
+                                    viewModel.setControlsVisible(true)
+                                }
                             })
                     }
                 }
@@ -1491,24 +1526,32 @@ fun PlayerControls(
                 }
                 if (isLocked) {
                     // ---- Locked state: lock button + slide to unlock ----
-                    MpvCircleButton(
-                        icon = Icons.Default.Lock,
-                        contentDescription = "Unlock",
-                        onClick = { viewModel.setControlsVisible(true) },
-                        modifier = Modifier.align(Alignment.CenterStart).padding(start = leftSafePadding),
-                        size = 48.dp
-                    )
-                    MpvSlideToUnlock(
-                        onUnlock = { viewModel.toggleLock() },
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)
-                    )
+                    // (gated on lockUiVisible so the lock UI auto-hides and
+                    // tap-toggles; full controls never show while locked).
+                    if (lockUiVisible) {
+                        MpvCircleButton(
+                            icon = Icons.Default.Lock,
+                            contentDescription = "Unlock",
+                            onClick = { viewModel.setControlsVisible(true) },
+                            modifier = Modifier.align(Alignment.CenterStart).padding(start = leftSafePadding),
+                            size = 48.dp
+                        )
+                        MpvSlideToUnlock(
+                            onUnlock = { viewModel.toggleLock() },
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)
+                        )
+                    }
                 } else {
                     // ==================== TOP BAR ====================
-                    Row(
+                    Column(
                         modifier = Modifier.align(Alignment.TopCenter)
                             .fillMaxWidth()
                             .padding(top = 24.dp, start = leftSafePadding, end = rightSafePadding)
                             .windowInsetsPadding(WindowInsets.statusBars),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -1663,6 +1706,29 @@ fun PlayerControls(
                         }
                     }
 
+                    // ---- AB + Screenshot quick row, directly beneath the
+                    // title bar. Same listeners/state as before, only moved.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ABTextCircleButton(
+                            text = "AB",
+                            active = showABPanel,
+                            onClick = { viewModel.setShowABPanel(!showABPanel) },
+                            size = 42.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        MpvCircleButton(
+                            icon = Icons.Filled.PhotoCamera,
+                            contentDescription = "Screenshot",
+                            onClick = { takeScreenshot() },
+                            size = 42.dp
+                        )
+                    }
+                    }
+
                     // ==================== CENTER TRANSPORT ====================
                     // Hidden while a drag gesture (seek/volume/brightness) is
                     // in progress so it doesn't overlap the gesture overlay.
@@ -1806,27 +1872,18 @@ fun PlayerControls(
                             BottomControlsScrollRow(
                                 isLocked = isLocked,
                                 bgPlayEnabled = bgPlayEnabled,
-                                videoScale = videoScale,
                                 currentPlaybackSpeed = currentPlaybackSpeed,
                                 loopMode = loopMode,
-                                localBoostEnabled = localBoostEnabled,
                                 sleepTimerMinutes = sleepTimerMinutes,
-                                showImmersive = showImmersive,
                                 hideBackground = hideButtonBackground,
                                 onToggleLock = { viewModel.toggleLock() },
                                 onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
                                 onRotate = toggleScreenRotation,
-                                onZoom = { viewModel.setShowZoomSheet(true) },
                                 onAspect = { viewModel.setShowAspectSheet(true) },
                                 onSpeed = { viewModel.setShowSyncSheet(true) },
                                 onRepeat = { viewModel.cycleLoopMode() },
-                                onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
-                                onImmersive = toggleImmersive,
                                 onKeepVisible = { viewModel.setControlsVisible(true) },
-                                onScreenshot = { takeScreenshot() },
-                                abPanelOpen = showABPanel,
-                                onABToggle = { viewModel.setShowABPanel(!showABPanel) },
                                 showSpeedButton = showSpeedButton,
                                 showLoopButton = showLoopButton,
                                 showZoomButtons = showZoomButtons,
@@ -1836,27 +1893,18 @@ fun PlayerControls(
                             BottomControlsScrollRow(
                                 isLocked = isLocked,
                                 bgPlayEnabled = bgPlayEnabled,
-                                videoScale = videoScale,
                                 currentPlaybackSpeed = currentPlaybackSpeed,
                                 loopMode = loopMode,
-                                localBoostEnabled = localBoostEnabled,
                                 sleepTimerMinutes = sleepTimerMinutes,
-                                showImmersive = showImmersive,
                                 hideBackground = hideButtonBackground,
                                 onToggleLock = { viewModel.toggleLock() },
                                 onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
                                 onRotate = toggleScreenRotation,
-                                onZoom = { viewModel.setShowZoomSheet(true) },
                                 onAspect = { viewModel.setShowAspectSheet(true) },
                                 onSpeed = { viewModel.setShowSyncSheet(true) },
                                 onRepeat = { viewModel.cycleLoopMode() },
-                                onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
-                                onImmersive = toggleImmersive,
                                 onKeepVisible = { viewModel.setControlsVisible(true) },
-                                onScreenshot = { takeScreenshot() },
-                                abPanelOpen = showABPanel,
-                                onABToggle = { viewModel.setShowABPanel(!showABPanel) },
                                 showSpeedButton = showSpeedButton,
                                 showLoopButton = showLoopButton,
                                 showZoomButtons = showZoomButtons,
@@ -1889,27 +1937,18 @@ fun PlayerControls(
 private fun BottomControlsScrollRow(
     isLocked: Boolean,
     bgPlayEnabled: Boolean,
-    videoScale: Float,
     currentPlaybackSpeed: Float,
     loopMode: LoopMode,
-    localBoostEnabled: Boolean,
     sleepTimerMinutes: Int,
-    showImmersive: Boolean,
     hideBackground: Boolean,
     onToggleLock: () -> Unit,
     onToggleBgPlay: () -> Unit,
     onRotate: () -> Unit,
-    onZoom: () -> Unit,
     onAspect: () -> Unit,
     onSpeed: () -> Unit,
     onRepeat: () -> Unit,
-    onBoost: () -> Unit,
     onTimer: () -> Unit,
-    onImmersive: () -> Unit,
     onKeepVisible: () -> Unit,
-    onScreenshot: () -> Unit,
-    abPanelOpen: Boolean,
-    onABToggle: () -> Unit,
     showSpeedButton: Boolean = true,
     showLoopButton: Boolean = true,
     showZoomButtons: Boolean = true,
@@ -1956,14 +1995,6 @@ private fun BottomControlsScrollRow(
         )
         if (showZoomButtons) {
             MpvCircleButton(
-                icon = Icons.Outlined.ZoomIn,
-                contentDescription = "Zoom",
-                onClick = onZoom,
-                size = 42.dp,
-                active = videoScale != 1f,
-                hideBackground = hideBackground
-            )
-            MpvCircleButton(
                 icon = Icons.Outlined.AspectRatio,
                 contentDescription = "Aspect ratio",
                 onClick = onAspect,
@@ -1991,46 +2022,13 @@ private fun BottomControlsScrollRow(
                 hideBackground = hideBackground
             )
         }
-        // Circular "AB" entry button: clear text label inside the existing
-        // bottom row (never moved). Toggles the independent floating panel.
-        ABTextCircleButton(
-            text = "AB",
-            active = abPanelOpen,
-            onClick = onABToggle,
-            size = 42.dp,
-            hideBackground = hideBackground
-        )
         if (showExtraButtons) {
-            MpvCircleButton(
-                icon = Icons.Filled.PhotoCamera,
-                contentDescription = "Screenshot",
-                onClick = onScreenshot,
-                size = 42.dp,
-                hideBackground = hideBackground
-            )
-            MpvCircleButton(
-                icon = Icons.Outlined.VolumeUp,
-                contentDescription = "Volume boost",
-                onClick = onBoost,
-                size = 42.dp,
-                active = localBoostEnabled,
-                hideBackground = hideBackground
-            )
             MpvCircleButton(
                 icon = Icons.Outlined.Timer,
                 contentDescription = "Sleep timer",
                 onClick = onTimer,
                 size = 42.dp,
                 active = sleepTimerMinutes > 0,
-                hideBackground = hideBackground
-            )
-        }
-        if (showExtraButtons) {
-            MpvCircleButton(
-                icon = if (showImmersive) Icons.Default.Fullscreen else Icons.Default.FullscreenExit,
-                contentDescription = "Fullscreen",
-                onClick = onImmersive,
-                size = 42.dp,
                 hideBackground = hideBackground
             )
         }
