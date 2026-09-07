@@ -424,7 +424,7 @@ fun PlayerControls(
     }
 
     val keepRepeatControlsVisible = !isLocked &&
-        (showABPanel || abPointA != null || abPointB != null || showBookmarkDialog || showBookmarkList)
+        (showBookmarkDialog || showBookmarkList)
     LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs, keepRepeatControlsVisible) {
         // The lock button + slide-to-unlock overlay also auto-hides, like all
         // other controls — a tap anywhere brings it back while locked.
@@ -802,14 +802,16 @@ fun PlayerControls(
 
     // Shared inline content sits immediately above the seekbar in all three layouts.
     val repeatBookmarkPanel: @Composable () -> Unit = {
-        if (showABPanel || abPointA != null || abPointB != null || showBookmarkDialog || showBookmarkList) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().widthIn(max = 360.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-            ) {
-                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    if (showABPanel) {
+        if (showABPanel || showBookmarkDialog || showBookmarkList) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (showABPanel) {
+                    // Compact content-sized pill, centered like REX — never
+                    // stretched across the player width.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center) {
                         // REX-style compact A-B panel (see ABLoopPanel).
                         ABLoopPanel(
                             pointA = abPointA,
@@ -832,6 +834,14 @@ fun PlayerControls(
                                 }
                             })
                     }
+                }
+                if (showBookmarkDialog || showBookmarkList) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().widthIn(max = 360.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
                     if (showBookmarkDialog) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
@@ -917,6 +927,8 @@ fun PlayerControls(
                     }
                 }
             }
+        }
+    }
         }
     }
 
@@ -2066,7 +2078,8 @@ private fun ABLoopPanel(
             modifier = Modifier.padding(horizontal = 4.dp)
         ) {
             ABLoopCircle(
-                text = pointA?.let(::formatTimeHelper) ?: "A",
+                letter = "A",
+                timestamp = pointA?.let(::formatTimeHelper),
                 highlighted = pointA != null,
                 onClick = onSetA)
             Surface(
@@ -2087,7 +2100,8 @@ private fun ABLoopPanel(
                 }
             }
             ABLoopCircle(
-                text = pointB?.let(::formatTimeHelper) ?: "B",
+                letter = "B",
+                timestamp = pointB?.let(::formatTimeHelper),
                 highlighted = pointB != null,
                 onClick = onSetB)
             Surface(
@@ -2117,12 +2131,14 @@ private fun ABLoopPanel(
 }
 
 /**
- * Single A/B point circle for [ABLoopPanel]: letter when unset, timestamp
- * (highlighted) when set. Tapping toggles the point.
+ * Single A/B point circle for [ABLoopPanel]: the letter label is always
+ * visible, with the timestamp appended beside it while the point is set.
+ * Tapping toggles the point.
  */
 @Composable
 private fun ABLoopCircle(
-    text: String,
+    letter: String,
+    timestamp: String?,
     highlighted: Boolean,
     onClick: () -> Unit,
     buttonSize: Dp = 40.dp
@@ -2137,12 +2153,24 @@ private fun ABLoopCircle(
             .clickable(onClick = onClick)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                color = if (highlighted) MaterialTheme.colorScheme.onTertiaryContainer
-                else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = if (highlighted) 8.dp else 0.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = if (highlighted) 8.dp else 0.dp)) {
+                Text(
+                    text = letter,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (highlighted) MaterialTheme.colorScheme.onTertiaryContainer
+                    else MaterialTheme.colorScheme.onSurface)
+                if (timestamp != null) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = timestamp,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (highlighted) MaterialTheme.colorScheme.onTertiaryContainer
+                        else MaterialTheme.colorScheme.onSurface)
+                }
+            }
         }
     }
 }
