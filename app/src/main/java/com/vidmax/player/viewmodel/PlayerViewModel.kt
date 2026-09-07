@@ -140,6 +140,10 @@ class PlayerViewModel : ViewModel() {
   private val _showSpeedSheet: MutableStateFlow<Boolean> = MutableStateFlow(false)
   val showSpeedSheet: StateFlow<Boolean> = _showSpeedSheet
 
+  // Floating A-B repeat pill visibility (toggled from the overflow menu).
+  private val _showABPanel: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val showABPanel: StateFlow<Boolean> = _showABPanel
+
   private val _loopMode: MutableStateFlow<LoopMode> = MutableStateFlow(LoopMode.NONE)
   val loopMode: StateFlow<LoopMode> = _loopMode
 
@@ -312,6 +316,10 @@ class PlayerViewModel : ViewModel() {
 
   fun setShowSpeedSheet(show: Boolean) {
     _showSpeedSheet.value = show
+  }
+
+  fun setShowABPanel(show: Boolean) {
+    _showABPanel.value = show
   }
 
   fun cycleLoopMode() {
