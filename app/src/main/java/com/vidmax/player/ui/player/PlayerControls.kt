@@ -1525,20 +1525,23 @@ fun PlayerControls(
                     )
                 }
                 if (isLocked) {
-                    // ---- Locked state: lock button + slide to unlock ----
+                    // ---- Locked state: single-tap Unlock button ----
                     // (gated on lockUiVisible so the lock UI auto-hides and
                     // tap-toggles; full controls never show while locked).
+                    // One tap unlocks instantly: the old slide-to-unlock
+                    // could never complete because the video surface claims
+                    // horizontal drags for seeking, which stranded users on
+                    // the lock screen.
                     if (lockUiVisible) {
                         MpvCircleButton(
-                            icon = Icons.Default.Lock,
+                            icon = Icons.Default.LockOpen,
                             contentDescription = "Unlock",
-                            onClick = { viewModel.setControlsVisible(true) },
+                            onClick = {
+                                viewModel.toggleLock()
+                                viewModel.setControlsVisible(true)
+                            },
                             modifier = Modifier.align(Alignment.CenterStart).padding(start = leftSafePadding),
                             size = 48.dp
-                        )
-                        MpvSlideToUnlock(
-                            onUnlock = { viewModel.toggleLock() },
-                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)
                         )
                     }
                 } else {
@@ -1707,10 +1710,10 @@ fun PlayerControls(
                     }
 
                     // ---- AB + Screenshot quick row, directly beneath the
-                    // title bar. Same listeners/state as before, only moved.
+                    // title area, left-aligned under back/title.
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
+                        horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ABTextCircleButton(
