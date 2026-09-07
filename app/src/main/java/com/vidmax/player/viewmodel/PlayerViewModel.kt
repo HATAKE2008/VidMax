@@ -50,15 +50,39 @@ class PlayerViewModel : ViewModel() {
   private val _abRepeatB: MutableStateFlow<Long?> = MutableStateFlow(null)
   val abRepeatB: StateFlow<Long?> = _abRepeatB
 
+  // A-B repeat (REX Player semantics): each point toggles independently —
+  // tapping a set point clears just that point. Either point may be set
+  // first; when both are set with A >= B they are swapped so A is always
+  // the loop start and the loop stays valid. The loop engages only while
+  // both points are set.
   fun setABPointA(positionMs: Long) {
-    _abRepeatA.value = positionMs.coerceAtLeast(0L)
-    if (_abRepeatB.value != null && _abRepeatB.value!! <= positionMs) _abRepeatB.value = null
+    val pos = positionMs.coerceAtLeast(0L)
+    if (_abRepeatA.value != null) {
+      _abRepeatA.value = null
+      return
+    }
+    val b = _abRepeatB.value
+    if (b != null && b <= pos) {
+      _abRepeatA.value = b
+      _abRepeatB.value = pos
+    } else {
+      _abRepeatA.value = pos
+    }
   }
 
   fun setABPointB(positionMs: Long) {
-    val a = _abRepeatA.value ?: return
-    if (positionMs <= a) return
-    _abRepeatB.value = positionMs
+    val pos = positionMs.coerceAtLeast(0L)
+    if (_abRepeatB.value != null) {
+      _abRepeatB.value = null
+      return
+    }
+    val a = _abRepeatA.value
+    if (a != null && pos <= a) {
+      _abRepeatA.value = pos
+      _abRepeatB.value = a
+    } else {
+      _abRepeatB.value = pos
+    }
   }
 
   fun clearABRepeat() {

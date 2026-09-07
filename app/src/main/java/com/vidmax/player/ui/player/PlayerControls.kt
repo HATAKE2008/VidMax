@@ -391,7 +391,7 @@ fun PlayerControls(
     }
 
     val keepRepeatControlsVisible = !isLocked &&
-        (abPointA != null || showBookmarkDialog || showBookmarkList)
+        (abPointA != null || abPointB != null || showBookmarkDialog || showBookmarkList)
     LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs, keepRepeatControlsVisible) {
         // The lock button + slide-to-unlock overlay also auto-hides, like all
         // other controls — a tap anywhere brings it back while locked.
@@ -769,29 +769,32 @@ fun PlayerControls(
 
     // Shared inline content sits immediately above the seekbar in all three layouts.
     val repeatBookmarkPanel: @Composable () -> Unit = {
-        if (abPointA != null || showBookmarkDialog || showBookmarkList) {
+        if (abPointA != null || abPointB != null || showBookmarkDialog || showBookmarkList) {
             Surface(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 360.dp),
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    abPointA?.let { a ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "A ${formatTimeHelper(a)}  /  B ${abPointB?.let(::formatTimeHelper) ?: "--:--"}",
+                    if (abPointA != null || abPointB != null) {
+                        // REX-style A/B chips: letter when unset, timestamp when
+                        // set (highlighted). Tapping a chip sets the point at
+                        // the current position, or clears it if already set.
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ABPointChip(
+                                letter = "A",
+                                timestamp = abPointA?.let(::formatTimeHelper),
                                 modifier = Modifier.weight(1f),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis)
-                            TextButton(
-                                enabled = currentPosition > a,
-                                onClick = { viewModel.setABPointB(currentPosition) }) {
-                                Text("Set B", fontSize = 12.sp)
-                            }
-                            TextButton(onClick = { viewModel.clearABRepeat() }) {
-                                Text("Clear", fontSize = 12.sp)
+                                onClick = { viewModel.setABPointA(currentPosition) })
+                            ABPointChip(
+                                letter = "B",
+                                timestamp = abPointB?.let(::formatTimeHelper),
+                                modifier = Modifier.weight(1f),
+                                onClick = { viewModel.setABPointB(currentPosition) })
+                            IconButton(onClick = { viewModel.clearABRepeat() }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear A-B repeat")
                             }
                         }
                     }
@@ -1520,17 +1523,26 @@ fun PlayerControls(
                                     onClick = { showMoreMenu = false; viewModel.setShowSyncSheet(true) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Set A-B point A", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = {
+                                        Text(
+                                            if (abPointA != null) "Clear A-B point A"
+                                            else "Set A-B point A",
+                                            color = MaterialTheme.colorScheme.onSurface)
+                                    },
                                     leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { showMoreMenu = false; viewModel.setABPointA(currentPosition) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Set A-B point B", color = MaterialTheme.colorScheme.onSurface) },
-                                    enabled = abPointA != null,
+                                    text = {
+                                        Text(
+                                            if (abPointB != null) "Clear A-B point B"
+                                            else "Set A-B point B",
+                                            color = MaterialTheme.colorScheme.onSurface)
+                                    },
                                     leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { showMoreMenu = false; viewModel.setABPointB(currentPosition) }
                                 )
-                                if (abPointA != null) {
+                                if (abPointA != null || abPointB != null) {
                                     DropdownMenuItem(
                                         text = { Text("Clear A-B repeat", color = MaterialTheme.colorScheme.onSurface) },
                                         leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
@@ -1665,9 +1677,15 @@ fun PlayerControls(
                             .padding(bottom = 20.dp, start = leftSafePadding, end = rightSafePadding),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Bookmark + A-B pins (REX passes loop points to its
+                        // seekbar; VidMax reuses the existing pin markers).
                         val pinFractions =
-                            if (duration > 0) bookmarkList.map { (it.positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f) }
-                            else emptyList()
+                            if (duration > 0) {
+                                bookmarkList.map { (it.positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f) } +
+                                    listOfNotNull(
+                                        abPointA?.let { (it.toFloat() / duration.toFloat()).coerceIn(0f, 1f) },
+                                        abPointB?.let { (it.toFloat() / duration.toFloat()).coerceIn(0f, 1f) })
+                            } else emptyList()
                         if (minimalist) {
                             // Minimalist: lock + rotate stay reachable, everything
                             // else hides; seekbar below keeps seeking accessible.
@@ -1940,6 +1958,39 @@ private fun BottomControlsScrollRow(
 // Seek bar row
 // ============================================================
 @Composable
+/**
+ * REX-style A-B point chip: shows the letter when unset and the timestamp
+ * (highlighted) when set. Tapping toggles the point at the current position.
+ */
+@Composable
+private fun ABPointChip(
+    letter: String,
+    timestamp: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isSet = timestamp != null
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSet) MaterialTheme.colorScheme.tertiaryContainer else Color.Transparent,
+        border = BorderStroke(
+            1.dp,
+            if (isSet) MaterialTheme.colorScheme.tertiaryContainer
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Text(
+            text = timestamp ?: letter,
+            color = if (isSet) MaterialTheme.colorScheme.onTertiaryContainer
+            else MaterialTheme.colorScheme.onSurface,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+    }
+}
+
 private fun SeekBarRow(
     currentPosition: Long,
     duration: Long,

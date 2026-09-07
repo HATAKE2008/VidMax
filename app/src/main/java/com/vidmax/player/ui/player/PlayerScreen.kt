@@ -412,12 +412,23 @@ fun PlayerScreen(
           }
         },
         onSeek = { position: Long ->
+          // REX parity: while an A-B loop is active, absolute seeks clamp
+          // into the loop range so the user can't leave it by tapping or
+          // dragging the seekbar (the loop-back seek to A always passes).
+          val loopA = viewModel.abRepeatA.value
+          val loopB = viewModel.abRepeatB.value
+          val target =
+              if (loopA != null && loopB != null) {
+                position.coerceIn(minOf(loopA, loopB), maxOf(loopA, loopB))
+              } else {
+                position
+              }
           if (currentEngine == PlayerEngine.MPV) {
             try {
               // 🔥 FIX: ম্যানুয়ালি প্রপার্টি চেঞ্জ করার বদলে ডিরেক্ট MPV command দিয়ে absolute seek
-              MPVLib.command(arrayOf("seek", (position / 1000.0).toString(), "absolute"))
+              MPVLib.command(arrayOf("seek", (target / 1000.0).toString(), "absolute"))
             } catch (e: Exception) {}
-          } else exoPlayer?.seekTo(position)
+          } else exoPlayer?.seekTo(target)
         },
         onPrevious = onPrevious,
         onNext = onNext,
