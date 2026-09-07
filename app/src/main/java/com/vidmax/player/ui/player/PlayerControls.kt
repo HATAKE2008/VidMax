@@ -158,6 +158,21 @@ fun PlayerControls(
             lockUiVisible = false
         }
     }
+    // Fresh-state tap handler for the long-lived locked gesture detector.
+    // pointerInput coroutines restart only on key change, so reading the
+    // `by` delegates directly inside onTap would freeze the values from
+    // lock time forever (every tap would re-hide and the button could never
+    // be revealed again). UpdatedState always sees the current values, which
+    // keeps this full-screen tap layer — always composed while locked —
+    // reliably toggling the unlock button.
+    val lockedTapToggle = rememberUpdatedState {
+        if (lockUiVisible) {
+            viewModel.setControlsVisible(false)
+        } else {
+            lockUiVisible = true
+            viewModel.setControlsVisible(true)
+        }
+    }
     val loopMode by viewModel.loopMode.collectAsState()
     val abPointA by viewModel.abRepeatA.collectAsState()
     val abPointB by viewModel.abRepeatB.collectAsState()
@@ -1319,12 +1334,9 @@ fun PlayerControls(
                                 // it when visible, reveal + restart the
                                 // auto-hide countdown when hidden. Seeking and
                                 // all other interactions stay locked.
-                                if (lockUiVisible) {
-                                    viewModel.setControlsVisible(false)
-                                } else {
-                                    lockUiVisible = true
-                                    viewModel.setControlsVisible(true)
-                                }
+                                // (Fresh-state handler: the detector coroutine
+                                // outlives state changes.)
+                                lockedTapToggle.value()
                             })
                     }
                 }
