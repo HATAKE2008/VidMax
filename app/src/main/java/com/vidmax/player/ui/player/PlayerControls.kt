@@ -64,7 +64,9 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -128,6 +130,7 @@ fun PlayerControls(
 ) {
 
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     val activity = context as? Activity
     val configuration = LocalConfiguration.current
@@ -322,10 +325,36 @@ fun PlayerControls(
       }
     }
 
+    // REX parity: glide the engine speed in short steps instead of jumping,
+    // so engaging/releasing the 2x hold never stutters audio (MPV) or jerks
+    // playback (Exo). The ViewModel state flips instantly so the 2x
+    // indicator and speed UI stay truthful while the engine catches up.
+    fun rampEngineSpeed(from: Float, to: Float) {
+      coroutineScope.launch {
+        val steps = 5
+        repeat(steps) { i ->
+          val t = (i + 1).toFloat() / steps
+          val v = from + (to - from) * t
+          if (currentEngine == PlayerEngine.MPV) {
+            try {
+              MPVLib.setPropertyDouble("speed", v.toDouble())
+            } catch (e: Exception) {}
+          } else {
+            try {
+              exoPlayer?.setPlaybackSpeed(v)
+            } catch (e: Exception) {}
+          }
+          if (i < steps - 1) delay(16)
+        }
+      }
+    }
+
     fun startSpeedBoost() {
-      if (isLocked || boostPrevSpeed != null) return
-      boostPrevSpeed = viewModel.playbackSpeed.value
+      if (isLocked || boostPrevSpeed != null || !isPlaying) return
+      val prev = viewModel.playbackSpeed.value
+      boostPrevSpeed = prev
       applyEngineSpeed(2f)
+      rampEngineSpeed(prev, 2f)
     }
 
     fun stopSpeedBoost() {
@@ -333,6 +362,7 @@ fun PlayerControls(
       boostPrevSpeed = null
       boostTapLatch = true
       applyEngineSpeed(prev)
+      rampEngineSpeed(2f, prev)
     }
 
     LaunchedEffect(currentPath) {
@@ -1160,14 +1190,63 @@ fun PlayerControls(
                         lastTwoFingerActive = false
                     }
                 }
-                .pointerInput(isLocked) {
-                    // Press-and-hold anywhere on the video for temporary 2x.
-                    // No onTap here, so normal taps/double-taps still belong
-                    // to the tap detector below; release always restores speed.
-                    detectTapGestures(
-                        onLongPress = { startSpeedBoost() },
-                        onPress = { tryAwaitRelease(); stopSpeedBoost() }
-                    )
+                .pointerInput(isLocked, isPlaying) {
+                    // REX-style press-and-hold for temporary 2x: one unified
+                    // detector instead of detectTapGestures, which the volume /
+                    // brightness / seek drag detector above could starve or
+                    // cancel on natural finger drift.
+                    // - 500ms timer; fires only if the finger stayed within
+                    //   slop (well under the 40px drag threshold, so drags
+                    //   never fight the hold) and playback is running.
+                    // - Multi-finger press cancels the hold attempt.
+                    // - Release always restores the previous speed, so the
+                    //   release can never leak into tap handling or pause.
+                    // Nothing is consumed here, so taps, double-taps and all
+                    // drags keep working in their own detectors.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val downPos = down.position
+                        val slopPx = 24.dp.toPx()
+                        var maxDrift = 0f
+                        var cancelled = false
+                        var boostedByThisGesture = false
+                        val holdJob = coroutineScope.launch {
+                            delay(500L)
+                            if (!cancelled && maxDrift <= slopPx && !isLocked &&
+                                isPlaying && boostPrevSpeed == null) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                startSpeedBoost()
+                                boostedByThisGesture = true
+                            }
+                        }
+                        try {
+                            do {
+                                val event = awaitPointerEvent()
+                                if (event.changes.count { it.pressed } > 1) {
+                                    cancelled = true
+                                    holdJob.cancel()
+                                } else {
+                                    event.changes.forEach { change ->
+                                        if (change.pressed) {
+                                            val drift =
+                                                (change.position - downPos).getDistance()
+                                            if (drift > maxDrift) maxDrift = drift
+                                            if (maxDrift > slopPx) {
+                                                cancelled = true
+                                                holdJob.cancel()
+                                            }
+                                        }
+                                    }
+                                }
+                            } while (event.changes.any { it.pressed })
+                        } finally {
+                            holdJob.cancel()
+                            if (boostedByThisGesture) {
+                                boostedByThisGesture = false
+                                stopSpeedBoost()
+                            }
+                        }
+                    }
                 }
                 .pointerInput(isLocked) {
                     if (!isLocked) {
