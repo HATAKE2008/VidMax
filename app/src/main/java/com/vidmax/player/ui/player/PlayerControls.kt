@@ -45,7 +45,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Segment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -802,40 +801,10 @@ fun PlayerControls(
 
     // Shared inline content sits immediately above the seekbar in all three layouts.
     val repeatBookmarkPanel: @Composable () -> Unit = {
-        if (showABPanel || showBookmarkDialog || showBookmarkList) {
+        if (showBookmarkDialog || showBookmarkList) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (showABPanel) {
-                    // Compact content-sized pill pinned to the RIGHT side,
-                    // aligned with the bottom controls (REX placement), with
-                    // a margin so it never touches the screen edge.
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
-                        horizontalArrangement = Arrangement.End) {
-                        // REX-style compact A-B panel (see ABLoopPanel).
-                        ABLoopPanel(
-                            pointA = abPointA,
-                            pointB = abPointB,
-                            loopEnabled = abLoopEnabled,
-                            onSetA = { viewModel.setABPointA(currentPosition) },
-                            onSetB = { viewModel.setABPointB(currentPosition) },
-                            onClear = {
-                                viewModel.clearABRepeat()
-                                viewModel.setShowABPanel(false)
-                            },
-                            onToggleLoop = {
-                                if (abPointA != null && abPointB != null) {
-                                    viewModel.setABLoopEnabled(!abLoopEnabled)
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "Set both A and B first",
-                                        Toast.LENGTH_SHORT).show()
-                                }
-                            })
-                    }
-                }
                 if (showBookmarkDialog || showBookmarkList) {
             Surface(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 360.dp),
@@ -1404,6 +1373,36 @@ fun PlayerControls(
             ) {
                 Text("2× speed", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
+        }
+
+        // ---- Floating A-B panel (bottom-right independent overlay) ----
+        // Compact content-sized pill floating above the bottom controls. It
+        // lives inside the controls-visibility gate, so tap-to-hide and
+        // auto-hide hide it together with every other control, and it never
+        // pushes, moves or resizes any existing control or the seekbar.
+        if (showABPanel && !isLocked) {
+            ABLoopPanel(
+                pointA = abPointA,
+                pointB = abPointB,
+                loopEnabled = abLoopEnabled,
+                onSetA = { viewModel.setABPointA(currentPosition) },
+                onSetB = { viewModel.setABPointB(currentPosition) },
+                onClear = {
+                    viewModel.clearABRepeat()
+                    viewModel.setShowABPanel(false)
+                },
+                onToggleLoop = {
+                    if (abPointA != null && abPointB != null) {
+                        viewModel.setABLoopEnabled(!abLoopEnabled)
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Set both A and B first",
+                            Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 180.dp))
         }
 
         // ---- Brightness gesture overlay ----
@@ -1992,15 +1991,13 @@ private fun BottomControlsScrollRow(
                 hideBackground = hideBackground
             )
         }
-        // REX-style circular AB entry button (PlayerButton.AB_LOOP): toggles
-        // the compact A-B panel above the seekbar. Always visible so the
-        // panel is reachable in every layout, portrait and landscape.
-        MpvCircleButton(
-            icon = Icons.AutoMirrored.Outlined.Segment,
-            contentDescription = "A-B repeat",
+        // Circular "AB" entry button: clear text label inside the existing
+        // bottom row (never moved). Toggles the independent floating panel.
+        ABTextCircleButton(
+            text = "AB",
+            active = abPanelOpen,
             onClick = onABToggle,
             size = 42.dp,
-            active = abPanelOpen,
             hideBackground = hideBackground
         )
         if (showExtraButtons) {
@@ -2043,6 +2040,52 @@ private fun BottomControlsScrollRow(
 // ============================================================
 // Seek bar row
 // ============================================================
+/**
+ * Circular "AB" button for the bottom control row: the same translucent
+ * circular styling as [MpvCircleButton] (shape, surface, border, press
+ * scale), rendering a clear text label instead of an icon.
+ */
+@Composable
+private fun ABTextCircleButton(
+    text: String,
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 42.dp,
+    hideBackground: Boolean = false
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.86f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "abTextButtonScale"
+    )
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(size).scale(scale),
+        shape = CircleShape,
+        color = when {
+            active -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+            hideBackground -> Color.Transparent
+            else -> Color.White.copy(alpha = 0.12f)
+        },
+        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else Color.White,
+        border = if (hideBackground && !active) null
+        else BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        interactionSource = interactionSource
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                color = if (active) MaterialTheme.colorScheme.onPrimary else Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
+
 /**
  * REX-style compact A-B panel: A → X → B → loop toggle in one rounded pill.
  *
