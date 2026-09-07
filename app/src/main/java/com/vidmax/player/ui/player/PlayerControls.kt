@@ -2106,7 +2106,6 @@ private fun ABPointChip(
     }
 }
 
-@Composable
 /**
  * Circular "AB" badge used as the overflow-menu entry icon. Highlights with
  * the theme accent while the floating A-B pill is visible.
@@ -2219,6 +2218,7 @@ private fun ABRepeatPill(
     }
 }
 
+@Composable
 private fun SeekBarRow(
     currentPosition: Long,
     duration: Long,
