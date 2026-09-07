@@ -144,6 +144,7 @@ fun PlayerControls(
     val currentPosition by viewModel.currentPosition.collectAsState()
     val duration by viewModel.duration.collectAsState()
     val isLocked by viewModel.isLocked.collectAsState()
+    val controlsVisible by viewModel.controlsVisible.collectAsState()
     // Lock overlay visibility: shown on lock, auto-hides after ~2.8s of
     // inactivity, toggled by taps while locked (hide when visible, reveal
     // + restart countdown when hidden). Unlock restores full controls.
@@ -157,7 +158,6 @@ fun PlayerControls(
             lockUiVisible = false
         }
     }
-    val controlsVisible by viewModel.controlsVisible.collectAsState()
     val loopMode by viewModel.loopMode.collectAsState()
     val abPointA by viewModel.abRepeatA.collectAsState()
     val abPointB by viewModel.abRepeatB.collectAsState()
