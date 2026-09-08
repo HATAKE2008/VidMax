@@ -202,22 +202,6 @@ fun HomeScreen(
         })
   }
 
-  if (showSortViewSheet) {
-    SortViewOptionsSheet(
-        sortOrder = sortOrder,
-        sortAscending = sortAscending,
-        viewStyle = currentViewStyle,
-        gridColumns = gridColumnsOverride,
-        onSort = { order, ascending -> viewModel.setSort(order, ascending) },
-        onViewStyle = { style ->
-          currentViewStyle = style
-          prefs.edit().putString("home_view_style", style.name).apply()
-        },
-        onGridColumns = { cols -> setGridColumns(cols) },
-        onRefresh = { viewModel.refreshVideos() },
-        onDismiss = { showSortViewSheet = false })
-  }
-
   if (showDeleteConfirmDialog) {
     AlertDialog(
         onDismissRequest = { showDeleteConfirmDialog = false },
@@ -420,6 +404,22 @@ fun HomeScreen(
       else Toast.makeText(context, "Video not available", Toast.LENGTH_SHORT).show()
     }
     menuVideo = null
+  }
+
+  if (showSortViewSheet) {
+    SortViewOptionsSheet(
+        sortOrder = sortOrder,
+        sortAscending = sortAscending,
+        viewStyle = currentViewStyle,
+        gridColumns = gridColumnsOverride,
+        onSort = { order, ascending -> viewModel.setSort(order, ascending) },
+        onViewStyle = { style ->
+          currentViewStyle = style
+          prefs.edit().putString("home_view_style", style.name).apply()
+        },
+        onGridColumns = { cols -> setGridColumns(cols) },
+        onRefresh = { viewModel.refreshVideos() },
+        onDismiss = { showSortViewSheet = false })
   }
 
   VideoActionMenuHost(
