@@ -1,29 +1,24 @@
 package com.vidmax.player.ui.screen
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,20 +32,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.R
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.viewmodel.LibraryViewModel
 
 /**
  * Recent Play tab content for the Videos home screen (REX RecentlyPlayed
- * behavior adapted to VidMax design): newest first, tap plays via the
- * existing player flow, long-press opens the shared action menu. History
- * itself lives in [com.vidmax.player.data.repository.RecentPlayStore] and
- * is maintained by [LibraryViewModel].
+ * behavior adapted to VidMax design). Rows reuse the exact Videos-tab list
+ * card ([PremiumVideoListCard]) so thumbnails and layout match the video
+ * screen. History itself lives in
+ * [com.vidmax.player.data.repository.RecentPlayStore] and is maintained by
+ * [LibraryViewModel].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -60,8 +56,9 @@ fun VideoRecentContent(
   onDeleteRequest: (VideoItem) -> Unit,
 ) {
   val recentVideos by viewModel.recentVideos.collectAsState()
-
   var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
+  var showClearConfirm by remember { mutableStateOf(false) }
+
   VideoActionMenuHost(
       viewModel = viewModel,
       video = menuVideo,
@@ -75,6 +72,25 @@ fun VideoRecentContent(
         onDeleteRequest(it)
       },
       onDismiss = { menuVideo = null })
+
+  if (showClearConfirm) {
+    AlertDialog(
+        onDismissRequest = { showClearConfirm = false },
+        title = { Text("Clear Recent Play?", fontWeight = FontWeight.Bold) },
+        text = { Text("All recently played entries will be removed from this device.") },
+        confirmButton = {
+          TextButton(
+              onClick = {
+                viewModel.clearRecentHistory()
+                showClearConfirm = false
+              }) {
+                Text("Clear", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+              }
+        },
+        dismissButton = {
+          TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+        })
+  }
 
   if (recentVideos.isEmpty()) {
     Column(
@@ -99,75 +115,38 @@ fun VideoRecentContent(
               fontSize = 13.sp)
         }
   } else {
+    // P4c: cap line length on tablets, same 1100dp pattern as Home.
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter) {
-      Column(modifier = Modifier.fillMaxHeight().fillMaxWidth().widthIn(max = 1100.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically) {
-              TextButton(onClick = { viewModel.clearRecentHistory() }) {
-                Text(
-                    text = "Clear all",
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold)
-              }
+      LazyColumn(
+          modifier = Modifier.fillMaxHeight().fillMaxWidth().widthIn(max = 1100.dp),
+          contentPadding = PaddingValues(bottom = 130.dp),
+          verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            itemsIndexed(items = recentVideos, key = { _, video -> video.path }) { index, video ->
+              PremiumVideoListCard(
+                  video = video,
+                  duration = viewModel.formatDuration(video.duration),
+                  size = viewModel.formatSize(video.size),
+                  resolution = viewModel.getResolutionLabel(video.width, video.height),
+                  isSelected = false,
+                  onClick = { onPlayVideos(recentVideos, index) },
+                  onLongClick = { menuVideo = video })
             }
-        LazyColumn(
-            modifier = Modifier.fillMaxHeight().fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 130.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-              itemsIndexed(items = recentVideos, key = { _, video -> video.path }) { index, video ->
-                Row(
-                    modifier =
-                        Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .combinedClickable(
-                                onClick = { onPlayVideos(recentVideos, index) },
-                                onLongClick = { menuVideo = video })
-                            .padding(horizontal = 10.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                      Box(
-                          modifier =
-                              Modifier.size(38.dp)
-                                  .clip(CircleShape)
-                                  .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                          contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.History,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp))
-                          }
-                      Spacer(modifier = Modifier.width(12.dp))
-                      Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = video.title,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis)
-                        if (video.duration > 0) {
-                          Text(
-                              text = viewModel.formatDuration(video.duration),
-                              color = MaterialTheme.colorScheme.onSurfaceVariant,
-                              fontSize = 11.sp)
-                        }
-                      }
-                      IconButton(onClick = { onPlayVideos(recentVideos, index) }) {
-                        Icon(
-                            imageVector = Icons.Filled.PlayArrow,
-                            contentDescription = "Play",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp))
-                      }
-                    }
-              }
-            }
-      }
+          }
+      // Clear-history trash action floating bottom-right above the nav bar.
+      IconButton(
+          onClick = { showClearConfirm = true },
+          modifier = Modifier.align(Alignment.BottomEnd)
+              .navigationBarsPadding()
+              .padding(end = 16.dp, bottom = 96.dp)
+              .size(52.dp)) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_delete_custom),
+                contentDescription = "Clear Recent Play",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(26.dp))
+          }
     }
   }
 }
