@@ -148,30 +148,13 @@ fun PlayerControls(
     // Lock overlay visibility: shown on lock, auto-hides after ~2.8s of
     // inactivity, toggled by taps while locked (hide when visible, reveal
     // + restart countdown when hidden). Unlock restores full controls.
-    var lockUiVisible by remember { mutableStateOf(true) }
-    LaunchedEffect(isLocked) {
-        if (isLocked) lockUiVisible = true
-    }
-    LaunchedEffect(isLocked, lockUiVisible, controlsVisible) {
-        if (isLocked && lockUiVisible && controlsVisible) {
-            delay(2800)
-            lockUiVisible = false
-        }
-    }
-    // Fresh-state tap handler for the long-lived locked gesture detector.
-    // pointerInput coroutines restart only on key change, so reading the
-    // `by` delegates directly inside onTap would freeze the values from
-    // lock time forever (every tap would re-hide and the button could never
-    // be revealed again). UpdatedState always sees the current values, which
-    // keeps this full-screen tap layer — always composed while locked —
-    // reliably toggling the unlock button.
+    // Locked taps toggle the shared controls visibility (REX model: the
+    // lock UI is purely controlsVisible && isLocked, so show/hide always
+    // stays in sync and taps can never strand the user on a hidden overlay).
+    // Fresh reads via UpdatedState because this detector coroutine restarts
+    // only on key change and would otherwise freeze stale values.
     val lockedTapToggle = rememberUpdatedState {
-        if (lockUiVisible) {
-            viewModel.setControlsVisible(false)
-        } else {
-            lockUiVisible = true
-            viewModel.setControlsVisible(true)
-        }
+        viewModel.setControlsVisible(!viewModel.controlsVisible.value)
     }
     val loopMode by viewModel.loopMode.collectAsState()
     val abPointA by viewModel.abRepeatA.collectAsState()
@@ -453,10 +436,13 @@ fun PlayerControls(
     val keepRepeatControlsVisible = !isLocked &&
         (showBookmarkDialog || showBookmarkList)
     LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs, keepRepeatControlsVisible) {
-        // The lock button + slide-to-unlock overlay also auto-hides, like all
-        // other controls — a tap anywhere brings it back while locked.
         if (keepRepeatControlsVisible) {
             viewModel.setControlsVisible(true)
+        } else if (isLocked && controlsVisible) {
+            // REX model: the locked overlay always auto-hides on a short
+            // fixed delay (2s), independent of the user's auto-hide pref.
+            delay(2000)
+            viewModel.setControlsVisible(false)
         } else if (controlsVisible && autoHideControls && controlsHideDelayMs > 0) {
             delay(controlsHideDelayMs.toLong())
             viewModel.setControlsVisible(false)
@@ -1330,9 +1316,9 @@ fun PlayerControls(
                                     boostTapLatch = false
                                     return@detectTapGestures
                                 }
-                                // Locked taps only toggle the unlock UI: hide
-                                // it when visible, reveal + restart the
-                                // auto-hide countdown when hidden. Seeking and
+                                // Locked taps only toggle the shared controls
+                                // visibility (REX): show the unlock button when
+                                // hidden, hide it when visible. Seeking and
                                 // all other interactions stay locked.
                                 // (Fresh-state handler: the detector coroutine
                                 // outlives state changes.)
@@ -1538,24 +1524,22 @@ fun PlayerControls(
                 }
                 if (isLocked) {
                     // ---- Locked state: single-tap Unlock button ----
-                    // (gated on lockUiVisible so the lock UI auto-hides and
-                    // tap-toggles; full controls never show while locked).
-                    // One tap unlocks instantly: the old slide-to-unlock
-                    // could never complete because the video surface claims
-                    // horizontal drags for seeking, which stranded users on
-                    // the lock screen.
-                    if (lockUiVisible) {
-                        MpvCircleButton(
-                            icon = Icons.Default.LockOpen,
-                            contentDescription = "Unlock",
-                            onClick = {
-                                viewModel.toggleLock()
-                                viewModel.setControlsVisible(true)
-                            },
-                            modifier = Modifier.align(Alignment.CenterStart).padding(start = leftSafePadding),
-                            size = 48.dp
-                        )
-                    }
+                    // Visible exactly when the controls overlay is visible
+                    // (REX: controlsShown && locked), so it auto-hides and
+                    // tap-toggles together with everything else and can never
+                    // strand the user. One tap unlocks instantly: the old
+                    // slide-to-unlock could never complete because the video
+                    // surface claims horizontal drags for seeking.
+                    MpvCircleButton(
+                        icon = Icons.Default.LockOpen,
+                        contentDescription = "Unlock",
+                        onClick = {
+                            viewModel.toggleLock()
+                            viewModel.setControlsVisible(true)
+                        },
+                        modifier = Modifier.align(Alignment.CenterStart).padding(start = leftSafePadding),
+                        size = 48.dp
+                    )
                 } else {
                     // ==================== TOP BAR ====================
                     Column(
