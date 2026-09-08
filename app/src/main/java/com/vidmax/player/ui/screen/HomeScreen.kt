@@ -65,6 +65,7 @@ import com.vidmax.player.R
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
+import com.vidmax.player.ui.components.SortViewOptionsSheet
 import com.vidmax.player.ui.components.FolderPickerDialog
 import com.vidmax.player.ui.components.SelectionBottomBar
 import com.vidmax.player.ui.selection.VideoSelection
@@ -201,6 +202,22 @@ fun HomeScreen(
         })
   }
 
+  if (showSortViewSheet) {
+    SortViewOptionsSheet(
+        sortOrder = sortOrder,
+        sortAscending = sortAscending,
+        viewStyle = currentViewStyle,
+        gridColumns = gridColumnsOverride,
+        onSort = { order, ascending -> viewModel.setSort(order, ascending) },
+        onViewStyle = { style ->
+          currentViewStyle = style
+          prefs.edit().putString("home_view_style", style.name).apply()
+        },
+        onGridColumns = { cols -> setGridColumns(cols) },
+        onRefresh = { viewModel.refreshVideos() },
+        onDismiss = { showSortViewSheet = false })
+  }
+
   if (showDeleteConfirmDialog) {
     AlertDialog(
         onDismissRequest = { showDeleteConfirmDialog = false },
@@ -301,7 +318,7 @@ fun HomeScreen(
   val sortOrder by viewModel.sortOrder.collectAsState()
   val sortAscending by viewModel.sortAscending.collectAsState()
   val isRefreshing by viewModel.isRefreshing.collectAsState()
-  var showSortMenu by remember { mutableStateOf(false) }
+  var showSortViewSheet by remember { mutableStateOf(false) }
   var renameTarget by remember { mutableStateOf<VideoItem?>(null) }
   var renameError by remember { mutableStateOf<String?>(null) }
   var renameBusy by remember { mutableStateOf(false) }
@@ -604,120 +621,13 @@ fun HomeScreen(
                       modifier = Modifier.size(24.dp))
                 }
 
-                Box {
-                  IconButton(onClick = { showSortMenu = true }, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        imageVector = Icons.Filled.Sort,
-                        contentDescription = "Sort",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp))
-                  }
-                  DropdownMenu(
-                      expanded = showSortMenu, onDismissRequest = { showSortMenu = false }) {
-                        HomeSortItem(
-                            label = "Newest first",
-                            checked = sortOrder == SortOrder.DATE && !sortAscending,
-                            onClick = {
-                              viewModel.setSort(SortOrder.DATE, false)
-                              showSortMenu = false
-                            })
-                        HomeSortItem(
-                            label = "Oldest first",
-                            checked = sortOrder == SortOrder.DATE && sortAscending,
-                            onClick = {
-                              viewModel.setSort(SortOrder.DATE, true)
-                              showSortMenu = false
-                            })
-                        HomeSortItem(
-                            label = "Name A-Z",
-                            checked = sortOrder == SortOrder.NAME && sortAscending,
-                            onClick = {
-                              viewModel.setSort(SortOrder.NAME, true)
-                              showSortMenu = false
-                            })
-                        HomeSortItem(
-                            label = "Name Z-A",
-                            checked = sortOrder == SortOrder.NAME && !sortAscending,
-                            onClick = {
-                              viewModel.setSort(SortOrder.NAME, false)
-                              showSortMenu = false
-                            })
-                        HomeSortItem(
-                            label = "Largest first",
-                            checked = sortOrder == SortOrder.SIZE && !sortAscending,
-                            onClick = {
-                              viewModel.setSort(SortOrder.SIZE, false)
-                              showSortMenu = false
-                            })
-                        HomeSortItem(
-                            label = "Longest first",
-                            checked = sortOrder == SortOrder.DURATION && !sortAscending,
-                            onClick = {
-                              viewModel.setSort(SortOrder.DURATION, false)
-                              showSortMenu = false
-                            })
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                        val columnOptions = listOf(0, 2, 3, 4, 6, 12)
-                        columnOptions.forEach { cols ->
-                          DropdownMenuItem(
-                              text = {
-                                Text(
-                                    if (cols == 0) "Grid: Auto" else "Grid: $cols columns")
-                              },
-                              trailingIcon = {
-                                if (gridColumnsOverride == cols) {
-                                  Icon(
-                                      imageVector = Icons.Filled.Check,
-                                      contentDescription = null,
-                                      tint = MaterialTheme.colorScheme.primary)
-                                }
-                              },
-                              onClick = {
-                                setGridColumns(cols)
-                                showSortMenu = false
-                              })
-                        }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                        DropdownMenuItem(
-                            text = { Text("Refresh") },
-                            leadingIcon = {
-                              Icon(
-                                  imageVector = Icons.Filled.Refresh,
-                                  contentDescription = null)
-                            },
-                            onClick = {
-                              viewModel.refreshVideos()
-                              showSortMenu = false
-                            })
-                      }
+                IconButton(onClick = { showSortViewSheet = true }, modifier = Modifier.size(36.dp)) {
+                  Icon(
+                      imageVector = Icons.Filled.Tune,
+                      contentDescription = "Sort & View Options",
+                      tint = MaterialTheme.colorScheme.primary,
+                      modifier = Modifier.size(24.dp))
                 }
-
-                IconButton(
-                    onClick = {
-                      val newStyle =
-                          when (currentViewStyle) {
-                            HomeViewStyle.LIST -> HomeViewStyle.GRID_MEDIUM
-                            HomeViewStyle.GRID_MEDIUM -> HomeViewStyle.GRID_LARGE
-                            HomeViewStyle.GRID_LARGE -> HomeViewStyle.LIST
-                          }
-                      currentViewStyle = newStyle
-                      prefs.edit().putString("home_view_style", newStyle.name).apply()
-                    },
-                    modifier = Modifier.padding(horizontal = 8.dp).size(36.dp)) {
-                      Crossfade(targetState = currentViewStyle, label = "iconAnim") { style ->
-                        val iconRes =
-                            when (style) {
-                              HomeViewStyle.LIST -> R.drawable.ic_view_list_custom
-                              HomeViewStyle.GRID_MEDIUM -> R.drawable.ic_view_grid_custom
-                              HomeViewStyle.GRID_LARGE -> R.drawable.ic_view_list_custom
-                            }
-                        Icon(
-                            painter = painterResource(id = iconRes),
-                            contentDescription = "Change View",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp))
-                      }
-                    }
 
                 IconButton(
                     onClick = { showTelegramSheet = true },
@@ -1742,21 +1652,6 @@ fun HomeContentSegment(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis)
       }
-}
-
-@Composable
-private fun HomeSortItem(label: String, checked: Boolean, onClick: () -> Unit) {
-  DropdownMenuItem(
-      text = { Text(label) },
-      trailingIcon = {
-        if (checked) {
-          Icon(
-              imageVector = Icons.Filled.Check,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary)
-        }
-      },
-      onClick = onClick)
 }
 
 @Composable
