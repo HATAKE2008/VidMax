@@ -1646,6 +1646,7 @@ fun PlayerControls(
                             onClick = { viewModel.setPanelMode(PanelMode.SETTINGS) },
                             size = 42.dp
                         )
+                        } // !minimalist
                         } // isLandscape
 
                         // More menu (always visible, incl. portrait collapsed items)
@@ -1750,7 +1751,6 @@ fun PlayerControls(
                                     onClick = { showMoreMenu = false; showDetailsDialog = true }
                                 )
                             }
-                        }
                         }
                     }
 
