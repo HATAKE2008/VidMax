@@ -28,6 +28,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -104,7 +105,7 @@ import kotlinx.coroutines.withContext
 
 data class MpvTrackInfo(val id: Int, val name: String)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlayerControls(
     modifier: Modifier = Modifier,
@@ -1574,10 +1575,14 @@ fun PlayerControls(
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.basicMarquee()
                             )
                         }
 
+                        // Portrait collapses these into the More menu so the
+                        // title keeps full width; landscape shows everything.
+                        if (isLandscape) {
                         // Engine badge + extra top-bar actions (hidden in minimalist mode)
                         if (!minimalist) {
                         Box {
@@ -1640,8 +1645,9 @@ fun PlayerControls(
                             onClick = { viewModel.setPanelMode(PanelMode.SETTINGS) },
                             size = 42.dp
                         )
+                        } // isLandscape
 
-                        // More menu
+                        // More menu (always visible, incl. portrait collapsed items)
                         Box {
                             MpvCircleButton(
                                 icon = Icons.Outlined.MoreVert,
@@ -1659,6 +1665,48 @@ fun PlayerControls(
                                     leadingIcon = { Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { showMoreMenu = false; viewModel.setShowSyncSheet(true) }
                                 )
+                                // Portrait-collapsed top-bar actions (landscape
+                                // keeps them as direct icon buttons).
+                                if (!isLandscape) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (currentEngine == PlayerEngine.EXO) "Engine: ExoPlayer → MPV"
+                                                else "Engine: MPV → ExoPlayer",
+                                                color = MaterialTheme.colorScheme.onSurface)
+                                        },
+                                        leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            toggleEngine(
+                                                if (currentEngine == PlayerEngine.EXO) PlayerEngine.MPV
+                                                else PlayerEngine.EXO)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Audio tracks", color = MaterialTheme.colorScheme.onSurface) },
+                                        leadingIcon = { Icon(Icons.Outlined.Audiotrack, null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            viewModel.setSubtitleAudioTab(SubtitleAudioTab.AUDIO)
+                                            viewModel.setPanelMode(PanelMode.SUB_AUDIO)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Subtitles", color = MaterialTheme.colorScheme.onSurface) },
+                                        leadingIcon = { Icon(Icons.Outlined.Subtitles, null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            viewModel.setSubtitleAudioTab(SubtitleAudioTab.SUBTITLE)
+                                            viewModel.setPanelMode(PanelMode.SUB_AUDIO)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
+                                        leadingIcon = { Icon(Icons.Outlined.Settings, null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = { showMoreMenu = false; viewModel.setPanelMode(PanelMode.SETTINGS) }
+                                    )
+                                }
                                 DropdownMenuItem(
                                     text = { Text("Add bookmark here", color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Filled.BookmarkAdd, null, tint = MaterialTheme.colorScheme.primary) },
