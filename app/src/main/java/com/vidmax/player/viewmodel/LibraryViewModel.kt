@@ -446,6 +446,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       MutableStateFlow(prefs.getString("recent_video_path", "") ?: "")
   val recentVideoPath: StateFlow<String> = _recentVideoPath
 
+  // Recently-played history (REX model): newest-first entries surviving
+  // restarts; joined against the scanned library for display.
+  private val _recentHistory: MutableStateFlow<List<RecentPlayStore.RecentEntry>> =
+      MutableStateFlow(RecentPlayStore.read(prefs))
+  val recentHistory: StateFlow<List<RecentPlayStore.RecentEntry>> = _recentHistory.asStateFlow()
+
+  private val _recentVideos: MutableStateFlow<List<VideoItem>> = MutableStateFlow(emptyList())
+  val recentVideos: StateFlow<List<VideoItem>> = _recentVideos.asStateFlow()
+
   private val _isMiniPlayerVisible: MutableStateFlow<Boolean> = MutableStateFlow(false)
   val isMiniPlayerVisible: StateFlow<Boolean> = _isMiniPlayerVisible
 
@@ -872,6 +881,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _folders.value = withContext(Dispatchers.Default) { repository.getFolders(videos) }
         applyFilter()
         pruneStaleRecentVideo(videos)
+        refreshRecentVideos()
         val openPath = _currentFolderPath.value
         if (openPath.isNotEmpty()) {
           if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
@@ -939,6 +949,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _folders.value = withContext(Dispatchers.Default) { repository.getFolders(videos) }
         applyFilter()
         pruneStaleRecentVideo(videos)
+        refreshRecentVideos()
         val openPath = _currentFolderPath.value
         if (openPath.isNotEmpty()) {
           if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
@@ -1045,6 +1056,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   suspend fun applyPathChange(video: VideoItem, newPath: String, newTitle: String) {
     playlistRepository.updatePathReferences(video.path, newPath, newTitle)
     migrateBookmarkKey(video.path, newPath)
+    // REX onVideoRenamed: recent history follows the file.
+    RecentPlayStore.migratePath(prefs, video.path, newPath, newTitle)
+    _recentHistory.value = RecentPlayStore.read(prefs)
     withContext(Dispatchers.Main) {
       _allVideos.value = _allVideos.value.mapNotNull {
         if (it.path == video.path) it.copy(title = newTitle, path = newPath)
@@ -1063,6 +1077,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       if (_recentVideoPath.value == video.path) {
         setRecentlyPlayedVideo(newTitle, newPath)
       }
+      refreshRecentVideos()
     }
   }
 
@@ -1373,6 +1388,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     runCatching {
       paths.forEach { playlistRepository.removeItemsByPath(it) }
     }
+    // REX onVideoDeleted: recent history drops deleted files.
+    RecentPlayStore.removePaths(prefs, paths)
+    _recentHistory.value = RecentPlayStore.read(prefs)
     withContext(Dispatchers.Main) {
       _allVideos.value = _allVideos.value.filterNot { paths.contains(it.path) }
       _folders.value = repository.getFolders(_allVideos.value)
@@ -1390,6 +1408,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           prefs.edit().remove("recent_video_title").remove("recent_video_path").apply()
         } catch (e: Exception) {}
       }
+      refreshRecentVideos()
     }
   }
 
@@ -2032,6 +2051,28 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     _recentVideoTitle.value = title
     _recentVideoPath.value = path
     prefs.edit().putString("recent_video_title", title).putString("recent_video_path", path).apply()
+    // REX recordPlaybackStart: every playback start bumps the entry on top.
+    RecentPlayStore.record(prefs, path, title)
+    _recentHistory.value = RecentPlayStore.read(prefs)
+    refreshRecentVideos()
+  }
+
+  /**
+   * Rebuilds the display list newest-first, dropping entries whose files
+   * are gone (REX auto-remove) and anything missing from the scan.
+   */
+  private fun refreshRecentVideos() {
+    val byPath = _allVideos.value.associateBy { it.path }
+    if (RecentPlayStore.pruneMissing(prefs)) {
+      _recentHistory.value = RecentPlayStore.read(prefs)
+    }
+    _recentVideos.value = _recentHistory.value.mapNotNull { byPath[it.path] }
+  }
+
+  fun clearRecentHistory() {
+    RecentPlayStore.clear(prefs)
+    _recentHistory.value = emptyList()
+    _recentVideos.value = emptyList()
   }
 
   // 🔥 FIX: Made this function public so other classes can access it

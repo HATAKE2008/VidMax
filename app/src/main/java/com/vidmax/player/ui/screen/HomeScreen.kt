@@ -605,7 +605,7 @@ fun HomeScreen(
                   text = when (currentContentMode) {
                       HomeContentMode.VIDEO -> "Videos"
                       HomeContentMode.FOLDER -> "Folders"
-                      HomeContentMode.FAVORITES -> "Favorites"
+                      HomeContentMode.FAVORITES -> "Recent Play"
                       HomeContentMode.PLAYLISTS -> "Playlists"
                   },
                   color = MaterialTheme.colorScheme.onBackground,
@@ -716,7 +716,7 @@ fun HomeScreen(
                       Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
                     }
                     HomeContentSegment(
-                        label = "Favs",
+                        label = "Recent",
                         isActive = currentContentMode == HomeContentMode.FAVORITES,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         onClick = {
@@ -727,7 +727,7 @@ fun HomeScreen(
                             prefs.edit().putString("home_content_mode", HomeContentMode.FAVORITES.name).apply()
                           }
                         }) { tint, scale ->
-                      Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+                      Icon(Icons.Default.History, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
                     }
                     HomeContentSegment(
                         label = "Playlists",
@@ -1167,9 +1167,11 @@ fun HomeScreen(
                       }
                     }
                     
-                    // 🔥 UPDATE: Favorites & Playlists tabs (mpvRex-style)
+                    // Recent Play tab (REX-style): the FAVORITES destination
+                    // now shows recently played videos. Favorites data and
+                    // the heart toggle stay intact, only the destination changed.
                     HomeContentMode.FAVORITES -> {
-                        VideoFavoritesContent(
+                        VideoRecentContent(
                             viewModel = viewModel,
                             onPlayVideos = onVideoClick,
                             onDeleteRequest = { performDeleteRequest(it) })

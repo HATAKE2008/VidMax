@@ -436,6 +436,8 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         }.getOrDefault(path.substringAfterLast("/").substringBeforeLast("."))
         playerViewModel.setVideoTitle(name)
         prefs.edit().putString("recent_video_path", path).putString("recent_video_title", name).apply()
+        // REX recordPlaybackStart: track advance bumps the entry on top.
+        com.vidmax.player.data.repository.RecentPlayStore.record(prefs, path, name)
 
         val uri = if (path.startsWith("/")) Uri.fromFile(File(path)) else Uri.parse(path)
         val startPos = if (isResumePlayback) prefs.getLong("resume_pos_$path", 0L) else 0L
