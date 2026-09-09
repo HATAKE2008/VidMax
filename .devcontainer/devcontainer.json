@@ -1,0 +1,31 @@
+{
+  "name": "VidMax Android (8GB RAM / 32GB)",
+  "image": "mcr.microsoft.com/devcontainers/java:17",
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "ANDROID_HOME": "/home/vscode/Android/Sdk",
+    "ANDROID_SDK_ROOT": "/home/vscode/Android/Sdk",
+    "GRADLE_OPTS": "-Xmx4096m -XX:MaxMetaspaceSize=512m",
+    "JAVA_HOME": "/usr/local/sdkman/candidates/java/current"
+  },
+  "remoteEnv": {
+    "PATH": "${containerEnv:ANDROID_HOME}/cmdline-tools/latest/bin:${containerEnv:ANDROID_HOME}/platform-tools:${containerEnv:ANDROID_HOME}/emulator:${PATH}"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "fwcd.kotlin",
+        "vscjava.vscode-gradle",
+        "adelphes.android-dev-ext"
+      ]
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup-android.sh",
+  "postStartCommand": "chmod +x gradlew"
+}
