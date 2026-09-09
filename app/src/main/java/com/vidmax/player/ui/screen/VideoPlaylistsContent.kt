@@ -2,7 +2,6 @@ package com.vidmax.player.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +19,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,7 +36,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -66,6 +70,7 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vidmax.player.data.local.video.VidMaxVideoPlaylistItem
 import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.ui.components.MetaChip
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.PlaylistWithCount
 import java.io.File
@@ -227,49 +232,60 @@ fun VideoPlaylistsContent(
   }
 }
 
+/**
+ * REX-style playlist row: M3 Card with a playlist icon badge, title and
+ * metadata chips (count + Local type). Callbacks unchanged.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlaylistCard(name: String, count: Int, onClick: () -> Unit) {
-  Row(
-      modifier =
-          Modifier.fillMaxWidth()
-              .clip(RoundedCornerShape(14.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant)
-              .clickable(onClick = onClick)
-              .padding(horizontal = 14.dp, vertical = 14.dp),
-      verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier =
-                Modifier.size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center) {
-              Icon(
-                  imageVector = Icons.Filled.PlaylistAdd,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.primary,
-                  modifier = Modifier.size(26.dp))
-            }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-              text = name,
-              color = MaterialTheme.colorScheme.onBackground,
-              fontSize = 15.sp,
-              fontWeight = FontWeight.SemiBold,
-              maxLines = 1,
-              modifier = Modifier.basicMarquee(),
-              overflow = TextOverflow.Ellipsis)
-          Text(
-              text = "$count videos",
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              fontSize = 12.sp)
+  Card(
+      onClick = onClick,
+      modifier = Modifier.fillMaxWidth(),
+      colors = CardDefaults.cardColors(
+          containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+          Box(
+              modifier =
+                  Modifier.size(56.dp)
+                      .clip(RoundedCornerShape(12.dp))
+                      .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)),
+              contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
+                    modifier = Modifier.size(30.dp))
+              }
+          Spacer(modifier = Modifier.width(14.dp))
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                modifier = Modifier.basicMarquee(),
+                overflow = TextOverflow.Ellipsis)
+            Spacer(modifier = Modifier.height(6.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  MetaChip(
+                      text = if (count == 1) "1 video" else "$count videos",
+                      highlighted = true)
+                  MetaChip(text = "Local")
+                }
+          }
+          Icon(
+              imageVector = Icons.Filled.PlayArrow,
+              contentDescription = "Open",
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(22.dp))
         }
-        Icon(
-            imageVector = Icons.Filled.PlayArrow,
-            contentDescription = "Open",
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp))
-      }
+  }
 }
 
 @OptIn(ExperimentalGlideComposeApi::class, ExperimentalFoundationApi::class)
@@ -325,65 +341,87 @@ private fun PlaylistDetailContent(
       onDismiss = { menuVideo = null })
 
   Column(modifier = Modifier.fillMaxSize()) {
-    Row(
+    Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-          IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = MaterialTheme.colorScheme.primary)
-          }
-          Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = playlistName,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis)
-            Text(
-                text = "${items.size} videos",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp)
-          }
-          if (visibleItems.isNotEmpty()) {
-            IconButton(onClick = { onPlayVideos(toVideoItems(visibleItems), 0) }) {
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+      Row(
+          modifier = Modifier.fillMaxWidth().padding(12.dp),
+          verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
               Icon(
-                  imageVector = Icons.Filled.PlayArrow,
-                  contentDescription = "Play all",
+                  imageVector = Icons.Filled.ArrowBack,
+                  contentDescription = "Back",
                   tint = MaterialTheme.colorScheme.primary)
             }
-          }
-          Box {
-            IconButton(onClick = { menuOpen = true }) {
-              Icon(
-                  imageVector = Icons.Filled.MoreVert,
-                  contentDescription = "More",
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(
+                modifier =
+                    Modifier.size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center) {
+                  Icon(
+                      imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                      contentDescription = null,
+                      tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
+                      modifier = Modifier.size(26.dp))
+                }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                  text = playlistName,
+                  style = MaterialTheme.typography.titleMedium,
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis)
+              Spacer(modifier = Modifier.height(4.dp))
+              Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                MetaChip(
+                    text = if (items.size == 1) "1 video" else "${items.size} videos",
+                    highlighted = true)
+              }
             }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-              DropdownMenuItem(
-                  text = { Text("Rename") },
-                  onClick = {
-                    menuOpen = false
-                    onRename()
-                  })
-              DropdownMenuItem(
-                  text = { Text("Clear videos") },
-                  onClick = {
-                    menuOpen = false
-                    viewModel.clearVideoPlaylist(playlistId)
-                  })
-              DropdownMenuItem(
-                  text = { Text("Delete playlist", color = MaterialTheme.colorScheme.error) },
-                  onClick = {
-                    menuOpen = false
-                    onDelete()
-                  })
+            if (visibleItems.isNotEmpty()) {
+              FilledTonalButton(onClick = { onPlayVideos(toVideoItems(visibleItems), 0) }) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Play all")
+              }
+            }
+            Box {
+              IconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    imageVector = Icons.Filled.MoreVert,
+                    contentDescription = "More",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+              }
+              DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Rename") },
+                    onClick = {
+                      menuOpen = false
+                      onRename()
+                    })
+                DropdownMenuItem(
+                    text = { Text("Clear videos") },
+                    onClick = {
+                      menuOpen = false
+                      viewModel.clearVideoPlaylist(playlistId)
+                    })
+                DropdownMenuItem(
+                    text = { Text("Delete playlist", color = MaterialTheme.colorScheme.error) },
+                    onClick = {
+                      menuOpen = false
+                      onDelete()
+                    })
+              }
             }
           }
-        }
+    }
 
     if (items.size > 1) {
       OutlinedTextField(
@@ -425,49 +463,51 @@ private fun PlaylistDetailContent(
             items(items = visibleItems, key = { it.id }) { item ->
               val index = visibleItems.indexOf(item)
               val videoItem = toVideoItems(listOf(item)).first()
-              Row(
-                  modifier =
-                      Modifier.fillMaxWidth()
-                          .clip(RoundedCornerShape(12.dp))
-                          .background(MaterialTheme.colorScheme.surfaceVariant)
-                          .combinedClickable(
-                              onClick = { onPlayVideos(toVideoItems(visibleItems), index) },
-                              onLongClick = { menuVideo = videoItem })
-                          .padding(horizontal = 10.dp, vertical = 10.dp),
-                  verticalAlignment = Alignment.CenterVertically) {
-                    // Real video thumbnail, same loading path as the folder view.
-                    Box(
-                        modifier =
-                            Modifier.width(110.dp)
-                                .height(62.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color.DarkGray)) {
-                          GlideImage(
-                              model = File(item.filePath),
-                              contentDescription = "Thumbnail",
-                              contentScale = ContentScale.Crop,
-                              modifier = Modifier.fillMaxSize()) { requestBuilder ->
-                            requestBuilder
-                                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                .override(400)
+              Card(
+                  modifier = Modifier.fillMaxWidth(),
+                  colors = CardDefaults.cardColors(
+                      containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .combinedClickable(
+                            onClick = { onPlayVideos(toVideoItems(visibleItems), index) },
+                            onLongClick = { menuVideo = videoItem })
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                      // Real video thumbnail, same loading path as the folder view.
+                      Box(
+                          modifier =
+                              Modifier.width(110.dp)
+                                  .height(62.dp)
+                                  .clip(RoundedCornerShape(8.dp))
+                                  .background(Color.DarkGray)) {
+                            GlideImage(
+                                model = File(item.filePath),
+                                contentDescription = "Thumbnail",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()) { requestBuilder ->
+                              requestBuilder
+                                  .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                  .override(400)
+                            }
                           }
-                        }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = item.fileName,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 14.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f))
-                    IconButton(onClick = { viewModel.removeVideoFromPlaylist(item) }) {
-                      Icon(
-                          imageVector = Icons.Filled.Delete,
-                          contentDescription = "Remove",
-                          tint = Color(0xFFB3544F),
-                          modifier = Modifier.size(20.dp))
+                      Spacer(modifier = Modifier.width(12.dp))
+                      Text(
+                          text = item.fileName,
+                          color = MaterialTheme.colorScheme.onSurface,
+                          fontSize = 14.sp,
+                          maxLines = 2,
+                          overflow = TextOverflow.Ellipsis,
+                          modifier = Modifier.weight(1f))
+                      IconButton(onClick = { viewModel.removeVideoFromPlaylist(item) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "Remove",
+                            tint = Color(0xFFB3544F),
+                            modifier = Modifier.size(20.dp))
+                      }
                     }
-                  }
+              }
             }
           }
     }
