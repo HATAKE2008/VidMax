@@ -15,14 +15,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,6 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vidmax.player.R
 import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.ui.components.DialogCancelButton
+import com.vidmax.player.ui.components.DialogConfirmButton
+import com.vidmax.player.ui.components.DialogHeaderBadge
 import com.vidmax.player.ui.selection.VideoSelection
 import com.vidmax.player.viewmodel.LibraryViewModel
 
@@ -61,19 +65,27 @@ fun VideoRecentContent(
   if (showClearConfirm) {
     AlertDialog(
         onDismissRequest = { showClearConfirm = false },
-        title = { Text("Clear Recent Play?", fontWeight = FontWeight.Bold) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        icon = {
+          DialogHeaderBadge(
+              icon = Icons.Rounded.DeleteOutline,
+              containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+              contentColor = MaterialTheme.colorScheme.error)
+        },
+        title = { Text("Clear Recent Play?", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
         text = { Text("All recently played entries will be removed from this device.") },
         confirmButton = {
-          TextButton(
+          DialogConfirmButton(
+              label = "Clear",
+              danger = true,
               onClick = {
                 viewModel.clearRecentHistory()
                 showClearConfirm = false
-              }) {
-                Text("Clear", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-              }
+              })
         },
         dismissButton = {
-          TextButton(onClick = { showClearConfirm = false }) { Text("Cancel") }
+          DialogCancelButton(label = "Cancel", onClick = { showClearConfirm = false })
         })
   }
 

@@ -6,12 +6,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,6 +30,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.ui.components.DialogCancelButton
+import com.vidmax.player.ui.components.DialogConfirmButton
+import com.vidmax.player.ui.components.DialogHeaderBadge
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
@@ -230,7 +239,10 @@ fun RenameVideoDialog(
   var text by remember(currentBaseName) { mutableStateOf(currentBaseName) }
   AlertDialog(
       onDismissRequest = { if (!busy) onDismiss() },
-      title = { Text("Rename", fontWeight = FontWeight.Bold) },
+      shape = RoundedCornerShape(28.dp),
+      containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+      icon = { DialogHeaderBadge(icon = Icons.Rounded.DriveFileRenameOutline) },
+      title = { Text("Rename File", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
           OutlinedTextField(
@@ -241,6 +253,20 @@ fun RenameVideoDialog(
               singleLine = true,
               enabled = !busy,
               isError = error != null,
+              shape = RoundedCornerShape(16.dp),
+              colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = MaterialTheme.colorScheme.primary,
+                  focusedLabelColor = MaterialTheme.colorScheme.primary),
+              trailingIcon = {
+                if (text.isNotEmpty() && !busy) {
+                  IconButton(onClick = { text = "" }) {
+                    Icon(
+                        imageVector = Icons.Rounded.Clear,
+                        contentDescription = "Clear name",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                  }
+                }
+              },
               supportingText = {
                 Text(
                     text = error ?: "Extension .$extension is kept automatically",
@@ -250,13 +276,12 @@ fun RenameVideoDialog(
         }
       },
       confirmButton = {
-        TextButton(
+        DialogConfirmButton(
+            label = "Rename",
             enabled = !busy && text.isNotBlank(),
-            onClick = { onConfirm(text.trim()) }) {
-          Text("Rename")
-        }
+            onClick = { onConfirm(text.trim()) })
       },
       dismissButton = {
-        TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") }
+        DialogCancelButton(label = "Cancel", onClick = { if (!busy) onDismiss() })
       })
 }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileMove
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -56,6 +58,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
+import com.vidmax.player.ui.components.DialogCancelButton
+import com.vidmax.player.ui.components.DialogConfirmButton
+import com.vidmax.player.ui.components.DialogHeaderBadge
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.MoveDeleteConsentRequired
 import com.vidmax.player.viewmodel.MoveWriteConsentRequired
@@ -357,29 +362,35 @@ fun VideoActionMenuHost(
           showDeleteConfirm = false
           onDismiss()
         },
-        title = { Text("Delete Video", fontWeight = FontWeight.Bold) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        icon = {
+          DialogHeaderBadge(
+              icon = Icons.Rounded.DeleteOutline,
+              containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+              contentColor = MaterialTheme.colorScheme.error)
+        },
+        title = { Text("Delete Video", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
         text = {
           Text("Are you sure you want to delete \"${video.title}\"? This action cannot be undone.")
         },
         confirmButton = {
-          TextButton(
+          DialogConfirmButton(
+              label = "Delete",
+              danger = true,
               onClick = {
                 showDeleteConfirm = false
                 onDismiss()
                 onDeleteRequest(video)
-              }) {
-                Text(
-                    "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-              }
+              })
         },
         dismissButton = {
-          TextButton(
+          DialogCancelButton(
+              label = "Cancel",
               onClick = {
                 showDeleteConfirm = false
                 onDismiss()
-              }) {
-                Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
-              }
+              })
         })
   }
 

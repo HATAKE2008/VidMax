@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -38,17 +39,20 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.rounded.AddCircleOutline
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,6 +76,9 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vidmax.player.data.local.video.VidMaxVideoPlaylistItem
 import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.ui.components.DialogCancelButton
+import com.vidmax.player.ui.components.DialogConfirmButton
+import com.vidmax.player.ui.components.DialogHeaderBadge
 import com.vidmax.player.ui.components.MetaChip
 import com.vidmax.player.ui.selection.VideoSelection
 import com.vidmax.player.viewmodel.LibraryViewModel
@@ -211,6 +219,7 @@ fun VideoPlaylistsContent(
         title = "Rename Playlist",
         confirmLabel = "Rename",
         initialText = current.name,
+        icon = Icons.Rounded.DriveFileRenameOutline,
         onDismiss = {
           showRenameDialog = false
           viewModel.closeVideoPlaylist()
@@ -224,16 +233,27 @@ fun VideoPlaylistsContent(
   if (showDeleteConfirm && current != null) {
     AlertDialog(
         onDismissRequest = { showDeleteConfirm = false },
-        title = { Text("Delete \"${current.name}\"?", fontWeight = FontWeight.Bold) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        icon = {
+          DialogHeaderBadge(
+              icon = Icons.Rounded.DeleteOutline,
+              containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+              contentColor = MaterialTheme.colorScheme.error)
+        },
+        title = { Text("Delete \"${current.name}\"?", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
         text = { Text("All videos inside this playlist will be removed from it.") },
         confirmButton = {
-          Button(onClick = {
-            viewModel.deleteVideoPlaylist(current.id)
-            showDeleteConfirm = false
-          }) { Text("Delete") }
+          DialogConfirmButton(
+              label = "Delete",
+              danger = true,
+              onClick = {
+                viewModel.deleteVideoPlaylist(current.id)
+                showDeleteConfirm = false
+              })
         },
         dismissButton = {
-          TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+          DialogCancelButton(label = "Cancel", onClick = { showDeleteConfirm = false })
         })
   }
 }
@@ -528,25 +548,44 @@ fun NamePromptDialog(
   title: String,
   confirmLabel: String,
   initialText: String = "",
+  icon: ImageVector = Icons.Rounded.AddCircleOutline,
   onDismiss: () -> Unit,
   onConfirm: (String) -> Unit,
 ) {
   var text by remember { mutableStateOf(initialText) }
   AlertDialog(
       onDismissRequest = onDismiss,
-      title = { Text(title, fontWeight = FontWeight.Bold) },
+      shape = RoundedCornerShape(28.dp),
+      containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+      icon = { DialogHeaderBadge(icon = icon) },
+      title = { Text(title, fontWeight = FontWeight.Bold, fontSize = 20.sp) },
       text = {
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
             label = { Text("Playlist name") },
             singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                focusedLabelColor = MaterialTheme.colorScheme.primary),
+            trailingIcon = {
+              if (text.isNotEmpty()) {
+                IconButton(onClick = { text = "" }) {
+                  Icon(
+                      imageVector = Icons.Rounded.Clear,
+                      contentDescription = "Clear name",
+                      tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+              }
+            },
             modifier = Modifier.fillMaxWidth())
       },
       confirmButton = {
-        Button(onClick = { if (text.isNotBlank()) onConfirm(text.trim()) }) {
-          Text(confirmLabel)
-        }
+        DialogConfirmButton(
+            label = confirmLabel,
+            enabled = text.isNotBlank(),
+            onClick = { onConfirm(text.trim()) })
       },
-      dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+      dismissButton = { DialogCancelButton(label = "Cancel", onClick = onDismiss) })
 }

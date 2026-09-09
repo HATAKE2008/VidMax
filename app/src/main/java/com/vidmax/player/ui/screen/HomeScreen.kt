@@ -40,6 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -67,6 +68,9 @@ import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
 import com.vidmax.player.ui.components.SortViewOptionsSheet
 import com.vidmax.player.ui.components.FolderPickerDialog
+import com.vidmax.player.ui.components.DialogCancelButton
+import com.vidmax.player.ui.components.DialogConfirmButton
+import com.vidmax.player.ui.components.DialogHeaderBadge
 import com.vidmax.player.ui.components.SelectionBottomBar
 import com.vidmax.player.ui.selection.VideoSelection
 import com.vidmax.player.viewmodel.LibraryViewModel
@@ -211,13 +215,23 @@ fun HomeScreen(
   if (showDeleteConfirmDialog) {
     AlertDialog(
         onDismissRequest = { showDeleteConfirmDialog = false },
-        title = { Text("Delete Videos", fontWeight = FontWeight.Bold) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        icon = {
+          DialogHeaderBadge(
+              icon = Icons.Rounded.DeleteOutline,
+              containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+              contentColor = MaterialTheme.colorScheme.error)
+        },
+        title = { Text("Delete Videos", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
         text = {
           Text(
               "Are you sure you want to delete ${selectedVideos.size} selected videos? This action cannot be undone.")
         },
         confirmButton = {
-          TextButton(
+          DialogConfirmButton(
+              label = "Delete",
+              danger = true,
               onClick = {
                 showDeleteConfirmDialog = false
                 val targets = selectedVideos
@@ -266,15 +280,10 @@ fun HomeScreen(
                   selection = selection.clear()
                 }
                 }
-              }) {
-                Text(
-                    "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-              }
+              })
         },
         dismissButton = {
-          TextButton(onClick = { showDeleteConfirmDialog = false }) {
-            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
-          }
+          DialogCancelButton(label = "Cancel", onClick = { showDeleteConfirmDialog = false })
         })
   }
 
