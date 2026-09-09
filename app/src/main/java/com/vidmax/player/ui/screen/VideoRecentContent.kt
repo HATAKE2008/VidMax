@@ -139,13 +139,13 @@ fun VideoRecentContent(
           onClick = { showClearConfirm = true },
           modifier = Modifier.align(Alignment.BottomEnd)
               .navigationBarsPadding()
-              .padding(end = 16.dp, bottom = 96.dp)
-              .size(52.dp)) {
+              .padding(end = 12.dp, bottom = 100.dp)
+              .size(60.dp)) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_delete_custom),
                 contentDescription = "Clear Recent Play",
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(26.dp))
+                modifier = Modifier.size(32.dp))
           }
     }
   }
