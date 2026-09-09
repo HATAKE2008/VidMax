@@ -550,28 +550,6 @@ fun HomeScreen(
                                   if (selection.selectedCount == videos.size) selection.clear()
                                   else selection.selectAll(videos.map { it.path })
                             })
-                        DropdownMenuItem(
-                            text = { Text("Toggle Favorite") },
-                            leadingIcon = {
-                              Icon(
-                                  imageVector = Icons.Filled.Favorite,
-                                  contentDescription = null,
-                                  modifier = Modifier.size(20.dp))
-                            },
-                            onClick = {
-                              topOverflowOpen = false
-                              val allFavorite =
-                                  selectedVideos.isNotEmpty() &&
-                                      selectedVideos.all {
-                                        viewModel.favoriteVideoPaths.value.contains(it.path)
-                                      }
-                              selectedVideos.forEach { video ->
-                                if (allFavorite ==
-                                    viewModel.favoriteVideoPaths.value.contains(video.path)) {
-                                  viewModel.toggleVideoFavorite(video.path)
-                                }
-                              }
-                            })
                       }
                 }
               }
