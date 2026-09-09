@@ -1,5 +1,6 @@
 package com.vidmax.player.ui.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
@@ -39,11 +40,15 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -54,16 +59,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -86,9 +96,12 @@ import com.vidmax.player.viewmodel.PlaylistWithCount
 import java.io.File
 
 /**
- * Playlists tab content for the Videos home screen (mpvRex-style).
+ * Playlists tab content for the Videos home screen (REX PlaylistScreen
+ * patterns adapted to VidMax): top-bar-driven search, playlist
+ * multi-selection with rename/delete, create flow and detail navigation.
+ * Video add/remove and repository logic are untouched.
  */
-@OptIn(ExperimentalGlideComposeApi::class)
+@OptIn(ExperimentalGlideComposeApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun VideoPlaylistsContent(
   viewModel: LibraryViewModel,
@@ -96,6 +109,7 @@ fun VideoPlaylistsContent(
   onSelectionChange: (VideoSelection) -> Unit,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
   onDeleteRequest: (VideoItem) -> Unit,
+  searchRequestTick: Int = 0,
 ) {
   val playlists by viewModel.videoPlaylists.collectAsState()
   val opened by viewModel.openedVideoPlaylist.collectAsState()
@@ -104,30 +118,133 @@ fun VideoPlaylistsContent(
   var showRenameDialog by remember { mutableStateOf(false) }
   var showDeleteConfirm by remember { mutableStateOf(false) }
 
+  // REX-style search: opened from the top app-bar icon, autofocused, X exits.
+  var searching by rememberSaveable { mutableStateOf(false) }
+  var playlistQuery by rememberSaveable { mutableStateOf("") }
+  val focusRequester = remember { FocusRequester() }
+  val keyboardController = LocalSoftwareKeyboardController.current
+  LaunchedEffect(searchRequestTick) {
+    if (searchRequestTick > 0) {
+      searching = true
+      playlistQuery = ""
+    }
+  }
+  LaunchedEffect(searching) {
+    if (searching) {
+      focusRequester.requestFocus()
+      keyboardController?.show()
+    }
+  }
+
+  // REX-style playlist multi-selection (stable int ids): rename when single,
+  // delete when any selected. Video selection lives in the shared global
+  // system; this covers playlist rows only.
+  var selectedIds by remember { mutableStateOf(setOf<Int>()) }
+  val inListSelection = selectedIds.isNotEmpty()
+  var renameListTarget by remember { mutableStateOf<PlaylistWithCount?>(null) }
+  var showListDeleteConfirm by remember { mutableStateOf(false) }
+
+  BackHandler(enabled = (inListSelection || searching) && opened == null) {
+    when {
+      searching -> {
+        searching = false
+        playlistQuery = ""
+      }
+      inListSelection -> selectedIds = emptySet()
+    }
+  }
+
   val current = opened
 
   if (current == null) {
-    var playlistQuery by remember { mutableStateOf("") }
     val visiblePlaylists =
         remember(playlists, playlistQuery) {
           if (playlistQuery.isBlank()) playlists
           else playlists.filter { it.playlist.name.contains(playlistQuery, ignoreCase = true) }
         }
     Column(modifier = Modifier.fillMaxSize()) {
-      OutlinedTextField(
-          value = playlistQuery,
-          onValueChange = { playlistQuery = it },
-          label = { Text("Search playlists") },
-          leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_search), contentDescription = null) },
-          trailingIcon = {
-            if (playlistQuery.isNotEmpty()) {
-              IconButton(onClick = { playlistQuery = "" }) {
-                Icon(imageVector = Icons.Filled.Close, contentDescription = "Clear")
+      if (searching) {
+        SearchBar(
+            inputField = {
+              SearchBarDefaults.InputField(
+                  query = playlistQuery,
+                  onQueryChange = { playlistQuery = it },
+                  onSearch = {},
+                  expanded = false,
+                  onExpandedChange = {},
+                  placeholder = { Text("Search playlists") },
+                  leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = null)
+                  },
+                  trailingIcon = {
+                    IconButton(
+                        onClick = {
+                          searching = false
+                          playlistQuery = ""
+                        }) {
+                      Icon(
+                          imageVector = Icons.Filled.Close,
+                          contentDescription = "Close search")
+                    }
+                  },
+                  modifier = Modifier.focusRequester(focusRequester))
+            },
+            expanded = false,
+            onExpandedChange = {},
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(28.dp),
+            tonalElevation = 6.dp) {}
+      }
+      if (inListSelection) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { selectedIds = emptySet() }) {
+                  Icon(
+                      imageVector = Icons.Filled.Close,
+                      contentDescription = "Clear selection",
+                      tint = MaterialTheme.colorScheme.onBackground,
+                      modifier = Modifier.size(24.dp))
+                }
+                Text(
+                    text = "${selectedIds.size} Selected",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold)
+              }
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                if (selectedIds.size == 1) {
+                  IconButton(
+                      onClick = {
+                        visiblePlaylists.firstOrNull { it.playlist.id == selectedIds.first() }
+                            ?.let { renameListTarget = it }
+                      }) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Rename playlist",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp))
+                      }
+                }
+                IconButton(onClick = { showListDeleteConfirm = true }) {
+                  Icon(
+                      imageVector = Icons.Filled.Delete,
+                      contentDescription = "Delete playlists",
+                      tint = MaterialTheme.colorScheme.error,
+                      modifier = Modifier.size(24.dp))
+                }
               }
             }
-          },
-          singleLine = true,
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp))
+      }
       Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
         if (playlists.isEmpty()) {
         Column(
@@ -170,12 +287,27 @@ fun VideoPlaylistsContent(
                 PlaylistCard(
                     name = entry.playlist.name,
                     count = entry.itemCount,
-                    onClick = { viewModel.openVideoPlaylist(entry.playlist.id) })
+                    isSelected = selectedIds.contains(entry.playlist.id),
+                    onClick = {
+                      if (inListSelection) {
+                        selectedIds =
+                            if (selectedIds.contains(entry.playlist.id)) selectedIds - entry.playlist.id
+                            else selectedIds + entry.playlist.id
+                      } else {
+                        viewModel.openVideoPlaylist(entry.playlist.id)
+                      }
+                    },
+                    onLongClick = {
+                      selectedIds =
+                          if (selectedIds.contains(entry.playlist.id)) selectedIds - entry.playlist.id
+                          else selectedIds + entry.playlist.id
+                    })
               }
             }
       }
 
-        FloatingActionButton(
+        if (!inListSelection && !searching) {
+          FloatingActionButton(
             onClick = { showCreateDialog = true },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -188,6 +320,7 @@ fun VideoPlaylistsContent(
               Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
             }
       }
+    }
     }
   } else {
     PlaylistDetailContent(
@@ -256,22 +389,83 @@ fun VideoPlaylistsContent(
           DialogCancelButton(label = "Cancel", onClick = { showDeleteConfirm = false })
         })
   }
+
+  renameListTarget?.let { target ->
+    NamePromptDialog(
+        title = "Rename Playlist",
+        confirmLabel = "Rename",
+        initialText = target.playlist.name,
+        icon = Icons.Rounded.DriveFileRenameOutline,
+        onDismiss = { renameListTarget = null },
+        onConfirm = { name ->
+          viewModel.renameVideoPlaylist(target.playlist.id, name)
+          renameListTarget = null
+          selectedIds = emptySet()
+        })
+  }
+
+  if (showListDeleteConfirm && selectedIds.isNotEmpty()) {
+    AlertDialog(
+        onDismissRequest = { showListDeleteConfirm = false },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        icon = {
+          DialogHeaderBadge(
+              icon = Icons.Rounded.DeleteOutline,
+              containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+              contentColor = MaterialTheme.colorScheme.error)
+        },
+        title = {
+          Text(
+              if (selectedIds.size == 1) "Delete this playlist?" else "Delete ${selectedIds.size} playlists?",
+              fontWeight = FontWeight.Bold,
+              fontSize = 20.sp)
+        },
+        text = { Text("Videos stay in your library; only the playlists are removed.") },
+        confirmButton = {
+          DialogConfirmButton(
+              label = "Delete",
+              danger = true,
+              onClick = {
+                selectedIds.forEach { viewModel.deleteVideoPlaylist(it) }
+                selectedIds = emptySet()
+                showListDeleteConfirm = false
+              })
+        },
+        dismissButton = {
+          DialogCancelButton(label = "Cancel", onClick = { showListDeleteConfirm = false })
+        })
+  }
 }
 
 /**
  * REX-style playlist row: M3 Card with a playlist icon badge, title and
  * metadata chips (count + Local type). Callbacks unchanged.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
-private fun PlaylistCard(name: String, count: Int, onClick: () -> Unit) {
+private fun PlaylistCard(
+    name: String,
+    count: Int,
+    onClick: () -> Unit,
+    isSelected: Boolean = false,
+    onLongClick: () -> Unit = {},
+) {
   Card(
-      onClick = onClick,
-      modifier = Modifier.fillMaxWidth(),
+      modifier = Modifier.fillMaxWidth()
+          .border(
+              width = 1.5.dp,
+              color = if (isSelected) MaterialTheme.colorScheme.primary
+              else Color.Transparent,
+              shape = RoundedCornerShape(12.dp)),
       colors = CardDefaults.cardColors(
-          containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+          containerColor = if (isSelected)
+              MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+          else MaterialTheme.colorScheme.surfaceContainer)) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(12.dp),
+        modifier = Modifier.fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically) {
           Box(
               modifier =
