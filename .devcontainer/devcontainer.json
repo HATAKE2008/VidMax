@@ -27,5 +27,12 @@
     }
   },
   "postCreateCommand": "bash .devcontainer/setup-android.sh",
-  "postStartCommand": "chmod +x gradlew"
+  "postStartCommand": "chmod +x gradlew",
+  "forwardPorts": [4096],
+  "portsAttributes": {
+    "4096": {
+      "label": "opencode-web",
+      "onAutoForward": "notify"
+    }
+  }
 }
