@@ -2,6 +2,7 @@ package com.vidmax.player.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
@@ -71,6 +72,7 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vidmax.player.data.local.video.VidMaxVideoPlaylistItem
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.MetaChip
+import com.vidmax.player.ui.selection.VideoSelection
 import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.PlaylistWithCount
 import java.io.File
@@ -82,6 +84,8 @@ import java.io.File
 @Composable
 fun VideoPlaylistsContent(
   viewModel: LibraryViewModel,
+  selection: VideoSelection,
+  onSelectionChange: (VideoSelection) -> Unit,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
   onDeleteRequest: (VideoItem) -> Unit,
 ) {
@@ -180,6 +184,8 @@ fun VideoPlaylistsContent(
   } else {
     PlaylistDetailContent(
         viewModel = viewModel,
+        selection = selection,
+        onSelectionChange = onSelectionChange,
         playlistId = current.id,
         playlistName = current.name,
         items = items,
@@ -292,6 +298,8 @@ private fun PlaylistCard(name: String, count: Int, onClick: () -> Unit) {
 @Composable
 private fun PlaylistDetailContent(
   viewModel: LibraryViewModel,
+  selection: VideoSelection,
+  onSelectionChange: (VideoSelection) -> Unit,
   playlistId: Int,
   playlistName: String,
   items: List<VidMaxVideoPlaylistItem>,
@@ -324,21 +332,8 @@ private fun PlaylistDetailContent(
             folderName = "")
       }
 
-  var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
-  VideoActionMenuHost(
-      viewModel = viewModel,
-      video = menuVideo,
-      onPlay = { video ->
-        val list = toVideoItems(visibleItems)
-        val index = list.indexOfFirst { it.id == video.id }
-        if (index >= 0) onPlayVideos(list, index)
-        menuVideo = null
-      },
-      onDeleteRequest = {
-        menuVideo = null
-        onDeleteRequest(it)
-      },
-      onDismiss = { menuVideo = null })
+  // Long-press drives the shared selection system; all actions live in the
+  // global top/bottom bars, so no local menu host is needed here.
 
   Column(modifier = Modifier.fillMaxSize()) {
     Card(
@@ -462,16 +457,29 @@ private fun PlaylistDetailContent(
           verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(items = visibleItems, key = { it.id }) { item ->
               val index = visibleItems.indexOf(item)
-              val videoItem = toVideoItems(listOf(item)).first()
+              val itemSelected = selection.isSelected(item.filePath)
               Card(
-                  modifier = Modifier.fillMaxWidth(),
+                  modifier = Modifier.fillMaxWidth()
+                      .border(
+                          width = 1.5.dp,
+                          color = if (itemSelected) MaterialTheme.colorScheme.primary
+                          else Color.Transparent,
+                          shape = RoundedCornerShape(12.dp)),
                   colors = CardDefaults.cardColors(
-                      containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                      containerColor = if (itemSelected)
+                          MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                      else MaterialTheme.colorScheme.surfaceContainer)) {
                 Row(
                     modifier = Modifier.fillMaxWidth()
                         .combinedClickable(
-                            onClick = { onPlayVideos(toVideoItems(visibleItems), index) },
-                            onLongClick = { menuVideo = videoItem })
+                            onClick = {
+                              if (selection.isInSelectionMode) {
+                                onSelectionChange(selection.toggle(item.filePath))
+                              } else {
+                                onPlayVideos(toVideoItems(visibleItems), index)
+                              }
+                            },
+                            onLongClick = { onSelectionChange(selection.toggle(item.filePath)) })
                         .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                       // Real video thumbnail, same loading path as the folder view.

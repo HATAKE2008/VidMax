@@ -116,7 +116,12 @@ fun HomeScreen(
   // current list on every read.
   var selection by remember { mutableStateOf(VideoSelection()) }
   val inSelectionMode = selection.isInSelectionMode
-  val selectedVideos = selection.getSelected(videos)
+  // Resolved against every visible video list (Videos tab + open folder)
+  // so one selection system serves all browsing screens; paths are unique.
+  val selectedVideos = remember(selection, videos, folderVideos) {
+    (selection.getSelected(videos) + selection.getSelected(folderVideos))
+        .distinctBy { it.path }
+  }
   // Copy/Move destination picker: "copy", "move", or null when closed.
   var folderPickerMode by remember { mutableStateOf<String?>(null) }
   var pickerBusy by remember { mutableStateOf(false) }
@@ -214,7 +219,7 @@ fun HomeScreen(
           TextButton(
               onClick = {
                 showDeleteConfirmDialog = false
-                val targets = selection.getSelected(videos)
+                val targets = selectedVideos
                 if (targets.isEmpty()) {
                   selection = selection.clear()
                 } else if (viewModel.hasFullStorageAccess()) {
@@ -271,10 +276,6 @@ fun HomeScreen(
           }
         })
   }
-
-  // Unified long-press video menu (Play, Rename, Share, Favorite,
-  // Add to Playlist, Details, Delete) shared by Videos/Search/Folders.
-  var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
 
   // Telegram community promo: top-bar icon stays available forever; the
   // first-launch invitation shows only until it has been handled once.
@@ -394,18 +395,6 @@ fun HomeScreen(
     }
   }
 
-  val playMenuVideo: (VideoItem) -> Unit = { video ->
-    val inVideos = videos.indexOfFirst { it.id == video.id }
-    if (inVideos >= 0) {
-      onVideoClick(videos, inVideos)
-    } else {
-      val inFolder = folderVideos.indexOfFirst { it.id == video.id }
-      if (inFolder >= 0) onVideoClick(folderVideos, inFolder)
-      else Toast.makeText(context, "Video not available", Toast.LENGTH_SHORT).show()
-    }
-    menuVideo = null
-  }
-
   if (showSortViewSheet) {
     SortViewOptionsSheet(
         sortOrder = sortOrder,
@@ -421,13 +410,6 @@ fun HomeScreen(
         onRefresh = { viewModel.refreshVideos() },
         onDismiss = { showSortViewSheet = false })
   }
-
-  VideoActionMenuHost(
-      viewModel = viewModel,
-      video = menuVideo,
-      onPlay = playMenuVideo,
-      onDeleteRequest = { performDeleteRequest(it) },
-      onDismiss = { menuVideo = null })
 
   renameTarget?.let { target ->
     RenameVideoDialog(
@@ -696,6 +678,7 @@ fun HomeScreen(
                           if (currentContentMode != HomeContentMode.VIDEO) {
                             currentContentMode = HomeContentMode.VIDEO
                             viewModel.closeFolder()
+                            selection = selection.clear()
                             prefs.edit().putString("home_content_mode", HomeContentMode.VIDEO.name).apply()
                           }
                         }) { tint, scale ->
@@ -957,7 +940,7 @@ fun HomeScreen(
                           Row(
                               modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                               verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { viewModel.closeFolder() }) {
+                                IconButton(onClick = { selection = selection.clear(); viewModel.closeFolder() }) {
                                   Icon(
                                       imageVector = Icons.Default.ArrowBack,
                                       contentDescription = "Back",
@@ -1056,9 +1039,12 @@ fun HomeScreen(
                                                 duration = viewModel.formatDuration(video.duration),
                                                 size = viewModel.formatSize(video.size),
                                                 resolution = viewModel.getResolutionLabel(video.width, video.height),
-                                                isSelected = false,
-                                                onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = { menuVideo = video })
+                                                isSelected = selection.isSelected(video.path),
+                                                onClick = {
+                                                  if (inSelectionMode) selection = selection.toggle(video.path)
+                                                  else onVideoClick(folderVideos, index)
+                                                },
+                                                onLongClick = { selection = selection.toggle(video.path) })
                                           }
                                         }
                                   }
@@ -1080,9 +1066,12 @@ fun HomeScreen(
                                               CustomVideoGridCard(
                                                   video = video,
                                                   duration = viewModel.formatDuration(video.duration),
-                                                  isSelected = false,
-                                                  onClick = { onVideoClick(folderVideos, index) },
-                                                  onLongClick = { menuVideo = video })
+                                                  isSelected = selection.isSelected(video.path),
+                                                  onClick = {
+                                                    if (inSelectionMode) selection = selection.toggle(video.path)
+                                                    else onVideoClick(folderVideos, index)
+                                                  },
+                                                  onLongClick = { selection = selection.toggle(video.path) })
                                             }
                                           }
                                     }
@@ -1098,9 +1087,12 @@ fun HomeScreen(
                                                 video = video,
                                                 duration = viewModel.formatDuration(video.duration),
                                                 size = viewModel.formatSize(video.size),
-                                                isSelected = false,
-                                                onClick = { onVideoClick(folderVideos, index) },
-                                                onLongClick = { menuVideo = video })
+                                                isSelected = selection.isSelected(video.path),
+                                                onClick = {
+                                                  if (inSelectionMode) selection = selection.toggle(video.path)
+                                                  else onVideoClick(folderVideos, index)
+                                                },
+                                                onLongClick = { selection = selection.toggle(video.path) })
                                           }
                                         }
                                   }
@@ -1123,7 +1115,7 @@ fun HomeScreen(
                                             key = { _, folder -> folder.path }) { _, folder ->
                                           HomeFolderListCard(
                                               folder = folder,
-                                              onClick = { viewModel.openFolder(folder.path) })
+                                              onClick = { selection = selection.clear(); viewModel.openFolder(folder.path) })
                                         }
                                       }
                                 }
@@ -1144,7 +1136,7 @@ fun HomeScreen(
                                               key = { _, folder -> folder.path }) { _, folder ->
                                             HomeFolderGridCard(
                                                 folder = folder,
-                                                onClick = { viewModel.openFolder(folder.path) })
+                                                onClick = { selection = selection.clear(); viewModel.openFolder(folder.path) })
                                           }
                                         }
                                   }
@@ -1158,7 +1150,7 @@ fun HomeScreen(
                                             key = { _, folder -> folder.path }) { _, folder ->
                                           HomeFolderLargeCard(
                                               folder = folder,
-                                              onClick = { viewModel.openFolder(folder.path) })
+                                              onClick = { selection = selection.clear(); viewModel.openFolder(folder.path) })
                                         }
                                       }
                                 }
@@ -1173,12 +1165,15 @@ fun HomeScreen(
                     HomeContentMode.FAVORITES -> {
                         VideoRecentContent(
                             viewModel = viewModel,
-                            onPlayVideos = onVideoClick,
-                            onDeleteRequest = { performDeleteRequest(it) })
+                            selection = selection,
+                            onSelectionChange = { selection = it },
+                            onPlayVideos = onVideoClick)
                     }
                     HomeContentMode.PLAYLISTS -> {
                         VideoPlaylistsContent(
                             viewModel = viewModel,
+                            selection = selection,
+                            onSelectionChange = { selection = it },
                             onPlayVideos = onVideoClick,
                             onDeleteRequest = { performDeleteRequest(it) })
                     }
@@ -1240,7 +1235,7 @@ fun HomeScreen(
         error = pickerError,
         emptyText = "No folders found.",
         onFolderClick = { folder ->
-          val targets = selection.getSelected(videos)
+          val targets = selectedVideos
           if (targets.isEmpty()) {
             folderPickerMode = null
             selection = selection.clear()

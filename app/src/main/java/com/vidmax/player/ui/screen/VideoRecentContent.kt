@@ -1,6 +1,5 @@
 package com.vidmax.player.ui.screen
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vidmax.player.R
 import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.ui.selection.VideoSelection
 import com.vidmax.player.viewmodel.LibraryViewModel
 
 /**
@@ -48,30 +48,15 @@ import com.vidmax.player.viewmodel.LibraryViewModel
  * [com.vidmax.player.data.repository.RecentPlayStore] and is maintained by
  * [LibraryViewModel].
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VideoRecentContent(
   viewModel: LibraryViewModel,
+  selection: VideoSelection,
+  onSelectionChange: (VideoSelection) -> Unit,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
-  onDeleteRequest: (VideoItem) -> Unit,
 ) {
   val recentVideos by viewModel.recentVideos.collectAsState()
-  var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
   var showClearConfirm by remember { mutableStateOf(false) }
-
-  VideoActionMenuHost(
-      viewModel = viewModel,
-      video = menuVideo,
-      onPlay = { video ->
-        val index = recentVideos.indexOfFirst { it.path == video.path }
-        if (index >= 0) onPlayVideos(recentVideos, index)
-        menuVideo = null
-      },
-      onDeleteRequest = {
-        menuVideo = null
-        onDeleteRequest(it)
-      },
-      onDismiss = { menuVideo = null })
 
   if (showClearConfirm) {
     AlertDialog(
@@ -129,9 +114,12 @@ fun VideoRecentContent(
                   duration = viewModel.formatDuration(video.duration),
                   size = viewModel.formatSize(video.size),
                   resolution = viewModel.getResolutionLabel(video.width, video.height),
-                  isSelected = false,
-                  onClick = { onPlayVideos(recentVideos, index) },
-                  onLongClick = { menuVideo = video })
+                  isSelected = selection.isSelected(video.path),
+                  onClick = {
+                    if (selection.isInSelectionMode) onSelectionChange(selection.toggle(video.path))
+                    else onPlayVideos(recentVideos, index)
+                  },
+                  onLongClick = { onSelectionChange(selection.toggle(video.path)) })
             }
           }
       // Clear-history trash action floating bottom-right above the nav bar.
