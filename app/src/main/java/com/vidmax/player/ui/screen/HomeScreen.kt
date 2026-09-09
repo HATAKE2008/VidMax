@@ -116,12 +116,6 @@ fun HomeScreen(
   // current list on every read.
   var selection by remember { mutableStateOf(VideoSelection()) }
   val inSelectionMode = selection.isInSelectionMode
-  // Resolved against every visible video list (Videos tab + open folder)
-  // so one selection system serves all browsing screens; paths are unique.
-  val selectedVideos = remember(selection, videos, folderVideos) {
-    (selection.getSelected(videos) + selection.getSelected(folderVideos))
-        .distinctBy { it.path }
-  }
   // Copy/Move destination picker: "copy", "move", or null when closed.
   var folderPickerMode by remember { mutableStateOf<String?>(null) }
   var pickerBusy by remember { mutableStateOf(false) }
@@ -184,6 +178,13 @@ fun HomeScreen(
   val folderVideos by viewModel.folderVideos.collectAsState()
   val currentFolderPath by viewModel.currentFolderPath.collectAsState()
   val isInsideFolder = currentFolderPath.isNotEmpty()
+
+  // Resolved against every visible video list (Videos tab + open folder)
+  // so one selection system serves all browsing screens; paths are unique.
+  val selectedVideos = remember(selection, videos, folderVideos) {
+    (selection.getSelected(videos) + selection.getSelected(folderVideos))
+        .distinctBy { it.path }
+  }
 
   val deleteLauncher =
       rememberLauncherForActivityResult(
