@@ -33,6 +33,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RocketLaunch
+import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -62,6 +73,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -293,7 +305,7 @@ fun SettingsScreen(
             ) {
 
                 // ── Dark / Light / System toggle ──────────────────────────────
-                item { SettingsSectionHeader(title = "Theme") }
+                item { SettingsSectionHeader(title = "Appearance & Theming") }
                 item {
                     Row(
                         modifier = Modifier
@@ -347,7 +359,6 @@ fun SettingsScreen(
                 }
 
                 // ── App Theme picker ──────────────────────────────────────────
-                item { SettingsSectionHeader(title = "App Theme", paddingTop = 20.dp) }
                 item {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -367,24 +378,22 @@ fun SettingsScreen(
                     }
                 }
 
-                // ── AMOLED toggle ─────────────────────────────────────────────
+                // ── AMOLED toggle (Appearance group) ──────────────────────────
                 item { Spacer(modifier = Modifier.height(8.dp)) }
                 item {
-                    SettingsToggleRow(
-                        title = "AMOLED Black Mode",
-                        subtitle = "Pure black background to save battery on OLED",
-                        iconId = R.drawable.ic_brightness,
-                        checked = amoledMode,
-                        enabled = isCurrentlyDark,
-                        onCheckedChange = { viewModel.setAmoledMode(it) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = "AMOLED Black Mode",
+                            subtitle = "Pure black background to save battery on OLED",
+                            icon = Icons.Rounded.DarkMode,
+                            checked = amoledMode,
+                            enabled = isCurrentlyDark,
+                            onCheckedChange = { viewModel.setAmoledMode(it) }
+                        )
+                    }
                 }
 
                 // ── App Font (font changer + importer) ────────────────────────
-                item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = "App Font", paddingTop = 4.dp)
-                }
                 item {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -476,114 +485,120 @@ fun SettingsScreen(
                     SettingsSectionHeader(title = "Playback", paddingTop = 4.dp)
                 }
                 item {
-                    SettingsToggleRow(
-                        title = "Resume Playback",
-                        subtitle = "Continue from where you left off",
-                        iconId = R.drawable.ic_play_arrow,
-                        checked = resumePlayback,
-                        onCheckedChange = { viewModel.setResumePlayback(it) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Auto Rotate",
-                        subtitle = "Rotate screen with video orientation",
-                        iconId = R.drawable.ic_rotate,
-                        checked = autoRotate,
-                        onCheckedChange = { viewModel.setAutoRotate(it) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Show Startup Intro",
-                        subtitle = "Show logo splash when app opens",
-                        iconId = R.drawable.ic_video_library,
-                        checked = showIntro,
-                        onCheckedChange = { on ->
-                            showIntro = on
-                            vidmaxPrefs.edit().putBoolean("show_startup_intro", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Minimalist Player",
-                        subtitle = "Use a cleaner player interface with reduced controls",
-                        iconId = R.drawable.ic_view_list_custom,
-                        checked = minimalistPlayer,
-                        onCheckedChange = { viewModel.setMinimalistPlayer(it) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Music Player",
-                        subtitle = "Enable music player features",
-                        iconId = R.drawable.ic_music_note,
-                        checked = musicPlayerEnabled,
-                        onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = "Resume Playback",
+                            subtitle = "Continue from where you left off",
+                            icon = Icons.Rounded.History,
+                            checked = resumePlayback,
+                            onCheckedChange = { viewModel.setResumePlayback(it) }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = "Auto Rotate",
+                            subtitle = "Rotate screen with video orientation",
+                            icon = Icons.Rounded.ScreenRotation,
+                            checked = autoRotate,
+                            onCheckedChange = { viewModel.setAutoRotate(it) }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = "Show Startup Intro",
+                            subtitle = "Show logo splash when app opens",
+                            icon = Icons.Rounded.RocketLaunch,
+                            checked = showIntro,
+                            onCheckedChange = { on ->
+                                showIntro = on
+                                vidmaxPrefs.edit().putBoolean("show_startup_intro", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = "Minimalist Player",
+                            subtitle = "Use a cleaner player interface with reduced controls",
+                            icon = Icons.Rounded.FullscreenExit,
+                            checked = minimalistPlayer,
+                            onCheckedChange = { viewModel.setMinimalistPlayer(it) }
+                        )
+                    }
                 }
 
                 // ── Player Buttons ────────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Player Buttons", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = "Player Overlay Buttons", paddingTop = 4.dp)
                 }
                 item {
-                    SettingsToggleRow(
-                        title = "Speed Button",
-                        subtitle = "Show the playback speed button",
-                        iconId = R.drawable.ic_play_arrow,
-                        checked = showSpeedButton,
-                        onCheckedChange = { on ->
-                            showSpeedButton = on
-                            vidmaxPrefs.edit().putBoolean("show_speed_button", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Loop Button",
-                        subtitle = "Show the repeat/loop button",
-                        iconId = R.drawable.ic_rotate,
-                        checked = showLoopButton,
-                        onCheckedChange = { on ->
-                            showLoopButton = on
-                            vidmaxPrefs.edit().putBoolean("show_loop_button", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Zoom Buttons",
-                        subtitle = "Show the zoom and aspect-ratio buttons",
-                        iconId = R.drawable.ic_view_list_custom,
-                        checked = showZoomButtons,
-                        onCheckedChange = { on ->
-                            showZoomButtons = on
-                            vidmaxPrefs.edit().putBoolean("show_zoom_buttons", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Extra Buttons",
-                        subtitle = "Show background play, timer, boost and fullscreen buttons",
-                        iconId = R.drawable.ic_gear,
-                        checked = showExtraButtons,
-                        onCheckedChange = { on ->
-                            showExtraButtons = on
-                            vidmaxPrefs.edit().putBoolean("show_extra_buttons", on).apply()
-                        }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = "Speed Button",
+                            subtitle = "Show the playback speed button",
+                            icon = Icons.Rounded.Speed,
+                            checked = showSpeedButton,
+                            onCheckedChange = { on ->
+                                showSpeedButton = on
+                                vidmaxPrefs.edit().putBoolean("show_speed_button", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = "Loop Button",
+                            subtitle = "Show the repeat/loop button",
+                            icon = Icons.Rounded.Repeat,
+                            checked = showLoopButton,
+                            onCheckedChange = { on ->
+                                showLoopButton = on
+                                vidmaxPrefs.edit().putBoolean("show_loop_button", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = "Zoom Buttons",
+                            subtitle = "Show the zoom and aspect-ratio buttons",
+                            icon = Icons.Rounded.AspectRatio,
+                            checked = showZoomButtons,
+                            onCheckedChange = { on ->
+                                showZoomButtons = on
+                                vidmaxPrefs.edit().putBoolean("show_zoom_buttons", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = "Extra Buttons",
+                            subtitle = "Show background play, timer, boost and fullscreen buttons",
+                            icon = Icons.Rounded.Widgets,
+                            checked = showExtraButtons,
+                            onCheckedChange = { on ->
+                                showExtraButtons = on
+                                vidmaxPrefs.edit().putBoolean("show_extra_buttons", on).apply()
+                            }
+                        )
+                    }
                 }
 
                 // ── Library / Content ─────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Library / Content", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = "Library & Audio", paddingTop = 4.dp)
                 }
                 item {
-                    SettingsToggleRow(
-                        title = "Local Mode",
-                        subtitle = "Show only local media features and hide streaming-related options",
-                        iconId = R.drawable.ic_folder,
-                        checked = localMode,
-                        onCheckedChange = { viewModel.setLocalMode(it) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = "Music Player",
+                            subtitle = "Enable music player features",
+                            icon = Icons.Rounded.MusicNote,
+                            checked = musicPlayerEnabled,
+                            onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = "Local Mode",
+                            subtitle = "Show only local media features and hide streaming-related options",
+                            icon = Icons.Rounded.Folder,
+                            checked = localMode,
+                            onCheckedChange = { viewModel.setLocalMode(it) }
+                        )
+                    }
                 }
 
                 // ── Storage Access (All files access) ─────────────────────────
@@ -1199,6 +1214,94 @@ private fun SettingsToggleRow(
             )
         }
     )
+}
+
+// ── Grouped category card (M3 standard): one unified rounded container
+// per category with subtle in-group dividers instead of isolated pills.
+@Composable
+private fun SettingsGroupCard(
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(vertical = 6.dp)
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun SettingsGroupDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 64.dp, end = 16.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+    )
+}
+
+// ── Borderless toggle row for use inside SettingsGroupCard ──────────────
+@Composable
+private fun SettingsGroupToggle(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .alpha(if (enabled) 1f else 0.45f)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = subtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 2.dp),
+                lineHeight = 16.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.background,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        )
+    }
 }
 
 // ── Social link button ────────────────────────────────────────────────────────
