@@ -5,8 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -52,7 +50,6 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.Clear
@@ -61,8 +58,6 @@ import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -74,7 +69,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,19 +79,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -132,7 +121,6 @@ fun VideoPlaylistsContent(
   onSelectionChange: (VideoSelection) -> Unit,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
   onDeleteRequest: (VideoItem) -> Unit,
-  searchRequestTick: Int = 0,
 ) {
   val playlists by viewModel.videoPlaylists.collectAsState()
   val context = LocalContext.current
@@ -145,94 +133,23 @@ fun VideoPlaylistsContent(
   var showRenameDialog by remember { mutableStateOf(false) }
   var showDeleteConfirm by remember { mutableStateOf(false) }
 
-  // Playlist search: opened ONLY from the top app-bar search icon (single
-  // search UI — no duplicate field). Crash-safe focus by construction:
-  // plain remember state (never restored true), one requester created with
-  // remember and attached to a real editable field, requested once from a
-  // LaunchedEffect keyed on the explicit tap event AFTER composition, and
-  // focus cleared on every exit path.
-  var searching by remember { mutableStateOf(false) }
-  var playlistQuery by remember { mutableStateOf("") }
-  var searchFocusTick by remember { mutableStateOf(0) }
-  val searchFocusRequester = remember { FocusRequester() }
-  val keyboardController = LocalSoftwareKeyboardController.current
-  val focusManager = LocalFocusManager.current
-  LaunchedEffect(searchRequestTick) {
-    if (searchRequestTick > 0) {
-      searching = true
-      playlistQuery = ""
-      searchFocusTick++
-    }
-  }
-  LaunchedEffect(searchFocusTick) {
-    if (searchFocusTick > 0 && searching) {
-      searchFocusRequester.requestFocus()
-      keyboardController?.show()
-    }
-  }
-
-  fun exitPlaylistSearch() {
-    searching = false
-    playlistQuery = ""
-    focusManager.clearFocus()
-  }
+  // Playlist search lives in the unified SearchScreen (PLAYLISTS scope),
+  // opened from the top app-bar icon — no duplicate field here and no
+  // FocusRequester on this screen.
+  val visiblePlaylists = playlists
   var selectedIds by remember { mutableStateOf(setOf<Int>()) }
   val inListSelection = selectedIds.isNotEmpty()
   var renameListTarget by remember { mutableStateOf<PlaylistWithCount?>(null) }
   var showListDeleteConfirm by remember { mutableStateOf(false) }
-  val visiblePlaylists =
-      remember(playlists, playlistQuery, searching) {
-        if (!searching || playlistQuery.isBlank()) playlists
-        else playlists.filter { it.playlist.name.contains(playlistQuery, ignoreCase = true) }
-      }
 
-  BackHandler(enabled = (inListSelection || searching) && opened == null) {
-    when {
-      searching -> exitPlaylistSearch()
-      inListSelection -> selectedIds = emptySet()
-    }
+  BackHandler(enabled = inListSelection && opened == null) {
+    selectedIds = emptySet()
   }
 
   val current = opened
 
   if (current == null) {
     Column(modifier = Modifier.fillMaxSize()) {
-      if (searching) {
-        // REX-style search field: compact rounded REAL editable (a genuine
-        // focus target, so the focus request always has a valid attached
-        // node), autofocused on open, X clears but stays in search mode.
-        OutlinedTextField(
-            value = playlistQuery,
-            onValueChange = { playlistQuery = it },
-            placeholder = { Text("Search playlists") },
-            leadingIcon = {
-              Icon(
-                  imageVector = Icons.Filled.Search,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            },
-            trailingIcon = {
-              IconButton(
-                  onClick = {
-                    if (playlistQuery.isNotEmpty()) playlistQuery = ""
-                    else exitPlaylistSearch()
-                  }) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = if (playlistQuery.isNotEmpty()) "Clear search" else "Close search")
-              }
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-            shape = RoundedCornerShape(28.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .focusRequester(searchFocusRequester))
-      }
       if (inListSelection) {
         Row(
             modifier = Modifier
@@ -306,27 +223,6 @@ fun VideoPlaylistsContent(
                   fontSize = 13.sp,
                   modifier = Modifier.padding(horizontal = 12.dp))
             }
-      } else if (searching && playlistQuery.isNotBlank() && visiblePlaylists.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = Icons.Filled.Search,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(48.dp))
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "No playlists found",
-                color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Try a different search term",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp)
-          }
-        }
       } else {
         LazyColumn(
             // P4c: cap line length on tablets, same 1100dp pattern as Home.
@@ -376,7 +272,7 @@ fun VideoPlaylistsContent(
             }
       }
 
-        if (!inListSelection && !searching) {
+        if (!inListSelection) {
           FloatingActionButton(
             onClick = { showCreateMenu = true },
             containerColor = MaterialTheme.colorScheme.primary,
@@ -556,7 +452,7 @@ fun VideoPlaylistsContent(
  */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
-private fun PlaylistCard(
+fun PlaylistCard(
     name: String,
     count: Int,
     onClick: () -> Unit,

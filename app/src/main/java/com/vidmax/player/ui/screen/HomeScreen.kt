@@ -129,9 +129,7 @@ fun HomeScreen(
   val openedVideoPlaylist by viewModel.openedVideoPlaylist.collectAsState()
   var isVideoSearchOpen by rememberSaveable { mutableStateOf(false) }
   var folderSearchPath by rememberSaveable { mutableStateOf<String?>(null) }
-  // Ticks the playlist search field open from the top app-bar icon (single
-  // playlist search UI — no duplicate field).
-  var playlistSearchTick by remember { mutableStateOf(0) }
+  var isPlaylistSearchOpen by rememberSaveable { mutableStateOf(false) }
 
   // Resume (continue watching) action — lives in the top bar next to Search
   // so it can never overlap the playlist Create button.
@@ -589,7 +587,7 @@ fun HomeScreen(
                 IconButton(
                     onClick = {
                       if (currentContentMode == HomeContentMode.PLAYLISTS) {
-                        playlistSearchTick++
+                        isPlaylistSearchOpen = true
                       } else {
                         folderSearchPath = null
                         isVideoSearchOpen = true
@@ -1175,8 +1173,7 @@ fun HomeScreen(
                             selection = selection,
                             onSelectionChange = { selection = it },
                             onPlayVideos = onVideoClick,
-                            onDeleteRequest = { performDeleteRequest(it) },
-                            searchRequestTick = playlistSearchTick)
+                            onDeleteRequest = { performDeleteRequest(it) })
                     }
                   }
                 }
@@ -1302,6 +1299,21 @@ fun HomeScreen(
         },
         onPlayVideos = { videos, index -> onVideoClick(videos, index) },
         onDeleteVideo = { performDeleteRequest(it) })
+  }
+
+  if (isPlaylistSearchOpen) {
+    SearchScreen(
+        scope = SearchScope.PLAYLISTS,
+        viewModel = viewModel,
+        onBack = { isPlaylistSearchOpen = false },
+        onOpenPlaylist = { entry ->
+          isPlaylistSearchOpen = false
+          viewModel.openVideoPlaylist(entry.playlist.id)
+        })
+  }
+
+  BackHandler(enabled = isPlaylistSearchOpen) {
+    isPlaylistSearchOpen = false
   }
 }
 

@@ -76,13 +76,15 @@ import com.vidmax.player.data.model.AudioItem
 import com.vidmax.player.data.model.NetworkFile
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.viewmodel.LibraryViewModel
+import com.vidmax.player.viewmodel.PlaylistWithCount
 import java.io.File
 import kotlinx.coroutines.delay
 
 enum class SearchScope {
   VIDEOS,
   MUSIC,
-  NETWORK
+  NETWORK,
+  PLAYLISTS
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -98,6 +100,7 @@ fun SearchScreen(
     onPlayAudio: (List<AudioItem>, Int) -> Unit = { _, _ -> },
     onPlayNetworkFile: (NetworkFile) -> Unit = {},
     onOpenNetworkFolder: (NetworkFile) -> Unit = {},
+    onOpenPlaylist: (PlaylistWithCount) -> Unit = {},
 ) {
   val history by viewModel.searchHistory.collectAsState()
   val libraryTick by viewModel.filteredVideos.collectAsState()
@@ -120,8 +123,11 @@ fun SearchScreen(
   }
 
   LaunchedEffect(Unit) {
-    focusRequester.requestFocus()
-    keyboard?.show()
+      delay(100L)
+      runCatching {
+          focusRequester.requestFocus()
+          keyboard?.show()
+      }
   }
 
   LaunchedEffect(query) {
@@ -158,10 +164,17 @@ fun SearchScreen(
       networkFiles.filter { it.name.contains(trimmed, ignoreCase = true) }
     } else emptyList()
   }
+  val allPlaylists by viewModel.videoPlaylists.collectAsState()
+  val playlistResults = remember(trimmed, allPlaylists, scope) {
+    if (scope == SearchScope.PLAYLISTS && trimmed.isNotEmpty()) {
+      allPlaylists.filter { it.playlist.name.contains(trimmed, ignoreCase = true) }
+    } else emptyList()
+  }
   val resultCount = when (scope) {
     SearchScope.VIDEOS -> videoResults.size
     SearchScope.MUSIC -> audioResults.size
     SearchScope.NETWORK -> networkResults.size
+    SearchScope.PLAYLISTS -> playlistResults.size
   }
   val isTyping = query != visibleQuery
 
@@ -178,6 +191,7 @@ fun SearchScreen(
     SearchScope.VIDEOS -> if (inFolder) "Search in folder…" else "Search videos…"
     SearchScope.MUSIC -> "Search songs or artists…"
     SearchScope.NETWORK -> "Search this folder…"
+    SearchScope.PLAYLISTS -> "Search playlists…"
   }
 
   VideoActionMenuHost(
@@ -556,6 +570,22 @@ fun SearchScreen(
                                         overflow = TextOverflow.Ellipsis)
                                   }
                                 }
+                          }
+                        }
+                  }
+                  SearchScope.PLAYLISTS -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                          itemsIndexed(
+                              items = playlistResults,
+                              key = { _, entry -> entry.playlist.id }) { _, entry ->
+                            PlaylistCard(
+                                name = entry.playlist.name,
+                                count = entry.itemCount,
+                                onClick = { onOpenPlaylist(entry) },
+                                onLongClick = { onOpenPlaylist(entry) })
                           }
                         }
                   }
