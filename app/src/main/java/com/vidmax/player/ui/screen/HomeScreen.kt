@@ -15,8 +15,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -24,7 +26,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -40,7 +44,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -787,42 +793,13 @@ fun HomeScreen(
                             remember(videos, recentVideoPath) {
                               videos.indexOfFirst { it.path == recentVideoPath }
                             }
-                        AnimatedVisibility(
-                            visible = lastPlayedVideoIndex >= 0 && videoListAtTop,
-                            enter = fadeIn(),
-                            exit = fadeOut()) {
-                          val lastVideo = videos.getOrNull(lastPlayedVideoIndex)
-                              ?: return@AnimatedVisibility
-                          Row(
-                              modifier =
-                                  Modifier.fillMaxWidth()
-                                      .padding(bottom = 8.dp)
-                                      .clip(RoundedCornerShape(12.dp))
-                                      .background(
-                                          MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                                      .clickable { resumeLastVideo() }
-                                      .padding(horizontal = 12.dp, vertical = 10.dp),
-                              verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Filled.PlayArrow,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Last played: ${lastVideo.title}",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f))
-                                Text(
-                                    text = "Jump",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold)
-                              }
+                        val lastVideo = videos.getOrNull(lastPlayedVideoIndex)
+                        if (lastVideo != null) {
+                          ContinueWatchingPill(
+                              title = lastVideo.title,
+                              visible = lastPlayedVideoIndex >= 0 && videoListAtTop,
+                              onResume = { resumeLastVideo() },
+                              modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
                         }
                       Crossfade(
                           targetState = currentViewStyle,
@@ -978,36 +955,11 @@ fun HomeScreen(
                               }
                           if (lastPlayedIndex >= 0) {
                             val lastVideo = folderVideos[lastPlayedIndex]
-                            Row(
-                                modifier =
-                                    Modifier.fillMaxWidth()
-                                        .padding(bottom = 8.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                                        .clickable { onVideoClick(folderVideos, lastPlayedIndex) }
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                  Icon(
-                                      imageVector = Icons.Filled.PlayArrow,
-                                      contentDescription = null,
-                                      tint = MaterialTheme.colorScheme.primary,
-                                      modifier = Modifier.size(20.dp))
-                                  Spacer(modifier = Modifier.width(8.dp))
-                                  Text(
-                                      text = "Last played: ${lastVideo.title}",
-                                      color = MaterialTheme.colorScheme.onSurface,
-                                      fontSize = 13.sp,
-                                      fontWeight = FontWeight.SemiBold,
-                                      maxLines = 1,
-                                      overflow = TextOverflow.Ellipsis,
-                                      modifier = Modifier.weight(1f))
-                                  Text(
-                                      text = "Jump",
-                                      color = MaterialTheme.colorScheme.primary,
-                                      fontSize = 13.sp,
-                                      fontWeight = FontWeight.Bold)
-                                }
+                            ContinueWatchingPill(
+                                title = lastVideo.title,
+                                visible = true,
+                                onResume = { onVideoClick(folderVideos, lastPlayedIndex) },
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
                           }
 
                           if (folderVideos.isEmpty()) {
@@ -1318,6 +1270,89 @@ fun HomeScreen(
 }
 
 // ... [PremiumVideoListCard, CustomVideoGridCard, CustomVideoLargeCard, getVideoUriFromPathForMulti - same as before] ...
+
+/**
+ * Modern Material 3 "Continue Watching" pill replacing the old Last Played
+ * banner. Spring expand/shrink + fade keeps scroll show/hide fluid instead
+ * of snapping.
+ */
+@Composable
+private fun ContinueWatchingPill(
+    title: String,
+    visible: Boolean,
+    onResume: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+  AnimatedVisibility(
+      visible = visible,
+      enter = fadeIn(animationSpec = tween(300)) + expandVertically(
+          animationSpec = spring(
+              dampingRatio = Spring.DampingRatioLowBouncy,
+              stiffness = Spring.StiffnessMediumLow)),
+      exit = fadeOut(animationSpec = tween(250)) + shrinkVertically(
+          animationSpec = spring(
+              dampingRatio = Spring.DampingRatioNoBouncy,
+              stiffness = Spring.StiffnessMediumLow)),
+      modifier = modifier) {
+    Surface(
+        onClick = onResume,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))) {
+      Row(
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+          verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)) {
+              Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Rounded.PlayArrow,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(18.dp))
+              }
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                  text = "Continue watching",
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  fontSize = 11.sp,
+                  fontWeight = FontWeight.Medium)
+              Text(
+                  text = title,
+                  color = MaterialTheme.colorScheme.onSurface,
+                  fontSize = 14.sp,
+                  fontWeight = FontWeight.SemiBold,
+                  maxLines = 1,
+                  modifier = Modifier.basicMarquee())
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondaryContainer) {
+              Row(
+                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                  verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Resume",
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold)
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(16.dp))
+              }
+            }
+          }
+    }
+  }
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalGlideComposeApi::class)
 @Composable
