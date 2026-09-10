@@ -48,6 +48,7 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.*
@@ -58,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -76,6 +78,7 @@ import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
 import com.vidmax.player.ui.components.SortViewOptionsSheet
 import com.vidmax.player.ui.components.FolderPickerDialog
+import com.vidmax.player.ui.components.MetaChip
 import com.vidmax.player.ui.components.DialogCancelButton
 import com.vidmax.player.ui.components.DialogConfirmButton
 import com.vidmax.player.ui.components.DialogHeaderBadge
@@ -1783,100 +1786,186 @@ private fun formatCompactSize(bytes: Long): String {
   }
 }
 
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun HomeFolderGridCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
   Card(
-      modifier =
-          modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
-      shape = RoundedCornerShape(12.dp),
+      onClick = onClick,
+      modifier = modifier.fillMaxWidth(),
+      shape = RoundedCornerShape(16.dp),
       colors =
           CardDefaults.cardColors(
-              containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
+              containerColor = MaterialTheme.colorScheme.surfaceContainer),
+      border = BorderStroke(
+          1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))) {
         Column {
           Box(
               modifier = Modifier
                   .fillMaxWidth()
                   .aspectRatio(16f / 9f)
-                  .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
+                  .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
               contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_folder),
-                    contentDescription = "Folder Icon",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(52.dp)
-                )
-          }
+                if (folder.firstVideoPath.isNotEmpty()) {
+                  GlideImage(
+                      model = File(folder.firstVideoPath),
+                      contentDescription = null,
+                      contentScale = ContentScale.Crop,
+                      modifier = Modifier.fillMaxSize()) { requestBuilder ->
+                        requestBuilder
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .override(400)
+                      }
+                } else {
+                  Box(
+                      modifier =
+                          Modifier.size(52.dp)
+                              .clip(RoundedCornerShape(14.dp))
+                              .background(
+                                  MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                      contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Folder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp))
+                      }
+                }
+                if (folder.firstVideoPath.isNotEmpty()) {
+                  Surface(
+                      shape = RoundedCornerShape(50),
+                      color = Color.Black.copy(alpha = 0.55f),
+                      modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                      Icon(
+                          imageVector = Icons.Rounded.Folder,
+                          contentDescription = null,
+                          tint = Color.White,
+                          modifier = Modifier.size(14.dp))
+                      Spacer(modifier = Modifier.width(4.dp))
+                      Text(
+                          text = "${folder.videoCount}",
+                          color = Color.White,
+                          fontSize = 11.sp,
+                          fontWeight = FontWeight.Bold)
+                    }
+                  }
+                }
+              }
 
           Column(modifier = Modifier.padding(10.dp)) {
             Text(
                 text = folder.name,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
-                lineHeight = 16.sp,
                 overflow = TextOverflow.Ellipsis)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${folder.videoCount} videos",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                text = folderMetaLabel(folder),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
           }
         }
       }
 }
 
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
   Card(
-      modifier =
-          modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick),
-      shape = RoundedCornerShape(16.dp),
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column {
+      onClick = onClick,
+      modifier = modifier.fillMaxWidth(),
+      shape = RoundedCornerShape(20.dp),
+      colors =
+          CardDefaults.cardColors(
+              containerColor = MaterialTheme.colorScheme.surfaceContainer),
+      border = BorderStroke(
+          1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))) {
+        Column(modifier = Modifier.padding(12.dp)) {
           Box(
               modifier = Modifier
                   .fillMaxWidth()
                   .aspectRatio(16f / 9f)
-                  .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
+                  .clip(RoundedCornerShape(14.dp))
+                  .background(
+                      Brush.verticalGradient(
+                          0f to MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                          1f to MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f))),
               contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_folder),
-                    contentDescription = "Folder Icon",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(72.dp)
-                )
-          }
+                if (folder.firstVideoPath.isNotEmpty()) {
+                  GlideImage(
+                      model = File(folder.firstVideoPath),
+                      contentDescription = null,
+                      contentScale = ContentScale.Crop,
+                      modifier = Modifier.fillMaxSize()) { requestBuilder ->
+                        requestBuilder
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .override(600)
+                      }
+                  Box(
+                      modifier = Modifier.fillMaxSize().background(
+                          Brush.verticalGradient(
+                              0f to Color.Transparent,
+                              1f to Color.Black.copy(alpha = 0.45f))))
+                } else {
+                  Box(
+                      modifier =
+                          Modifier.size(64.dp)
+                              .clip(RoundedCornerShape(16.dp))
+                              .background(
+                                  MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                      contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.FolderCopy,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(34.dp))
+                      }
+                }
+              }
 
           Row(
-              modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+              modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp),
               verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                   Text(
                       text = folder.name,
+                      style = MaterialTheme.typography.titleMedium,
+                      fontSize = 16.sp,
                       fontWeight = FontWeight.Bold,
-                      fontSize = 18.sp,
                       color = MaterialTheme.colorScheme.onSurface,
                       maxLines = 1,
                       overflow = TextOverflow.Ellipsis)
-                  Spacer(modifier = Modifier.height(4.dp))
-                  Text(
-                      text = "${folder.videoCount} videos",
-                      fontSize = 14.sp,
-                      color = MaterialTheme.colorScheme.onSurfaceVariant)
+                  Spacer(modifier = Modifier.height(6.dp))
+                  Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val countLabel =
+                        if (folder.videoCount == 1) "1 video" else "${folder.videoCount} videos"
+                    MetaChip(text = countLabel, highlighted = true)
+                    val sizeLabel = formatCompactSize(folder.totalSize)
+                    if (sizeLabel.isNotEmpty()) MetaChip(text = sizeLabel)
+                  }
                 }
 
-                Box(
-                    modifier =
-                        Modifier.size(44.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape),
-                    contentAlignment = Alignment.Center) {
-                      Icon(
-                          imageVector = Icons.Default.PlayArrow,
-                          contentDescription = null,
-                          tint = MaterialTheme.colorScheme.onPrimary,
-                          modifier = Modifier.size(24.dp))
-                    }
+                Spacer(modifier = Modifier.width(12.dp))
+
+                FilledTonalIconButton(
+                    onClick = onClick,
+                    modifier = Modifier.size(48.dp),
+                    colors =
+                        IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary)) {
+                  Icon(
+                      imageVector = Icons.Default.PlayArrow,
+                      contentDescription = "Open folder",
+                      modifier = Modifier.size(24.dp))
+                }
               }
         }
       }
