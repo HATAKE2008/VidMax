@@ -129,9 +129,6 @@ fun HomeScreen(
   val openedVideoPlaylist by viewModel.openedVideoPlaylist.collectAsState()
   var isVideoSearchOpen by rememberSaveable { mutableStateOf(false) }
   var folderSearchPath by rememberSaveable { mutableStateOf<String?>(null) }
-  // Ticks the playlist SearchBar open (REX: top-bar search icon drives the
-  // playlist search instead of a separate search box).
-  var playlistSearchTick by remember { mutableStateOf(0) }
 
   // Resume (continue watching) action — lives in the top bar next to Search
   // so it can never overlap the playlist Create button.
@@ -586,16 +583,7 @@ fun HomeScreen(
                   fontWeight = FontWeight.ExtraBold)
 
               Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = {
-                      if (currentContentMode == HomeContentMode.PLAYLISTS) {
-                        playlistSearchTick++
-                      } else {
-                        folderSearchPath = null
-                        isVideoSearchOpen = true
-                      }
-                    },
-                    modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = { folderSearchPath = null; isVideoSearchOpen = true }, modifier = Modifier.size(36.dp)) {
                   Icon(
                       painter = painterResource(id = R.drawable.ic_search),
                       contentDescription = "Search",
@@ -1175,8 +1163,7 @@ fun HomeScreen(
                             selection = selection,
                             onSelectionChange = { selection = it },
                             onPlayVideos = onVideoClick,
-                            onDeleteRequest = { performDeleteRequest(it) },
-                            searchRequestTick = playlistSearchTick)
+                            onDeleteRequest = { performDeleteRequest(it) })
                     }
                   }
                 }

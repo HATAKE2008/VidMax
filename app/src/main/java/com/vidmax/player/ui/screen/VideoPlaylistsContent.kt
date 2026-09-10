@@ -41,15 +41,12 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SearchBar
-import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -60,21 +57,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -110,7 +102,6 @@ fun VideoPlaylistsContent(
   onSelectionChange: (VideoSelection) -> Unit,
   onPlayVideos: (List<VideoItem>, Int) -> Unit,
   onDeleteRequest: (VideoItem) -> Unit,
-  searchRequestTick: Int = 0,
 ) {
   val playlists by viewModel.videoPlaylists.collectAsState()
   val opened by viewModel.openedVideoPlaylist.collectAsState()
@@ -119,23 +110,11 @@ fun VideoPlaylistsContent(
   var showRenameDialog by remember { mutableStateOf(false) }
   var showDeleteConfirm by remember { mutableStateOf(false) }
 
-  // REX-style search: opened from the top app-bar icon, autofocused, X exits.
-  var searching by rememberSaveable { mutableStateOf(false) }
-  var playlistQuery by rememberSaveable { mutableStateOf("") }
-  val focusRequester = remember { FocusRequester() }
-  val keyboardController = LocalSoftwareKeyboardController.current
-  LaunchedEffect(searchRequestTick) {
-    if (searchRequestTick > 0) {
-      searching = true
-      playlistQuery = ""
-    }
-  }
-  LaunchedEffect(searching) {
-    if (searching) {
-      focusRequester.requestFocus()
-      keyboardController?.show()
-    }
-  }
+  // REX-style search is intentionally NOT duplicated here: the top
+  // app-bar search icon opens the shared SearchScreen, exactly like the
+  // other VidMax screens. (A previous inline SearchBar caused a
+  // FocusRequester crash and is removed.)
+  val visiblePlaylists = playlists
 
   // REX-style playlist multi-selection (stable int ids): rename when single,
   // delete when any selected. Video selection lives in the shared global
@@ -145,59 +124,14 @@ fun VideoPlaylistsContent(
   var renameListTarget by remember { mutableStateOf<PlaylistWithCount?>(null) }
   var showListDeleteConfirm by remember { mutableStateOf(false) }
 
-  BackHandler(enabled = (inListSelection || searching) && opened == null) {
-    when {
-      searching -> {
-        searching = false
-        playlistQuery = ""
-      }
-      inListSelection -> selectedIds = emptySet()
-    }
+  BackHandler(enabled = inListSelection && opened == null) {
+    selectedIds = emptySet()
   }
 
   val current = opened
 
   if (current == null) {
-    val visiblePlaylists =
-        remember(playlists, playlistQuery) {
-          if (playlistQuery.isBlank()) playlists
-          else playlists.filter { it.playlist.name.contains(playlistQuery, ignoreCase = true) }
-        }
     Column(modifier = Modifier.fillMaxSize()) {
-      if (searching) {
-        SearchBar(
-            inputField = {
-              SearchBarDefaults.InputField(
-                  query = playlistQuery,
-                  onQueryChange = { playlistQuery = it },
-                  onSearch = {},
-                  expanded = false,
-                  onExpandedChange = {},
-                  placeholder = { Text("Search playlists") },
-                  leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Search,
-                        contentDescription = null)
-                  },
-                  trailingIcon = {
-                    IconButton(
-                        onClick = {
-                          searching = false
-                          playlistQuery = ""
-                        }) {
-                      Icon(
-                          imageVector = Icons.Filled.Close,
-                          contentDescription = "Close search")
-                    }
-                  },
-                  modifier = Modifier.focusRequester(focusRequester))
-            },
-            expanded = false,
-            onExpandedChange = {},
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            shape = RoundedCornerShape(28.dp),
-            tonalElevation = 6.dp) {}
-      }
       if (inListSelection) {
         Row(
             modifier = Modifier
@@ -271,13 +205,6 @@ fun VideoPlaylistsContent(
                   fontSize = 13.sp,
                   modifier = Modifier.padding(horizontal = 12.dp))
             }
-      } else if (visiblePlaylists.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-          Text(
-              text = "No playlists match \"$playlistQuery\"",
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              fontSize = 14.sp)
-        }
       } else {
         LazyColumn(
             // P4c: cap line length on tablets, same 1100dp pattern as Home.
@@ -307,7 +234,7 @@ fun VideoPlaylistsContent(
             }
       }
 
-        if (!inListSelection && !searching) {
+        if (!inListSelection) {
           FloatingActionButton(
             onClick = { showCreateDialog = true },
             containerColor = MaterialTheme.colorScheme.primary,
