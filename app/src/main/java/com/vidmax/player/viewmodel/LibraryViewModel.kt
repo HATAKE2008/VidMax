@@ -273,6 +273,100 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
   }
 
+  /** Removes playlist items by file path (multi-remove for detail selection). */
+  fun removePlaylistItemsByPaths(playlistId: Int, paths: Set<String>, onDone: (() -> Unit)? = null) {
+    if (paths.isEmpty()) {
+      onDone?.let { viewModelScope.launch(Dispatchers.Main) { it() } }
+      return
+    }
+    viewModelScope.launch(Dispatchers.IO) {
+      val items = playlistRepository.getPlaylistItems(playlistId).filter { paths.contains(it.filePath) }
+      if (items.isNotEmpty()) playlistRepository.removeItemsFromPlaylist(items)
+      withContext(Dispatchers.Main) { onDone?.invoke() }
+    }
+  }
+
+  /**
+   * Imports an M3U/M3U8 playlist from a URL into a persistent local playlist.
+   * Entries keep their titles; unreachable/invalid sources and empty results
+   * report clear errors without touching existing playlists.
+   */
+  fun importM3UPlaylist(rawUrl: String, onResult: (Result<Pair<String, Int>>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val url = rawUrl.trim()
+        require(url.startsWith("http://") || url.startsWith("https://")) {
+          "Enter a valid http(s) URL"
+        }
+        val text = runCatching {
+          val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+          connection.connectTimeout = 15000
+          connection.readTimeout = 15000
+          connection.setRequestProperty("User-Agent", "VidMax")
+          try {
+            require(connection.responseCode in 200..299) {
+              "Server returned ${connection.responseCode}"
+            }
+            connection.inputStream.bufferedReader().use { reader ->
+              val builder = StringBuilder()
+              var total = 0
+              while (true) {
+                val line = reader.readLine() ?: break
+                total += line.length
+                if (total > 2_000_000) throw IllegalStateException("Playlist too large")
+                builder.appendLine(line)
+              }
+              builder.toString()
+            }
+          } finally {
+            connection.disconnect()
+          }
+        }.getOrElse { throw IllegalStateException("Could not download playlist") }
+        val entries = parseM3UEntries(text)
+        require(entries.isNotEmpty()) { "No playable entries found" }
+        val name = deriveM3UPlaylistName(url, text)
+        val playlistId = playlistRepository.createPlaylist(name).toInt()
+        playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
+        name to entries.size
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /** Parses EXTINF titles + URLs (and bare URL lines) into (url, title). */
+  private fun parseM3UEntries(text: String): List<Pair<String, String>> {
+    val entries = mutableListOf<Pair<String, String>>()
+    var pendingTitle: String? = null
+    text.lineSequence().forEach { rawLine ->
+      val line = rawLine.trim()
+      if (line.isEmpty()) return@forEach
+      if (line.startsWith("#")) {
+        if (line.startsWith("#EXTINF")) {
+          pendingTitle = line.substringAfter(",", "").trim().ifEmpty { null }
+        }
+        return@forEach
+      }
+      if (line.startsWith("http://") || line.startsWith("https://") || File(line).exists()) {
+        val fallback = line.substringAfterLast('/').substringBeforeLast('.').ifEmpty { line }
+        entries.add(line to (pendingTitle ?: fallback))
+      }
+      pendingTitle = null
+    }
+    return entries.distinctBy { it.first }
+  }
+
+  private fun deriveM3UPlaylistName(url: String, text: String): String {
+    text.lineSequence()
+        .firstOrNull { it.trim().startsWith("#PLAYLIST") }
+        ?.substringAfter(":")?.trim()?.takeIf { it.isNotEmpty() }
+        ?.let { return it.take(80) }
+    val last = url.substringAfterLast('/').substringBefore('?').trim()
+    if (last.isNotEmpty() && last.contains('.')) {
+      return last.substringBeforeLast('.').ifEmpty { url }.take(80)
+    }
+    return runCatching { java.net.URL(url).host }.getOrDefault("Imported playlist").take(80)
+  }
+
   /** Opens a playlist and reactively observes its items until closed. */
   fun openVideoPlaylist(playlistId: Int) {
     viewModelScope.launch(Dispatchers.IO) {
