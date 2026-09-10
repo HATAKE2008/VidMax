@@ -228,6 +228,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       playlistRepository.getPlaylistById(playlistId)?.let { playlist ->
         playlistRepository.deletePlaylist(playlist)
       }
+      M3uSourceStore.removeId(prefs, playlistId)
+      _m3uSourceIds.value = M3uSourceStore.allIds(prefs)
       if (_openedVideoPlaylist.value?.id == playlistId) closeVideoPlaylist()
     }
   }
@@ -298,39 +300,46 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         require(url.startsWith("http://") || url.startsWith("https://")) {
           "Enter a valid http(s) URL"
         }
-        val text = runCatching {
-          val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-          connection.connectTimeout = 15000
-          connection.readTimeout = 15000
-          connection.setRequestProperty("User-Agent", "VidMax")
-          try {
-            require(connection.responseCode in 200..299) {
-              "Server returned ${connection.responseCode}"
-            }
-            connection.inputStream.bufferedReader().use { reader ->
-              val builder = StringBuilder()
-              var total = 0
-              while (true) {
-                val line = reader.readLine() ?: break
-                total += line.length
-                if (total > 2_000_000) throw IllegalStateException("Playlist too large")
-                builder.appendLine(line)
-              }
-              builder.toString()
-            }
-          } finally {
-            connection.disconnect()
-          }
-        }.getOrElse { throw IllegalStateException("Could not download playlist") }
-        val entries = parseM3UEntries(text)
+        val (text, entries) = downloadAndParseM3U(url)
         require(entries.isNotEmpty()) { "No playable entries found" }
         val name = deriveM3UPlaylistName(url, text)
         val playlistId = playlistRepository.createPlaylist(name).toInt()
         playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
+        M3uSourceStore.setUrl(prefs, playlistId, url)
+        _m3uSourceIds.value = M3uSourceStore.allIds(prefs)
         name to entries.size
       }
       withContext(Dispatchers.Main) { onResult(result) }
     }
+  }
+
+  /** Downloads an M3U document and parses its entries (shared by import/refresh). */
+  private fun downloadAndParseM3U(url: String): Pair<String, List<Pair<String, String>>> {
+    val text = runCatching {
+      val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+      connection.connectTimeout = 15000
+      connection.readTimeout = 15000
+      connection.setRequestProperty("User-Agent", "VidMax")
+      try {
+        require(connection.responseCode in 200..299) {
+          "Server returned ${connection.responseCode}"
+        }
+        connection.inputStream.bufferedReader().use { reader ->
+          val builder = StringBuilder()
+          var total = 0
+          while (true) {
+            val line = reader.readLine() ?: break
+            total += line.length
+            if (total > 2_000_000) throw IllegalStateException("Playlist too large")
+            builder.appendLine(line)
+          }
+          builder.toString()
+        }
+      } finally {
+        connection.disconnect()
+      }
+    }.getOrElse { throw IllegalStateException("Could not download playlist") }
+    return text to parseM3UEntries(text)
   }
 
   /** Parses EXTINF titles + URLs (and bare URL lines) into (url, title). */
@@ -367,6 +376,57 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     return runCatching { java.net.URL(url).host }.getOrDefault("Imported playlist").take(80)
   }
 
+  // M3U/M3U8 source registry: which playlists were imported from a URL
+  // (badges + refresh-from-URL). Stored outside Room: no migration needed.
+  private val _m3uSourceIds: MutableStateFlow<Set<Int>> =
+      MutableStateFlow(M3uSourceStore.allIds(prefs))
+  val m3uSourceIds: StateFlow<Set<Int>> = _m3uSourceIds.asStateFlow()
+
+  /**
+   * Loads a playlist's items as playable [VideoItem]s in saved order for
+   * card-level Play actions.
+   */
+  fun openAndPlayPlaylist(playlistId: Int, onResult: (Result<List<VideoItem>>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val list = playlistRepository.getPlaylistItems(playlistId).map { item ->
+          VideoItem(
+              id = item.id.toLong(),
+              title = item.fileName,
+              path = item.filePath,
+              duration = 0L,
+              size = 0L,
+              width = 0,
+              height = 0,
+              dateAdded = item.addedAt,
+              folderPath = "",
+              folderName = "")
+        }
+        require(list.isNotEmpty()) { "Playlist is empty" }
+        list
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /**
+   * Re-downloads a previously imported M3U playlist and replaces its items
+   * (order + titles follow the source). Local playlists are unaffected.
+   */
+  fun refreshM3UPlaylist(playlistId: Int, onResult: (Result<Int>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val url = M3uSourceStore.getUrl(prefs, playlistId)
+            ?: throw IllegalStateException("No source URL saved")
+        val (text, entries) = downloadAndParseM3U(url)
+        require(entries.isNotEmpty()) { "No playable entries found" }
+        playlistRepository.clearPlaylist(playlistId)
+        playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
+        entries.size
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
   /** Opens a playlist and reactively observes its items until closed. */
   fun openVideoPlaylist(playlistId: Int) {
     viewModelScope.launch(Dispatchers.IO) {

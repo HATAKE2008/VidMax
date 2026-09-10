@@ -129,7 +129,7 @@ fun HomeScreen(
   val openedVideoPlaylist by viewModel.openedVideoPlaylist.collectAsState()
   var isVideoSearchOpen by rememberSaveable { mutableStateOf(false) }
   var folderSearchPath by rememberSaveable { mutableStateOf<String?>(null) }
-  // Ticks the playlist SearchBar open from the top app-bar icon (single
+  // Ticks the playlist search field open from the top app-bar icon (single
   // playlist search UI — no duplicate field).
   var playlistSearchTick by remember { mutableStateOf(0) }
 

@@ -5,6 +5,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -49,6 +51,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.rounded.AddCircleOutline
@@ -94,6 +97,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -131,7 +135,9 @@ fun VideoPlaylistsContent(
   searchRequestTick: Int = 0,
 ) {
   val playlists by viewModel.videoPlaylists.collectAsState()
+  val context = LocalContext.current
   val opened by viewModel.openedVideoPlaylist.collectAsState()
+  val m3uSourceIds by viewModel.m3uSourceIds.collectAsState()
   val items by viewModel.openedVideoPlaylistItems.collectAsState()
   var showCreateDialog by remember { mutableStateOf(false) }
   var showCreateMenu by remember { mutableStateOf(false) }
@@ -139,11 +145,12 @@ fun VideoPlaylistsContent(
   var showRenameDialog by remember { mutableStateOf(false) }
   var showDeleteConfirm by remember { mutableStateOf(false) }
 
-  // Playlist search (REX SearchBar pattern): opened ONLY from the top
-  // app-bar search icon — no separate search field. Plain remember (never
-  // restored true) plus an event-keyed effect keeps focus lifecycle-safe:
-  // the request runs post-composition after the SearchBar and its focus
-  // modifier are attached, so it cannot hit an uninitialized requester.
+  // Playlist search: opened ONLY from the top app-bar search icon (single
+  // search UI — no duplicate field). Crash-safe focus by construction:
+  // plain remember state (never restored true), one requester created with
+  // remember and attached to a real editable field, requested once from a
+  // LaunchedEffect keyed on the explicit tap event AFTER composition, and
+  // focus cleared on every exit path.
   var searching by remember { mutableStateOf(false) }
   var playlistQuery by remember { mutableStateOf("") }
   var searchFocusTick by remember { mutableStateOf(0) }
@@ -163,21 +170,12 @@ fun VideoPlaylistsContent(
       keyboardController?.show()
     }
   }
-  val visiblePlaylists =
-      remember(playlists, playlistQuery, searching) {
-        if (!searching || playlistQuery.isBlank()) playlists
-        else playlists.filter { it.playlist.name.contains(playlistQuery, ignoreCase = true) }
-      }
 
   fun exitPlaylistSearch() {
     searching = false
     playlistQuery = ""
     focusManager.clearFocus()
   }
-
-  // REX-style playlist multi-selection (stable int ids): rename when single,
-  // delete when any selected. Video selection lives in the shared global
-  // system; this covers playlist rows only.
   var selectedIds by remember { mutableStateOf(setOf<Int>()) }
   val inListSelection = selectedIds.isNotEmpty()
   var renameListTarget by remember { mutableStateOf<PlaylistWithCount?>(null) }
@@ -195,34 +193,40 @@ fun VideoPlaylistsContent(
   if (current == null) {
     Column(modifier = Modifier.fillMaxSize()) {
       if (searching) {
-        SearchBar(
-            inputField = {
-              SearchBarDefaults.InputField(
-                  query = playlistQuery,
-                  onQueryChange = { playlistQuery = it },
-                  onSearch = {},
-                  expanded = false,
-                  onExpandedChange = {},
-                  placeholder = { Text("Search playlists") },
-                  leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Search,
-                        contentDescription = null)
-                  },
-                  trailingIcon = {
-                    IconButton(onClick = { exitPlaylistSearch() }) {
-                      Icon(
-                          imageVector = Icons.Filled.Close,
-                          contentDescription = "Close search")
-                    }
-                  },
-                  modifier = Modifier.focusRequester(searchFocusRequester))
+        // REX-style search field: compact rounded REAL editable (a genuine
+        // focus target, so the focus request always has a valid attached
+        // node), autofocused on open, X clears but stays in search mode.
+        OutlinedTextField(
+            value = playlistQuery,
+            onValueChange = { playlistQuery = it },
+            placeholder = { Text("Search playlists") },
+            leadingIcon = {
+              Icon(
+                  imageVector = Icons.Filled.Search,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant)
             },
-            expanded = false,
-            onExpandedChange = {},
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            trailingIcon = {
+              IconButton(
+                  onClick = {
+                    if (playlistQuery.isNotEmpty()) playlistQuery = ""
+                    else exitPlaylistSearch()
+                  }) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = if (playlistQuery.isNotEmpty()) "Clear search" else "Close search")
+              }
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
             shape = RoundedCornerShape(28.dp),
-            tonalElevation = 6.dp) {}
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .focusRequester(searchFocusRequester))
       }
       if (inListSelection) {
         Row(
@@ -329,6 +333,7 @@ fun VideoPlaylistsContent(
                     name = entry.playlist.name,
                     count = entry.itemCount,
                     isSelected = selectedIds.contains(entry.playlist.id),
+                    isM3u = m3uSourceIds.contains(entry.playlist.id),
                     onClick = {
                       if (inListSelection) {
                         selectedIds =
@@ -342,6 +347,25 @@ fun VideoPlaylistsContent(
                       selectedIds =
                           if (selectedIds.contains(entry.playlist.id)) selectedIds - entry.playlist.id
                           else selectedIds + entry.playlist.id
+                    },
+                    onPlay = {
+                      viewModel.openAndPlayPlaylist(entry.playlist.id) { result ->
+                        result
+                            .onSuccess { list -> onPlayVideos(list, 0) }
+                            .onFailure {
+                              Toast.makeText(
+                                  context,
+                                  it.message ?: "Could not play playlist",
+                                  Toast.LENGTH_SHORT).show()
+                            }
+                      }
+                    },
+                    onRename = {
+                      renameListTarget = PlaylistWithCount(entry.playlist, entry.itemCount)
+                    },
+                    onDelete = {
+                      selectedIds = setOf(entry.playlist.id)
+                      showListDeleteConfirm = true
                     })
               }
             }
@@ -532,7 +556,12 @@ private fun PlaylistCard(
     onClick: () -> Unit,
     isSelected: Boolean = false,
     onLongClick: () -> Unit = {},
+    isM3u: Boolean = false,
+    onPlay: () -> Unit = {},
+    onRename: () -> Unit = {},
+    onDelete: () -> Unit = {},
 ) {
+  var overflowOpen by remember { mutableStateOf(false) }
   Card(
       modifier = Modifier.fillMaxWidth()
           .border(
@@ -578,14 +607,57 @@ private fun PlaylistCard(
                   MetaChip(
                       text = if (count == 1) "1 video" else "$count videos",
                       highlighted = true)
-                  MetaChip(text = "Local")
+                  MetaChip(text = if (isM3u) "M3U" else "Local")
                 }
           }
-          Icon(
-              imageVector = Icons.Filled.PlayArrow,
-              contentDescription = "Open",
-              tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(22.dp))
+          IconButton(onClick = onPlay) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = "Play playlist",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp))
+          }
+          Box {
+            IconButton(onClick = { overflowOpen = true }) {
+              Icon(
+                  imageVector = Icons.Filled.MoreVert,
+                  contentDescription = "Playlist options",
+                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  modifier = Modifier.size(22.dp))
+            }
+            DropdownMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
+              DropdownMenuItem(
+                  text = { Text("Play") },
+                  leadingIcon = {
+                    Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
+                  },
+                  onClick = {
+                    overflowOpen = false
+                    onPlay()
+                  })
+              DropdownMenuItem(
+                  text = { Text("Rename") },
+                  leadingIcon = {
+                    Icon(imageVector = Icons.Filled.Edit, contentDescription = null)
+                  },
+                  onClick = {
+                    overflowOpen = false
+                    onRename()
+                  })
+              DropdownMenuItem(
+                  text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                  leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error)
+                  },
+                  onClick = {
+                    overflowOpen = false
+                    onDelete()
+                  })
+            }
+          }
         }
   }
 }
@@ -746,6 +818,33 @@ private fun PlaylistDetailContent(
                       menuOpen = false
                       onRename()
                     })
+                if (m3uSourceIds.contains(playlistId)) {
+                  DropdownMenuItem(
+                      text = { Text("Refresh from URL") },
+                      leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = null)
+                      },
+                      onClick = {
+                        menuOpen = false
+                        viewModel.refreshM3UPlaylist(playlistId) { result ->
+                          result
+                              .onSuccess { count ->
+                                Toast.makeText(
+                                    context,
+                                    "Refreshed ($count videos)",
+                                    Toast.LENGTH_SHORT).show()
+                              }
+                              .onFailure {
+                                Toast.makeText(
+                                    context,
+                                    it.message ?: "Refresh failed",
+                                    Toast.LENGTH_SHORT).show()
+                              }
+                        }
+                      })
+                }
                 if (itemQuery.isBlank()) {
                   DropdownMenuItem(
                       text = { Text("Reorder") },
