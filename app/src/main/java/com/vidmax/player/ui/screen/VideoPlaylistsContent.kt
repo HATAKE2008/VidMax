@@ -180,6 +180,11 @@ fun VideoPlaylistsContent(
   val inListSelection = selectedIds.isNotEmpty()
   var renameListTarget by remember { mutableStateOf<PlaylistWithCount?>(null) }
   var showListDeleteConfirm by remember { mutableStateOf(false) }
+  val visiblePlaylists =
+      remember(playlists, playlistQuery, searching) {
+        if (!searching || playlistQuery.isBlank()) playlists
+        else playlists.filter { it.playlist.name.contains(playlistQuery, ignoreCase = true) }
+      }
 
   BackHandler(enabled = (inListSelection || searching) && opened == null) {
     when {
@@ -394,6 +399,7 @@ fun VideoPlaylistsContent(
         onSelectionChange = onSelectionChange,
         playlistId = current.id,
         playlistName = current.name,
+        isM3u = m3uSourceIds.contains(current.id),
         items = items,
         onBack = { viewModel.closeVideoPlaylist() },
         onRename = { showRenameDialog = true },
@@ -670,6 +676,7 @@ private fun PlaylistDetailContent(
   onSelectionChange: (VideoSelection) -> Unit,
   playlistId: Int,
   playlistName: String,
+  isM3u: Boolean,
   items: List<VidMaxVideoPlaylistItem>,
   onBack: () -> Unit,
   onRename: () -> Unit,
@@ -679,6 +686,7 @@ private fun PlaylistDetailContent(
 ) {
   var menuOpen by remember { mutableStateOf(false) }
   var itemQuery by remember { mutableStateOf("") }
+  val context = LocalContext.current
   val haptics = LocalHapticFeedback.current
   val listState = rememberLazyListState()
 
@@ -818,7 +826,7 @@ private fun PlaylistDetailContent(
                       menuOpen = false
                       onRename()
                     })
-                if (m3uSourceIds.contains(playlistId)) {
+                if (isM3u) {
                   DropdownMenuItem(
                       text = { Text("Refresh from URL") },
                       leadingIcon = {
