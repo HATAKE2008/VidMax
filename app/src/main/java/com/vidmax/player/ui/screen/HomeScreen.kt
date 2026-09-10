@@ -44,8 +44,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.*
@@ -1701,49 +1703,84 @@ fun HomeContentSegment(
 
 @Composable
 fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
-  Row(
-      modifier =
-          modifier
-              .fillMaxWidth()
-              .clip(RoundedCornerShape(14.dp))
-              .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-              .clickable(onClick = onClick)
-              .padding(8.dp),
-      verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier =
-                Modifier.size(width = 110.dp, height = 64.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
-            contentAlignment = Alignment.Center) {
-              Icon(
-                  painter = painterResource(id = R.drawable.ic_folder),
-                  contentDescription = "Folder Icon",
-                  tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                  modifier = Modifier.size(36.dp)
-              )
-            }
+  Surface(
+      onClick = onClick,
+      modifier = modifier
+          .fillMaxWidth()
+          .heightIn(min = 72.dp, max = 76.dp),
+      shape = RoundedCornerShape(16.dp),
+      color = MaterialTheme.colorScheme.surfaceContainer,
+      border = BorderStroke(
+          1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+          Box(
+              modifier =
+                  Modifier.size(46.dp)
+                      .clip(RoundedCornerShape(12.dp))
+                      .background(
+                          MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+              contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Rounded.Folder,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp))
+              }
 
-        Spacer(modifier = Modifier.width(12.dp))
+          Spacer(modifier = Modifier.width(12.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
-          Text(
-              text = folder.name,
-              color = MaterialTheme.colorScheme.onSurface,
-              fontSize = 15.sp,
-              fontWeight = FontWeight.SemiBold,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis)
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = folder.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
 
-          Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-          Text(
-              text = "${folder.videoCount} videos",
-              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-              fontSize = 13.sp,
-              fontWeight = FontWeight.Medium)
+            Text(
+                text = folderMetaLabel(folder),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(horizontal = 8.dp, vertical = 2.dp))
+          }
+
+          Spacer(modifier = Modifier.width(8.dp))
+
+          Icon(
+              imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+              contentDescription = "Open folder",
+              tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+              modifier = Modifier.size(22.dp))
         }
-      }
+  }
+}
+
+private fun folderMetaLabel(folder: FolderItem): String {
+  val count = if (folder.videoCount == 1) "1 video" else "${folder.videoCount} videos"
+  val size = formatCompactSize(folder.totalSize)
+  return if (size.isNotEmpty()) "$count • $size" else count
+}
+
+private fun formatCompactSize(bytes: Long): String {
+  if (bytes <= 0) return ""
+  return when {
+    bytes >= 1_073_741_824L -> "%.1f GB".format(bytes / 1_073_741_824.0)
+    bytes >= 1_048_576L -> "%.1f MB".format(bytes / 1_048_576.0)
+    bytes >= 1_024L -> "%d KB".format(bytes / 1_024)
+    else -> "$bytes B"
+  }
 }
 
 @Composable
