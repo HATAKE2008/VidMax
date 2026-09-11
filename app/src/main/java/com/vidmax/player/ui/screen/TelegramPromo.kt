@@ -7,10 +7,11 @@ import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,29 +19,28 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vidmax.player.R
+import androidx.compose.ui.window.Dialog
 
 const val TELEGRAM_CHANNEL_USERNAME: String = "vidmax_opensource"
 const val TELEGRAM_CHANNEL_URL: String = "https://t.me/vidmax_opensource"
@@ -79,119 +79,110 @@ fun openTelegramCommunity(context: Context) {
   }
 }
 
-private val TELEGRAM_BENEFITS: List<String> = listOf(
-    "App updates & new features",
-    "Bug reports & fixes",
-    "Tips and useful information",
-    "Early access to new releases",
-    "Share feedback and suggestions",
-    "Contact us about VidMax"
-)
-
 /**
- * Polished VidMax-styled bottom sheet promoting the Telegram community.
+ * Compact floating Material 3 card promoting the Telegram community.
  * Used both for the first-launch invitation and the Home top-bar action.
- * All colors come from MaterialTheme.colorScheme, so it automatically
- * matches whichever of the 28 themes is currently active.
+ * Dismisses on outside tap / back press via Dialog defaults.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TelegramPromoSheet(
     onJoin: () -> Unit,
     onDismiss: () -> Unit
 ) {
-  ModalBottomSheet(onDismissRequest = onDismiss) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(bottom = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
+  val telegramAccent = Color(0xFF229ED9)
+  Dialog(onDismissRequest = onDismiss) {
+    Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 24.dp)
+            .navigationBarsPadding()) {
+      Column(
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp),
+          horizontalAlignment = Alignment.CenterHorizontally) {
 
-          // Solid theme-primary circle behind the telegram icon
-          Box(
-              modifier = Modifier.size(72.dp)
-                  .clip(CircleShape)
-                  .background(MaterialTheme.colorScheme.primary),
-              contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_telegram),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(34.dp))
-              }
-
-          Spacer(modifier = Modifier.height(14.dp))
-          Text(
-              text = "Join us on Telegram!",
-              color = MaterialTheme.colorScheme.primary,
-              fontSize = 20.sp,
-              fontWeight = FontWeight.Bold,
-              textAlign = TextAlign.Center)
-          Spacer(modifier = Modifier.height(4.dp))
-          Text(
-              text = "Join our Telegram channel to get:",
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              fontSize = 14.sp,
-              textAlign = TextAlign.Center)
-
-          Spacer(modifier = Modifier.height(16.dp))
-          Column(
-              modifier = Modifier.fillMaxWidth(),
-              verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                TELEGRAM_BENEFITS.forEach { benefit ->
-                  Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(20.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center) {
-                          Icon(
-                              imageVector = Icons.Filled.Check,
-                              contentDescription = null,
-                              tint = MaterialTheme.colorScheme.onPrimary,
-                              modifier = Modifier.size(13.dp))
-                        }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = benefit,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 14.sp)
-                  }
+            // Hero Telegram badge
+            Box(
+                modifier = Modifier.size(56.dp)
+                    .clip(CircleShape)
+                    .background(telegramAccent.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center) {
+                  Icon(
+                      imageVector = Icons.AutoMirrored.Rounded.Send,
+                      contentDescription = null,
+                      tint = telegramAccent,
+                      modifier = Modifier.size(28.dp))
                 }
-              }
 
-          Spacer(modifier = Modifier.height(16.dp))
-          Text(
-              text = "Help us improve VidMax by staying connected.",
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
-              fontSize = 13.sp,
-              fontWeight = FontWeight.Medium,
-              textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "Join us on Telegram",
+                style = MaterialTheme.typography.titleLarge,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Get early feature releases, request new tools, and report bugs directly.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp,
+                maxLines = 2,
+                textAlign = TextAlign.Center)
 
-          Spacer(modifier = Modifier.height(16.dp))
-          Button(
-              onClick = onJoin,
-              colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.primary,
-                  contentColor = MaterialTheme.colorScheme.onPrimary),
-              modifier = Modifier.fillMaxWidth()) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_telegram),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Join Telegram", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-              }
-          TextButton(
-              onClick = onDismiss,
-              modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Not now",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-              }
-        }
+            Spacer(modifier = Modifier.height(14.dp))
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                  FeaturePill(text = "⚡ Early Updates")
+                  FeaturePill(text = "💬 Feature Requests")
+                  FeaturePill(text = "🛠️ Direct Bug Fixes")
+                }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onJoin,
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = telegramAccent,
+                    contentColor = Color.White),
+                modifier = Modifier.fillMaxWidth()) {
+                  Icon(
+                      imageVector = Icons.AutoMirrored.Rounded.Send,
+                      contentDescription = null,
+                      modifier = Modifier.size(18.dp))
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Text(text = "Open Telegram", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            TextButton(onClick = onDismiss) {
+              Text(
+                  text = "Not now",
+                  fontSize = 14.sp,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+          }
+    }
   }
+}
+
+@Composable
+private fun FeaturePill(text: String) {
+  Box(
+      modifier = Modifier
+          .clip(RoundedCornerShape(12.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+          .padding(horizontal = 12.dp, vertical = 8.dp),
+      contentAlignment = Alignment.Center) {
+        Text(
+            text = text,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium)
+      }
 }
