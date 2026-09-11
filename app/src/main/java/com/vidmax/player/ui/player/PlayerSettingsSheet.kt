@@ -52,11 +52,6 @@ fun PlayerSettingsSheet(
     var controlsHideDelayMs by remember { mutableIntStateOf(prefs.getInt("controls_hide_delay_ms", 3000)) }
     var showControlsOnPlay by remember { mutableStateOf(prefs.getBoolean("show_controls_on_play", true)) }
     var bottomControlsBelowSeekbar by remember { mutableStateOf(prefs.getBoolean("bottom_controls_below_seekbar", false)) }
-    var ambientMode by remember { mutableStateOf(prefs.getBoolean("ambient_mode", false)) }
-    var keepScreenOn by remember { mutableStateOf(prefs.getBoolean("keep_screen_on", true)) }
-    var hideButtonBackground by remember { mutableStateOf(prefs.getBoolean("hide_button_background", false)) }
-    var reduceMotion by remember { mutableStateOf(prefs.getBoolean("reduce_motion", false)) }
-    var whiteSeekbar by remember { mutableStateOf(prefs.getBoolean("white_seekbar", false)) }
     var showDoubleTapIndicator by remember { mutableStateOf(prefs.getBoolean("show_double_tap_indicator", true)) }
     var brightnessGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_brightness_enabled", legacyVerticalGestures)) }
     var volumeGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_volume_enabled", legacyVerticalGestures)) }
@@ -65,7 +60,6 @@ fun PlayerSettingsSheet(
     var doubleTapSeekSeconds by remember { mutableIntStateOf(prefs.getInt("double_tap_seek_seconds", 10)) }
     var reverseDoubleTap by remember { mutableStateOf(prefs.getBoolean("reverse_double_tap", false)) }
     var seekGestureSensitivity by remember { mutableIntStateOf(prefs.getInt("seek_gesture_sensitivity", 60000)) }
-    var singleTapAction by remember { mutableStateOf(prefs.getString("single_tap_action", "toggle_controls") ?: "toggle_controls") }
     var preventSeekbarTap by remember { mutableStateOf(prefs.getBoolean("prevent_seekbar_tap", false)) }
     var mpvVideoSync by remember { mutableStateOf(prefs.getString("mpv_video_sync", "audio") ?: "audio") }
     var mpvInterpolation by remember { mutableStateOf(prefs.getBoolean("mpv_interpolation", false)) }
@@ -84,14 +78,11 @@ fun PlayerSettingsSheet(
         }.apply()
     }
 
-    LaunchedEffect(ambientMode, keepScreenOn) {
+    // Permanent screen-on while the player is open: no toggle, the flag
+    // is always added and never cleared by a user setting.
+    LaunchedEffect(Unit) {
         val act = activity ?: return@LaunchedEffect
-        act.window.setDimAmount(if (ambientMode) 0.85f else 0f)
-        if (keepScreenOn) {
-            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        } else {
-            act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
+        act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     LaunchedEffect(currentEngine, mpvVideoSync, mpvInterpolation, mpvAudioPitchCorrection) {
@@ -191,60 +182,11 @@ fun PlayerSettingsSheet(
                     savePrefs("bottom_controls_below_seekbar", it)
                 }
             )
-            SettingsSwitchRow(
-                title = "Ambient Mode",
-                subtitle = "Dim the screen to reduce eye strain",
-                icon = Icons.Outlined.BrightnessHigh,
-                checked = ambientMode,
-                onCheckedChange = {
-                    ambientMode = it
-                    savePrefs("ambient_mode", it)
-                }
-            )
-            SettingsSwitchRow(
-                title = "Keep Screen On",
-                subtitle = "Prevent the screen from sleeping",
-                icon = Icons.Outlined.LockOpen,
-                checked = keepScreenOn,
-                onCheckedChange = {
-                    keepScreenOn = it
-                    savePrefs("keep_screen_on", it)
-                }
-            )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // ---------------- Aesthetics ----------------
             SettingsSectionHeader("Aesthetics", Icons.Default.Settings)
-            SettingsChipRow(
-                title = "Control Style",
-                icon = Icons.Outlined.ZoomOut,
-                options = listOf("Translucent", "Flat"),
-                selectedIndex = if (hideButtonBackground) 1 else 0
-            ) { index ->
-                hideButtonBackground = index == 1
-                savePrefs("hide_button_background", hideButtonBackground)
-            }
-            SettingsSwitchRow(
-                title = "Reduce Motion",
-                subtitle = "Use simpler animations for the controls",
-                icon = Icons.Outlined.Fullscreen,
-                checked = reduceMotion,
-                onCheckedChange = {
-                    reduceMotion = it
-                    savePrefs("reduce_motion", it)
-                }
-            )
-            SettingsSwitchRow(
-                title = "White Progress Bar",
-                subtitle = "Render the progress bar in white",
-                icon = Icons.Outlined.Speed,
-                checked = whiteSeekbar,
-                onCheckedChange = {
-                    whiteSeekbar = it
-                    savePrefs("white_seekbar", it)
-                }
-            )
             SettingsSwitchRow(
                 title = "Double-tap Seek Indicator",
                 subtitle = "Show the ripple when seeking by double-tap",
@@ -335,15 +277,6 @@ fun PlayerSettingsSheet(
             ) { index ->
                 seekGestureSensitivity = listOf(30000, 60000, 120000)[index]
                 savePrefs("seek_gesture_sensitivity", seekGestureSensitivity)
-            }
-            SettingsChipRow(
-                title = "Single-tap Action",
-                icon = Icons.Default.TouchApp,
-                options = listOf("Toggle Controls", "Play / Pause"),
-                selectedIndex = if (singleTapAction == "play_pause") 1 else 0
-            ) { index ->
-                singleTapAction = listOf("toggle_controls", "play_pause")[index]
-                savePrefs("single_tap_action", singleTapAction)
             }
             SettingsSwitchRow(
                 title = "Prevent Seek Bar Tap",

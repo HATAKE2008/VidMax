@@ -202,9 +202,6 @@ fun PlayerControls(
     var seekGestureSensitivity by remember {
         mutableIntStateOf(settingsPrefs.getInt("seek_gesture_sensitivity", 60000))
     }
-    var singleTapAction by remember {
-        mutableStateOf(settingsPrefs.getString("single_tap_action", "toggle_controls") ?: "toggle_controls")
-    }
     var preventSeekbarTap by remember {
         mutableStateOf(settingsPrefs.getBoolean("prevent_seekbar_tap", false))
     }
@@ -219,21 +216,6 @@ fun PlayerControls(
     }
     var bottomControlsBelowSeekbar by remember {
         mutableStateOf(settingsPrefs.getBoolean("bottom_controls_below_seekbar", false))
-    }
-    var ambientMode by remember {
-        mutableStateOf(settingsPrefs.getBoolean("ambient_mode", false))
-    }
-    var keepScreenOn by remember {
-        mutableStateOf(settingsPrefs.getBoolean("keep_screen_on", true))
-    }
-    var hideButtonBackground by remember {
-        mutableStateOf(settingsPrefs.getBoolean("hide_button_background", false))
-    }
-    var reduceMotion by remember {
-        mutableStateOf(settingsPrefs.getBoolean("reduce_motion", false))
-    }
-    var whiteSeekbar by remember {
-        mutableStateOf(settingsPrefs.getBoolean("white_seekbar", false))
     }
     var showDoubleTapIndicator by remember {
         mutableStateOf(settingsPrefs.getBoolean("show_double_tap_indicator", true))
@@ -457,14 +439,11 @@ fun PlayerControls(
         }
     }
 
-    LaunchedEffect(ambientMode, keepScreenOn) {
+    // Permanent screen-on while the player is open: no toggle, the flag
+    // is always added and never cleared by a user setting.
+    LaunchedEffect(Unit) {
         val act = activity ?: return@LaunchedEffect
-        act.window.setDimAmount(if (ambientMode) 0.85f else 0f)
-        if (keepScreenOn) {
-            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        } else {
-            act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
+        act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     LaunchedEffect(currentEngine, mpvVideoSync, mpvInterpolation, mpvAudioPitchCorrection) {
@@ -1304,10 +1283,8 @@ fun PlayerControls(
                                     boostTapLatch = false
                                     return@detectTapGestures
                                 }
-                                when (singleTapAction) {
-                                    "play_pause" -> onPlayPause()
-                                    else -> viewModel.setControlsVisible(!controlsVisible)
-                                }
+                                // Single tap strictly toggles player controls.
+                                viewModel.setControlsVisible(!controlsVisible)
                             }
                         )
                     } else {
@@ -1882,22 +1859,22 @@ fun PlayerControls(
                                     onClick = { viewModel.toggleLock() },
                                     size = 42.dp,
                                     active = isLocked,
-                                    hideBackground = hideButtonBackground
+                                    hideBackground = false
                                 )
                                 MpvCircleButton(
                                     icon = Icons.Outlined.ScreenRotation,
                                     contentDescription = "Rotate",
                                     onClick = toggleScreenRotation,
                                     size = 42.dp,
-                                    hideBackground = hideButtonBackground
+                                    hideBackground = false
                                 )
                             }
                             repeatBookmarkPanel()
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,
-                                whiteSeekbar = whiteSeekbar,
-                                reduceMotion = reduceMotion,
+                                whiteSeekbar = false,
+                                reduceMotion = false,
                                 preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
                                 onPositionChange = viewModel::setCurrentPosition,
@@ -1909,8 +1886,8 @@ fun PlayerControls(
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,
-                                whiteSeekbar = whiteSeekbar,
-                                reduceMotion = reduceMotion,
+                                whiteSeekbar = false,
+                                reduceMotion = false,
                                 preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
                                 onPositionChange = viewModel::setCurrentPosition,
@@ -1923,7 +1900,7 @@ fun PlayerControls(
                                 currentPlaybackSpeed = currentPlaybackSpeed,
                                 loopMode = loopMode,
                                 sleepTimerMinutes = sleepTimerMinutes,
-                                hideBackground = hideButtonBackground,
+                                hideBackground = false,
                                 onToggleLock = { viewModel.toggleLock() },
                                 onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
                                 onRotate = toggleScreenRotation,
@@ -1944,7 +1921,7 @@ fun PlayerControls(
                                 currentPlaybackSpeed = currentPlaybackSpeed,
                                 loopMode = loopMode,
                                 sleepTimerMinutes = sleepTimerMinutes,
-                                hideBackground = hideButtonBackground,
+                                hideBackground = false,
                                 onToggleLock = { viewModel.toggleLock() },
                                 onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
                                 onRotate = toggleScreenRotation,
@@ -1962,8 +1939,8 @@ fun PlayerControls(
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,
-                                whiteSeekbar = whiteSeekbar,
-                                reduceMotion = reduceMotion,
+                                whiteSeekbar = false,
+                                reduceMotion = false,
                                 preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
                                 onPositionChange = viewModel::setCurrentPosition,
