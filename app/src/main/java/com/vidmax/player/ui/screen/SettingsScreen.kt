@@ -39,10 +39,12 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -447,13 +449,15 @@ fun SettingsScreen(
                     SettingsSectionHeader(title = "Advanced Player", paddingTop = 4.dp)
                 }
                 item {
-                    SettingsToggleRow(
-                        title = "Volume Boost (200%)",
-                        subtitle = "Amplify software sound beyond device limits",
-                        iconId = R.drawable.ic_wrench,
-                        checked = audioBoost,
-                        onCheckedChange = { viewModel.setAudioBoost(it) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = "Volume Boost (200%)",
+                            subtitle = "Amplify software sound beyond device limits",
+                            icon = Icons.Rounded.VolumeUp,
+                            checked = audioBoost,
+                            onCheckedChange = { viewModel.setAudioBoost(it) }
+                        )
+                    }
                 }
 
                 // ── Player engine ─────────────────────────────────────────────
@@ -462,21 +466,55 @@ fun SettingsScreen(
                     SettingsSectionHeader(title = "Player Engine", paddingTop = 4.dp)
                 }
                 item {
-                    DecoderOption(
-                        title = "ExoPlayer  ·  Media3",
-                        subtitle = "Default — smooth, battery-efficient playback",
-                        iconId = R.drawable.ic_gear,
-                        selected = currentEngine == PlayerEngine.EXO,
-                        onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    DecoderOption(
-                        title = "MPV Engine  ·  HW",
-                        subtitle = "Hardware-accelerated, codec-rich powerhouse",
-                        iconId = R.drawable.ic_gear,
-                        selected = currentEngine == PlayerEngine.MPV,
-                        onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupItem(
+                            title = "ExoPlayer  ·  Media3",
+                            subtitle = "Default — smooth, battery-efficient playback",
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_gear),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                RadioButton(
+                                    selected = currentEngine == PlayerEngine.EXO,
+                                    onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = MaterialTheme.colorScheme.primary,
+                                        unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            },
+                            onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupItem(
+                            title = "MPV Engine  ·  HW",
+                            subtitle = "Hardware-accelerated, codec-rich powerhouse",
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_gear),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                RadioButton(
+                                    selected = currentEngine == PlayerEngine.MPV,
+                                    onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = MaterialTheme.colorScheme.primary,
+                                        unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            },
+                            onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) }
+                        )
+                    }
                 }
 
                 // ── Playback ──────────────────────────────────────────────────
@@ -607,58 +645,142 @@ fun SettingsScreen(
                     SettingsSectionHeader(title = "Storage Access", paddingTop = 4.dp)
                 }
                 item {
-                    SettingsItemPill(
-                        title = "All Files Access",
-                        subtitle = if (hasFullAccess)
-                            "✓ Full storage access enabled"
-                        else
-                            "Full storage management permission",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_folder_open),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        trailing = {
-                            if (hasFullAccess) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Enabled",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        },
-                        onClick = {
-                            if (!hasFullAccess) {
-                                StorageAccess.openAllFilesAccessSettings(context)
-                            } else {
-                                fullAccessTick++
-                                Toast.makeText(
-                                    context,
-                                    StorageAccess.statusText(context),
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
-                    )
-                    if (!hasFullAccess) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SettingsItemPill(
-                            title = "Allow All Files Access",
-                            subtitle = "Required for move, rename, create folder and delete without extra prompts",
+                    SettingsGroupCard {
+                        SettingsGroupItem(
+                            title = "All Files Access",
+                            subtitle = if (hasFullAccess)
+                                "✓ Full storage access enabled"
+                            else
+                                "Full storage management permission",
                             icon = {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.ic_folder),
+                                    painter = painterResource(id = R.drawable.ic_folder_open),
                                     contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                if (hasFullAccess) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Enabled",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            onClick = {
+                                if (!hasFullAccess) {
+                                    StorageAccess.openAllFilesAccessSettings(context)
+                                } else {
+                                    fullAccessTick++
+                                    Toast.makeText(
+                                        context,
+                                        StorageAccess.statusText(context),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        )
+                        if (!hasFullAccess) {
+                            SettingsGroupDivider()
+                            SettingsGroupItem(
+                                title = "Allow All Files Access",
+                                subtitle = "Required for move, rename, create folder and delete without extra prompts",
+                                icon = {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_folder),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(22.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                trailing = {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                onClick = { StorageAccess.openAllFilesAccessSettings(context) }
+                            )
+                        }
+                    }
+                }
+
+                // ── Updates ───────────────────────────────────────────────────
+                item {
+                    SettingsDivider()
+                    SettingsSectionHeader(title = "Updates", paddingTop = 4.dp)
+                }
+                item {
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = "Update Notifications",
+                            subtitle = "Notify me when a new version is released",
+                            icon = Icons.Rounded.Notifications,
+                            checked = updateNotifications,
+                            onCheckedChange = { on ->
+                                updateNotifications = on
+                                appPrefs.edit().putBoolean("update_notifications", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupItem(
+                            title = "Check for Updates",
+                            subtitle = if (isCheckingUpdate)
+                                "Checking GitHub…"
+                            else
+                                "VidMax v${BuildConfig.VERSION_NAME} · Latest release",
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_github),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                if (isCheckingUpdate) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            onClick = checkForUpdates
+                        )
+                    }
+                }
+
+                // ── Backup & Restore (P4b) ────────────────────────────────────
+                item {
+                    SettingsDivider()
+                    SettingsSectionHeader(title = "Backup & Restore", paddingTop = 4.dp)
+                }
+                item {
+                    SettingsGroupCard {
+                        SettingsGroupItem(
+                            title = "Export Settings",
+                            subtitle = "Save settings to a JSON backup file",
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_share_custom),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             },
@@ -669,109 +791,31 @@ fun SettingsScreen(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             },
-                            onClick = { StorageAccess.openAllFilesAccessSettings(context) }
+                            enabled = !isBackingUp,
+                            onClick = { exportLauncher.launch("VidMax-settings-backup.json") }
                         )
-                    }
-                }
-
-                // ── Updates ───────────────────────────────────────────────────
-                item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = "Updates", paddingTop = 4.dp)
-                }
-                item {
-                    SettingsToggleRow(
-                        title = "Update Notifications",
-                        subtitle = "Notify me when a new version is released",
-                        iconId = R.drawable.ic_github,
-                        checked = updateNotifications,
-                        onCheckedChange = { on ->
-                            updateNotifications = on
-                            appPrefs.edit().putBoolean("update_notifications", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsItemPill(
-                        title = "Check for Updates",
-                        subtitle = if (isCheckingUpdate)
-                            "Checking GitHub…"
-                        else
-                            "VidMax v${BuildConfig.VERSION_NAME} · Latest release",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_github),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp), // Standardized Size
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        trailing = {
-                            if (isCheckingUpdate) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary
+                        SettingsGroupDivider()
+                        SettingsGroupItem(
+                            title = "Import Settings",
+                            subtitle = "Restore settings from a backup file",
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_folder_open),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
-                            } else {
+                            },
+                            trailing = {
                                 Icon(
                                     imageVector = Icons.Default.KeyboardArrowRight,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            }
-                        },
-                        onClick = checkForUpdates
-                    )
-                }
-
-                // ── Backup & Restore (P4b) ────────────────────────────────────
-                item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = "Backup & Restore", paddingTop = 4.dp)
-                }
-                item {
-                    SettingsItemPill(
-                        title = "Export Settings",
-                        subtitle = "Save settings to a JSON backup file",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_share_custom),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp), // Standardized Size
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        trailing = {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        enabled = !isBackingUp,
-                        onClick = { exportLauncher.launch("VidMax-settings-backup.json") }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsItemPill(
-                        title = "Import Settings",
-                        subtitle = "Restore settings from a backup file",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_folder_open),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp), // Standardized Size
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        trailing = {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        onClick = { importLauncher.launch(arrayOf("application/json")) }
-                    )
+                            },
+                            onClick = { importLauncher.launch(arrayOf("application/json")) }
+                        )
+                    }
                 }
 
                 // ── About / Links ─────────────────────────────────────────────
@@ -1091,130 +1135,6 @@ private fun ImportFontCard(
     }
 }
 
-// ── Shared pill component ─────────────────────────────────────────────────────
-
-@Composable
-private fun SettingsItemPill(
-    title: String,
-    subtitle: String,
-    icon: @Composable () -> Unit,
-    trailing: @Composable () -> Unit,
-    enabled: Boolean = true,
-    onClick: (() -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .then(
-                if (onClick != null && enabled) Modifier.clickable { onClick() } else Modifier
-            )
-            .alpha(if (enabled) 1f else 0.45f)
-            .padding(horizontal = 16.dp, vertical = 14.dp), // Polished Padding
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surface),
-            contentAlignment = Alignment.Center
-        ) {
-            icon()
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 15.sp, // Slightly larger for better readability
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = subtitle,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp, // Slightly larger
-                modifier = Modifier.padding(top = 2.dp),
-                lineHeight = 16.sp
-            )
-        }
-        Spacer(modifier = Modifier.width(10.dp))
-        trailing()
-    }
-}
-
-// ── Concrete setting rows ─────────────────────────────────────────────────────
-
-@Composable
-private fun DecoderOption(
-    title: String,
-    subtitle: String,
-    iconId: Int,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    SettingsItemPill(
-        title = title,
-        subtitle = subtitle,
-        icon = {
-            Icon(
-                painter = painterResource(id = iconId),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp), // Standardized Size
-                tint = MaterialTheme.colorScheme.primary
-            )
-        },
-        trailing = {
-            RadioButton(
-                selected = selected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = MaterialTheme.colorScheme.primary,
-                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-        },
-        onClick = onClick
-    )
-}
-
-@Composable
-private fun SettingsToggleRow(
-    title: String,
-    subtitle: String,
-    iconId: Int,
-    checked: Boolean,
-    enabled: Boolean = true,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    SettingsItemPill(
-        title = title,
-        subtitle = subtitle,
-        enabled = enabled,
-        icon = {
-            Icon(
-                painter = painterResource(id = iconId),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp), // Standardized Size
-                tint = MaterialTheme.colorScheme.primary
-            )
-        },
-        trailing = {
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                enabled = enabled,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.background,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            )
-        }
-    )
-}
 
 // ── Grouped category card (M3 standard): one unified rounded container
 // per category with subtle in-group dividers instead of isolated pills.
@@ -1251,10 +1171,51 @@ private fun SettingsGroupToggle(
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    SettingsGroupItem(
+        title = title,
+        subtitle = subtitle,
+        enabled = enabled,
+        icon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        trailing = {
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                enabled = enabled,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.background,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+        },
+        onClick = { onCheckedChange(!checked) }
+    )
+}
+
+// ── Generic tappable row for use inside SettingsGroupCard ───────────────
+@Composable
+private fun SettingsGroupItem(
+    title: String,
+    subtitle: String,
+    enabled: Boolean = true,
+    icon: @Composable () -> Unit,
+    trailing: @Composable () -> Unit,
+    onClick: (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .then(
+                if (onClick != null && enabled) Modifier.clickable { onClick() } else Modifier
+            )
             .alpha(if (enabled) 1f else 0.45f)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1266,12 +1227,7 @@ private fun SettingsGroupToggle(
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            icon()
         }
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -1290,17 +1246,7 @@ private fun SettingsGroupToggle(
             )
         }
         Spacer(modifier = Modifier.width(10.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.background,
-                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        )
+        trailing()
     }
 }
 
