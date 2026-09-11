@@ -3,6 +3,9 @@
 package com.vidmax.player.ui.player
 
 import android.content.Context
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.os.Build
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,7 +34,6 @@ import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.TextFormat
@@ -337,16 +339,17 @@ fun SubtitleAudioPanel(
 
     fun applyExoSubtitleView() {
         val view = viewModel.exoSubtitleView ?: return
-        val bgColorOrTransparent =
-            if (subBgEnabled) subBgColor else android.graphics.Color.TRANSPARENT
+        val targetBg = if (subBgEnabled) subBgColor else android.graphics.Color.TRANSPARENT
+
+        view.setApplyEmbeddedStyles(false) // Prevents hardcoded file styles from overriding user colors
         view.setStyle(
             CaptionStyleCompat(
-                subColor,
-                android.graphics.Color.WHITE,
-                bgColorOrTransparent,
-                CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                android.graphics.Color.BLACK,
-                null
+                subColor, // foregroundColor
+                targetBg, // backgroundColor
+                android.graphics.Color.TRANSPARENT, // windowColor
+                if (subOutline > 0f) CaptionStyleCompat.EDGE_TYPE_OUTLINE else CaptionStyleCompat.EDGE_TYPE_NONE,
+                android.graphics.Color.BLACK, // edgeColor
+                null // typeface
             )
         )
         view.setFractionalTextSize(0.0533f * textSizePercent / 100f)
@@ -394,7 +397,10 @@ fun SubtitleAudioPanel(
         subColor = color.toArgb()
         prefs.edit().putInt("sub_color", subColor).apply()
         if (isMpv) {
-            try { MPVLib.setPropertyString("sub-color", mpvColorString(subColor)) } catch (e: Exception) {}
+            try {
+                MPVLib.setPropertyString("sub-ass-override", "force")
+                MPVLib.setPropertyString("sub-color", mpvColorString(subColor))
+            } catch (e: Exception) {}
         } else {
             applyExoSubtitleView()
         }
@@ -413,7 +419,10 @@ fun SubtitleAudioPanel(
     fun pushSubBg() {
         if (!isMpv) return
         val argb = if (subBgEnabled) subBgColor else Color.Transparent.toArgb()
-        try { MPVLib.setPropertyString("sub-back-color", mpvColorString(argb)) } catch (e: Exception) {}
+        try {
+            MPVLib.setPropertyString("sub-ass-override", "force")
+            MPVLib.setPropertyString("sub-back-color", mpvColorString(argb))
+        } catch (e: Exception) {}
     }
 
     fun applySubBgEnabled(enabled: Boolean) {
@@ -567,11 +576,9 @@ fun SubtitleAudioPanel(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            RailButton(Icons.Outlined.FolderOpen, selected = false) { onPickSubtitle() }
                             RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
                             RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
                             RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
-                            RailButton(Icons.Outlined.Speed, selected = false) { onClose(); onOpenSync() }
                         }
 
                         // ==================== MAIN AREA ====================
@@ -625,11 +632,9 @@ fun SubtitleAudioPanel(
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        RailButton(Icons.Outlined.FolderOpen, selected = false) { onPickSubtitle() }
                         RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
                         RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
                         RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
-                        RailButton(Icons.Outlined.Speed, selected = false) { onClose(); onOpenSync() }
                     }
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
@@ -722,6 +727,7 @@ fun SubtitleAudioPanel(
             onSelect = {
                 audioOutput = it
                 prefs.edit().putString("audio_output", it).apply()
+                routeAudioOutput(context, it)
                 showAudioOutputDialog = false
             },
             onDismiss = { showAudioOutputDialog = false }
@@ -1371,4 +1377,52 @@ private fun ColorPickerDialog(
 
 private fun mpvColorString(argb: Int): String {
     return String.format(Locale.US, "#%08X", argb)
+}
+
+/**
+ * Routes physical audio output via AudioManager (Speaker / Bluetooth /
+ * Device default). Called from the audio-output dialog selection.
+ */
+private fun routeAudioOutput(context: Context, output: String) {
+    val audioManager =
+        context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+    when (output) {
+        "Speaker" -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val speaker = audioManager.availableCommunicationDevices.firstOrNull {
+                    it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                }
+                speaker?.let { audioManager.setCommunicationDevice(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.isSpeakerphoneOn = true
+            }
+        }
+        "Bluetooth" -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val btDevice = audioManager.availableCommunicationDevices.firstOrNull {
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                }
+                btDevice?.let { audioManager.setCommunicationDevice(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.startBluetoothSco()
+                @Suppress("DEPRECATION")
+                audioManager.isBluetoothScoOn = true
+            }
+        }
+        else -> { // "Device default"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.clearCommunicationDevice()
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.isSpeakerphoneOn = false
+                @Suppress("DEPRECATION")
+                audioManager.stopBluetoothSco()
+                @Suppress("DEPRECATION")
+                audioManager.isBluetoothScoOn = false
+            }
+        }
+    }
 }
