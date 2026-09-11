@@ -15,12 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.vidmax.player.ui.permission.PermissionScreen
+import com.vidmax.player.ui.permission.OnboardingSetupScreen
 import com.vidmax.player.ui.player.PlayerActivity
 import com.vidmax.player.ui.screen.MainScreen
 import com.vidmax.player.ui.screen.SplashScreen
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.VidMaxTheme
+import com.vidmax.player.utils.StorageAccess
 import com.vidmax.player.viewmodel.DarkMode
 import com.vidmax.player.viewmodel.LibraryViewModel
 import dagger.hilt.android.AndroidEntryPoint // 🔥 এই ইমপোর্টটি যুক্ত করা হলো
@@ -82,12 +83,17 @@ class MainActivity : ComponentActivity() {
         val vidmaxPrefs = remember { getSharedPreferences("vidmax_settings", MODE_PRIVATE) }
         val introEnabled = remember { vidmaxPrefs.getBoolean("show_startup_intro", true) }
         var showSplash by rememberSaveable { mutableStateOf(savedInstanceState == null && introEnabled) }
+        // First-launch onboarding: shown until completed AND storage is granted.
+        // Reappears if storage access is later revoked (real state, not a pref flag).
+        var onboardingCompleted by remember {
+          mutableStateOf(vidmaxPrefs.getBoolean("onboarding_completed", false))
+        }
 
         if (showSplash) {
           SplashScreen(onSplashFinished = { showSplash = false })
         } else {
           // স্প্ল্যাশ শেষ হলে পারমিশন চেক করে মেইন অ্যাপে যাবে
-          if (permission) {
+          if (permission && onboardingCompleted) {
             MainScreen(
                 viewModel = libraryViewModel,
                 onVideoClick = { videos, index ->
@@ -103,7 +109,16 @@ class MainActivity : ComponentActivity() {
                   }
                 })
           } else {
-            PermissionScreen(onRequestPermission = { requestStoragePermissions() })
+            // Setup screen: direct system flows, no intermediate "Allow Now" dialog.
+            OnboardingSetupScreen(
+                viewModel = libraryViewModel,
+                mediaGranted = permission,
+                onStorageAction = { requestStorageAccessDirect() },
+                onGetStarted = {
+                  vidmaxPrefs.edit().putBoolean("onboarding_completed", true).apply()
+                  onboardingCompleted = true
+                }
+            )
           }
         }
       }
@@ -131,10 +146,29 @@ class MainActivity : ComponentActivity() {
     }
   }
 
+  /**
+   * Direct storage-access flow for the onboarding screen (no intermediate
+   * VidMax confirmation dialog):
+   * 1. Media runtime permission missing → request it directly.
+   * 2. Media granted but Android 11+ All-files access missing → open the
+   *    system All-files access page directly.
+   * 3. Older Android versions need nothing beyond the runtime permission.
+   */
+  private fun requestStorageAccessDirect() {
+    if (!checkStoragePermissions()) {
+      requestStoragePermissions()
+      return
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+        !StorageAccess.hasFullStorageAccess(this)) {
+      StorageAccess.openAllFilesAccessSettings(this)
+    }
+  }
+
   override fun onResume() {
     super.onResume()
-    if (checkStoragePermissions()) {
-      libraryViewModel.setPermissionGranted(true)
-    }
+    // Sync the REAL permission state both ways so a revoked grant
+    // immediately returns the user to onboarding (no stale "granted").
+    libraryViewModel.setPermissionGranted(checkStoragePermissions())
   }
 }

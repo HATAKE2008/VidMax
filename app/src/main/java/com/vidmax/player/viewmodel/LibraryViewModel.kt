@@ -574,6 +574,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   private val _importedFonts: MutableStateFlow<List<String>> = MutableStateFlow(emptyList())
   val importedFonts: StateFlow<List<String>> = _importedFonts.asStateFlow()
 
+  // --- App Language (per-app locale, single source of truth with onboarding) ---
+  private val _appLocale: MutableStateFlow<String> = MutableStateFlow(
+      prefs.getString("app_locale", com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT)
+          ?: com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT
+  )
+  val appLocale: StateFlow<String> = _appLocale.asStateFlow()
+
   init {
     // Restore previously imported fonts so they appear in Settings on startup.
     refreshImportedFonts()
@@ -2092,6 +2099,21 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     prefs.edit().putString("app_font", fontId).apply()
   }
 
+  /**
+   * Sets the per-app language. Persists `app_locale` and applies it via
+   * AppCompat per-app locales (real configuration change, not a fake label).
+   */
+  fun setAppLocale(tag: String) {
+    val safe = if (com.vidmax.player.utils.AppLocale.isSupported(tag)) {
+      tag
+    } else {
+      com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT
+    }
+    _appLocale.value = safe
+    prefs.edit().putString("app_locale", safe).apply()
+    com.vidmax.player.utils.AppLocale.apply(safe)
+  }
+
   /** Re-scans the private fonts dir and refreshes [importedFonts]. */
   fun refreshImportedFonts() {
     viewModelScope.launch(Dispatchers.IO) {
@@ -2199,6 +2221,19 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     } catch (e: Exception) {}
     setAmoledMode(prefs.getBoolean("amoled_mode", false))
     setAppFont(prefs.getString("app_font", AppFonts.SYSTEM_DEFAULT) ?: AppFonts.SYSTEM_DEFAULT)
+    try {
+      val saved = prefs.getString(
+          "app_locale", com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT)
+          ?: com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT
+      // Re-publish + re-apply (covers Settings Import changing the locale).
+      val safe = if (com.vidmax.player.utils.AppLocale.isSupported(saved)) {
+        saved
+      } else {
+        com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT
+      }
+      _appLocale.value = safe
+      com.vidmax.player.utils.AppLocale.apply(safe)
+    } catch (e: Exception) {}
     setSkipSilence(prefs.getBoolean("skip_silence", false))
     setCrossfade(prefs.getBoolean("crossfade_enabled", true))
   }
