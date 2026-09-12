@@ -50,20 +50,54 @@ class PlayerViewModel : ViewModel() {
   private val _abRepeatB: MutableStateFlow<Long?> = MutableStateFlow(null)
   val abRepeatB: StateFlow<Long?> = _abRepeatB
 
+  // Whether an A-B loop actively loops (separate from the points so the
+  // REX-style panel can enable/disable looping with both points kept).
+  private val _abLoopEnabled: MutableStateFlow<Boolean> = MutableStateFlow(true)
+  val abLoopEnabled: StateFlow<Boolean> = _abLoopEnabled
+
+  // A-B repeat (REX Player semantics): each point toggles independently —
+  // tapping a set point clears just that point. Either point may be set
+  // first; when both are set with A >= B they are swapped so A is always
+  // the loop start and the loop stays valid. The loop engages only while
+  // both points are set.
   fun setABPointA(positionMs: Long) {
-    _abRepeatA.value = positionMs.coerceAtLeast(0L)
-    if (_abRepeatB.value != null && _abRepeatB.value!! <= positionMs) _abRepeatB.value = null
+    val pos = positionMs.coerceAtLeast(0L)
+    if (_abRepeatA.value != null) {
+      _abRepeatA.value = null
+      return
+    }
+    val b = _abRepeatB.value
+    if (b != null && b <= pos) {
+      _abRepeatA.value = b
+      _abRepeatB.value = pos
+    } else {
+      _abRepeatA.value = pos
+    }
   }
 
   fun setABPointB(positionMs: Long) {
-    val a = _abRepeatA.value ?: return
-    if (positionMs <= a) return
-    _abRepeatB.value = positionMs
+    val pos = positionMs.coerceAtLeast(0L)
+    if (_abRepeatB.value != null) {
+      _abRepeatB.value = null
+      return
+    }
+    val a = _abRepeatA.value
+    if (a != null && pos <= a) {
+      _abRepeatA.value = pos
+      _abRepeatB.value = a
+    } else {
+      _abRepeatB.value = pos
+    }
   }
 
   fun clearABRepeat() {
     _abRepeatA.value = null
     _abRepeatB.value = null
+    _abLoopEnabled.value = true
+  }
+
+  fun setABLoopEnabled(enabled: Boolean) {
+    _abLoopEnabled.value = enabled
   }
 
   // 🔥 New: State for currently active engine
@@ -116,6 +150,10 @@ class PlayerViewModel : ViewModel() {
   private val _showSpeedSheet: MutableStateFlow<Boolean> = MutableStateFlow(false)
   val showSpeedSheet: StateFlow<Boolean> = _showSpeedSheet
 
+  // Floating A-B repeat pill visibility (toggled from the overflow menu).
+  private val _showABPanel: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val showABPanel: StateFlow<Boolean> = _showABPanel
+
   private val _loopMode: MutableStateFlow<LoopMode> = MutableStateFlow(LoopMode.NONE)
   val loopMode: StateFlow<LoopMode> = _loopMode
 
@@ -164,6 +202,17 @@ class PlayerViewModel : ViewModel() {
 
   private val _currentBrightnessPercent: MutableStateFlow<Float> = MutableStateFlow(0f)
   val currentBrightnessPercent: StateFlow<Float> = _currentBrightnessPercent
+
+  // Player volume-booster mirror: owned/applied by PlayerControls (audio
+  // session routing stays there); the Settings sheet reads/toggles through
+  // this shared state so the booster remains accessible without its
+  // bottom-bar shortcut. Null until PlayerControls publishes its state.
+  private val _playerVolumeBoost: MutableStateFlow<Boolean?> = MutableStateFlow(null)
+  val playerVolumeBoost: StateFlow<Boolean?> = _playerVolumeBoost
+
+  fun setPlayerVolumeBoost(enabled: Boolean) {
+    _playerVolumeBoost.value = enabled
+  }
 
   // --- Engine Switch Logic ---
   fun setPlayerEngine(engine: PlayerEngine) {
@@ -288,6 +337,10 @@ class PlayerViewModel : ViewModel() {
 
   fun setShowSpeedSheet(show: Boolean) {
     _showSpeedSheet.value = show
+  }
+
+  fun setShowABPanel(show: Boolean) {
+    _showABPanel.value = show
   }
 
   fun cycleLoopMode() {

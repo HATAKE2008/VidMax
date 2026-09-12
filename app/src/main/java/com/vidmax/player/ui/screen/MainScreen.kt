@@ -29,6 +29,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -369,7 +370,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = currentArtist.ifEmpty { "Vibe Music" },
+                                text = currentArtist.ifEmpty { stringResource(R.string.main_default_artist) },
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 maxLines = 1,
@@ -423,6 +424,10 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
             }
 
             // BOTTOM NAVIGATION BAR (Detached Online/Search Button Style)
+            // A single remaining tab needs no pill: hiding it avoids dead space
+            // when Music and Network are both disabled.
+            val showTabPill = visibleNavItems.size > 1
+            if (showTabPill || !localMode) {
             Row(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
@@ -433,6 +438,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Main Navigation Pill (SOLID - never transparent)
+                if (showTabPill) {
                 BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f)
@@ -606,8 +612,13 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                                 animationSpec = tween(120, easing = LinearEasing)
                                             )
                                         ) {
+                                            val tabLabel = when (item.label) {
+                                                "Music" -> stringResource(R.string.main_tab_music)
+                                                "Network" -> stringResource(R.string.main_tab_network)
+                                                else -> stringResource(R.string.main_tab_videos)
+                                            }
                                             Text(
-                                                text = item.label,
+                                                text = tabLabel,
                                                 fontSize = 15.sp,
                                                 color = contentColor,
                                                 fontWeight = FontWeight.Bold,
@@ -621,6 +632,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                             }
                         }
                     }
+                }
                 }
 
                 // Separate Online/Search Circular Button (hidden in Local Mode)
@@ -693,6 +705,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     )
                 }
                 }
+            }
             }
         }
 

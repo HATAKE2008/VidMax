@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Player toasts / capture -->
+    <string name="player_capture_unavailable">এই ভিডিওর জন্য ক্যাপচার উপলব্ধ নয়</string>
+    <string name="player_frame_saved">ফ্রেম Pictures/VidMax-এ সংরক্ষিত হয়েছে</string>
+    <string name="player_capture_failed">ক্যাপচার ব্যর্থ হয়েছে</string>
+    <string name="player_engine_mpv">MPV-তে পরিবর্তন করা হয়েছে। পুনরায় লোড হচ্ছে...</string>
+    <string name="player_engine_exo">ExoPlayer-এ পরিবর্তন করা হয়েছে। পুনরায় লোড হচ্ছে...</string>
+    <string name="player_ab_set_both">প্রথমে A এবং B উভয়ই সেট করুন</string>
+
+    <!-- Zoom sheet -->
+    <string name="player_zoom_title">ভিডিও জুম</string>
+    <string name="player_zoom_label">জুম</string>
+    <string name="player_set_as_default">ডিফল্ট হিসেবে সেট করুন</string>
+    <string name="player_reset">রিসেট</string>
+    <string name="player_zoom_percent">জুম: %1$d%%</string>
+
+    <!-- Aspect ratio sheet -->
+    <string name="player_aspect_title">অ্যাসপেক্ট রেশিও</string>
+    <string name="player_aspect_fit">ফিট</string>
+    <string name="player_aspect_fill">ক্রপ / ফিল</string>
+    <string name="player_aspect_stretch">স্ট্রেচ</string>
+
+    <!-- Hardware decoder -->
+    <string name="player_decoder_title">হার্ডওয়্যার ডিকোডার</string>
+    <string name="player_decoder_auto">অটো (auto-copy)</string>
+    <string name="player_decoder_sw">SW (no)</string>
+    <string name="player_decoder_hw">HW (mediacodec-copy)</string>
+    <string name="player_decoder_hwplus">HW+ (mediacodec)</string>
+    <string name="player_ok">ঠিক আছে</string>
+
+    <!-- Sleep timer -->
+    <string name="player_sleep_timer">স্লিপ টাইমার</string>
+    <string name="player_off">বন্ধ</string>
+    <plurals name="player_sleep_minutes">
+        <item quantity="one">%1$d মিনিট</item>
+        <item quantity="other">%1$d মিনিট</item>
+    </plurals>
+    <string name="player_close">বন্ধ করুন</string>
+
+    <!-- Bookmarks -->
+    <string name="player_bookmark_at_time">বুকমার্ক %1$s</string>
+    <string name="player_bookmark_label_hint">লেবেল (ঐচ্ছিক)</string>
+    <string name="player_save">সংরক্ষণ করুন</string>
+    <plurals name="player_bookmarks_count">
+        <item quantity="one">%1$dটি বুকমার্ক</item>
+        <item quantity="other">%1$dটি বুকমার্ক</item>
+    </plurals>
+    <string name="player_no_bookmarks_hint">এখনও কোনো বুকমার্ক নেই। আরও &gt; এখানে বুকমার্ক যোগ করুন ব্যবহার করুন।</string>
+    <string name="player_bookmark_fallback">বুকমার্ক</string>
+
+    <!-- Speed &amp; sync sheet -->
+    <string name="player_speed_sync_title">গতি ও সিঙ্ক</string>
+    <string name="player_playback_speed">প্লেব্যাক গতি</string>
+    <string name="player_speed_value">%1$sx</string>
+    <string name="player_audio_delay">অডিও বিলম্ব</string>
+    <string name="player_panel_audio_delay">অডিও বিলম্ব</string>
+    <string name="player_subtitle_delay">সাবটাইটেল বিলম্ব</string>
+    <string name="player_panel_sub_delay">সাবটাইটেল বিলম্ব</string>
+    <string name="player_delay_ms">%1$d ms</string>
+    <string name="player_delay_minus50">-50ms</string>
+    <string name="player_delay_plus50">+50ms</string>
+    <string name="player_sync_auto_exo">সিঙ্ক বিলম্ব ExoPlayer দ্বারা স্বয়ংক্রিয়ভাবে পরিচালিত হয়।</string>
+
+    <!-- Gesture overlays -->
+    <string name="player_seek_to">সিক করুন</string>
+    <string name="player_seek_total">/ %1$s</string>
+    <string name="player_speed_2x">2× গতি</string>
+    <string name="player_seek_backward">- %1$ds</string>
+    <string name="player_seek_forward">+ %1$ds</string>
+    <string name="player_slide_to_unlock">আনলক করতে স্লাইড করুন</string>
+
+    <!-- Overflow / engine menu -->
+    <string name="player_menu_engine_exo">ইঞ্জিন: ExoPlayer</string>
+    <string name="player_menu_engine_mpv">ইঞ্জিন: MPV (HW)</string>
+    <string name="player_menu_mpv_decoder">MPV ডিকোডার সেটিংস</string>
+    <string name="player_menu_engine_to_mpv">ইঞ্জিন: ExoPlayer → MPV</string>
+    <string name="player_menu_engine_to_exo">ইঞ্জিন: MPV → ExoPlayer</string>
+    <string name="player_menu_audio_tracks">অডিও ট্র্যাক</string>
+    <string name="player_menu_subtitles">সাবটাইটেল</string>
+    <string name="player_menu_settings">সেটিংস</string>
+    <string name="player_menu_add_bookmark">এখানে বুকমার্ক যোগ করুন</string>
+    <string name="player_menu_share">শেয়ার</string>
+    <string name="player_menu_details">বিস্তারিত</string>
+    <string name="player_share_video_title">ভিডিও শেয়ার করুন</string>
+    <string name="player_subtitle_track_meta">সাবটাইটেল ট্র্যাক %1$d</string>
+
+    <!-- Player settings sheet -->
+    <string name="player_settings_title">প্লেয়ার সেটিংস</string>
+    <string name="player_section_controls">নিয়ন্ত্রণ</string>
+    <string name="player_autohide">নিয়ন্ত্রণ স্বয়ংক্রিয়ভাবে লুকান</string>
+    <string name="player_autohide_sub">কিছুক্ষণ পর নিয়ন্ত্রণ মিলিয়ে যাবে</string>
+    <string name="player_autohide_delay">স্বয়ংক্রিয়ভাবে লুকানোর বিলম্ব</string>
+    <string name="player_delay_never">কখনো নয়</string>
+    <string name="player_show_on_play">চালু হলে নিয়ন্ত্রণ দেখান</string>
+    <string name="player_show_on_play_sub">প্লেব্যাক শুরু হলে নিয়ন্ত্রণ দেখান</string>
+    <string name="player_volume_booster">ভলিউম বুস্টার (200%)</string>
+    <string name="player_volume_booster_sub">ডিভাইসের সীমার বাইরে ভলিউম বাড়ান</string>
+    <string name="player_controls_below">সিক বারের নিচে নিয়ন্ত্রণ</string>
+    <string name="player_controls_below_sub">বোতামের সারি প্রগ্রেস বারের নিচে রাখুন</string>
+    <string name="player_section_aesthetics">নান্দনিকতা</string>
+    <string name="player_dtap_indicator">ডাবল-ট্যাপ সিক নির্দেশক</string>
+    <string name="player_dtap_indicator_sub">ডাবল-ট্যাপে সিক করার সময় তরঙ্গ দেখান</string>
+    <string name="player_section_gestures">অঙ্গভঙ্গি</string>
+    <string name="player_gesture_brightness">উজ্জ্বলতার অঙ্গভঙ্গি</string>
+    <string name="player_gesture_brightness_sub">বাম প্রান্তে উপরে / নিচে সোয়াইপ করুন</string>
+    <string name="player_gesture_volume">ভলিউম অঙ্গভঙ্গি</string>
+    <string name="player_gesture_volume_sub">ডান প্রান্তে উপরে / নিচে সোয়াইপ করুন</string>
+    <string name="player_pinch_zoom">চিমটি দিয়ে জুম</string>
+    <string name="player_pinch_zoom_sub">ভিডিও জুম ইন / আউট করতে চিমটি কাটুন</string>
+    <string name="player_hswipe_seek">অনুভূমিক সোয়াইপ সিক</string>
+    <string name="player_hswipe_seek_sub">সিক করতে স্ক্রিন জুড়ে টানুন</string>
+    <string name="player_dtap_seek">ডাবল-ট্যাপ সিক</string>
+    <string name="player_reverse_dtap">বিপরীত ডাবল-ট্যাপ</string>
+    <string name="player_reverse_dtap_sub">বাম ও ডান সিকের দিক বদলে দিন</string>
+    <string name="player_seek_sensitivity">সিক অঙ্গভঙ্গির সংবেদনশীলতা</string>
+    <string name="player_sensitivity_low">কম</string>
+    <string name="player_sensitivity_medium">মাঝারি</string>
+    <string name="player_sensitivity_high">বেশি</string>
+    <string name="player_prevent_seek_tap">সিক বারে ট্যাপ প্রতিরোধ</string>
+    <string name="player_prevent_seek_tap_sub">সিক করতে সিক বার টেনে নেওয়া আবশ্যক</string>
+    <string name="player_section_advanced">সেটিংস / অ্যাডভান্সড</string>
+    <string name="player_subtitle_size">সাবটাইটেলের আকার</string>
+    <string name="player_decoder_modes">Auto / SW / HW / HW+</string>
+    <string name="player_video_sync">ভিডিও সিঙ্ক</string>
+    <string name="player_sync_audio">অডিও</string>
+    <string name="player_sync_display">ডিসপ্লে রিস্যাম্পল</string>
+    <string name="player_interpolation">ইন্টারপোলেশন</string>
+    <string name="player_interpolation_sub">ফ্রেম মিশ্রণে মসৃণ গতি</string>
+    <string name="player_pitch_correction">অডিও পিচ সংশোধন</string>
+    <string name="player_pitch_correction_sub">গতি বদলালেও পিচ স্থির রাখুন</string>
+    <string name="player_mpv_advanced">MPV অ্যাডভান্সড</string>
+    <string name="player_mpv_advanced_value">কনফিগার করতে MPV (HW)-তে যান</string>
+    <string name="player_current_engine">বর্তমান ইঞ্জিন</string>
+
+    <!-- Subtitle / audio panel -->
+    <string name="player_subtitle_tab">সাবটাইটেল</string>
+    <string name="player_audio_tab">অডিও ট্র্যাক</string>
+    <string name="player_text_color">লেখার রং</string>
+    <string name="player_bg_color">পটভূমির রং</string>
+    <string name="player_stereo_mode">স্টেরিও মোড</string>
+    <string name="player_avsync_title">অডিও সিঙ্ক্রোনাইজেশন (AV সিঙ্ক)</string>
+    <string name="player_audio_output">অডিও আউটপুট</string>
+    <string name="player_audio_renderer">অডিও রেন্ডারার</string>
+    <string name="player_subtitle_files">সাবটাইটেল ফাইল</string>
+    <string name="player_open_subtitle">সাবটাইটেল ফাইল খুলুন</string>
+    <string name="player_open_subtitle_sub">ডিভাইস থেকে সাবটাইটেল লোড করুন</string>
+    <string name="player_subtitle_tracks">সাবটাইটেল ট্র্যাক</string>
+    <string name="player_disable_subs">সাবটাইটেল বন্ধ করুন</string>
+    <string name="player_no_subs">কোনো সাবটাইটেল ট্র্যাক উপলব্ধ নেই</string>
+    <string name="player_no_subs_sub">বর্তমান ভিডিওতে কোনো সাবটাইটেল ট্র্যাক পাওয়া যায়নি</string>
+    <string name="player_appearance">চেহারা</string>
+    <string name="player_text_size">লেখার আকার</string>
+    <string name="player_percent_format">%1$d%%</string>
+    <string name="player_outline">আউটলাইন</string>
+    <string name="player_background">পটভূমি</string>
+    <string name="player_bottom_margin">নিচের মার্জিন</string>
+    <string name="player_synchronization">সিঙ্ক্রোনাইজেশন</string>
+    <string name="player_mpv_only">শুধুমাত্র MPV ইঞ্জিন</string>
+    <string name="player_audio_tracks_title">অডিও ট্র্যাক</string>
+    <string name="player_audio_disable">অক্ষম করুন</string>
+    <string name="player_disable_audio">অডিও বন্ধ করুন</string>
+    <string name="player_no_audio">কোনো অডিও ট্র্যাক উপলব্ধ নেই</string>
+    <string name="player_no_audio_sub">বর্তমান ভিডিওতে কোনো অডিও ট্র্যাক পাওয়া যায়নি</string>
+    <string name="player_audio_options">অডিও বিকল্প</string>
+    <string name="player_sw_decoder">SW অডিও ডিকোডার ব্যবহার করুন</string>
+    <string name="player_sw_decoder_sub">হার্ডওয়্যারের বদলে সফটওয়্যার ডিকোডার ব্যবহার করুন</string>
+    <string name="player_normalize">ভলিউম স্বাভাবিক করুন</string>
+    <string name="player_normalize_sub">অডিও ভলিউমের ভারসাম্য রাখুন</string>
+    <string name="player_default_badge">ডিফল্ট</string>
+    <string name="player_done">সম্পন্ন</string>
+    <string name="player_cancel">বাতিল</string>
+    <string name="player_track_fallback">ট্র্যাক #%1$d</string>
+    <string name="player_mpv_sub_fallback">সাবটাইটেল ট্র্যাক %1$d</string>
+    <string name="player_mpv_audio_fallback">অডিও ট্র্যাক %1$d</string>
+    <string name="player_audio_track_numbered">অডিও ট্র্যাক #%1$d</string>
+
+    <!-- Background-audio placeholder -->
+    <string name="player_audio_mode_active">অডিও মোড সক্রিয়</string>
+    <string name="player_audio_mode_desc">ব্যাটারি বাঁচাতে ভিডিও রেন্ডারিং বন্ধ আছে</string>
+
+    <!-- PlayerActivity toasts -->
+    <string name="player_sub_added_mpv">সাবটাইটেল যোগ করা হয়েছে! ✅</string>
+    <string name="player_sub_added">সাবটাইটেল যোগ করা হয়েছে!</string>
+    <string name="player_sub_read_error">সাবটাইটেল ফাইল পড়তে ত্রুটি</string>
+    <string name="player_mpv_failed">MPV ইঞ্জিন চালু হয়নি, EXO ইঞ্জিন ব্যবহার করুন</string>
+    <string name="player_stream_failed">স্ট্রিম খোলা যায়নি — সরাসরি ভিডিও লিংক (.mp4 / .mkv / .m3u8) দিন, পেজের URL নয়</string>
+    <string name="player_err_network">নেটওয়ার্ক সংযোগ ব্যর্থ — ইন্টারনেট / সার্ভার ঠিকানা দেখুন</string>
+    <string name="player_err_content_type">সার্ভার অপ্রত্যাশিত কনটেন্ট টাইপ পাঠিয়েছে</string>
+    <string name="player_err_rejected">সার্ভার এই লিংক প্রত্যাখ্যান করেছে (অচল, ব্লকড বা লগইন প্রয়োজন)</string>
+    <string name="player_err_not_found">সার্ভারে ফাইল পাওয়া যায়নি</string>
+    <string name="player_err_http_blocked">প্লেইন-HTTP লিংক সিস্টেম দ্বারা ব্লকড</string>
+    <string name="player_err_unreadable">উৎস পড়া যায়নি</string>
+    <string name="player_playback_error">প্লেব্যাক ত্রুটি %1$d: %2$s</string>
+
+    <!-- Music (wavy) player -->
+    <string name="player_delete_audio">অডিও মুছুন</string>
+    <string name="player_delete_audio_confirm">আপনি কি \'%1$s\' মুছতে চান? এই কাজটি ফেরানো যাবে না।</string>
+    <string name="player_audio_deleted">অডিও মোছা হয়েছে</string>
+    <string name="player_delete_failed">মোছা যায়নি।</string>
+    <string name="player_delete">মুছুন</string>
+    <string name="player_audio_props">অডিও বৈশিষ্ট্য</string>
+    <string name="player_prop_title">শিরোনাম: %1$s</string>
+    <string name="player_prop_artist">শিল্পী: %1$s</string>
+    <string name="player_prop_path">পাথ: %1$s</string>
+    <string name="player_prop_size">আকার: %1$s</string>
+    <string name="player_unknown_size">অজানা আকার</string>
+    <string name="player_boost_on">🚀 সফটওয়্যার বুস্ট চালু: ভলিউম 200%-এ বাড়ানো হয়েছে</string>
+    <string name="player_boost_off">🎵 বুস্ট বন্ধ: ভলিউম 100%-এ ফিরেছে</string>
+    <string name="player_share_listening">%1$s শুনছি 🎵</string>
+    <string name="player_share_audio_title">অডিও শেয়ার করুন</string>
+    <string name="player_share_failed">এই ফাইল শেয়ার করা যায়নি</string>
+    <string name="player_menu_properties">বৈশিষ্ট্য</string>
+    <string name="player_unknown_song">অজানা গান</string>
+    <string name="player_volume_percent">ভলিউম: %1$d%%</string>
+    <string name="player_up_next">পরবর্তী</string>
+    <string name="player_queue_empty">সারির তালিকা বর্তমানে খালি।</string>
+</resources>

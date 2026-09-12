@@ -33,6 +33,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RocketLaunch
+import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -50,6 +64,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,8 +76,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -70,8 +87,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vidmax.player.BuildConfig
 import com.vidmax.player.R
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.vidmax.player.data.repository.SettingsBackup
+import com.vidmax.player.utils.StorageAccess
+import com.vidmax.player.ui.components.LanguageSelectionDialog
 import com.vidmax.player.ui.components.UpdateResultDialog
+import com.vidmax.player.ui.components.darkModeDisplayName
+import com.vidmax.player.ui.components.fontDisplayName
+import com.vidmax.player.utils.AppLocale
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.utils.UpdateChecker
@@ -97,7 +121,27 @@ fun SettingsScreen(
     val currentTheme by viewModel.appTheme.collectAsState()
     val darkMode by viewModel.darkMode.collectAsState()
     val amoledMode by viewModel.amoledMode.collectAsState()
+    val appLocale by viewModel.appLocale.collectAsState()
+    var showLanguageDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    // ── Storage Access (All files access) state ──────────────────────
+    // Re-checked every ON_RESUME so returning from the system settings page
+    // immediately reflects the grant without manual refresh.
+    val settingsActivity = remember(context) {
+        context as? androidx.activity.ComponentActivity
+    }
+    var fullAccessTick by remember { mutableStateOf(0) }
+    DisposableEffect(settingsActivity) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) fullAccessTick++
+        }
+        settingsActivity?.lifecycle?.addObserver(observer)
+        onDispose { settingsActivity?.lifecycle?.removeObserver(observer) }
+    }
+    val hasFullAccess = remember(context, fullAccessTick) {
+        StorageAccess.hasFullStorageAccess(context)
+    }
 
     val appPrefs = remember { context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE) }
     val vidmaxPrefs = remember { context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE) }
@@ -114,6 +158,14 @@ fun SettingsScreen(
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateResult by remember { mutableStateOf<UpdateChecker.CheckResult?>(null) }
     val scope = rememberCoroutineScope()
+
+    // Localized Toast / message formats (hoisted: stringResource can't run inside launch{}).
+    val fontImportedFmt = stringResource(R.string.sett_font_imported)
+    val fontImportFail = stringResource(R.string.sett_font_import_fail)
+    val exportOkMsg = stringResource(R.string.sett_export_ok)
+    val exportFailMsg = stringResource(R.string.sett_export_fail)
+    val importOkMsg = stringResource(R.string.sett_import_ok)
+    val importInvalidMsg = stringResource(R.string.sett_import_invalid)
 
     val checkForUpdates: () -> Unit = {
         if (!isCheckingUpdate) {
@@ -148,8 +200,8 @@ fun SettingsScreen(
                 val result = viewModel.importCustomFont(uri)
                 isImportingFont = false
                 val message = result.fold(
-                    onSuccess = { fileName -> "Font \"${fileName.substringBeforeLast('.')}\" imported" },
-                    onFailure = { it.message ?: "Could not import font" }
+                    onSuccess = { fileName -> fontImportedFmt.format(fileName.substringBeforeLast('.')) },
+                    onFailure = { it.message ?: fontImportFail }
                 )
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
@@ -177,7 +229,7 @@ fun SettingsScreen(
             isBackingUp = false
             Toast.makeText(
                 context,
-                if (ok) "Settings exported successfully" else "Could not export settings",
+                if (ok) exportOkMsg else exportFailMsg,
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -209,10 +261,10 @@ fun SettingsScreen(
                 is SettingsBackup.ImportResult.Applied -> {
                     viewModel.reloadSettingsFromDisk()
                     backupTick++
-                    Toast.makeText(context, "Settings imported successfully", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, importOkMsg, Toast.LENGTH_SHORT).show()
                 }
                 is SettingsBackup.ImportResult.Invalid -> {
-                    Toast.makeText(context, "Invalid or unsupported settings backup", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, importInvalidMsg, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -246,7 +298,7 @@ fun SettingsScreen(
                 }
 
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.sett_title),
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -271,7 +323,7 @@ fun SettingsScreen(
             ) {
 
                 // ── Dark / Light / System toggle ──────────────────────────────
-                item { SettingsSectionHeader(title = "Theme") }
+                item { SettingsSectionHeader(title = stringResource(R.string.sett_header_appearance)) }
                 item {
                     Row(
                         modifier = Modifier
@@ -310,7 +362,7 @@ fun SettingsScreen(
                                         Spacer(modifier = Modifier.width(4.dp))
                                     }
                                     Text(
-                                        text = mode.name,
+                                        text = darkModeDisplayName(mode),
                                         color = if (isSelected)
                                             MaterialTheme.colorScheme.onSecondaryContainer
                                         else
@@ -325,7 +377,6 @@ fun SettingsScreen(
                 }
 
                 // ── App Theme picker ──────────────────────────────────────────
-                item { SettingsSectionHeader(title = "App Theme", paddingTop = 20.dp) }
                 item {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -345,24 +396,49 @@ fun SettingsScreen(
                     }
                 }
 
-                // ── AMOLED toggle ─────────────────────────────────────────────
+                // ── AMOLED toggle (Appearance group) ──────────────────────────
                 item { Spacer(modifier = Modifier.height(8.dp)) }
                 item {
-                    SettingsToggleRow(
-                        title = "AMOLED Black Mode",
-                        subtitle = "Pure black background to save battery on OLED",
-                        iconId = R.drawable.ic_brightness,
-                        checked = amoledMode,
-                        enabled = isCurrentlyDark,
-                        onCheckedChange = { viewModel.setAmoledMode(it) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_amoled_title),
+                            subtitle = stringResource(R.string.sett_amoled_sub),
+                            icon = Icons.Rounded.DarkMode,
+                            checked = amoledMode,
+                            enabled = isCurrentlyDark,
+                            onCheckedChange = { viewModel.setAmoledMode(it) }
+                        )
+                    }
+                }
+
+                // ── Language (same pref + dialog as onboarding) ───────────────
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item {
+                    SettingsGroupCard {
+                        SettingsGroupItem(
+                            title = stringResource(R.string.language_title),
+                            subtitle = AppLocale.displayNameFor(appLocale),
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.Language,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = { showLanguageDialog = true }
+                        )
+                    }
                 }
 
                 // ── App Font (font changer + importer) ────────────────────────
-                item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = "App Font", paddingTop = 4.dp)
-                }
                 item {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -372,7 +448,7 @@ fun SettingsScreen(
                         item {
                             FontPreviewCard(
                                 sampleText = "Aa Bb",
-                                displayName = "System Default",
+                                displayName = fontDisplayName(AppFonts.SYSTEM_DEFAULT),
                                 fontFamily = FontFamily.Default,
                                 isSelected = currentFontId == AppFonts.SYSTEM_DEFAULT,
                                 onClick = { viewModel.setAppFont(AppFonts.SYSTEM_DEFAULT) }
@@ -413,255 +489,376 @@ fun SettingsScreen(
                 // ── Advanced player ───────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Advanced Player", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_advanced), paddingTop = 4.dp)
                 }
                 item {
-                    SettingsToggleRow(
-                        title = "Volume Boost (200%)",
-                        subtitle = "Amplify software sound beyond device limits",
-                        iconId = R.drawable.ic_wrench,
-                        checked = audioBoost,
-                        onCheckedChange = { viewModel.setAudioBoost(it) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_volume_boost_title),
+                            subtitle = stringResource(R.string.sett_volume_boost_sub),
+                            icon = Icons.Rounded.VolumeUp,
+                            checked = audioBoost,
+                            onCheckedChange = { viewModel.setAudioBoost(it) }
+                        )
+                    }
                 }
 
                 // ── Player engine ─────────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Player Engine", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_engine), paddingTop = 4.dp)
                 }
                 item {
-                    DecoderOption(
-                        title = "ExoPlayer  ·  Media3",
-                        subtitle = "Default — smooth, battery-efficient playback",
-                        iconId = R.drawable.ic_gear,
-                        selected = currentEngine == PlayerEngine.EXO,
-                        onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    DecoderOption(
-                        title = "MPV Engine  ·  HW",
-                        subtitle = "Hardware-accelerated, codec-rich powerhouse",
-                        iconId = R.drawable.ic_gear,
-                        selected = currentEngine == PlayerEngine.MPV,
-                        onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupItem(
+                            title = stringResource(R.string.sett_engine_exo_title),
+                            subtitle = stringResource(R.string.sett_engine_exo_sub),
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_gear),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                RadioButton(
+                                    selected = currentEngine == PlayerEngine.EXO,
+                                    onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = MaterialTheme.colorScheme.primary,
+                                        unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            },
+                            onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupItem(
+                            title = stringResource(R.string.sett_engine_mpv_title),
+                            subtitle = stringResource(R.string.sett_engine_mpv_sub),
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_gear),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                RadioButton(
+                                    selected = currentEngine == PlayerEngine.MPV,
+                                    onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = MaterialTheme.colorScheme.primary,
+                                        unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+                            },
+                            onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) }
+                        )
+                    }
                 }
 
                 // ── Playback ──────────────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Playback", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_playback), paddingTop = 4.dp)
                 }
                 item {
-                    SettingsToggleRow(
-                        title = "Resume Playback",
-                        subtitle = "Continue from where you left off",
-                        iconId = R.drawable.ic_play_arrow,
-                        checked = resumePlayback,
-                        onCheckedChange = { viewModel.setResumePlayback(it) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Auto Rotate",
-                        subtitle = "Rotate screen with video orientation",
-                        iconId = R.drawable.ic_rotate,
-                        checked = autoRotate,
-                        onCheckedChange = { viewModel.setAutoRotate(it) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Show Startup Intro",
-                        subtitle = "Show logo splash when app opens",
-                        iconId = R.drawable.ic_video_library,
-                        checked = showIntro,
-                        onCheckedChange = { on ->
-                            showIntro = on
-                            vidmaxPrefs.edit().putBoolean("show_startup_intro", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Minimalist Player",
-                        subtitle = "Use a cleaner player interface with reduced controls",
-                        iconId = R.drawable.ic_view_list_custom,
-                        checked = minimalistPlayer,
-                        onCheckedChange = { viewModel.setMinimalistPlayer(it) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Music Player",
-                        subtitle = "Enable music player features",
-                        iconId = R.drawable.ic_music_note,
-                        checked = musicPlayerEnabled,
-                        onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_resume_title),
+                            subtitle = stringResource(R.string.sett_resume_sub),
+                            icon = Icons.Rounded.History,
+                            checked = resumePlayback,
+                            onCheckedChange = { viewModel.setResumePlayback(it) }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_autorotate_title),
+                            subtitle = stringResource(R.string.sett_autorotate_sub),
+                            icon = Icons.Rounded.ScreenRotation,
+                            checked = autoRotate,
+                            onCheckedChange = { viewModel.setAutoRotate(it) }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_intro_title),
+                            subtitle = stringResource(R.string.sett_intro_sub),
+                            icon = Icons.Rounded.RocketLaunch,
+                            checked = showIntro,
+                            onCheckedChange = { on ->
+                                showIntro = on
+                                vidmaxPrefs.edit().putBoolean("show_startup_intro", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_minimalist_title),
+                            subtitle = stringResource(R.string.sett_minimalist_sub),
+                            icon = Icons.Rounded.FullscreenExit,
+                            checked = minimalistPlayer,
+                            onCheckedChange = { viewModel.setMinimalistPlayer(it) }
+                        )
+                    }
                 }
 
                 // ── Player Buttons ────────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Player Buttons", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_overlay), paddingTop = 4.dp)
                 }
                 item {
-                    SettingsToggleRow(
-                        title = "Speed Button",
-                        subtitle = "Show the playback speed button",
-                        iconId = R.drawable.ic_play_arrow,
-                        checked = showSpeedButton,
-                        onCheckedChange = { on ->
-                            showSpeedButton = on
-                            vidmaxPrefs.edit().putBoolean("show_speed_button", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Loop Button",
-                        subtitle = "Show the repeat/loop button",
-                        iconId = R.drawable.ic_rotate,
-                        checked = showLoopButton,
-                        onCheckedChange = { on ->
-                            showLoopButton = on
-                            vidmaxPrefs.edit().putBoolean("show_loop_button", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Zoom Buttons",
-                        subtitle = "Show the zoom and aspect-ratio buttons",
-                        iconId = R.drawable.ic_view_list_custom,
-                        checked = showZoomButtons,
-                        onCheckedChange = { on ->
-                            showZoomButtons = on
-                            vidmaxPrefs.edit().putBoolean("show_zoom_buttons", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsToggleRow(
-                        title = "Extra Buttons",
-                        subtitle = "Show background play, timer, boost and fullscreen buttons",
-                        iconId = R.drawable.ic_gear,
-                        checked = showExtraButtons,
-                        onCheckedChange = { on ->
-                            showExtraButtons = on
-                            vidmaxPrefs.edit().putBoolean("show_extra_buttons", on).apply()
-                        }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_speed_title),
+                            subtitle = stringResource(R.string.sett_speed_sub),
+                            icon = Icons.Rounded.Speed,
+                            checked = showSpeedButton,
+                            onCheckedChange = { on ->
+                                showSpeedButton = on
+                                vidmaxPrefs.edit().putBoolean("show_speed_button", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_loop_title),
+                            subtitle = stringResource(R.string.sett_loop_sub),
+                            icon = Icons.Rounded.Repeat,
+                            checked = showLoopButton,
+                            onCheckedChange = { on ->
+                                showLoopButton = on
+                                vidmaxPrefs.edit().putBoolean("show_loop_button", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_zoom_title),
+                            subtitle = stringResource(R.string.sett_zoom_sub),
+                            icon = Icons.Rounded.AspectRatio,
+                            checked = showZoomButtons,
+                            onCheckedChange = { on ->
+                                showZoomButtons = on
+                                vidmaxPrefs.edit().putBoolean("show_zoom_buttons", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_extra_title),
+                            subtitle = stringResource(R.string.sett_extra_sub),
+                            icon = Icons.Rounded.Widgets,
+                            checked = showExtraButtons,
+                            onCheckedChange = { on ->
+                                showExtraButtons = on
+                                vidmaxPrefs.edit().putBoolean("show_extra_buttons", on).apply()
+                            }
+                        )
+                    }
                 }
 
                 // ── Library / Content ─────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Library / Content", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_library), paddingTop = 4.dp)
                 }
                 item {
-                    SettingsToggleRow(
-                        title = "Local Mode",
-                        subtitle = "Show only local media features and hide streaming-related options",
-                        iconId = R.drawable.ic_folder,
-                        checked = localMode,
-                        onCheckedChange = { viewModel.setLocalMode(it) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_music_title),
+                            subtitle = stringResource(R.string.sett_music_sub),
+                            icon = Icons.Rounded.MusicNote,
+                            checked = musicPlayerEnabled,
+                            onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_local_title),
+                            subtitle = stringResource(R.string.sett_local_sub),
+                            icon = Icons.Rounded.Folder,
+                            checked = localMode,
+                            onCheckedChange = { viewModel.setLocalMode(it) }
+                        )
+                    }
+                }
+
+                // ── Storage Access (All files access) ─────────────────────────
+                item {
+                    SettingsDivider()
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_storage), paddingTop = 4.dp)
+                }
+                item {
+                    SettingsGroupCard {
+                        SettingsGroupItem(
+                            title = stringResource(R.string.sett_storage_all_title),
+                            subtitle = if (hasFullAccess)
+                                stringResource(R.string.sett_storage_enabled_sub)
+                            else
+                                stringResource(R.string.sett_storage_perm_sub),
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_folder_open),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                if (hasFullAccess) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Enabled",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            onClick = {
+                                if (!hasFullAccess) {
+                                    StorageAccess.openAllFilesAccessSettings(context)
+                                } else {
+                                    fullAccessTick++
+                                    Toast.makeText(
+                                        context,
+                                        StorageAccess.statusText(context),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        )
+                        if (!hasFullAccess) {
+                            SettingsGroupDivider()
+                            SettingsGroupItem(
+                                title = stringResource(R.string.sett_storage_allow_title),
+                                subtitle = stringResource(R.string.sett_storage_allow_sub),
+                                icon = {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_folder),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(22.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                trailing = {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                onClick = { StorageAccess.openAllFilesAccessSettings(context) }
+                            )
+                        }
+                    }
                 }
 
                 // ── Updates ───────────────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Updates", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_updates), paddingTop = 4.dp)
                 }
                 item {
-                    SettingsToggleRow(
-                        title = "Update Notifications",
-                        subtitle = "Notify me when a new version is released",
-                        iconId = R.drawable.ic_github,
-                        checked = updateNotifications,
-                        onCheckedChange = { on ->
-                            updateNotifications = on
-                            appPrefs.edit().putBoolean("update_notifications", on).apply()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsItemPill(
-                        title = "Check for Updates",
-                        subtitle = if (isCheckingUpdate)
-                            "Checking GitHub…"
-                        else
-                            "VidMax v${BuildConfig.VERSION_NAME} · Latest release",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_github),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp), // Standardized Size
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        trailing = {
-                            if (isCheckingUpdate) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_update_notif_title),
+                            subtitle = stringResource(R.string.sett_update_notif_sub),
+                            icon = Icons.Rounded.Notifications,
+                            checked = updateNotifications,
+                            onCheckedChange = { on ->
+                                updateNotifications = on
+                                appPrefs.edit().putBoolean("update_notifications", on).apply()
                             }
-                        },
-                        onClick = checkForUpdates
-                    )
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupItem(
+                            title = stringResource(R.string.sett_check_updates_title),
+                            subtitle = if (isCheckingUpdate)
+                                stringResource(R.string.sett_checking_updates)
+                            else
+                                "VidMax v${BuildConfig.VERSION_NAME} · Latest release",
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_github),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                if (isCheckingUpdate) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            onClick = checkForUpdates
+                        )
+                    }
                 }
 
                 // ── Backup & Restore (P4b) ────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Backup & Restore", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_backup), paddingTop = 4.dp)
                 }
                 item {
-                    SettingsItemPill(
-                        title = "Export Settings",
-                        subtitle = "Save settings to a JSON backup file",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_share_custom),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp), // Standardized Size
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        trailing = {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        enabled = !isBackingUp,
-                        onClick = { exportLauncher.launch("VidMax-settings-backup.json") }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsItemPill(
-                        title = "Import Settings",
-                        subtitle = "Restore settings from a backup file",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_folder_open),
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp), // Standardized Size
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        trailing = {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        onClick = { importLauncher.launch(arrayOf("application/json")) }
-                    )
+                    SettingsGroupCard {
+                        SettingsGroupItem(
+                            title = stringResource(R.string.sett_export_title),
+                            subtitle = stringResource(R.string.sett_export_sub),
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_share_custom),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            enabled = !isBackingUp,
+                            onClick = { exportLauncher.launch("VidMax-settings-backup.json") }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupItem(
+                            title = stringResource(R.string.sett_import_title),
+                            subtitle = stringResource(R.string.sett_import_sub),
+                            icon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_folder_open),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = { importLauncher.launch(arrayOf("application/json")) }
+                        )
+                    }
                 }
 
                 // ── About / Links ─────────────────────────────────────────────
@@ -706,7 +903,7 @@ fun SettingsScreen(
                                 .padding(horizontal = 16.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = "VidMax · Open Source · MIT License",
+                                text = stringResource(R.string.sett_about_license),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium
@@ -731,11 +928,13 @@ fun SettingsScreen(
             pendingDeleteFont?.let { fontId ->
                 AlertDialog(
                     onDismissRequest = { pendingDeleteFont = null },
-                    title = { Text(text = "Remove Font?") },
+                    title = { Text(text = stringResource(R.string.sett_remove_font_title)) },
                     text = {
                         Text(
-                            text = "\"${AppFonts.displayNameFor(fontId)}\" will be removed from your imported fonts. " +
-                                    "The app will switch back to the system default if it was active.",
+                            text = stringResource(
+                                R.string.sett_remove_font_msg,
+                                AppFonts.displayNameFor(fontId)
+                            ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
@@ -744,14 +943,22 @@ fun SettingsScreen(
                             viewModel.deleteCustomFont(fontId)
                             pendingDeleteFont = null
                         }) {
-                            Text(text = "Remove", color = MaterialTheme.colorScheme.error)
+                            Text(text = stringResource(R.string.sett_remove_font_confirm), color = MaterialTheme.colorScheme.error)
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { pendingDeleteFont = null }) {
-                            Text(text = "Cancel")
+                            Text(text = stringResource(R.string.sett_dialog_cancel))
                         }
                     }
+                )
+            }
+
+            if (showLanguageDialog) {
+                LanguageSelectionDialog(
+                    currentTag = appLocale,
+                    onSelect = { viewModel.setAppLocale(it) },
+                    onDismiss = { showLanguageDialog = false }
                 )
             }
         }
@@ -973,7 +1180,7 @@ private fun ImportFontCard(
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Add Font",
+            text = stringResource(R.string.sett_add_font),
             fontSize = 11.sp,
             fontWeight = FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -981,112 +1188,51 @@ private fun ImportFontCard(
     }
 }
 
-// ── Shared pill component ─────────────────────────────────────────────────────
 
+// ── Grouped category card (M3 standard): one unified rounded container
+// per category with subtle in-group dividers instead of isolated pills.
 @Composable
-private fun SettingsItemPill(
-    title: String,
-    subtitle: String,
-    icon: @Composable () -> Unit,
-    trailing: @Composable () -> Unit,
-    enabled: Boolean = true,
-    onClick: (() -> Unit)? = null
+private fun SettingsGroupCard(
+    content: @Composable () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .then(
-                if (onClick != null && enabled) Modifier.clickable { onClick() } else Modifier
-            )
-            .alpha(if (enabled) 1f else 0.45f)
-            .padding(horizontal = 16.dp, vertical = 14.dp), // Polished Padding
-        verticalAlignment = Alignment.CenterVertically
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(vertical = 6.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surface),
-            contentAlignment = Alignment.Center
-        ) {
-            icon()
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 15.sp, // Slightly larger for better readability
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = subtitle,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp, // Slightly larger
-                modifier = Modifier.padding(top = 2.dp),
-                lineHeight = 16.sp
-            )
-        }
-        Spacer(modifier = Modifier.width(10.dp))
-        trailing()
+        content()
     }
 }
 
-// ── Concrete setting rows ─────────────────────────────────────────────────────
-
 @Composable
-private fun DecoderOption(
-    title: String,
-    subtitle: String,
-    iconId: Int,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    SettingsItemPill(
-        title = title,
-        subtitle = subtitle,
-        icon = {
-            Icon(
-                painter = painterResource(id = iconId),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp), // Standardized Size
-                tint = MaterialTheme.colorScheme.primary
-            )
-        },
-        trailing = {
-            RadioButton(
-                selected = selected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = MaterialTheme.colorScheme.primary,
-                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-        },
-        onClick = onClick
+private fun SettingsGroupDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 64.dp, end = 16.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
     )
 }
 
+// ── Borderless toggle row for use inside SettingsGroupCard ──────────────
 @Composable
-private fun SettingsToggleRow(
+private fun SettingsGroupToggle(
     title: String,
     subtitle: String,
-    iconId: Int,
+    icon: ImageVector,
     checked: Boolean,
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    SettingsItemPill(
+    SettingsGroupItem(
         title = title,
         subtitle = subtitle,
         enabled = enabled,
         icon = {
             Icon(
-                painter = painterResource(id = iconId),
+                imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(24.dp), // Standardized Size
+                modifier = Modifier.size(22.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
         },
@@ -1102,8 +1248,59 @@ private fun SettingsToggleRow(
                     uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
-        }
+        },
+        onClick = { onCheckedChange(!checked) }
     )
+}
+
+// ── Generic tappable row for use inside SettingsGroupCard ───────────────
+@Composable
+private fun SettingsGroupItem(
+    title: String,
+    subtitle: String,
+    enabled: Boolean = true,
+    icon: @Composable () -> Unit,
+    trailing: @Composable () -> Unit,
+    onClick: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (onClick != null && enabled) Modifier.clickable { onClick() } else Modifier
+            )
+            .alpha(if (enabled) 1f else 0.45f)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center
+        ) {
+            icon()
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = subtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 2.dp),
+                lineHeight = 16.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        trailing()
+    }
 }
 
 // ── Social link button ────────────────────────────────────────────────────────

@@ -53,7 +53,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -102,16 +105,19 @@ data class ArtistDetailState(
     val isLoading: Boolean = false
 )
 
-private val playlistSpecs = listOf(
-    PlaylistSpec("Chill", "Relax & unwind", "chill music playlist"),
-    PlaylistSpec("Focus", "Deep work", "focus music instrumental"),
-    PlaylistSpec("Commute", "On the go", "commute travel songs"),
-    PlaylistSpec("Gaming", "Level up", "gaming music mix"),
-    PlaylistSpec("Energize", "Boost your day", "energizing workout songs"),
-    PlaylistSpec("Party", "Dance floor", "party dance songs"),
-    PlaylistSpec("Feel good", "Happy vibes", "feel good happy songs"),
-    PlaylistSpec("Romance", "Love songs", "romantic love songs")
-)
+@Composable
+private fun rememberPlaylistSpecs(): List<PlaylistSpec> {
+    return listOf(
+        PlaylistSpec(stringResource(R.string.oms_mood_chill_title), stringResource(R.string.oms_mood_chill_subtitle), "chill music playlist"),
+        PlaylistSpec(stringResource(R.string.oms_mood_focus_title), stringResource(R.string.oms_mood_focus_subtitle), "focus music instrumental"),
+        PlaylistSpec(stringResource(R.string.oms_mood_commute_title), stringResource(R.string.oms_mood_commute_subtitle), "commute travel songs"),
+        PlaylistSpec(stringResource(R.string.oms_mood_gaming_title), stringResource(R.string.oms_mood_gaming_subtitle), "gaming music mix"),
+        PlaylistSpec(stringResource(R.string.oms_mood_energize_title), stringResource(R.string.oms_mood_energize_subtitle), "energizing workout songs"),
+        PlaylistSpec(stringResource(R.string.oms_mood_party_title), stringResource(R.string.oms_mood_party_subtitle), "party dance songs"),
+        PlaylistSpec(stringResource(R.string.oms_mood_feelgood_title), stringResource(R.string.oms_mood_feelgood_subtitle), "feel good happy songs"),
+        PlaylistSpec(stringResource(R.string.oms_mood_romance_title), stringResource(R.string.oms_mood_romance_subtitle), "romantic love songs")
+    )
+}
 
 // 🌸 Staggered enter animation
 @Composable
@@ -149,6 +155,7 @@ fun OnlineMusicScreen(
     val homeState by homeViewModel.uiState.collectAsState()
     val playerState by playerViewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
     val isSearchActive = searchState.query.isNotBlank() || searchState.searchResults.isNotEmpty()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -206,7 +213,7 @@ fun OnlineMusicScreen(
         homeViewModel.fetchPlaylist(spec.query) { songs ->
             if (songs.isEmpty()) {
                 playlistState = null
-                scope.launch { snackbarHostState.showSnackbar("Playlist is empty") }
+                scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.oms_snackbar_playlist_empty)) }
             } else {
                 playlistState = PlaylistDetailState(spec = spec, songs = songs)
             }
@@ -485,10 +492,10 @@ private fun OnlineHeader(
 ) {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greeting = when (hour) {
-        in 5..11 -> "Good Morning"
-        in 12..16 -> "Good Afternoon"
-        in 17..21 -> "Good Evening"
-        else -> "Good Night"
+        in 5..11 -> stringResource(R.string.oms_greeting_morning)
+        in 12..16 -> stringResource(R.string.oms_greeting_afternoon)
+        in 17..21 -> stringResource(R.string.oms_greeting_evening)
+        else -> stringResource(R.string.oms_greeting_night)
     }
     Row(
         modifier = Modifier
@@ -580,23 +587,23 @@ private fun ProfileSheet(
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "You",
+                text = stringResource(R.string.oms_profile_you),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "VidMax is account-free — no YouTube login needed.",
+                text = stringResource(R.string.oms_profile_account_free),
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(20.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                StatCard(label = "Favorites", value = favoriteCount.toString(), modifier = Modifier.weight(1f))
+                StatCard(label = stringResource(R.string.oms_stat_favorites), value = favoriteCount.toString(), modifier = Modifier.weight(1f))
                 Spacer(modifier = Modifier.width(12.dp))
-                StatCard(label = "Recently Played", value = recentlyPlayedCount.toString(), modifier = Modifier.weight(1f))
+                StatCard(label = stringResource(R.string.oms_stat_recently_played), value = recentlyPlayedCount.toString(), modifier = Modifier.weight(1f))
             }
         }
     }
@@ -682,21 +689,21 @@ fun MeldOnlineHomeContent(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Something went wrong",
+                                text = stringResource(R.string.oms_error_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = homeState.error ?: "Unable to load music suggestions",
+                                text = homeState.error ?: stringResource(R.string.oms_error_fallback),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 13.sp,
                                 textAlign = TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(20.dp))
                             Button(onClick = onRefresh) {
-                                Text("Try again")
+                                Text(stringResource(R.string.oms_action_retry))
                             }
                         }
                     }
@@ -761,7 +768,7 @@ fun MeldOnlineHomeContent(
                     if (selectedChip == null && speedDialSongs.isNotEmpty()) {
                         item(key = "speed_dial_title") {
                             NavigationTitle(
-                                title = "Speed Dial",
+                                title = stringResource(R.string.oms_section_speed_dial),
                                 onPlayAllClick = null
                             )
                         }
@@ -785,7 +792,7 @@ fun MeldOnlineHomeContent(
                         if (homeState.dailyDiscover.isNotEmpty()) {
                             item(key = "daily_discover") {
                                 MusicSectionRow(
-                                    title = "Daily Discover",
+                                    title = stringResource(R.string.oms_section_daily_discover),
                                     songs = homeState.dailyDiscover,
                                     onSongClick = onSongClick,
                                     onPlayAllClick = { onPlayQueue(homeState.dailyDiscover) },
@@ -796,7 +803,7 @@ fun MeldOnlineHomeContent(
                         if (homeState.keepListening.isNotEmpty()) {
                             item(key = "keep_listening") {
                                 MusicSectionRow(
-                                    title = "Keep Listening",
+                                    title = stringResource(R.string.oms_section_keep_listening),
                                     songs = homeState.keepListening,
                                     onSongClick = onSongClick,
                                     onPlayAllClick = { onPlayQueue(homeState.keepListening) },
@@ -807,7 +814,7 @@ fun MeldOnlineHomeContent(
                         homeState.similarRecommendations.forEachIndexed { simIdx, rec ->
                             item(key = "similar_${rec.seed.videoId}") {
                                 MusicSectionRow(
-                                    title = "Similar to ${rec.seed.title}",
+                                    title = stringResource(R.string.oms_section_similar_to, rec.seed.title),
                                     songs = rec.items,
                                     onSongClick = onSongClick,
                                     onPlayAllClick = { onPlayQueue(rec.items) },
@@ -818,7 +825,7 @@ fun MeldOnlineHomeContent(
                         if (homeState.forgottenFavorites.isNotEmpty()) {
                             item(key = "forgotten_favorites") {
                                 MusicSectionRow(
-                                    title = "Forgotten Favorites",
+                                    title = stringResource(R.string.oms_section_forgotten_favorites),
                                     songs = homeState.forgottenFavorites,
                                     onSongClick = onSongClick,
                                     onPlayAllClick = { onPlayQueue(homeState.forgottenFavorites) },
@@ -829,7 +836,7 @@ fun MeldOnlineHomeContent(
                         if (homeState.favorites.isNotEmpty()) {
                             item(key = "favorites") {
                                 MusicSectionRow(
-                                    title = "Favorites",
+                                    title = stringResource(R.string.oms_section_favorites),
                                     songs = homeState.favorites,
                                     onSongClick = onSongClick,
                                     onPlayAllClick = { onPlayQueue(homeState.favorites) },
@@ -874,7 +881,7 @@ fun RecentlyPlayedSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recently Played",
+                text = stringResource(R.string.oms_section_recently_played),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -895,8 +902,8 @@ fun RecentlyPlayedSection(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Play all", 
-                    fontSize = 13.sp, 
+                    text = stringResource(R.string.oms_action_play_all),
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -1002,7 +1009,7 @@ fun QuickPicksSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Quick Picks",
+                text = stringResource(R.string.oms_section_quick_picks),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -1216,13 +1223,14 @@ fun MoodAndGenresRow(
     onMoodClick: (PlaylistSpec) -> Unit,
     index: Int
 ) {
+    val specs = rememberPlaylistSpecs()
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .enterAnimation(index)
     ) {
         NavigationTitle(
-            title = "Mood & Genres",
+            title = stringResource(R.string.oms_section_mood_genres),
             onPlayAllClick = null
         )
         LazyHorizontalGrid(
@@ -1234,7 +1242,7 @@ fun MoodAndGenresRow(
                 .fillMaxWidth()
                 .height(220.dp)
         ) {
-            items(playlistSpecs) { spec ->
+            items(specs) { spec ->
                 MeldMoodCard(
                     spec = spec,
                     onClick = { onMoodClick(spec) }
@@ -1296,7 +1304,7 @@ fun PopularArtistsRow(
             .enterAnimation(index)
     ) {
         NavigationTitle(
-            title = "Popular Artists",
+            title = stringResource(R.string.oms_section_popular_artists),
             onPlayAllClick = null
         )
         LazyRow(
@@ -1385,9 +1393,10 @@ fun ArtistCard(
     }
 }
 
+@Composable
 private fun formatSubscribers(count: Long): String {
     return when {
-        count < 0 -> "Artist"
+        count < 0 -> stringResource(R.string.oms_artist_fallback)
         count >= 1_000_000_000 -> String.format("%.1fB", count / 1_000_000_000.0)
         count >= 1_000_000 -> String.format("%.1fM", count / 1_000_000.0)
         count >= 1_000 -> String.format("%.1fK", count / 1_000.0)
@@ -1583,7 +1592,7 @@ fun MeldPlaylistDetailScreen(
         } else if (state.songs.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "No songs found",
+                    text = stringResource(R.string.oms_empty_songs),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1619,7 +1628,7 @@ fun MeldPlaylistDetailScreen(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "${state.spec.subtitle} • ${state.songs.size} songs",
+                                text = pluralStringResource(R.plurals.oms_playlist_detail_subtitle, state.songs.size, state.spec.subtitle, state.songs.size),
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                                 maxLines = 1,
@@ -1650,7 +1659,7 @@ fun MeldPlaylistDetailScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Play all", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.oms_action_play_all), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1719,7 +1728,7 @@ fun MeldArtistDetailScreen(
         } else if (state.songs.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "No songs found",
+                    text = stringResource(R.string.oms_empty_songs),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1778,7 +1787,7 @@ fun MeldArtistDetailScreen(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "${formatSubscribers(state.artist.subscriberCount)} • ${state.songs.size} songs",
+                                text = pluralStringResource(R.plurals.oms_artist_detail_subtitle, state.songs.size, formatSubscribers(state.artist.subscriberCount), state.songs.size),
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                                 maxLines = 1,
@@ -1809,7 +1818,7 @@ fun MeldArtistDetailScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Play all", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.oms_action_play_all), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1952,7 +1961,7 @@ fun OnlineSearchBar(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .height(56.dp)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-        placeholder = { Text("Search songs, artists...", fontSize = 15.sp) },
+        placeholder = { Text(stringResource(R.string.oms_search_hint), fontSize = 15.sp) },
         leadingIcon = {
             if (onBackClick != null) {
                 IconButton(onClick = onBackClick) {
@@ -2014,7 +2023,7 @@ fun OnlineSearchContent(
         ) {
             item {
                 Text(
-                    text = "Suggested Results",
+                    text = stringResource(R.string.oms_suggested_results),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,

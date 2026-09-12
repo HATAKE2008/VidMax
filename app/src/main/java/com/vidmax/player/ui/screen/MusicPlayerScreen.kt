@@ -106,6 +106,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -393,7 +394,7 @@ fun DefaultPlayerUI(
       rememberLauncherForActivityResult(
           contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-              Toast.makeText(context, "Audio Deleted Successfully", Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, context.getString(R.string.mps_toast_deleted_success), Toast.LENGTH_SHORT).show()
               viewModel.pauseAudio()
               onBack()
             }
@@ -402,8 +403,8 @@ fun DefaultPlayerUI(
   if (showDeleteConfirmDialog) {
     AlertDialog(
         onDismissRequest = { showDeleteConfirmDialog = false },
-        title = { Text("Delete Audio", fontWeight = FontWeight.Bold) },
-        text = { Text("Are you sure you want to delete '$title'? This action cannot be undone.") },
+        title = { Text(stringResource(R.string.mps_dialog_delete_title), fontWeight = FontWeight.Bold) },
+        text = { Text(stringResource(R.string.mps_dialog_delete_msg, title)) },
         confirmButton = {
           TextButton(
               onClick = {
@@ -418,11 +419,11 @@ fun DefaultPlayerUI(
                       deleted = context.contentResolver.delete(uri, null, null) > 0
 
                   if (deleted) {
-                    Toast.makeText(context, "Audio Deleted", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.mps_toast_deleted), Toast.LENGTH_SHORT).show()
                     viewModel.pauseAudio()
                     onBack()
                   } else {
-                    Toast.makeText(context, "Failed to delete.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.mps_toast_delete_failed), Toast.LENGTH_SHORT).show()
                   }
                 } catch (e: SecurityException) {
                   val uri = getAudioUriFromPath(context, currentPath)
@@ -439,46 +440,47 @@ fun DefaultPlayerUI(
                             IntentSenderRequest.Builder(intent.intentSender).build())
                       }
                     } else {
-                      Toast.makeText(context, "Permission Denied!", Toast.LENGTH_LONG).show()
+                      Toast.makeText(context, context.getString(R.string.mps_toast_permission_denied), Toast.LENGTH_LONG).show()
                     }
                   }
                 } catch (e: Exception) {
-                  Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, context.getString(R.string.mps_toast_error_generic, e.message.orEmpty()), Toast.LENGTH_SHORT).show()
                 }
               }) {
                 Text(
-                    "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    stringResource(R.string.mps_action_delete), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
               }
         },
         dismissButton = {
           TextButton(onClick = { showDeleteConfirmDialog = false }) {
-            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.mps_action_cancel), color = MaterialTheme.colorScheme.onSurface)
           }
         })
   }
 
   if (showPropertiesDialog) {
     val file = File(currentPath)
+    val unknownSize = stringResource(R.string.mps_unknown_size)
     val fileSizeMb =
         if (file.exists()) String.format(java.util.Locale.US, "%.2f MB", file.length() / (1024.0 * 1024.0))
-        else "Unknown Size"
+        else unknownSize
 
     AlertDialog(
         onDismissRequest = { showPropertiesDialog = false },
-        title = { Text("Audio Properties", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.mps_dialog_properties_title), fontWeight = FontWeight.Bold) },
         text = {
           Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Title: $title", fontSize = 14.sp)
-            Text("Artist: $artist", fontSize = 14.sp)
+            Text(stringResource(R.string.mps_prop_title, title), fontSize = 14.sp)
+            Text(stringResource(R.string.mps_prop_artist, artist), fontSize = 14.sp)
             Text(
-                "Path: $currentPath",
+                stringResource(R.string.mps_prop_path, currentPath),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Size: $fileSizeMb", fontSize = 14.sp)
+            Text(stringResource(R.string.mps_prop_size, fileSizeMb), fontSize = 14.sp)
           }
         },
         confirmButton = {
-          TextButton(onClick = { showPropertiesDialog = false }) { Text("Close") }
+          TextButton(onClick = { showPropertiesDialog = false }) { Text(stringResource(R.string.mps_action_close)) }
         })
   }
 
@@ -486,11 +488,11 @@ fun DefaultPlayerUI(
     AlertDialog(
         onDismissRequest = { showTimerDialog = false },
         containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text("Sleep Timer", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.mps_dialog_sleep_timer_title), fontWeight = FontWeight.Bold) },
         text = {
           Column {
             listOf(0, 15, 30, 60, 120).forEach { mins ->
-              val text = if (mins == 0) "Off" else "$mins Minutes"
+              val text = if (mins == 0) stringResource(R.string.mps_timer_off) else stringResource(R.string.mps_timer_minutes, mins)
               Row(
                   modifier =
                       Modifier.fillMaxWidth()
@@ -512,7 +514,7 @@ fun DefaultPlayerUI(
             }
           }
         },
-        confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text("Close") } })
+        confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text(stringResource(R.string.mps_action_close)) } })
   }
 
   Box(
@@ -611,7 +613,7 @@ fun DefaultPlayerUI(
                               Spacer(modifier = Modifier.width(6.dp))
                           }
                           Text(
-                              text = if (isOnlineMode) "Online Stream" else "Now Playing",
+                              text = if (isOnlineMode) stringResource(R.string.mps_online_stream) else stringResource(R.string.mps_now_playing),
                               fontSize = 12.sp,
                               color = if (isOnlineMode) Color(0xFF1DB954).copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                               fontWeight = FontWeight.Medium)
@@ -640,7 +642,7 @@ fun DefaultPlayerUI(
                       modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
                         DropdownMenuItem(
                             text = {
-                              Text("Properties", color = MaterialTheme.colorScheme.onSurface)
+                              Text(stringResource(R.string.mps_menu_properties), color = MaterialTheme.colorScheme.onSurface)
                             },
                             leadingIcon = {
                               Icon(
@@ -654,7 +656,7 @@ fun DefaultPlayerUI(
                             })
 
                         DropdownMenuItem(
-                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            text = { Text(stringResource(R.string.mps_menu_delete), color = MaterialTheme.colorScheme.error) },
                             leadingIcon = {
                               Icon(
                                   Icons.Default.Delete,
@@ -675,7 +677,7 @@ fun DefaultPlayerUI(
                         // 🔥 THEME SELECTION MENU ITEMS
                         DropdownMenuItem(
                             text = {
-                              Text("Default Theme", color = MaterialTheme.colorScheme.onSurface)
+                              Text(stringResource(R.string.mps_theme_default), color = MaterialTheme.colorScheme.onSurface)
                             },
                             onClick = {
                               showMoreMenu = false
@@ -683,7 +685,7 @@ fun DefaultPlayerUI(
                             })
                         DropdownMenuItem(
                             text = {
-                              Text("Modern Circle", color = MaterialTheme.colorScheme.onSurface)
+                              Text(stringResource(R.string.mps_theme_modern), color = MaterialTheme.colorScheme.onSurface)
                             },
                             onClick = {
                               showMoreMenu = false
@@ -691,7 +693,7 @@ fun DefaultPlayerUI(
                             })
                         DropdownMenuItem(
                             text = {
-                              Text("Wavy Pastel", color = MaterialTheme.colorScheme.onSurface)
+                              Text(stringResource(R.string.mps_theme_wavy), color = MaterialTheme.colorScheme.onSurface)
                             },
                             onClick = {
                               showMoreMenu = false
@@ -785,7 +787,7 @@ fun DefaultPlayerUI(
               verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
                   Text(
-                      text = title.ifEmpty { "Unknown Song" },
+                      text = title.ifEmpty { stringResource(R.string.mps_unknown_song) },
                       color = MaterialTheme.colorScheme.onSurface,
                       fontSize = 24.sp,
                       fontWeight = FontWeight.ExtraBold,
@@ -814,15 +816,13 @@ fun DefaultPlayerUI(
                                   Intent(Intent.ACTION_SEND).apply {
                                     type = "audio/*"
                                     putExtra(Intent.EXTRA_STREAM, uri)
-                                    putExtra(Intent.EXTRA_TEXT, "Listening to $title 🎵")
+                                    putExtra(Intent.EXTRA_TEXT, context.getString(R.string.mps_share_listening, title))
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                   }
                               context.startActivity(
-                                  Intent.createChooser(shareIntent, "Share Audio"))
+                                  Intent.createChooser(shareIntent, context.getString(R.string.mps_share_audio_title)))
                             } else {
-                              Toast.makeText(
-                                      context, "Could not share this file", Toast.LENGTH_SHORT)
-                                  .show()
+                              Toast.makeText(context, context.getString(R.string.mps_toast_share_failed), Toast.LENGTH_SHORT).show()
                             }
                           },
                           modifier = Modifier.size(36.dp)) {
@@ -1131,7 +1131,7 @@ fun DefaultPlayerUI(
                           modifier = Modifier.size(18.dp))
                       Spacer(modifier = Modifier.width(8.dp))
                       Text(
-                          text = "Queue",
+                          text = stringResource(R.string.mps_queue),
                           color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                           fontWeight = FontWeight.Medium,
                           fontSize = 14.sp)
@@ -1185,11 +1185,11 @@ fun DefaultPlayerUI(
                                 indication = LocalIndication.current) {
                                   viewModel.toggleMusicBoost()
                                   val isNowBoosted = !isAudioBoosted
-                                  val msg =
+                                   val msg =
                                       if (isNowBoosted) {
-                                        "🚀 Software Boost ON: Volume forced to 200%"
+                                        context.getString(R.string.mps_boost_on)
                                       } else {
-                                        "🎵 Boost OFF: Volume back to 100%"
+                                        context.getString(R.string.mps_boost_off)
                                       }
                                   Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                 }
@@ -1205,7 +1205,7 @@ fun DefaultPlayerUI(
                           modifier = Modifier.size(18.dp))
                       Spacer(modifier = Modifier.width(8.dp))
                       Text(
-                          text = if (isAudioBoosted) "200%" else "Boost",
+                          text = if (isAudioBoosted) "200%" else stringResource(R.string.mps_boost_label),
                           color =
                               if (isAudioBoosted) MaterialTheme.colorScheme.onPrimary
                               else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
@@ -1230,7 +1230,7 @@ fun DefaultPlayerUI(
                   contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                       Text(
-                          text = "Volume: $displayVolPercent%",
+                          text = stringResource(R.string.mps_volume_percent, displayVolPercent),
                           color = Color.White,
                           fontWeight = FontWeight.Bold)
                       Spacer(modifier = Modifier.height(8.dp))
@@ -1255,7 +1255,7 @@ fun DefaultPlayerUI(
                             .padding(horizontal = 24.dp, vertical = 16.dp)
                             .fillMaxHeight(0.6f)) {
                       Text(
-                          text = "Up Next",
+                          text = stringResource(R.string.mps_up_next),
                           fontSize = 20.sp,
                           fontWeight = FontWeight.Bold,
                           color = MaterialTheme.colorScheme.onSurface)
@@ -1266,7 +1266,7 @@ fun DefaultPlayerUI(
                             modifier = Modifier.fillMaxWidth().weight(1f),
                             contentAlignment = Alignment.Center) {
                               Text(
-                                  text = "Queue list is currently empty.",
+                                  text = stringResource(R.string.mps_queue_empty),
                                   color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                   fontSize = 16.sp)
                             }
@@ -1465,7 +1465,7 @@ fun OnlineMusicPlayerContent(
                 }
 
                 Text(
-                    text = "Online Music",
+                    text = stringResource(R.string.mps_online_music_title),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium

@@ -98,6 +98,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -223,23 +225,25 @@ fun MusicScreen(
   var playlistToDelete by remember { mutableStateOf<VidMaxPlaylist?>(null) }
 
   var activeAlbumName by remember { mutableStateOf<String?>(null) }
-  val albumsMap = remember(audioList) {
+  val unknownAlbum = stringResource(R.string.msc_unknown_album)
+  val albumsMap = remember(audioList, unknownAlbum) {
     audioList.groupBy { audio ->
       try {
-        File(audio.path).parentFile?.name ?: "Unknown Album"
+        File(audio.path).parentFile?.name ?: unknownAlbum
       } catch (e: Exception) {
-        "Unknown Album"
+        unknownAlbum
       }
     }
   }
 
   var activeFolderName by remember { mutableStateOf<String?>(null) }
-  val foldersMap = remember(audioList) {
+  val unknownFolder = stringResource(R.string.msc_unknown_folder)
+  val foldersMap = remember(audioList, unknownFolder) {
     audioList.groupBy { audio ->
       try {
-        File(audio.path).parentFile?.name ?: "Unknown Folder"
+        File(audio.path).parentFile?.name ?: unknownFolder
       } catch (e: Exception) {
-        "Unknown Folder"
+        unknownFolder
       }
     }
   }
@@ -304,10 +308,10 @@ fun MusicScreen(
       contract = ActivityResultContracts.StartIntentSenderForResult()
   ) { result ->
     if (result.resultCode == Activity.RESULT_OK) {
-      Toast.makeText(context, "Selected audio deleted successfully", Toast.LENGTH_SHORT).show()
+      Toast.makeText(context, context.getString(R.string.msc_toast_deleted_success), Toast.LENGTH_SHORT).show()
       selectedAudioIds = emptySet()
     } else {
-      Toast.makeText(context, "Delete Cancelled", Toast.LENGTH_SHORT).show()
+      Toast.makeText(context, context.getString(R.string.msc_toast_delete_cancelled), Toast.LENGTH_SHORT).show()
     }
   }
 
@@ -315,9 +319,9 @@ fun MusicScreen(
   if (showDeleteConfirmDialog) {
     AlertDialog(
         onDismissRequest = { showDeleteConfirmDialog = false },
-        title = { Text(text = "Delete Audios", fontWeight = FontWeight.Bold) },
+        title = { Text(text = stringResource(R.string.msc_dialog_delete_audios_title), fontWeight = FontWeight.Bold) },
         text = {
-          Text("Are you sure you want to delete ${selectedAudioIds.size} selected songs? This action cannot be undone.")
+          Text(stringResource(R.string.msc_dialog_delete_audios_msg, selectedAudioIds.size))
         },
         confirmButton = {
           TextButton(
@@ -343,16 +347,16 @@ fun MusicScreen(
                       }
                     }
                   }
-                  Toast.makeText(context, "$deletedCount audio(s) deleted", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, context.resources.getQuantityString(R.plurals.msc_audios_deleted, deletedCount, deletedCount), Toast.LENGTH_SHORT).show()
                   selectedAudioIds = emptySet()
                 }
               }) {
-            Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.msc_action_delete), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
           }
         },
         dismissButton = {
           TextButton(onClick = { showDeleteConfirmDialog = false }) {
-            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.msc_action_cancel), color = MaterialTheme.colorScheme.onSurface)
           }
         })
   }
@@ -360,8 +364,8 @@ fun MusicScreen(
   if (playlistToDelete != null) {
     AlertDialog(
         onDismissRequest = { playlistToDelete = null },
-        title = { Text("Delete Playlist", fontWeight = FontWeight.Bold) },
-        text = { Text("Are you sure you want to delete '${playlistToDelete?.name}'? This will not delete the actual songs.") },
+        title = { Text(stringResource(R.string.msc_dialog_delete_playlist_title), fontWeight = FontWeight.Bold) },
+        text = { Text(stringResource(R.string.msc_dialog_delete_playlist_msg, playlistToDelete?.name.orEmpty())) },
         confirmButton = {
           TextButton(
               onClick = {
@@ -369,14 +373,14 @@ fun MusicScreen(
                 userPlaylists = updatedPlaylists
                 savePlaylists(context, updatedPlaylists)
                 playlistToDelete = null
-                Toast.makeText(context, "Playlist deleted", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.msc_toast_playlist_deleted), Toast.LENGTH_SHORT).show()
               }) {
-            Text("Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.msc_action_delete), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
           }
         },
         dismissButton = {
           TextButton(onClick = { playlistToDelete = null }) {
-            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.msc_action_cancel), color = MaterialTheme.colorScheme.onSurface)
           }
         })
   }
@@ -384,12 +388,12 @@ fun MusicScreen(
   if (showCreatePlaylistDialog) {
     AlertDialog(
         onDismissRequest = { showCreatePlaylistDialog = false },
-        title = { Text("New Playlist", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.msc_dialog_new_playlist_title), fontWeight = FontWeight.Bold) },
         text = {
           OutlinedTextField(
               value = newPlaylistName,
               onValueChange = { newPlaylistName = it },
-              placeholder = { Text("Enter playlist name") },
+              placeholder = { Text(stringResource(R.string.msc_hint_playlist_name)) },
               singleLine = true,
               colors = OutlinedTextFieldDefaults.colors(
                   focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -408,15 +412,15 @@ fun MusicScreen(
                   savePlaylists(context, updatedPlaylists)
                   newPlaylistName = ""
                   showCreatePlaylistDialog = false
-                  Toast.makeText(context, "Playlist created", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, context.getString(R.string.msc_toast_playlist_created), Toast.LENGTH_SHORT).show()
                 }
               }) {
-            Text("Create", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.msc_action_create), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
           }
         },
         dismissButton = {
           TextButton(onClick = { showCreatePlaylistDialog = false }) {
-            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.msc_action_cancel), color = MaterialTheme.colorScheme.onSurface)
           }
         })
   }
@@ -424,7 +428,7 @@ fun MusicScreen(
   if (showAddToPlaylistDialog) {
     AlertDialog(
         onDismissRequest = { showAddToPlaylistDialog = false },
-        title = { Text("Add to Playlist", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.msc_dialog_add_to_playlist_title), fontWeight = FontWeight.Bold) },
         text = {
           LazyColumn {
             item {
@@ -445,7 +449,7 @@ fun MusicScreen(
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    "Create New Playlist",
+                    stringResource(R.string.msc_create_new_playlist),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -473,7 +477,7 @@ fun MusicScreen(
 
                         showAddToPlaylistDialog = false
                         selectedAudioIds = emptySet()
-                        Toast.makeText(context, "Added to ${playlist.name}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.msc_toast_added_to_playlist, playlist.name), Toast.LENGTH_SHORT).show()
                       }
                       .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
@@ -491,7 +495,7 @@ fun MusicScreen(
         },
         confirmButton = {
           TextButton(onClick = { showAddToPlaylistDialog = false }) {
-            Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.msc_action_cancel), color = MaterialTheme.colorScheme.onSurface)
           }
         })
   }
@@ -525,7 +529,7 @@ fun MusicScreen(
             )
           }
           Text(
-              text = "${selectedAudioIds.size} Selected",
+              text = stringResource(R.string.msc_selected_count, selectedAudioIds.size),
               color = MaterialTheme.colorScheme.onBackground,
               fontSize = 16.sp,
               fontWeight = FontWeight.Bold
@@ -568,7 +572,7 @@ fun MusicScreen(
                     putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                   }
-                  context.startActivity(Intent.createChooser(intent, "Share ${uris.size} Audios"))
+                  context.startActivity(Intent.createChooser(intent, context.getString(R.string.msc_share_audios_title, uris.size)))
                   selectedAudioIds = emptySet()
                 }
               }) {
@@ -615,7 +619,7 @@ fun MusicScreen(
             currentTab == "Playlists" && activePlaylist != null -> activePlaylist!!.name
             currentTab == "Albums" && activeAlbumName != null -> activeAlbumName!!
             currentTab == "Folders" && activeFolderName != null -> activeFolderName!!
-            else -> "Music"
+            else -> stringResource(R.string.msc_title_music)
           }
 
           Text(
@@ -638,6 +642,14 @@ fun MusicScreen(
           }
         }
       }
+    }
+
+    val currentTabLabel = when (currentTab) {
+      "Songs" -> stringResource(R.string.msc_tab_songs)
+      "Folders" -> stringResource(R.string.msc_tab_folders)
+      "Playlists" -> stringResource(R.string.msc_tab_playlists)
+      "Favorites" -> stringResource(R.string.msc_tab_favorites)
+      else -> currentTab
     }
 
     // 🚀 FULL WIDTH, PROPERLY SIZED NAVIGATION TAB BAR 🚀
@@ -682,7 +694,7 @@ fun MusicScreen(
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically) {
             TabItem(
-                title = "Songs",
+                title = stringResource(R.string.msc_tab_songs),
                 isSelected = currentTab == "Songs",
                 onClick = {
                   currentTab = "Songs"
@@ -694,7 +706,7 @@ fun MusicScreen(
             }
 
             TabItem(
-                title = "Folders",
+                title = stringResource(R.string.msc_tab_folders),
                 isSelected = currentTab == "Folders",
                 onClick = {
                   currentTab = "Folders"
@@ -706,7 +718,7 @@ fun MusicScreen(
             }
 
             TabItem(
-                title = "Playlists",
+                title = stringResource(R.string.msc_tab_playlists),
                 isSelected = currentTab == "Playlists",
                 onClick = {
                   currentTab = "Playlists"
@@ -718,7 +730,7 @@ fun MusicScreen(
             }
 
             TabItem(
-                title = "Favorites",
+                title = stringResource(R.string.msc_tab_favorites),
                 isSelected = currentTab == "Favorites",
                 onClick = {
                   currentTab = "Favorites"
@@ -740,7 +752,7 @@ fun MusicScreen(
         (currentTab != "Albums" || activeAlbumName != null) &&
         (currentTab != "Folders" || activeFolderName != null)) {
       Text(
-          text = "${displayedList.size} songs",
+          text = pluralStringResource(R.plurals.msc_songs_count, displayedList.size, displayedList.size),
           color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
           fontSize = 15.sp,
           fontWeight = FontWeight.Bold,
@@ -748,7 +760,7 @@ fun MusicScreen(
       )
     } else if (currentTab == "Albums" && activeAlbumName == null) {
       Text(
-          text = "${albumsMap.size} albums",
+          text = pluralStringResource(R.plurals.msc_albums_count, albumsMap.size, albumsMap.size),
           color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
           fontSize = 15.sp,
           fontWeight = FontWeight.Bold,
@@ -756,7 +768,7 @@ fun MusicScreen(
       )
     } else if (currentTab == "Folders" && activeFolderName == null) {
       Text(
-          text = "${foldersMap.size} folders",
+          text = pluralStringResource(R.plurals.msc_folders_count, foldersMap.size, foldersMap.size),
           color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
           fontSize = 15.sp,
           fontWeight = FontWeight.Bold,
@@ -776,7 +788,7 @@ fun MusicScreen(
           if (albumsMap.isEmpty()) {
             item {
               Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                Text("No Albums found", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
+                Text(stringResource(R.string.msc_empty_albums), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
               }
             }
           } else {
@@ -797,7 +809,7 @@ fun MusicScreen(
                 Column(modifier = Modifier.weight(1f)) {
                   Text(albumName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                   Spacer(modifier = Modifier.height(4.dp))
-                  Text("${albumSongs.size} songs", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                  Text(pluralStringResource(R.plurals.msc_songs_count, albumSongs.size, albumSongs.size), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
               }
             }
@@ -806,7 +818,7 @@ fun MusicScreen(
           if (foldersMap.isEmpty()) {
             item {
               Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                Text("No Folders found", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
+                Text(stringResource(R.string.msc_empty_folders), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
               }
             }
           } else {
@@ -833,7 +845,7 @@ fun MusicScreen(
                 Column(modifier = Modifier.weight(1f)) {
                   Text(folderName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                   Spacer(modifier = Modifier.height(4.dp))
-                  Text("${folderSongs.size} songs", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                  Text(pluralStringResource(R.plurals.msc_songs_count, folderSongs.size, folderSongs.size), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
               }
             }
@@ -842,7 +854,7 @@ fun MusicScreen(
           if (userPlaylists.isEmpty()) {
             item {
               Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                Text("No Playlists created yet", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
+                Text(stringResource(R.string.msc_empty_playlists), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontSize = 16.sp)
               }
             }
           } else {
@@ -861,7 +873,7 @@ fun MusicScreen(
                 Column(modifier = Modifier.weight(1f)) {
                   Text(playlist.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                   Spacer(modifier = Modifier.height(4.dp))
-                  Text("${playlist.paths.size} songs", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                  Text(pluralStringResource(R.plurals.msc_songs_count, playlist.paths.size, playlist.paths.size), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
 
                 IconButton(onClick = { playlistToDelete = playlist }) {
@@ -877,9 +889,9 @@ fun MusicScreen(
               Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
                 Text(
                     text = when {
-                      currentTab == "Favorites" -> "No songs found in Favorites"
-                      activePlaylist != null -> "No songs in this playlist"
-                      else -> "No items found in $currentTab"
+                      currentTab == "Favorites" -> stringResource(R.string.msc_empty_favorites)
+                      activePlaylist != null -> stringResource(R.string.msc_empty_playlist_songs)
+                      else -> stringResource(R.string.msc_empty_in_tab, currentTabLabel)
                     },
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     fontSize = 16.sp
@@ -1120,7 +1132,8 @@ fun AudioCard(
     onLongClick: () -> Unit = {}
 ) {
   val context = LocalContext.current
-  val folderName = remember(audio.path) { File(audio.path).parentFile?.name ?: "Unknown" }
+  val unknownName = stringResource(R.string.msc_unknown)
+  val folderName = remember(audio.path, unknownName) { File(audio.path).parentFile?.name ?: unknownName }
 
   var artByteArray by remember(audio.path) { mutableStateOf<ByteArray?>(EmbeddedArtCache.get(audio.path)) }
   var isArtLoaded by remember(audio.path) { mutableStateOf(artByteArray != null) }

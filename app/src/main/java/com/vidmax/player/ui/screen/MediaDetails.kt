@@ -6,10 +6,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -19,12 +26,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.R
 import com.vidmax.player.data.model.VideoItem
-import com.vidmax.player.viewmodel.LibraryViewModel
+import com.vidmax.player.ui.components.DialogCancelButton
+import com.vidmax.player.ui.components.DialogConfirmButton
+import com.vidmax.player.ui.components.DialogHeaderBadge
 import java.io.File
 import java.text.DateFormat
 import java.util.Date
@@ -88,8 +100,8 @@ suspend fun loadVideoMetadata(path: String): VideoMetadata = withContext(Dispatc
   VideoMetadata(videoMime, width, height, frameRate, videoBitrate, audioMime, sampleRate, channels, audioBitrate, durationUs)
 }
 
-fun shortCodecName(mime: String?): String {
-  if (mime == null) return "Unknown"
+fun shortCodecName(mime: String?, unknown: String): String {
+  if (mime == null) return unknown
   val suffix = mime.substringAfter('/', "")
   if (suffix.isEmpty()) return mime
   return when (suffix.lowercase(Locale.US)) {
@@ -111,16 +123,49 @@ fun shortCodecName(mime: String?): String {
   }
 }
 
-fun formatBitrate(bps: Int): String {
-  if (bps <= 0) return "Unknown"
+fun formatBitrate(bps: Int, unknown: String): String {
+  if (bps <= 0) return unknown
   return if (bps >= 1_000_000) String.format(Locale.US, "%.1f Mbps", bps / 1_000_000f)
   else String.format(Locale.US, "%d kbps", bps / 1000)
+}
+
+private fun formatDetailDuration(ms: Long): String {
+  val totalSec = ms / 1000
+  val hours = totalSec / 3600
+  val minutes = (totalSec % 3600) / 60
+  val seconds = totalSec % 60
+  return if (hours > 0) {
+    String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+  } else {
+    String.format(Locale.US, "%02d:%02d", minutes, seconds)
+  }
+}
+
+private fun formatDetailSize(bytes: Long): String {
+  return when {
+    bytes >= 1_073_741_824L ->
+      String.format(Locale.US, "%.1f GB", bytes / 1_073_741_824.0)
+    bytes >= 1_048_576L ->
+      String.format(Locale.US, "%.1f MB", bytes / 1_048_576.0)
+    else ->
+      String.format(Locale.US, "%.1f KB", bytes / 1_024.0)
+  }
+}
+
+private fun detailResolutionLabel(width: Int, height: Int): String {
+  val maxDim = maxOf(width, height)
+  return when {
+    maxDim >= 3840 -> "4K"
+    maxDim >= 1920 -> "1080p"
+    maxDim >= 1280 -> "720p"
+    maxDim >= 854 -> "480p"
+    else -> "SD"
+  }
 }
 
 @Composable
 fun VideoDetailsDialog(
     video: VideoItem,
-    viewModel: LibraryViewModel,
     onDismiss: () -> Unit
 ) {
   var meta by remember { mutableStateOf<VideoMetadata?>(null) }
@@ -130,44 +175,44 @@ fun VideoDetailsDialog(
   val file = remember(video.path) { File(video.path) }
   val modified = remember(video.path) {
     val t = runCatching { file.lastModified() }.getOrDefault(0L)
-    if (t > 0) DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(t)) else "Unknown"
+    if (t > 0) DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(t)) else ""
   }
   val m = meta
   val w = if (m != null && m.width > 0) m.width else video.width
   val h = if (m != null && m.height > 0) m.height else video.height
-  val aspect = if (w > 0 && h > 0) String.format(Locale.US, "%.2f:1", w.toFloat() / h.toFloat()) else "Unknown"
   val ext = file.extension.ifEmpty { video.path.substringAfterLast('.', "") }
+  val unknownLabel = stringResource(R.string.mdet_unknown)
   AlertDialog(
       onDismissRequest = onDismiss,
-      title = { Text("Details", fontWeight = FontWeight.Bold) },
+      title = { Text(stringResource(R.string.mdet_title), fontWeight = FontWeight.Bold) },
       text = {
         Column(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-          VideoDetailRow("Filename", video.title)
-          VideoDetailRow("Location", video.path)
-          VideoDetailRow("Size", viewModel.formatSize(video.size))
-          VideoDetailRow("Modified", modified)
-          VideoDetailRow("Duration", viewModel.formatDuration(video.duration))
-          VideoDetailRow("Resolution", if (w > 0 && h > 0) "${w}x${h} (${viewModel.getResolutionLabel(w, h)})" else "Unknown")
-          VideoDetailRow("Aspect ratio", aspect)
-          VideoDetailRow("Frame rate", if (m != null && m.frameRate > 0) String.format(Locale.US, "%.2f fps", m.frameRate) else "Unknown")
-          VideoDetailRow("Video codec", shortCodecName(m?.videoMime))
-          VideoDetailRow("Video bitrate", formatBitrate(m?.videoBitrate ?: 0))
-          VideoDetailRow("Audio codec", shortCodecName(m?.audioMime))
-          VideoDetailRow(
-              "Sample rate",
-              if (m != null && m.sampleRate > 0) "${m.sampleRate} Hz" else "Unknown")
-          VideoDetailRow(
-              "Channels",
-              if (m != null && m.channels > 0) m.channels.toString() else "Unknown")
-          VideoDetailRow(
-              "Container",
-              if (ext.isNotEmpty()) ext.uppercase(Locale.US) else "Unknown")
-          VideoDetailRow("MIME type", m?.videoMime ?: "video/*")
+          VideoDetailRow(stringResource(R.string.mdet_label_filename), video.title)
+          VideoDetailRow(stringResource(R.string.mdet_label_location), video.path)
+          if (video.size > 0) VideoDetailRow(stringResource(R.string.mdet_label_size), formatDetailSize(video.size))
+          if (modified.isNotEmpty()) VideoDetailRow(stringResource(R.string.mdet_label_modified), modified)
+          if (video.duration > 0) VideoDetailRow(stringResource(R.string.mdet_label_duration), formatDetailDuration(video.duration))
+          if (w > 0 && h > 0) {
+            VideoDetailRow(stringResource(R.string.mdet_label_resolution), stringResource(R.string.mdet_resolution_value, w, h, detailResolutionLabel(w, h)))
+            VideoDetailRow(
+                stringResource(R.string.mdet_label_aspect_ratio),
+                String.format(Locale.US, "%.2f:1", w.toFloat() / h.toFloat()))
+          }
+          if (m != null && m.frameRate > 0) {
+            VideoDetailRow(stringResource(R.string.mdet_label_frame_rate), String.format(Locale.US, "%.2f fps", m.frameRate))
+          }
+          if (m?.videoMime != null) VideoDetailRow(stringResource(R.string.mdet_label_video_codec), shortCodecName(m.videoMime, unknownLabel))
+          if (m != null && m.videoBitrate > 0) VideoDetailRow(stringResource(R.string.mdet_label_video_bitrate), formatBitrate(m.videoBitrate, unknownLabel))
+          if (m?.audioMime != null) VideoDetailRow(stringResource(R.string.mdet_label_audio_codec), shortCodecName(m.audioMime, unknownLabel))
+          if (m != null && m.sampleRate > 0) VideoDetailRow(stringResource(R.string.mdet_label_sample_rate), stringResource(R.string.mdet_sample_rate, m.sampleRate))
+          if (m != null && m.channels > 0) VideoDetailRow(stringResource(R.string.mdet_label_channels), m.channels.toString())
+          if (ext.isNotEmpty()) VideoDetailRow(stringResource(R.string.mdet_label_container), ext.uppercase(Locale.US))
+          if (m?.videoMime != null) VideoDetailRow(stringResource(R.string.mdet_label_mime), m.videoMime ?: unknownLabel)
         }
       },
-      confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } })
+      confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.mdet_close)) } })
 }
 
 @Composable
@@ -199,33 +244,49 @@ fun RenameVideoDialog(
   var text by remember(currentBaseName) { mutableStateOf(currentBaseName) }
   AlertDialog(
       onDismissRequest = { if (!busy) onDismiss() },
-      title = { Text("Rename", fontWeight = FontWeight.Bold) },
+      shape = RoundedCornerShape(28.dp),
+      containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+      icon = { DialogHeaderBadge(icon = Icons.Rounded.DriveFileRenameOutline) },
+      title = { Text(stringResource(R.string.mdet_rename_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
           OutlinedTextField(
               value = text,
               onValueChange = { text = it },
-              label = { Text("Name") },
+              label = { Text(stringResource(R.string.mdet_name_label)) },
               suffix = { Text(".$extension", color = MaterialTheme.colorScheme.onSurfaceVariant) },
               singleLine = true,
               enabled = !busy,
               isError = error != null,
+              shape = RoundedCornerShape(16.dp),
+              colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = MaterialTheme.colorScheme.primary,
+                  focusedLabelColor = MaterialTheme.colorScheme.primary),
+              trailingIcon = {
+                if (text.isNotEmpty() && !busy) {
+                  IconButton(onClick = { text = "" }) {
+                    Icon(
+                        imageVector = Icons.Rounded.Clear,
+                        contentDescription = "Clear name",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                  }
+                }
+              },
               supportingText = {
                 Text(
-                    text = error ?: "Extension .$extension is kept automatically",
+                    text = error ?: stringResource(R.string.mdet_extension_hint, extension),
                     color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
               },
               modifier = Modifier.fillMaxWidth())
         }
       },
       confirmButton = {
-        TextButton(
+        DialogConfirmButton(
+            label = stringResource(R.string.mdet_rename_confirm),
             enabled = !busy && text.isNotBlank(),
-            onClick = { onConfirm(text.trim()) }) {
-          Text("Rename")
-        }
+            onClick = { onConfirm(text.trim()) })
       },
       dismissButton = {
-        TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") }
+        DialogCancelButton(label = stringResource(R.string.mdet_cancel), onClick = { if (!busy) onDismiss() })
       })
 }

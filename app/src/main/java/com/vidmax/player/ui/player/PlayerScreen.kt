@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -55,7 +56,8 @@ fun PlayerScreen(
     onPrevious: () -> Unit,
     onSeekForward: () -> Unit,
     onSeekBackward: () -> Unit,
-    onPickSubtitle: () -> Unit
+    onPickSubtitle: () -> Unit,
+    onStereoModeChange: (String) -> Unit = {}
 ) {
   val context = LocalContext.current
   val density = LocalDensity.current
@@ -308,13 +310,13 @@ fun PlayerScreen(
                 }
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                "Audio Mode Active",
+                stringResource(R.string.player_audio_mode_active),
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Video rendering is disabled to save battery", color = Color.Gray, fontSize = 14.sp)
+                stringResource(R.string.player_audio_mode_desc), color = Color.Gray, fontSize = 14.sp)
           }
     }
 
@@ -332,7 +334,8 @@ fun PlayerScreen(
               onOpenSync = {
                 viewModel.setPanelMode(PanelMode.NONE)
                 viewModel.setShowSyncSheet(true)
-              })
+              },
+              onStereoModeChange = onStereoModeChange)
         PanelMode.SETTINGS ->
           PlayerSettingsSheet(
               viewModel = viewModel,
@@ -410,12 +413,23 @@ fun PlayerScreen(
           }
         },
         onSeek = { position: Long ->
+          // REX parity: while an A-B loop is active, absolute seeks clamp
+          // into the loop range so the user can't leave it by tapping or
+          // dragging the seekbar (the loop-back seek to A always passes).
+          val loopA = viewModel.abRepeatA.value
+          val loopB = viewModel.abRepeatB.value
+          val target =
+              if (loopA != null && loopB != null) {
+                position.coerceIn(minOf(loopA, loopB), maxOf(loopA, loopB))
+              } else {
+                position
+              }
           if (currentEngine == PlayerEngine.MPV) {
             try {
               // 🔥 FIX: ম্যানুয়ালি প্রপার্টি চেঞ্জ করার বদলে ডিরেক্ট MPV command দিয়ে absolute seek
-              MPVLib.command(arrayOf("seek", (position / 1000.0).toString(), "absolute"))
+              MPVLib.command(arrayOf("seek", (target / 1000.0).toString(), "absolute"))
             } catch (e: Exception) {}
-          } else exoPlayer?.seekTo(position)
+          } else exoPlayer?.seekTo(target)
         },
         onPrevious = onPrevious,
         onNext = onNext,

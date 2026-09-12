@@ -26,6 +26,16 @@ class VidMaxApp : Application() {
         super.onCreate()
         Log.d("VidMaxApp", "VidMax Player initialized successfully!")
 
+        // Apply the persisted per-app locale before any UI is created so the
+        // onboarding language choice (or system default) wins on every launch.
+        runCatching {
+            val prefs = getSharedPreferences("vidmax_settings", MODE_PRIVATE)
+            val tag = prefs.getString(
+                "app_locale", com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT)
+                ?: com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT
+            com.vidmax.player.utils.AppLocale.apply(tag)
+        }
+
         // NewPipe init — OkHttp downloader দিয়ে
         NewPipe.init(getDownloader())
 

@@ -1,26 +1,40 @@
 package com.vidmax.player.ui.screen
 
+import android.app.Activity
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -38,13 +52,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.R
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
+import com.vidmax.player.ui.components.DialogCancelButton
+import com.vidmax.player.ui.components.DialogConfirmButton
+import com.vidmax.player.ui.components.DialogHeaderBadge
 import com.vidmax.player.viewmodel.LibraryViewModel
+import com.vidmax.player.viewmodel.MoveDeleteConsentRequired
+import com.vidmax.player.viewmodel.MoveWriteConsentRequired
+import com.vidmax.player.viewmodel.RenameConsentRequiredException
 import java.io.File
 
 /**
@@ -65,9 +88,9 @@ fun shareVideo(context: Context, video: VideoItem) {
           putExtra(Intent.EXTRA_STREAM, uri as android.os.Parcelable)
           addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-    context.startActivity(Intent.createChooser(intent, "Share Video"))
+    context.startActivity(Intent.createChooser(intent, context.getString(R.string.vam_share_chooser)))
   } else {
-    Toast.makeText(context, "Could not share this video", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.vam_share_failed), Toast.LENGTH_SHORT).show()
   }
 }
 
@@ -95,8 +118,140 @@ fun VideoActionMenuHost(
   var renameOpen by remember(video) { mutableStateOf(false) }
   var renameError by remember(video) { mutableStateOf<String?>(null) }
   var renameBusy by remember(video) { mutableStateOf(false) }
+  var pendingRename by remember(video) { mutableStateOf<Pair<VideoItem, String>?>(null) }
 
-  val subDialogOpen = showPlaylist || showDeleteConfirm || showDetails || renameOpen
+  fun succeedRename() {
+    renameBusy = false
+    renameOpen = false
+    renameError = null
+    pendingRename = null
+    onDismiss()
+    Toast.makeText(context, context.getString(R.string.vam_renamed), Toast.LENGTH_SHORT).show()
+  }
+
+  fun failRename(message: String?) {
+    renameBusy = false
+    renameError = message ?: context.getString(R.string.vam_rename_failed)
+  }
+
+  val renameWriteLauncher =
+      rememberLauncherForActivityResult(
+          contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            val pending = pendingRename
+            pendingRename = null
+            if (result.resultCode == Activity.RESULT_OK && pending != null) {
+              viewModel.renameVideo(pending.first, pending.second) { retryResult ->
+                retryResult.onSuccess { succeedRename() }.onFailure { failRename(it.message) }
+              }
+            } else {
+              failRename(context.getString(R.string.vam_rename_cancelled))
+            }
+          }
+
+  fun handleRenameResult(target: VideoItem, base: String, result: Result<String>) {
+    result
+        .onSuccess { succeedRename() }
+        .onFailure {
+          if (it is RenameConsentRequiredException &&
+              Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            pendingRename = target to base
+            val pendingIntent =
+                MediaStore.createWriteRequest(context.contentResolver, it.uris)
+            renameWriteLauncher.launch(
+                IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+          } else {
+            failRename(it.message)
+          }
+        }
+  }
+
+  var moveOpen by remember(video) { mutableStateOf(false) }
+  var moveError by remember(video) { mutableStateOf<String?>(null) }
+  var moveBusy by remember(video) { mutableStateOf(false) }
+  var pendingMoveDelete by remember(video) { mutableStateOf<MoveDeleteConsentRequired?>(null) }
+  var pendingMoveWrite by remember(video) { mutableStateOf<MoveWriteConsentRequired?>(null) }
+  val folders by viewModel.folders.collectAsState()
+
+  fun succeedMove() {
+    moveBusy = false
+    moveOpen = false
+    moveError = null
+    pendingMoveDelete = null
+    onDismiss()
+    Toast.makeText(context, context.getString(R.string.vam_moved), Toast.LENGTH_SHORT).show()
+  }
+
+  fun failMove(message: String?) {
+    moveBusy = false
+    val base = message ?: context.getString(R.string.vam_move_failed)
+    moveError = if (!viewModel.hasFullStorageAccess() &&
+        (base.contains("Move failed", ignoreCase = true) ||
+            base.contains("permission", ignoreCase = true))) {
+      context.getString(R.string.vam_move_access_hint, base)
+    } else {
+      base
+    }
+  }
+
+  val moveDeleteLauncher =
+      rememberLauncherForActivityResult(
+          contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            val pending = pendingMoveDelete
+            pendingMoveDelete = null
+            if (result.resultCode == Activity.RESULT_OK && pending != null) {
+              viewModel.completeMoveDelete(pending) { retryResult ->
+                retryResult.onSuccess { succeedMove() }.onFailure { failMove(it.message) }
+              }
+            } else {
+              failMove(context.getString(R.string.vam_move_kept))
+            }
+          }
+
+  val moveWriteLauncher =
+      rememberLauncherForActivityResult(
+          contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            val pending = pendingMoveWrite
+            pendingMoveWrite = null
+            if (result.resultCode == Activity.RESULT_OK && pending != null) {
+              viewModel.retryMoveAfterWriteConsent(pending) { retryResult ->
+                retryResult.onSuccess { succeedMove() }.onFailure { failMove(it.message) }
+              }
+            } else {
+              failMove(context.getString(R.string.vam_move_cancelled))
+            }
+          }
+
+  fun handleMoveResult(result: Result<String>) {
+    result
+        .onSuccess { succeedMove() }
+        .onFailure {
+          if (it is MoveWriteConsentRequired &&
+              Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            pendingMoveWrite = it
+            val videoUri = ContentUris.withAppendedId(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI, it.video.id)
+            val pendingIntent = MediaStore.createWriteRequest(
+                context.contentResolver, listOf(videoUri))
+            moveWriteLauncher.launch(
+                IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+          } else if (it is MoveDeleteConsentRequired) {
+            pendingMoveDelete = it
+            val pendingIntent =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                  MediaStore.createDeleteRequest(context.contentResolver, listOf(it.srcUri))
+                } else {
+                  MediaStore.createWriteRequest(context.contentResolver, listOf(it.srcUri))
+                }
+            moveDeleteLauncher.launch(
+                IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+          } else {
+            failMove(it.message)
+          }
+        }
+  }
+
+  val subDialogOpen =
+      showPlaylist || showDeleteConfirm || showDetails || renameOpen || moveOpen
 
   if (!subDialogOpen) {
     VideoActionSheet(
@@ -116,9 +271,82 @@ fun VideoActionMenuHost(
           onDismiss()
         },
         onAddToPlaylist = { showPlaylist = true },
+        onMove = {
+          moveError = null
+          moveOpen = true
+        },
         onDetails = { showDetails = true },
         onDelete = { showDeleteConfirm = true },
         onDismiss = onDismiss)
+  }
+
+  if (moveOpen) {
+    val currentDir = File(video.path).parent ?: ""
+    val destinations = folders.filter { it.path != currentDir }
+    AlertDialog(
+        onDismissRequest = {
+          if (!moveBusy) {
+            moveOpen = false
+            moveError = null
+          }
+        },
+        title = { Text(stringResource(R.string.vam_move_title), fontWeight = FontWeight.Bold) },
+        text = {
+          Column {
+            if (destinations.isEmpty()) {
+              Text(stringResource(R.string.vam_no_folders), fontSize = 14.sp)
+            } else {
+              LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
+                items(destinations, key = { it.path }) { folder ->
+                  Row(
+                      modifier = Modifier.fillMaxWidth()
+                          .clickable(enabled = !moveBusy) {
+                            moveBusy = true
+                            moveError = null
+                            viewModel.moveVideoToFolder(video, folder.path) { result ->
+                              handleMoveResult(result)
+                            }
+                          }
+                          .padding(vertical = 10.dp),
+                      verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Folder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                          Text(
+                              text = folder.name,
+                              fontSize = 15.sp,
+                              fontWeight = FontWeight.SemiBold,
+                              maxLines = 1,
+                              overflow = TextOverflow.Ellipsis)
+                          Text(
+                              text = pluralStringResource(R.plurals.vam_folder_videos_count, folder.videoCount, folder.videoCount),
+                              fontSize = 12.sp,
+                              color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                      }
+                }
+              }
+            }
+            if (moveError != null) {
+              Spacer(modifier = Modifier.height(8.dp))
+              Text(
+                  text = moveError!!,
+                  fontSize = 13.sp,
+                  color = MaterialTheme.colorScheme.error)
+            }
+          }
+        },
+        confirmButton = {},
+        dismissButton = {
+          TextButton(enabled = !moveBusy, onClick = {
+            moveOpen = false
+            moveError = null
+          }) { Text(stringResource(R.string.vam_cancel)) }
+        })
   }
 
   if (showPlaylist) {
@@ -137,36 +365,41 @@ fun VideoActionMenuHost(
           showDeleteConfirm = false
           onDismiss()
         },
-        title = { Text("Delete Video", fontWeight = FontWeight.Bold) },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        icon = {
+          DialogHeaderBadge(
+              icon = Icons.Rounded.DeleteOutline,
+              containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+              contentColor = MaterialTheme.colorScheme.error)
+        },
+        title = { Text(stringResource(R.string.vam_delete_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
         text = {
-          Text("Are you sure you want to delete \"${video.title}\"? This action cannot be undone.")
+          Text(stringResource(R.string.vam_delete_message, video.title))
         },
         confirmButton = {
-          TextButton(
+          DialogConfirmButton(
+              label = stringResource(R.string.vam_delete_confirm),
+              danger = true,
               onClick = {
                 showDeleteConfirm = false
                 onDismiss()
                 onDeleteRequest(video)
-              }) {
-                Text(
-                    "Delete", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-              }
+              })
         },
         dismissButton = {
-          TextButton(
+          DialogCancelButton(
+              label = stringResource(R.string.vam_cancel),
               onClick = {
                 showDeleteConfirm = false
                 onDismiss()
-              }) {
-                Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
-              }
+              })
         })
   }
 
   if (showDetails) {
     VideoDetailsDialog(
         video = video,
-        viewModel = viewModel,
         onDismiss = {
           showDetails = false
           onDismiss()
@@ -190,15 +423,7 @@ fun VideoActionMenuHost(
           renameBusy = true
           renameError = null
           viewModel.renameVideo(video, base) { result ->
-            renameBusy = false
-            result
-                .onSuccess {
-                  renameOpen = false
-                  renameError = null
-                  onDismiss()
-                  Toast.makeText(context, "Renamed", Toast.LENGTH_SHORT).show()
-                }
-                .onFailure { renameError = it.message ?: "Rename failed" }
+            handleRenameResult(video, base, result)
           }
         })
   }
@@ -214,6 +439,7 @@ fun VideoActionSheet(
     onShare: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onMove: () -> Unit,
     onDetails: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit
@@ -230,25 +456,35 @@ fun VideoActionSheet(
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
               modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+          val playLabel = stringResource(R.string.vam_menu_play)
+          val renameLabel = stringResource(R.string.vam_menu_rename)
+          val shareLabel = stringResource(R.string.vam_menu_share)
+          val favLabel = if (isFavorite) stringResource(R.string.vam_menu_remove_fav) else stringResource(R.string.vam_menu_add_fav)
+          val addPlaylistLabel = stringResource(R.string.vam_menu_add_playlist)
+          val moveLabel = stringResource(R.string.vam_menu_move)
+          val detailsLabel = stringResource(R.string.vam_menu_details)
+          val deleteLabel = stringResource(R.string.vam_menu_delete)
           val actions =
               listOf(
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.PlayArrow, "Play", onPlay),
+                      Icons.Filled.PlayArrow, playLabel, onPlay),
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.Edit, "Rename", onRename),
-                  Triple<ImageVector, String, () -> Unit>(Icons.Filled.Share, "Share", onShare),
+                      Icons.Filled.Edit, renameLabel, onRename),
+                  Triple<ImageVector, String, () -> Unit>(Icons.Filled.Share, shareLabel, onShare),
                   Triple<ImageVector, String, () -> Unit>(
                       if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                      if (isFavorite) "Remove from Favorites" else "Add to Favorites",
+                      favLabel,
                       onToggleFavorite),
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.PlaylistAdd, "Add to Playlist", onAddToPlaylist),
+                      Icons.Filled.PlaylistAdd, addPlaylistLabel, onAddToPlaylist),
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.Info, "Details", onDetails),
+                      Icons.Filled.DriveFileMove, moveLabel, onMove),
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.Delete, "Delete", onDelete))
+                      Icons.Filled.Info, detailsLabel, onDetails),
+                  Triple<ImageVector, String, () -> Unit>(
+                      Icons.Filled.Delete, deleteLabel, onDelete))
           actions.forEach { (icon, label, action) ->
-            val isDestructive = label == "Delete"
+            val isDestructive = icon == Icons.Filled.Delete
             Row(
                 modifier =
                     Modifier.fillMaxWidth()

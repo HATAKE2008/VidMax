@@ -17,6 +17,18 @@
 -dontwarn org.bouncycastle.**
 -dontwarn javax.naming.**
 
+# ── MBassador event bus (SMBJ runtime dependency, reflection-driven) ──────────
+# SMBJ subscribes its Connection/Session/SMBClient listeners through MBassador.
+# SubscriptionFactory instantiates the handler invocation reflectively via
+# getConstructor(SubscriptionContext), so R8 must keep these classes and their
+# constructors. Without this, release builds fail every SMB connect with:
+# "The provided handler invocation did not specify the necessary constructor".
+-keep class net.engio.mbassy.** { *; }
+-keepclassmembers class * {
+    @net.engio.mbassy.listener.Handler *;
+}
+-dontwarn net.engio.mbassy.**
+
 # ── WebDAV (sardine-android uses Simple XML reflection serializer) ───────────
 -keep class com.thegrizzlylabs.sardineandroid.** { *; }
 -keep class org.simpleframework.xml.** { *; }

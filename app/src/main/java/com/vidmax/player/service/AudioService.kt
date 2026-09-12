@@ -67,8 +67,8 @@ class AudioService : Service() {
         val action = intent?.action
 
         if (action == "UPDATE_NOTIFICATION") {
-            val title = intent.getStringExtra("TITLE") ?: "Unknown"
-            val artist = intent.getStringExtra("ARTIST") ?: "Unknown"
+            val title = intent.getStringExtra("TITLE") ?: getString(R.string.svc_unknown)
+            val artist = intent.getStringExtra("ARTIST") ?: getString(R.string.svc_unknown)
             isCurrentlyPlaying = intent.getBooleanExtra("IS_PLAYING", false)
             val filePath = intent.getStringExtra("FILE_PATH")
 
@@ -162,7 +162,7 @@ class AudioService : Service() {
         val channelId = "vidmax_audio_channel"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Audio Playback", NotificationManager.IMPORTANCE_LOW)
+            val channel = NotificationChannel(channelId, getString(R.string.svc_channel_audio_playback), NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
         }
 
@@ -220,22 +220,22 @@ class AudioService : Service() {
                 .setContentIntent(openAppIntent)
                 .addAction(
                     Notification.Action.Builder(
-                        Icon.createWithResource(this, android.R.drawable.ic_media_previous), "Previous", prevIntent
+                        Icon.createWithResource(this, android.R.drawable.ic_media_previous), getString(R.string.svc_action_previous), prevIntent
                     ).build()
                 )
                 .addAction(
                     Notification.Action.Builder(
-                        Icon.createWithResource(this, playPauseIcon), if (isPlaying) "Pause" else "Play", playPauseIntent
+                        Icon.createWithResource(this, playPauseIcon), if (isPlaying) getString(R.string.svc_action_pause) else getString(R.string.svc_action_play), playPauseIntent
                     ).build()
                 )
                 .addAction(
                     Notification.Action.Builder(
-                        Icon.createWithResource(this, android.R.drawable.ic_media_next), "Next", nextIntent
+                        Icon.createWithResource(this, android.R.drawable.ic_media_next), getString(R.string.svc_action_next), nextIntent
                     ).build()
                 )
                 .addAction(
                     Notification.Action.Builder(
-                        Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel), "Stop", stopIntent
+                        Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel), getString(R.string.svc_action_stop), stopIntent
                     ).build()
                 )
                 .setStyle(

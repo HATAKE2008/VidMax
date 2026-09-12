@@ -1,16 +1,18 @@
 package com.vidmax.player.ui.screen
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,10 +22,12 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,8 +61,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -69,45 +78,40 @@ import com.vidmax.player.data.model.AudioItem
 import com.vidmax.player.data.model.NetworkFile
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.viewmodel.LibraryViewModel
+import com.vidmax.player.viewmodel.PlaylistWithCount
 import java.io.File
 import kotlinx.coroutines.delay
 
 enum class SearchScope {
   VIDEOS,
   MUSIC,
-  NETWORK
+  NETWORK,
+  PLAYLISTS
 }
 
-/**
- * Dedicated full search screen (Videos / Music / Network files).
- *
- * UX is inspired by mpvRex's SearchScreen (autofocus, IME search, clear
- * action, empty/loading/results states) but implemented natively on VidMax
- * architecture: existing indexed library data (no rescan), existing cards,
- * existing unified video action menu, history in `vidmax_settings`.
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(
     scope: SearchScope,
     viewModel: LibraryViewModel,
     networkFiles: List<NetworkFile> = emptyList(),
+    folderPath: String? = null,
     onBack: () -> Unit,
     onPlayVideos: (List<VideoItem>, Int) -> Unit = { _, _ -> },
     onDeleteVideo: (VideoItem) -> Unit = {},
     onPlayAudio: (List<AudioItem>, Int) -> Unit = { _, _ -> },
     onPlayNetworkFile: (NetworkFile) -> Unit = {},
     onOpenNetworkFolder: (NetworkFile) -> Unit = {},
+    onOpenPlaylist: (PlaylistWithCount) -> Unit = {},
 ) {
   val history by viewModel.searchHistory.collectAsState()
-  // Subscriptions only — recompute results when the library changes.
   val libraryTick by viewModel.filteredVideos.collectAsState()
   val audioTick by viewModel.filteredAudio.collectAsState()
   val playingPath by viewModel.recentlyPlayedPath.collectAsState()
   val audioPlaying by viewModel.isAudioPlaying.collectAsState()
 
-  var query by rememberSaveable(scope) { mutableStateOf("") }
-  var visibleQuery by rememberSaveable(scope) { mutableStateOf("") }
+  var query by rememberSaveable(scope, folderPath) { mutableStateOf("") }
+  var visibleQuery by rememberSaveable(scope, folderPath) { mutableStateOf("") }
   var menuVideo by remember { mutableStateOf<VideoItem?>(null) }
   var showClearHistoryConfirm by remember { mutableStateOf(false) }
 
@@ -121,21 +125,38 @@ fun SearchScreen(
   }
 
   LaunchedEffect(Unit) {
-    focusRequester.requestFocus()
-    keyboard?.show()
+      delay(100L)
+      runCatching {
+          focusRequester.requestFocus()
+          keyboard?.show()
+      }
   }
 
-  // Small debounce so huge libraries don't recompute on every keystroke.
   LaunchedEffect(query) {
     delay(150)
     visibleQuery = query
   }
-  // libraryTick/audioTick subscribe to library changes so results refresh
-  // after rename/delete while the screen is open.
+
+  val context = LocalContext.current
+  val prefs = remember {
+    context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
+  }
+  val viewStyleName =
+      prefs.getString("home_view_style", HomeViewStyle.LIST.name) ?: HomeViewStyle.LIST.name
+  val viewStyle = try {
+    HomeViewStyle.valueOf(viewStyleName)
+  } catch (e: IllegalArgumentException) {
+    HomeViewStyle.LIST
+  }
+  val gridColumnsPref = prefs.getInt("home_grid_columns", 0)
 
   val trimmed = visibleQuery.trim()
-  val videoResults = remember(trimmed, libraryTick, scope) {
-    if (scope == SearchScope.VIDEOS) viewModel.searchVideos(trimmed) else emptyList()
+  val inFolder = scope == SearchScope.VIDEOS && !folderPath.isNullOrEmpty()
+  val videoResults = remember(trimmed, libraryTick, scope, folderPath) {
+    if (scope == SearchScope.VIDEOS) {
+      if (!folderPath.isNullOrEmpty()) viewModel.searchFolderVideos(trimmed, folderPath)
+      else viewModel.searchVideos(trimmed)
+    } else emptyList()
   }
   val audioResults = remember(trimmed, audioTick, scope) {
     if (scope == SearchScope.MUSIC) viewModel.searchAudio(trimmed) else emptyList()
@@ -145,10 +166,17 @@ fun SearchScreen(
       networkFiles.filter { it.name.contains(trimmed, ignoreCase = true) }
     } else emptyList()
   }
+  val allPlaylists by viewModel.videoPlaylists.collectAsState()
+  val playlistResults = remember(trimmed, allPlaylists, scope) {
+    if (scope == SearchScope.PLAYLISTS && trimmed.isNotEmpty()) {
+      allPlaylists.filter { it.playlist.name.contains(trimmed, ignoreCase = true) }
+    } else emptyList()
+  }
   val resultCount = when (scope) {
     SearchScope.VIDEOS -> videoResults.size
     SearchScope.MUSIC -> audioResults.size
     SearchScope.NETWORK -> networkResults.size
+    SearchScope.PLAYLISTS -> playlistResults.size
   }
   val isTyping = query != visibleQuery
 
@@ -162,9 +190,10 @@ fun SearchScreen(
   }
 
   val hint = when (scope) {
-    SearchScope.VIDEOS -> "Search videos…"
-    SearchScope.MUSIC -> "Search songs or artists…"
-    SearchScope.NETWORK -> "Search this folder…"
+    SearchScope.VIDEOS -> if (inFolder) stringResource(R.string.search_hint_in_folder) else stringResource(R.string.search_hint_videos)
+    SearchScope.MUSIC -> stringResource(R.string.search_hint_music)
+    SearchScope.NETWORK -> stringResource(R.string.search_hint_network)
+    SearchScope.PLAYLISTS -> stringResource(R.string.search_hint_playlists)
   }
 
   VideoActionMenuHost(
@@ -184,19 +213,19 @@ fun SearchScreen(
   if (showClearHistoryConfirm) {
     AlertDialog(
         onDismissRequest = { showClearHistoryConfirm = false },
-        title = { Text("Clear search history?", fontWeight = FontWeight.Bold) },
-        text = { Text("All recent searches will be removed from this device.") },
+        title = { Text(stringResource(R.string.search_clear_title), fontWeight = FontWeight.Bold) },
+        text = { Text(stringResource(R.string.search_clear_message)) },
         confirmButton = {
           TextButton(
               onClick = {
                 viewModel.clearSearchHistory()
                 showClearHistoryConfirm = false
               }) {
-                Text("Clear", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.search_clear_confirm), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
               }
         },
         dismissButton = {
-          TextButton(onClick = { showClearHistoryConfirm = false }) { Text("Cancel") }
+          TextButton(onClick = { showClearHistoryConfirm = false }) { Text(stringResource(R.string.search_cancel)) }
         })
   }
 
@@ -207,53 +236,79 @@ fun SearchScreen(
                 .fillMaxHeight()
                 .fillMaxWidth()
                 .widthIn(max = 1100.dp)
-                .statusBarsPadding()
+                // .statusBarsPadding() সরানো হয়েছে কারণ প্যারেন্ট Scaffold ইতিমধ্যেই প্যাডিং দিচ্ছে
                 .navigationBarsPadding()
                 .imePadding()
-                .padding(horizontal = 16.dp)) {
-              // ── Top bar: back + field ──
+                .padding(horizontal = 12.dp)) {
+
+              // ── Top bar: Sleek compact Search Bar ──
               Row(
-                  modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                  modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(top = 4.dp, bottom = 4.dp),
                   verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack, modifier = Modifier.size(42.dp)) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(40.dp)) {
                       Icon(
                           imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                           contentDescription = "Back",
                           tint = MaterialTheme.colorScheme.onBackground)
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
-                        placeholder = { Text(text = hint) },
+                        placeholder = {
+                          Text(
+                              text = hint,
+                              fontSize = 15.sp,
+                              color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                        },
                         leadingIcon = {
                           Icon(
                               painter = painterResource(id = R.drawable.ic_search),
                               contentDescription = "Search",
                               tint = MaterialTheme.colorScheme.primary,
-                              modifier = Modifier.size(22.dp))
+                              modifier = Modifier.size(20.dp))
                         },
                         trailingIcon = {
                           if (query.isNotEmpty()) {
-                            IconButton(onClick = { query = ""; visibleQuery = "" }) {
+                            IconButton(
+                                onClick = { query = ""; visibleQuery = "" },
+                                modifier = Modifier.size(32.dp)) {
                               Icon(
                                   imageVector = Icons.Filled.Close,
                                   contentDescription = "Clear search",
-                                  tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                  modifier = Modifier.size(18.dp))
                             }
                           }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = Color.Transparent
+                        ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { submit(query) }),
-                        modifier = Modifier.weight(1f).focusRequester(focusRequester))
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .focusRequester(focusRequester))
                   }
-              Spacer(modifier = Modifier.height(4.dp))
+
               if (isTyping) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .padding(top = 2.dp))
               }
-              Spacer(modifier = Modifier.height(8.dp))
+              Spacer(modifier = Modifier.height(4.dp))
 
               if (trimmed.isEmpty()) {
                 if (history.isEmpty()) {
@@ -263,27 +318,27 @@ fun SearchScreen(
                       horizontalAlignment = Alignment.CenterHorizontally,
                       verticalArrangement = Arrangement.Center) {
                         Box(
-                            modifier = Modifier.size(72.dp)
+                            modifier = Modifier.size(68.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center) {
                               Icon(
                                   imageVector = Icons.Filled.Search,
                                   contentDescription = null,
                                   tint = MaterialTheme.colorScheme.primary,
-                                  modifier = Modifier.size(34.dp))
+                                  modifier = Modifier.size(32.dp))
                             }
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Search your library",
+                            text = stringResource(R.string.search_library_title),
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Find videos, music and folders",
+                            text = stringResource(R.string.search_library_subtitle),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center)
@@ -295,14 +350,14 @@ fun SearchScreen(
                           .padding(vertical = 4.dp, horizontal = 4.dp),
                       verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Recent searches",
+                            text = stringResource(R.string.search_recent_title),
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f))
                         TextButton(onClick = { showClearHistoryConfirm = true }) {
                           Text(
-                              text = "Clear",
+                              text = stringResource(R.string.search_clear_confirm),
                               color = MaterialTheme.colorScheme.primary,
                               fontSize = 13.sp,
                               fontWeight = FontWeight.Bold)
@@ -355,7 +410,7 @@ fun SearchScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center) {
                       Box(
-                          modifier = Modifier.size(72.dp)
+                          modifier = Modifier.size(68.dp)
                               .clip(CircleShape)
                               .background(
                                   MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
@@ -364,18 +419,18 @@ fun SearchScreen(
                                 painter = painterResource(id = R.drawable.ic_search),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(32.dp))
+                                modifier = Modifier.size(30.dp))
                           }
                       Spacer(modifier = Modifier.height(16.dp))
                       Text(
-                          text = "No results found",
+                          text = stringResource(R.string.search_no_results_title),
                           color = MaterialTheme.colorScheme.onBackground,
                           fontSize = 17.sp,
                           fontWeight = FontWeight.Bold,
                           textAlign = TextAlign.Center)
                       Spacer(modifier = Modifier.height(4.dp))
                       Text(
-                          text = "Try a different search term.",
+                          text = stringResource(R.string.search_no_results_hint),
                           color = MaterialTheme.colorScheme.onSurfaceVariant,
                           fontSize = 14.sp,
                           textAlign = TextAlign.Center)
@@ -383,31 +438,77 @@ fun SearchScreen(
               } else {
                 // ── Results ──
                 Text(
-                    text = "$resultCount result${if (resultCount == 1) "" else "s"}",
+                    text = pluralStringResource(R.plurals.search_results_count, resultCount, resultCount),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
                 when (scope) {
                   SearchScope.VIDEOS -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                          itemsIndexed(
-                              items = videoResults,
-                              key = { _, video -> video.id }) { index, video ->
-                            PremiumVideoListCard(
-                                video = video,
-                                duration = viewModel.formatDuration(video.duration),
-                                size = viewModel.formatSize(video.size),
-                                resolution =
-                                    viewModel.getResolutionLabel(video.width, video.height),
-                                isSelected = false,
-                                onClick = { onPlayVideos(videoResults, index) },
-                                onLongClick = { menuVideo = video })
-                          }
+                    when (viewStyle) {
+                      HomeViewStyle.LIST -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                              itemsIndexed(
+                                  items = videoResults,
+                                  key = { _, video -> video.id }) { index, video ->
+                                PremiumVideoListCard(
+                                    video = video,
+                                    duration = viewModel.formatDuration(video.duration),
+                                    size = viewModel.formatSize(video.size),
+                                    resolution =
+                                        viewModel.getResolutionLabel(video.width, video.height),
+                                    isSelected = false,
+                                    onClick = { onPlayVideos(videoResults, index) },
+                                    onLongClick = { menuVideo = video })
+                              }
+                            }
+                      }
+                      HomeViewStyle.GRID_MEDIUM -> {
+                        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                          val autoColumns = (maxWidth / 170.dp).toInt().coerceIn(2, 12)
+                          val gridColumns =
+                              if (gridColumnsPref == 0) autoColumns
+                              else gridColumnsPref.coerceIn(1, 12)
+                          LazyVerticalGrid(
+                              columns = GridCells.Fixed(gridColumns),
+                              horizontalArrangement = Arrangement.spacedBy(12.dp),
+                              verticalArrangement = Arrangement.spacedBy(12.dp),
+                              contentPadding = PaddingValues(bottom = 24.dp)) {
+                                gridItemsIndexed(
+                                    items = videoResults,
+                                    key = { _, video -> video.id }) { index, video ->
+                                  CustomVideoGridCard(
+                                      video = video,
+                                      duration = viewModel.formatDuration(video.duration),
+                                      isSelected = false,
+                                      onClick = { onPlayVideos(videoResults, index) },
+                                      onLongClick = { menuVideo = video })
+                                }
+                              }
                         }
+                      }
+                      HomeViewStyle.GRID_LARGE -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                              itemsIndexed(
+                                  items = videoResults,
+                                  key = { _, video -> video.id }) { index, video ->
+                                CustomVideoLargeCard(
+                                    video = video,
+                                    duration = viewModel.formatDuration(video.duration),
+                                    size = viewModel.formatSize(video.size),
+                                    isSelected = false,
+                                    onClick = { onPlayVideos(videoResults, index) },
+                                    onLongClick = { menuVideo = video })
+                              }
+                            }
+                      }
+                    }
                   }
                   SearchScope.MUSIC -> {
                     LazyColumn(
@@ -471,6 +572,22 @@ fun SearchScreen(
                                         overflow = TextOverflow.Ellipsis)
                                   }
                                 }
+                          }
+                        }
+                  }
+                  SearchScope.PLAYLISTS -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                          itemsIndexed(
+                              items = playlistResults,
+                              key = { _, entry -> entry.playlist.id }) { _, entry ->
+                            PlaylistCard(
+                                name = entry.playlist.name,
+                                count = entry.itemCount,
+                                onClick = { onOpenPlaylist(entry) },
+                                onLongClick = { onOpenPlaylist(entry) })
                           }
                         }
                   }

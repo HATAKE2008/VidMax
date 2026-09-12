@@ -1,6 +1,7 @@
 package com.vidmax.player.viewmodel
 
 import android.app.Application
+import android.app.RecoverableSecurityException
 import android.content.BroadcastReceiver
 import android.content.ContentUris
 import android.content.ContentValues
@@ -13,6 +14,7 @@ import android.media.MediaScannerConnection
 import android.media.audiofx.LoudnessEnhancer
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,6 +22,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.vidmax.player.R
 import com.vidmax.player.data.model.AudioItem
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
@@ -28,13 +31,17 @@ import com.vidmax.player.data.local.video.VidMaxVideoPlaylist
 import com.vidmax.player.data.local.video.VidMaxVideoPlaylistItem
 import com.vidmax.player.data.repository.AudioRepository
 import com.vidmax.player.data.repository.VideoPlaylistRepository
+import com.vidmax.player.data.repository.M3uSourceStore
+import com.vidmax.player.data.repository.RecentPlayStore
 import com.vidmax.player.data.repository.VideoRepository
 import com.vidmax.player.service.AudioService
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
+import com.vidmax.player.utils.StorageAccess
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,6 +67,39 @@ enum class SortOrder {
   DURATION
 }
 
+/**
+ * Thrown by [LibraryViewModel.renameVideo] when the MediaStore rename needs
+ * scoped-storage user consent. The UI should fire
+ * MediaStore.createWriteRequest([uris]) and retry the rename on success.
+ */
+class RenameConsentRequiredException(val uris: List<Uri>) :
+    Exception("Storage permission needed to rename this file.")
+
+/**
+ * Thrown by [LibraryViewModel.moveVideoToFolder] when the file was copied to
+ * its new home but deleting the original needs scoped-storage user consent.
+ * The UI should fire MediaStore.createDeleteRequest([srcUri]) and then call
+ * [LibraryViewModel.completeMoveDelete] on grant.
+ */
+class MoveDeleteConsentRequired(
+    val srcUri: Uri,
+    val video: VideoItem,
+    val newPath: String,
+    val newTitle: String
+) : Exception("Storage permission needed to finish moving this file.")
+
+/**
+ * Thrown by [LibraryViewModel.moveVideoToFolder] when relocating the
+ * MediaStore row needs scoped-storage user consent. The UI should fire
+ * MediaStore.createWriteRequest for the video URI and then call
+ * [LibraryViewModel.retryMoveAfterWriteConsent] on grant.
+ */
+class MoveWriteConsentRequired(
+    val video: VideoItem,
+    val destFolderPath: String,
+    val fileName: String
+) : Exception("Storage permission needed to move this file.")
+
 enum class DecoderMode {
   AUTO,
   HARDWARE,
@@ -74,6 +114,10 @@ enum class DarkMode {
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
+
+  /** Resolves a user-visible string (thread-safe; usable from IO dispatchers). */
+  private fun resString(resId: Int, vararg args: Any): String =
+      getApplication<Application>().getString(resId, *args)
 
   private val repository: VideoRepository = VideoRepository(application.contentResolver)
   private val audioRepository: AudioRepository = AudioRepository(application.contentResolver)
@@ -101,7 +145,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   val audioDuration: StateFlow<Long> = _audioDuration
 
   private var audioProgressJob: Job? = null
-  private val _currentAudioArtist: MutableStateFlow<String> = MutableStateFlow("Unknown Artist")
+  private val _currentAudioArtist: MutableStateFlow<String> = MutableStateFlow(getApplication<Application>().getString(R.string.vm_unknown_artist))
   val currentAudioArtist: StateFlow<String> = _currentAudioArtist
 
   private var currentAudioList: MutableList<AudioItem> = mutableListOf()
@@ -190,6 +234,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       playlistRepository.getPlaylistById(playlistId)?.let { playlist ->
         playlistRepository.deletePlaylist(playlist)
       }
+      M3uSourceStore.removeId(prefs, playlistId)
+      _m3uSourceIds.value = M3uSourceStore.allIds(prefs)
       if (_openedVideoPlaylist.value?.id == playlistId) closeVideoPlaylist()
     }
   }
@@ -235,6 +281,158 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
   }
 
+  /** Removes playlist items by file path (multi-remove for detail selection). */
+  fun removePlaylistItemsByPaths(playlistId: Int, paths: Set<String>, onDone: (() -> Unit)? = null) {
+    if (paths.isEmpty()) {
+      onDone?.let { viewModelScope.launch(Dispatchers.Main) { it() } }
+      return
+    }
+    viewModelScope.launch(Dispatchers.IO) {
+      val items = playlistRepository.getPlaylistItems(playlistId).filter { paths.contains(it.filePath) }
+      if (items.isNotEmpty()) playlistRepository.removeItemsFromPlaylist(items)
+      withContext(Dispatchers.Main) { onDone?.invoke() }
+    }
+  }
+
+  /**
+   * Imports an M3U/M3U8 playlist from a URL into a persistent local playlist.
+   * Entries keep their titles; unreachable/invalid sources and empty results
+   * report clear errors without touching existing playlists.
+   */
+  fun importM3UPlaylist(rawUrl: String, onResult: (Result<Pair<String, Int>>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val url = rawUrl.trim()
+        require(url.startsWith("http://") || url.startsWith("https://")) {
+          resString(R.string.vm_m3u_invalid_url)
+        }
+        val (text, entries) = downloadAndParseM3U(url)
+        require(entries.isNotEmpty()) { resString(R.string.vm_m3u_no_entries) }
+        val name = deriveM3UPlaylistName(url, text)
+        val playlistId = playlistRepository.createPlaylist(name).toInt()
+        playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
+        M3uSourceStore.setUrl(prefs, playlistId, url)
+        _m3uSourceIds.value = M3uSourceStore.allIds(prefs)
+        name to entries.size
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /** Downloads an M3U document and parses its entries (shared by import/refresh). */
+  private fun downloadAndParseM3U(url: String): Pair<String, List<Pair<String, String>>> {
+    val text = runCatching {
+      val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+      connection.connectTimeout = 15000
+      connection.readTimeout = 15000
+      connection.setRequestProperty("User-Agent", "VidMax")
+      try {
+        require(connection.responseCode in 200..299) {
+          resString(R.string.vm_m3u_server_error, connection.responseCode)
+        }
+        connection.inputStream.bufferedReader().use { reader ->
+          val builder = StringBuilder()
+          var total = 0
+          while (true) {
+            val line = reader.readLine() ?: break
+            total += line.length
+            if (total > 2_000_000) throw IllegalStateException(resString(R.string.vm_m3u_playlist_too_large))
+            builder.appendLine(line)
+          }
+          builder.toString()
+        }
+      } finally {
+        connection.disconnect()
+      }
+    }.getOrElse { throw IllegalStateException(resString(R.string.vm_m3u_download_failed)) }
+    return text to parseM3UEntries(text)
+  }
+
+  /** Parses EXTINF titles + URLs (and bare URL lines) into (url, title). */
+  private fun parseM3UEntries(text: String): List<Pair<String, String>> {
+    val entries = mutableListOf<Pair<String, String>>()
+    var pendingTitle: String? = null
+    text.lineSequence().forEach { rawLine ->
+      val line = rawLine.trim()
+      if (line.isEmpty()) return@forEach
+      if (line.startsWith("#")) {
+        if (line.startsWith("#EXTINF")) {
+          pendingTitle = line.substringAfter(",", "").trim().ifEmpty { null }
+        }
+        return@forEach
+      }
+      if (line.startsWith("http://") || line.startsWith("https://") || File(line).exists()) {
+        val fallback = line.substringAfterLast('/').substringBeforeLast('.').ifEmpty { line }
+        entries.add(line to (pendingTitle ?: fallback))
+      }
+      pendingTitle = null
+    }
+    return entries.distinctBy { it.first }
+  }
+
+  private fun deriveM3UPlaylistName(url: String, text: String): String {
+    text.lineSequence()
+        .firstOrNull { it.trim().startsWith("#PLAYLIST") }
+        ?.substringAfter(":")?.trim()?.takeIf { it.isNotEmpty() }
+        ?.let { return it.take(80) }
+    val last = url.substringAfterLast('/').substringBefore('?').trim()
+    if (last.isNotEmpty() && last.contains('.')) {
+      return last.substringBeforeLast('.').ifEmpty { url }.take(80)
+    }
+    return runCatching { java.net.URL(url).host }.getOrDefault(resString(R.string.vm_m3u_imported_name)).take(80)
+  }
+
+  // M3U/M3U8 source registry: which playlists were imported from a URL
+  // (badges + refresh-from-URL). Stored outside Room: no migration needed.
+  private val _m3uSourceIds: MutableStateFlow<Set<Int>> =
+      MutableStateFlow(M3uSourceStore.allIds(prefs))
+  val m3uSourceIds: StateFlow<Set<Int>> = _m3uSourceIds.asStateFlow()
+
+  /**
+   * Loads a playlist's items as playable [VideoItem]s in saved order for
+   * card-level Play actions.
+   */
+  fun openAndPlayPlaylist(playlistId: Int, onResult: (Result<List<VideoItem>>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val list = playlistRepository.getPlaylistItems(playlistId).map { item ->
+          VideoItem(
+              id = item.id.toLong(),
+              title = item.fileName,
+              path = item.filePath,
+              duration = 0L,
+              size = 0L,
+              width = 0,
+              height = 0,
+              dateAdded = item.addedAt,
+              folderPath = "",
+              folderName = "")
+        }
+        require(list.isNotEmpty()) { resString(R.string.vm_playlist_empty) }
+        list
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /**
+   * Re-downloads a previously imported M3U playlist and replaces its items
+   * (order + titles follow the source). Local playlists are unaffected.
+   */
+  fun refreshM3UPlaylist(playlistId: Int, onResult: (Result<Int>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val url = M3uSourceStore.getUrl(prefs, playlistId)
+            ?: throw IllegalStateException(resString(R.string.vm_m3u_no_source_url))
+        val (text, entries) = downloadAndParseM3U(url)
+        require(entries.isNotEmpty()) { resString(R.string.vm_m3u_no_entries) }
+        playlistRepository.clearPlaylist(playlistId)
+        playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
+        entries.size
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
   /** Opens a playlist and reactively observes its items until closed. */
   fun openVideoPlaylist(playlistId: Int) {
     viewModelScope.launch(Dispatchers.IO) {
@@ -381,6 +579,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   private val _importedFonts: MutableStateFlow<List<String>> = MutableStateFlow(emptyList())
   val importedFonts: StateFlow<List<String>> = _importedFonts.asStateFlow()
 
+  // --- App Language (per-app locale, single source of truth with onboarding) ---
+  private val _appLocale: MutableStateFlow<String> = MutableStateFlow(
+      prefs.getString("app_locale", com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT)
+          ?: com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT
+  )
+  val appLocale: StateFlow<String> = _appLocale.asStateFlow()
+
   init {
     // Restore previously imported fonts so they appear in Settings on startup.
     refreshImportedFonts()
@@ -408,6 +613,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   private val _recentVideoPath: MutableStateFlow<String> =
       MutableStateFlow(prefs.getString("recent_video_path", "") ?: "")
   val recentVideoPath: StateFlow<String> = _recentVideoPath
+
+  // Recently-played history (REX model): newest-first entries surviving
+  // restarts; joined against the scanned library for display.
+  private val _recentHistory: MutableStateFlow<List<RecentPlayStore.RecentEntry>> =
+      MutableStateFlow(RecentPlayStore.read(prefs))
+  val recentHistory: StateFlow<List<RecentPlayStore.RecentEntry>> = _recentHistory.asStateFlow()
+
+  private val _recentVideos: MutableStateFlow<List<VideoItem>> = MutableStateFlow(emptyList())
+  val recentVideos: StateFlow<List<VideoItem>> = _recentVideos.asStateFlow()
 
   private val _isMiniPlayerVisible: MutableStateFlow<Boolean> = MutableStateFlow(false)
   val isMiniPlayerVisible: StateFlow<Boolean> = _isMiniPlayerVisible
@@ -593,13 +807,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   }
 
   fun openFavorites() {
-    _openedPlaylistTitle.value = "Favorites"
+    _openedPlaylistTitle.value = resString(R.string.vm_playlist_favorites)
     _openedPlaylistAudio.value =
         _allAudio.value.filter { _favoriteAudioPaths.value.contains(it.path) }
   }
 
   fun openMyMix() {
-    _openedPlaylistTitle.value = "My Mix"
+    _openedPlaylistTitle.value = resString(R.string.vm_playlist_my_mix)
     _openedPlaylistAudio.value = _allAudio.value.shuffled().take(20)
   }
 
@@ -835,26 +1049,47 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _folders.value = withContext(Dispatchers.Default) { repository.getFolders(videos) }
         applyFilter()
         pruneStaleRecentVideo(videos)
+        refreshRecentVideos()
         val openPath = _currentFolderPath.value
         if (openPath.isNotEmpty()) {
           if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
           else _currentFolderPath.value = ""
         }
       } catch (e: SecurityException) {
-        _libraryError.value = "Storage permission required to browse videos."
+        _libraryError.value = resString(R.string.vm_library_storage_permission)
       } catch (e: Exception) {
-        _libraryError.value = "Couldn't load videos. Pull to retry."
+        _libraryError.value = resString(R.string.vm_library_load_failed)
       } finally {
         _isLoading.value = false
         // P4a-fix: release a pull gesture that arrived mid-load (see refreshVideos).
         // Settling flag only; never starts scan work here.
-        _isRefreshing.value = false
+        settleRefreshing()
       }
     }
   }
 
   private val _isRefreshing: MutableStateFlow<Boolean> = MutableStateFlow(false)
   val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+  /**
+   * Minimum time the refresh spinner stays visible once shown.
+   * PullToRefreshBox pins its indicator on release and hides it only on an
+   * OBSERVED isRefreshing true->false transition. A scan finishing within the
+   * same frame would otherwise leave the indicator pinned until the next
+   * touch, so fast refreshes are held briefly to keep the transition
+   * observable. Duplicate-scan protection (the _isRefreshing guard in
+   * refreshVideos) is unchanged.
+   */
+  private val minRefreshVisibleMs = 600L
+  private var refreshShownAtMs = 0L
+
+  private suspend fun settleRefreshing() {
+    val remaining = minRefreshVisibleMs - (SystemClock.uptimeMillis() - refreshShownAtMs)
+    if (remaining > 0) {
+      withContext(NonCancellable) { delay(remaining) }
+    }
+    _isRefreshing.value = false
+  }
 
   fun refreshVideos() {
     // Already showing: PullToRefreshBox disables input while refreshing, nothing to acknowledge.
@@ -865,11 +1100,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       // solely off the isRefreshing true->false transition, so the indicator froze
       // mid-pull until the next touch. Acknowledge synchronously; the in-flight
       // load already reloads data (no duplicate scan), and its finally{} releases us.
+      refreshShownAtMs = SystemClock.uptimeMillis()
       _isRefreshing.value = true
       return
     }
     // Synchronous acknowledge: PullToRefreshBox commits to the refresh on release and
     // expects isRefreshing=true in the same frame to drive its settle animation.
+    refreshShownAtMs = SystemClock.uptimeMillis()
     _isRefreshing.value = true
     refreshJob?.cancel()
     refreshJob = viewModelScope.launch {
@@ -880,17 +1117,18 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         _folders.value = withContext(Dispatchers.Default) { repository.getFolders(videos) }
         applyFilter()
         pruneStaleRecentVideo(videos)
+        refreshRecentVideos()
         val openPath = _currentFolderPath.value
         if (openPath.isNotEmpty()) {
           if (_folders.value.any { it.path == openPath }) applyFolderFilter(openPath)
           else _currentFolderPath.value = ""
         }
       } catch (e: SecurityException) {
-        _libraryError.value = "Storage permission required to browse videos."
+        _libraryError.value = resString(R.string.vm_library_storage_permission)
       } catch (e: Exception) {
-        _libraryError.value = "Refresh failed. Pull to retry."
+        _libraryError.value = resString(R.string.vm_library_refresh_failed)
       } finally {
-        _isRefreshing.value = false
+        settleRefreshing()
       }
     }
   }
@@ -926,52 +1164,673 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
         val base = newBaseName.trim()
-        require(base.isNotEmpty()) { "Name cannot be empty" }
-        require(base.none { it in "/\\:*?\"<>|" || it.code < 32 }) { "Name contains invalid characters" }
-        require(!base.endsWith(".")) { "Name cannot end with a dot" }
+        require(base.isNotEmpty()) { resString(R.string.vm_name_empty) }
+        require(base.none { it in "/\\:*?\"<>|" || it.code < 32 }) { resString(R.string.vm_name_invalid_chars) }
+        require(!base.endsWith(".")) { resString(R.string.vm_name_trailing_dot) }
         val src = File(video.path)
-        require(src.exists()) { "Original file not found" }
+        require(src.exists()) { resString(R.string.vm_file_original_missing) }
         val ext = src.name.substringAfterLast('.', "")
-        require(ext.isNotEmpty()) { "File has no extension" }
+        require(ext.isNotEmpty()) { resString(R.string.vm_file_no_extension) }
         val dst = File(src.parent, "$base.$ext")
         if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = true) && dst.exists()) {
-          throw IllegalStateException("A file with this name already exists")
+          throw IllegalStateException(resString(R.string.vm_file_name_exists))
         }
         if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = false)) {
+          if (hasFullStorageAccess()) {
+            // All-files access: direct filesystem rename, no consent dialogs.
+            // Source is removed only after the destination is verified.
+            require(directMoveFile(src, dst)) { resString(R.string.vm_rename_failed) }
+            moveSidecars(src, dst)
+            syncMediaStoreAfterDirectMove(video.path, dst.absolutePath)
+            val newPath = dst.absolutePath
+            applyPathChange(video, newPath, dst.nameWithoutExtension)
+            return@runCatching newPath
+          }
           var renamed = false
+          var consentUris: List<Uri>? = null
           runCatching {
             val uri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
             val values = ContentValues().apply { put(MediaStore.Video.Media.DISPLAY_NAME, dst.name) }
             if (getApplication<Application>().contentResolver.update(uri, values, null, null) > 0) renamed = true
+          }.onFailure { e ->
+            // Scoped storage: renaming media we don't own needs user consent via
+            // MediaStore.createWriteRequest. Surfacing it lets the UI request
+            // consent and retry; falling through to File.renameTo would always fail.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                e is RecoverableSecurityException) {
+              consentUris = listOf(
+                  ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id))
+            }
           }
           if (!renamed) {
-            if (!src.renameTo(dst)) throw IllegalStateException("Rename failed")
+            consentUris?.let { throw RenameConsentRequiredException(it) }
+            if (!src.renameTo(dst)) throw IllegalStateException(resString(R.string.vm_rename_failed))
             MediaScannerConnection.scanFile(getApplication(), arrayOf(dst.absolutePath), null, null)
           }
         }
         val newPath = dst.absolutePath
-        playlistRepository.updatePathReferences(video.path, newPath, dst.nameWithoutExtension)
-        migrateBookmarkKey(video.path, newPath)
-        withContext(Dispatchers.Main) {
-          _allVideos.value = _allVideos.value.map {
-            if (it.path == video.path) it.copy(title = dst.nameWithoutExtension, path = newPath) else it
-          }
-          _folders.value = repository.getFolders(_allVideos.value)
-          applyFilter()
-          if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
-          val favs = _favoriteVideoPaths.value.toMutableSet()
-          if (favs.remove(video.path)) {
-            favs.add(newPath)
-            _favoriteVideoPaths.value = favs
-            prefs.edit().putStringSet("favorite_videos", favs).apply()
-          }
-          if (_recentVideoPath.value == video.path) {
-            setRecentlyPlayedVideo(dst.nameWithoutExtension, newPath)
-          }
-        }
+        applyPathChange(video, newPath, dst.nameWithoutExtension)
         newPath
       }
       withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /**
+   * Shared path-change finalization for rename/move: playlist, bookmark,
+   * favorite and last-played references plus library refresh. Runs the state
+   * updates on Main; call from any dispatcher.
+   */
+  suspend fun applyPathChange(video: VideoItem, newPath: String, newTitle: String) {
+    playlistRepository.updatePathReferences(video.path, newPath, newTitle)
+    migrateBookmarkKey(video.path, newPath)
+    // REX onVideoRenamed: recent history follows the file.
+    RecentPlayStore.migratePath(prefs, video.path, newPath, newTitle)
+    _recentHistory.value = RecentPlayStore.read(prefs)
+    withContext(Dispatchers.Main) {
+      _allVideos.value = _allVideos.value.mapNotNull {
+        if (it.path == video.path) it.copy(title = newTitle, path = newPath)
+        else if (it.id == video.id) null
+        else it
+      }
+      _folders.value = repository.getFolders(_allVideos.value)
+      applyFilter()
+      if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
+      val favs = _favoriteVideoPaths.value.toMutableSet()
+      if (favs.remove(video.path)) {
+        favs.add(newPath)
+        _favoriteVideoPaths.value = favs
+        prefs.edit().putStringSet("favorite_videos", favs).apply()
+      }
+      if (_recentVideoPath.value == video.path) {
+        setRecentlyPlayedVideo(newTitle, newPath)
+      }
+      refreshRecentVideos()
+    }
+  }
+
+  private fun videoMimeType(fileName: String): String {
+    return when (fileName.substringAfterLast('.', "").lowercase()) {
+      "mp4", "m4v" -> "video/mp4"
+      "mkv" -> "video/x-matroska"
+      "avi" -> "video/x-msvideo"
+      "mov" -> "video/quicktime"
+      "wmv" -> "video/x-ms-wmv"
+      "flv" -> "video/x-flv"
+      "webm" -> "video/webm"
+      "mpeg", "mpg" -> "video/mpeg"
+      "3gp" -> "video/3gpp"
+      "ts" -> "video/mp2t"
+      else -> "video/*"
+    }
+  }
+
+  private fun resolveMoveDestination(destDir: File, fileName: String): File {
+    var candidate = File(destDir, fileName)
+    if (!candidate.exists()) return candidate
+    val base = fileName.substringBeforeLast('.')
+    val ext = fileName.substringAfterLast('.', "")
+    var index = 1
+    while (candidate.exists() && index < 1000) {
+      val name = if (ext.isNotEmpty()) "$base ($index).$ext" else "$base ($index)"
+      candidate = File(destDir, name)
+      index++
+    }
+    return candidate
+  }
+
+  fun moveVideoToFolder(video: VideoItem, destFolderPath: String, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val src = File(video.path)
+        require(src.exists()) { resString(R.string.vm_file_original_missing) }
+        val destDir = File(destFolderPath)
+        require(destDir.isDirectory) { resString(R.string.vm_dest_folder_missing) }
+        require(!destDir.absolutePath.equals(src.parent, ignoreCase = false)) {
+          resString(R.string.vm_already_in_folder)
+        }
+        val dst = resolveMoveDestination(destDir, src.name)
+        if (hasFullStorageAccess()) {
+          // All-files access: true filesystem move with strict ordering.
+          // SOURCE -> verify -> move atomically -> verify destination ->
+          // only then drop the source MediaStore row -> refresh library.
+          // Never triggers the system delete-consent dialog.
+          val srcLen = src.length()
+          require(directMoveFile(src, dst)) { resString(R.string.vm_move_failed) }
+          require(dst.exists() && (srcLen <= 0L || dst.length() == srcLen)) {
+            resString(R.string.vm_move_not_verified)
+          }
+          moveSidecars(src, dst)
+          syncMediaStoreAfterDirectMove(video.path, dst.absolutePath)
+          val newPath = dst.absolutePath
+          applyPathChange(video, newPath, dst.nameWithoutExtension)
+          return@runCatching newPath
+        }
+        if (runCatching { src.renameTo(dst) }.getOrDefault(false)) {
+          MediaScannerConnection.scanFile(
+              getApplication(), arrayOf(dst.absolutePath, src.absolutePath), null, null)
+          runCatching {
+            val staleUri = ContentUris.withAppendedId(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+            getApplication<Application>().contentResolver.delete(staleUri, null, null)
+          }
+          val newPath = dst.absolutePath
+          applyPathChange(video, newPath, dst.nameWithoutExtension)
+          return@runCatching newPath
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+          throw IllegalStateException(resString(R.string.vm_move_failed))
+        }
+        val resolver = getApplication<Application>().contentResolver
+        val externalRoot = android.os.Environment.getExternalStorageDirectory().absolutePath
+        require(destDir.absolutePath.startsWith(externalRoot)) { resString(R.string.vm_move_not_allowed_here) }
+        val relativePath = destDir.absolutePath.removePrefix(externalRoot).trim('/') + "/"
+        val srcUri = ContentUris.withAppendedId(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+        val moveValues = ContentValues().apply {
+          put(MediaStore.Video.Media.DISPLAY_NAME, dst.name)
+          put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+        }
+        val moveOutcome = runCatching { resolver.update(srcUri, moveValues, null, null) }
+        val moveError = moveOutcome.exceptionOrNull()
+        if (moveError is RecoverableSecurityException) {
+          throw MoveWriteConsentRequired(video, destFolderPath, src.name)
+        }
+        if (moveOutcome.getOrDefault(0) > 0) {
+          val newPath = dst.absolutePath
+          applyPathChange(video, newPath, dst.nameWithoutExtension)
+          return@runCatching newPath
+        }
+        val pendingValues = ContentValues().apply {
+          put(MediaStore.Video.Media.DISPLAY_NAME, dst.name)
+          put(MediaStore.Video.Media.MIME_TYPE, videoMimeType(dst.name))
+          put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+          put(MediaStore.Video.Media.IS_PENDING, 1)
+        }
+        val newUri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, pendingValues)
+            ?: throw IllegalStateException(resString(R.string.vm_move_failed))
+        try {
+          resolver.openInputStream(srcUri)?.use { input ->
+            resolver.openOutputStream(newUri)?.use { output -> input.copyTo(output) }
+                ?: throw IllegalStateException(resString(R.string.vm_move_failed))
+          } ?: throw IllegalStateException(resString(R.string.vm_move_failed))
+          ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }.let { done ->
+            resolver.update(newUri, done, null, null)
+          }
+        } catch (e: Exception) {
+          runCatching { resolver.delete(newUri, null, null) }
+          throw e
+        }
+        val deleteOutcome = runCatching { resolver.delete(srcUri, null, null) }
+        val deleteError = deleteOutcome.exceptionOrNull()
+        if (deleteError is RecoverableSecurityException) {
+          throw MoveDeleteConsentRequired(
+              srcUri, video, dst.absolutePath, dst.nameWithoutExtension)
+        }
+        if (deleteOutcome.getOrDefault(0) <= 0) {
+          runCatching { resolver.delete(newUri, null, null) }
+          throw IllegalStateException(resString(R.string.vm_move_failed))
+        }
+        MediaScannerConnection.scanFile(getApplication(), arrayOf(dst.absolutePath), null, null)
+        val newPath = dst.absolutePath
+        applyPathChange(video, newPath, dst.nameWithoutExtension)
+        newPath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  fun retryMoveAfterWriteConsent(pending: MoveWriteConsentRequired, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val src = File(pending.video.path)
+        require(src.exists()) { resString(R.string.vm_file_original_missing) }
+        val destDir = File(pending.destFolderPath)
+        require(destDir.isDirectory) { resString(R.string.vm_dest_folder_missing) }
+        val dst = resolveMoveDestination(destDir, pending.fileName)
+        val resolver = getApplication<Application>().contentResolver
+        val externalRoot = android.os.Environment.getExternalStorageDirectory().absolutePath
+        require(destDir.absolutePath.startsWith(externalRoot)) { resString(R.string.vm_move_not_allowed_here) }
+        val relativePath = destDir.absolutePath.removePrefix(externalRoot).trim('/') + "/"
+        val srcUri = ContentUris.withAppendedId(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI, pending.video.id)
+        val moveValues = ContentValues().apply {
+          put(MediaStore.Video.Media.DISPLAY_NAME, dst.name)
+          put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+        }
+        val moved = try {
+          resolver.update(srcUri, moveValues, null, null) > 0
+        } catch (e: RecoverableSecurityException) {
+          throw IllegalStateException(resString(R.string.vm_move_not_permitted))
+        }
+        require(moved) { resString(R.string.vm_move_failed) }
+        val newPath = dst.absolutePath
+        applyPathChange(pending.video, newPath, dst.nameWithoutExtension)
+        newPath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  fun completeMoveDelete(pending: MoveDeleteConsentRequired, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        getApplication<Application>().contentResolver.delete(pending.srcUri, null, null)
+        MediaScannerConnection.scanFile(
+            getApplication(), arrayOf(pending.newPath), null, null)
+        applyPathChange(pending.video, pending.newPath, pending.newTitle)
+        pending.newPath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  // ── Full storage access (MANAGE_EXTERNAL_STORAGE) ─────────────────────
+  //
+  // Root cause of the old "Move to folder" bug: without all-files access,
+  // every MediaStore delete/update on a file VidMax doesn't own throws
+  // RecoverableSecurityException, so the system showed
+  // "Allow VidMax to delete this video?" AFTER the destination copy already
+  // existed. Denying/cancelling left BOTH files behind (duplicate), and the
+  // in-memory-only applyPathChange could not reconcile the two MediaStore
+  // rows. The branches below bypass that path entirely when the user grants
+  // All files access: one verified filesystem move, then MediaStore sync.
+
+  /** True when VidMax holds All files access (R+) or legacy write grant. */
+  fun hasFullStorageAccess(): Boolean {
+    return StorageAccess.hasFullStorageAccess(getApplication())
+  }
+
+  /**
+   * Moves [src] to [dst], preferring an atomic same-volume rename.
+   * Cross-volume fallback is copy -> VERIFY -> delete source. The source is
+   * never removed unless the destination exists and matches the source size.
+   * Returns true only when the destination is verified and the source is gone.
+   */
+  private fun directMoveFile(src: File, dst: File): Boolean {
+    if (src.renameTo(dst)) return dst.exists()
+    return runCatching {
+      require(src.exists()) { resString(R.string.vm_file_original_missing) }
+      dst.parentFile?.mkdirs()
+      val srcLen = src.length()
+      src.inputStream().use { input ->
+        dst.outputStream().use { output -> input.copyTo(output) }
+      }
+      if (!dst.exists()) return false
+      if (srcLen > 0 && dst.length() != srcLen) {
+        runCatching { dst.delete() }
+        return false
+      }
+      if (!src.delete()) {
+        // Source not removed: roll the copy back so no duplicate remains.
+        runCatching { dst.delete() }
+        return false
+      }
+      true
+    }.getOrDefault(false)
+  }
+
+  private val sidecarExtensions = setOf("srt", "ass", "ssa", "vtt", "sub", "smi", "lrc")
+
+  /**
+   * Moves subtitle/sidecar files sitting next to [src] along with [dst]
+   * (e.g. movie.srt follows movie.mp4 on rename AND on folder move).
+   * Best effort: never fails the main operation.
+   */
+  private fun moveSidecars(src: File, dst: File) {
+    runCatching {
+      val parent = src.parentFile ?: return
+      val destDir = dst.parentFile ?: return
+      val srcBase = src.nameWithoutExtension
+      val dstBase = dst.nameWithoutExtension
+      parent.listFiles()?.forEach { sibling ->
+        if (!sibling.isFile || sibling == src) return@forEach
+        if (sibling.nameWithoutExtension != srcBase) return@forEach
+        if (sibling.extension.lowercase() !in sidecarExtensions) return@forEach
+        val target = File(destDir, "$dstBase.${sibling.extension}")
+        if (target.exists()) return@forEach
+        if (!sibling.renameTo(target)) {
+          runCatching {
+            val len = sibling.length()
+            sibling.inputStream().use { input ->
+              target.outputStream().use { output -> input.copyTo(output) }
+            }
+            if (target.exists() && target.length() == len) sibling.delete()
+            else runCatching { target.delete() }
+          }
+        }
+      }
+    }
+  }
+
+  /** Best-effort sidecar cleanup after a delete. Never throws. */
+  private fun deleteSidecars(file: File) {
+    runCatching {
+      val parent = file.parentFile ?: return
+      val base = file.nameWithoutExtension
+      parent.listFiles()?.forEach { sibling ->
+        if (!sibling.isFile) return@forEach
+        if (sibling.nameWithoutExtension != base) return@forEach
+        if (sibling.extension.lowercase() !in sidecarExtensions) return@forEach
+        runCatching { sibling.delete() }
+      }
+    }
+  }
+
+  /**
+   * Reconciles MediaStore after a verified direct-filesystem move/rename.
+   *
+   * SAFETY: the stale row is addressed strictly BY OLD PATH and ONLY while
+   * no file exists there anymore. Addressing by MediaStore id is banned
+   * here: every scan issues a NEW row id, so an in-memory id can be stale
+   * (repeat moves, refresh races) and could hit the wrong row — deleting a
+   * live file. With the missing-file guard, deleting a live file through
+   * this path is impossible by construction.
+   *
+   * After the scan completes, the library is re-queried so the UI converges
+   * to MediaStore truth (fresh row ids, real metadata). Until then the
+   * immediate [applyPathChange] keeps the moved video visible, so it never
+   * looks "deleted from the phone".
+   */
+  private fun syncMediaStoreAfterDirectMove(oldPath: String, newPath: String) {
+    val app = getApplication<Application>()
+    runCatching {
+      if (!File(oldPath).exists()) {
+        app.contentResolver.delete(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            "${MediaStore.Video.Media.DATA} = ?",
+            arrayOf(oldPath)
+        )
+      }
+    }
+    runCatching {
+      MediaScannerConnection.scanFile(app, arrayOf(newPath), null) { _, _ ->
+        refreshVideos()
+      }
+    }
+  }
+
+  /** Drops [paths] from the in-memory library, favorites, recents and playlists. */
+  private suspend fun removePathsFromLibrary(paths: Set<String>) {
+    if (paths.isEmpty()) return
+    runCatching {
+      paths.forEach { playlistRepository.removeItemsByPath(it) }
+    }
+    // REX onVideoDeleted: recent history drops deleted files.
+    RecentPlayStore.removePaths(prefs, paths)
+    _recentHistory.value = RecentPlayStore.read(prefs)
+    withContext(Dispatchers.Main) {
+      _allVideos.value = _allVideos.value.filterNot { paths.contains(it.path) }
+      _folders.value = repository.getFolders(_allVideos.value)
+      applyFilter()
+      if (_currentFolderPath.value.isNotEmpty()) applyFolderFilter(_currentFolderPath.value)
+      val favs = _favoriteVideoPaths.value.toMutableSet()
+      if (favs.removeAll(paths)) {
+        _favoriteVideoPaths.value = favs
+        prefs.edit().putStringSet("favorite_videos", favs).apply()
+      }
+      if (paths.contains(_recentVideoPath.value)) {
+        _recentVideoTitle.value = ""
+        _recentVideoPath.value = ""
+        try {
+          prefs.edit().remove("recent_video_title").remove("recent_video_path").apply()
+        } catch (e: Exception) {}
+      }
+      refreshRecentVideos()
+    }
+  }
+
+  /**
+   * Deletes a video with full storage access: direct filesystem + MediaStore
+   * removal, no system delete-consent dialog. Falls back to a plain attempt
+   * (callers may still route RecoverableSecurityException to the consent UI)
+   * when all-files access is missing.
+   */
+  fun deleteVideo(video: VideoItem, onResult: (Result<Unit>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val file = File(video.path)
+        if (file.exists() && !file.delete()) {
+          // With all-files access this direct delete succeeds; without it
+          // the MediaStore row delete below surfaces consent to the caller.
+          val uri = ContentUris.withAppendedId(
+              MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+          val rows = getApplication<Application>().contentResolver.delete(uri, null, null)
+          if (rows <= 0) throw IllegalStateException(resString(R.string.vm_delete_failed))
+          removePathsFromLibrary(setOf(video.path))
+          return@runCatching Unit
+        }
+        runCatching {
+          val uri = ContentUris.withAppendedId(
+              MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+          getApplication<Application>().contentResolver.delete(uri, null, null)
+        }
+        deleteSidecars(file)
+        MediaScannerConnection.scanFile(getApplication(), arrayOf(video.path), null, null)
+        removePathsFromLibrary(setOf(video.path))
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /** Batch delete used by multi-select; reports how many items were removed. */
+  fun deleteVideos(videos: List<VideoItem>, onResult: (Result<Int>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val removedPaths = mutableSetOf<String>()
+      val result = runCatching {
+        var removed = 0
+        val app = getApplication<Application>()
+        videos.forEach { video ->
+          val ok = runCatching {
+            val file = File(video.path)
+            if (file.exists() && !file.delete()) {
+              val uri = ContentUris.withAppendedId(
+                  MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+              require(app.contentResolver.delete(uri, null, null) > 0) { resString(R.string.vm_delete_failed) }
+            } else {
+              runCatching {
+                val uri = ContentUris.withAppendedId(
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
+                app.contentResolver.delete(uri, null, null)
+              }
+              deleteSidecars(file)
+              MediaScannerConnection.scanFile(app, arrayOf(video.path), null, null)
+            }
+            removedPaths.add(video.path)
+            removed++
+            true
+          }.getOrDefault(false)
+          if (!ok) throw IllegalStateException(resString(R.string.vm_delete_partial))
+        }
+        removed
+      }
+      // Always purge whatever was actually removed, even on partial failure,
+      // so the library never shows stale entries.
+      removePathsFromLibrary(removedPaths)
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /** Creates a folder under [parentPath]. Requires all-files access on R+. */
+  fun createFolder(parentPath: String, name: String, onResult: (Result<String>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val base = name.trim()
+        require(base.isNotEmpty()) { resString(R.string.vm_name_empty) }
+        require(base.none { it in "/\\:*?\"<>|" || it.code < 32 }) {
+          resString(R.string.vm_name_invalid_chars)
+        }
+        val parent = File(parentPath)
+        require(parent.isDirectory || parent.mkdirs()) { resString(R.string.vm_folder_parent_missing) }
+        if (!hasFullStorageAccess() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+          throw IllegalStateException(resString(R.string.vm_folder_full_access_required))
+        }
+        val dir = File(parent, base)
+        require(!dir.exists()) { resString(R.string.vm_folder_name_exists) }
+        require(dir.mkdirs() && dir.isDirectory) { resString(R.string.vm_folder_create_failed) }
+        MediaScannerConnection.scanFile(getApplication(), arrayOf(dir.absolutePath), null, null)
+        dir.absolutePath
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  // ── Batch copy / move (REX-style selection operations) ────────────────
+  //
+  // Adapted from REX Player's CopyPasteOps (performCopyOperation /
+  // performMoveOperation): validate inputs -> prepare destination -> filter
+  // valid sources -> disk-space check -> per-file op with verification ->
+  // single media scan + library refresh. Unlike REX's generic engine, the
+  // VidMax variants reuse this ViewModel's own MediaStore sync
+  // (missing-file-guarded row delete by path), sidecar handling and
+  // applyPathChange, so playlists / favorites / bookmarks / last-played stay
+  // consistent and no duplicate or ghost entries appear.
+
+  /** Shared result for batch copy/move: verified new paths + skipped count. */
+  data class BatchFileResult(val newPaths: List<String>, val skipped: Int)
+
+  private fun prepareBatchDestination(destFolderPath: String): File {
+    val destDir = File(destFolderPath)
+    require(destDir.isDirectory || destDir.mkdirs()) { resString(R.string.vm_dest_folder_missing) }
+    require(destDir.canWrite()) { resString(R.string.vm_dest_not_writable) }
+    return destDir
+  }
+
+  private fun requireBatchFullAccess(action: String) {
+    if (!hasFullStorageAccess()) {
+      throw IllegalStateException(
+          resString(R.string.vm_full_access_required_action, action))
+    }
+  }
+
+  private fun hasEnoughDiskSpace(directory: File, requiredBytes: Long): Boolean {
+    return runCatching {
+      val stat = android.os.StatFs(directory.absolutePath)
+      stat.availableBlocksLong * stat.blockSizeLong >= requiredBytes
+    }.getOrDefault(true)
+  }
+
+  /**
+   * Copies [videos] into [destFolderPath]. The source is never touched.
+   * Each copy gets a unique name, is size-verified, and the batch ends with
+   * a single media scan + library refresh.
+   */
+  fun copyVideosToFolder(
+      videos: List<VideoItem>,
+      destFolderPath: String,
+      onResult: (Result<BatchFileResult>) -> Unit
+  ) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        require(videos.isNotEmpty()) { resString(R.string.vm_batch_no_files_copy) }
+        requireBatchFullAccess(resString(R.string.vm_action_copy_files))
+        val destDir = prepareBatchDestination(destFolderPath)
+        val valid = videos.filter {
+          File(it.path).exists() && File(it.path).parent != destDir.absolutePath
+        }
+        val skipped = videos.size - valid.size
+        require(valid.isNotEmpty()) { resString(R.string.vm_batch_no_valid_files) }
+        val totalBytes = valid.sumOf { File(it.path).length() }
+        require(hasEnoughDiskSpace(destDir, totalBytes)) { resString(R.string.vm_batch_no_disk_space) }
+        val newPaths = mutableListOf<String>()
+        valid.forEach { video ->
+          val src = File(video.path)
+          val dst = resolveMoveDestination(destDir, src.name)
+          copyFileVerified(src, dst)
+          newPaths.add(dst.absolutePath)
+        }
+        MediaScannerConnection.scanFile(
+            getApplication(), newPaths.toTypedArray(), null) { _, _ -> refreshVideos() }
+        BatchFileResult(newPaths, skipped)
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /**
+   * Moves [videos] into [destFolderPath] with strict per-file verification
+   * (destination must exist and match the source size before the source is
+   * dropped). Stale MediaStore rows are removed by old path under the
+   * missing-file guard, so a live file can never be deleted and no
+   * duplicates appear. Finishes with a single scan + library refresh.
+   */
+  fun moveVideosToFolder(
+      videos: List<VideoItem>,
+      destFolderPath: String,
+      onResult: (Result<BatchFileResult>) -> Unit
+  ) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        require(videos.isNotEmpty()) { resString(R.string.vm_batch_no_files_move) }
+        requireBatchFullAccess(resString(R.string.vm_action_move_files))
+        val destDir = prepareBatchDestination(destFolderPath)
+        var skipped = 0
+        val newPaths = mutableListOf<String>()
+        val pathChanges = mutableListOf<Triple<VideoItem, String, String>>()
+        videos.forEach { video ->
+          val src = File(video.path)
+          if (!src.exists()) {
+            skipped++
+            return@forEach
+          }
+          if (src.parent == destDir.absolutePath) {
+            skipped++
+            return@forEach
+          }
+          val dst = resolveMoveDestination(destDir, src.name)
+          val srcLen = src.length()
+          require(directMoveFile(src, dst)) { resString(R.string.vm_move_failed_named, src.name) }
+          require(dst.exists() && (srcLen <= 0L || dst.length() == srcLen)) {
+            resString(R.string.vm_move_not_verified)
+          }
+          moveSidecars(src, dst)
+          newPaths.add(dst.absolutePath)
+          pathChanges.add(Triple(video, dst.absolutePath, dst.nameWithoutExtension))
+        }
+        require(newPaths.isNotEmpty()) { resString(R.string.vm_batch_nothing_to_move) }
+        // Guarded row cleanup per old path (missing-file only, never by id).
+        val app = getApplication<Application>()
+        pathChanges.forEach { (video, _, _) ->
+          runCatching {
+            if (!File(video.path).exists()) {
+              app.contentResolver.delete(
+                  MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                  "${MediaStore.Video.Media.DATA} = ?",
+                  arrayOf(video.path))
+            }
+          }
+        }
+        pathChanges.forEach { (video, newPath, newTitle) ->
+          applyPathChange(video, newPath, newTitle)
+        }
+        MediaScannerConnection.scanFile(
+            app, newPaths.toTypedArray(), null) { _, _ -> refreshVideos() }
+        BatchFileResult(newPaths, skipped)
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /**
+   * Stream copy with size verification. Cleans up partial copies on error,
+   * so a failed copy never leaves a ghost file behind.
+   */
+  private fun copyFileVerified(src: File, dst: File) {
+    require(src.exists()) { resString(R.string.vm_copy_source_missing, src.name) }
+    dst.parentFile?.mkdirs()
+    val srcLen = src.length()
+    try {
+      src.inputStream().use { input ->
+        dst.outputStream().use { output -> input.copyTo(output) }
+      }
+      dst.setLastModified(src.lastModified())
+    } catch (e: Exception) {
+      runCatching { dst.delete() }
+      throw e
+    }
+    if (!dst.exists() || (srcLen > 0 && dst.length() != srcLen)) {
+      runCatching { dst.delete() }
+      throw IllegalStateException(resString(R.string.vm_copy_verify_failed, src.name))
     }
   }
 
@@ -1013,19 +1872,54 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
    * Stateless library search over the already-indexed in-memory data (no
    * rescan). Used by the dedicated SearchScreen; the Home/Music inline
    * filters keep working through setSearchQuery/setAudioSearchQuery.
+   *
+   * Matching is token-based over title + file name (+ folder name for
+   * videos) with separators normalized, so every indexed file whose
+   * name contains the query is returned regardless of MediaStore TITLE
+   * quirks (missing extension, different casing, underscores/dashes).
    */
   fun searchVideos(query: String): List<VideoItem> {
-    val q: String = query.trim().lowercase()
-    if (q.isEmpty()) return emptyList()
-    return sortVideos(_allVideos.value.filter { it.title.lowercase().contains(q) })
+    val tokens: List<String> = tokenizeQuery(query)
+    if (tokens.isEmpty()) return emptyList()
+    return sortVideos(_allVideos.value.filter { matchesVideo(it, tokens) })
   }
 
   fun searchAudio(query: String): List<AudioItem> {
-    val q: String = query.trim().lowercase()
-    if (q.isEmpty()) return emptyList()
-    return _allAudio.value.filter {
-      it.title.lowercase().contains(q) || it.artist.lowercase().contains(q)
-    }
+    val tokens: List<String> = tokenizeQuery(query)
+    if (tokens.isEmpty()) return emptyList()
+    return _allAudio.value.filter { matchesAudio(it, tokens) }
+  }
+
+  fun searchFolderVideos(query: String, folderPath: String): List<VideoItem> {
+    val tokens: List<String> = tokenizeQuery(query)
+    if (folderPath.isEmpty()) return searchVideos(query)
+    val base: List<VideoItem> = _allVideos.value.filter { it.folderPath == folderPath }
+    if (tokens.isEmpty()) return sortVideos(base)
+    return sortVideos(base.filter { matchesVideo(it, tokens) })
+  }
+
+  private fun tokenizeQuery(query: String): List<String> {
+    return normalizeForSearch(query).split(" ").filter { it.isNotEmpty() }
+  }
+
+  private fun normalizeForSearch(raw: String): String {
+    return raw.lowercase().map { c -> if (c.isLetterOrDigit()) c else ' ' }.joinToString("")
+  }
+
+  private fun videoHaystack(video: VideoItem): String {
+    val fileName: String = video.path.substringAfterLast('/').substringBeforeLast('.')
+    return normalizeForSearch("${video.title} $fileName ${video.folderName}")
+  }
+
+  private fun matchesVideo(video: VideoItem, tokens: List<String>): Boolean {
+    val haystack: String = videoHaystack(video)
+    return tokens.all { haystack.contains(it) }
+  }
+
+  private fun matchesAudio(audio: AudioItem, tokens: List<String>): Boolean {
+    val fileName: String = audio.path.substringAfterLast('/').substringBeforeLast('.')
+    val haystack: String = normalizeForSearch("${audio.title} ${audio.artist} $fileName")
+    return tokens.all { haystack.contains(it) }
   }
 
   // --- Search history (dedicated SearchScreen; plain strings only) ---
@@ -1103,21 +1997,18 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   }
 
   private fun applyFilter() {
-    val query: String = _searchQuery.value.lowercase()
+    val tokens: List<String> = tokenizeQuery(_searchQuery.value)
     val base: List<VideoItem> =
-        if (query.isEmpty()) _allVideos.value
-        else _allVideos.value.filter { it.title.lowercase().contains(query) }
+        if (tokens.isEmpty()) _allVideos.value
+        else _allVideos.value.filter { matchesVideo(it, tokens) }
     _filteredVideos.value = sortVideos(base)
   }
 
   private fun applyAudioFilter() {
-    val query: String = _audioSearchQuery.value.lowercase()
+    val tokens: List<String> = tokenizeQuery(_audioSearchQuery.value)
     val base: List<AudioItem> =
-        if (query.isEmpty()) _allAudio.value
-        else
-            _allAudio.value.filter {
-              it.title.lowercase().contains(query) || it.artist.lowercase().contains(query)
-            }
+        if (tokens.isEmpty()) _allAudio.value
+        else _allAudio.value.filter { matchesAudio(it, tokens) }
     _filteredAudio.value = base
   }
 
@@ -1211,6 +2102,21 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   fun setAppFont(fontId: String) {
     _appFontId.value = fontId
     prefs.edit().putString("app_font", fontId).apply()
+  }
+
+  /**
+   * Sets the per-app language. Persists `app_locale` and applies it via
+   * AppCompat per-app locales (real configuration change, not a fake label).
+   */
+  fun setAppLocale(tag: String) {
+    val safe = if (com.vidmax.player.utils.AppLocale.isSupported(tag)) {
+      tag
+    } else {
+      com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT
+    }
+    _appLocale.value = safe
+    prefs.edit().putString("app_locale", safe).apply()
+    com.vidmax.player.utils.AppLocale.apply(safe)
   }
 
   /** Re-scans the private fonts dir and refreshes [importedFonts]. */
@@ -1320,6 +2226,19 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     } catch (e: Exception) {}
     setAmoledMode(prefs.getBoolean("amoled_mode", false))
     setAppFont(prefs.getString("app_font", AppFonts.SYSTEM_DEFAULT) ?: AppFonts.SYSTEM_DEFAULT)
+    try {
+      val saved = prefs.getString(
+          "app_locale", com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT)
+          ?: com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT
+      // Re-publish + re-apply (covers Settings Import changing the locale).
+      val safe = if (com.vidmax.player.utils.AppLocale.isSupported(saved)) {
+        saved
+      } else {
+        com.vidmax.player.utils.AppLocale.SYSTEM_DEFAULT
+      }
+      _appLocale.value = safe
+      com.vidmax.player.utils.AppLocale.apply(safe)
+    } catch (e: Exception) {}
     setSkipSilence(prefs.getBoolean("skip_silence", false))
     setCrossfade(prefs.getBoolean("crossfade_enabled", true))
   }
@@ -1328,6 +2247,28 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     _recentVideoTitle.value = title
     _recentVideoPath.value = path
     prefs.edit().putString("recent_video_title", title).putString("recent_video_path", path).apply()
+    // REX recordPlaybackStart: every playback start bumps the entry on top.
+    RecentPlayStore.record(prefs, path, title)
+    _recentHistory.value = RecentPlayStore.read(prefs)
+    refreshRecentVideos()
+  }
+
+  /**
+   * Rebuilds the display list newest-first, dropping entries whose files
+   * are gone (REX auto-remove) and anything missing from the scan.
+   */
+  private fun refreshRecentVideos() {
+    val byPath = _allVideos.value.associateBy { it.path }
+    if (RecentPlayStore.pruneMissing(prefs)) {
+      _recentHistory.value = RecentPlayStore.read(prefs)
+    }
+    _recentVideos.value = _recentHistory.value.mapNotNull { byPath[it.path] }
+  }
+
+  fun clearRecentHistory() {
+    RecentPlayStore.clear(prefs)
+    _recentHistory.value = emptyList()
+    _recentVideos.value = emptyList()
   }
 
   // 🔥 FIX: Made this function public so other classes can access it

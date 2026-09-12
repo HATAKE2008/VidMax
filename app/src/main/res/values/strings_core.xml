@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LibraryViewModel (vm_): errors, dialogs and titles shown outside @Composable.
+         %1$s = file/action name, %1$d = HTTP status code. -->
+
+    <string name="vm_unknown_artist">Unknown Artist</string>
+    <string name="vm_playlist_favorites">Favorites</string>
+    <string name="vm_playlist_my_mix">My Mix</string>
+
+    <string name="vm_m3u_invalid_url">Enter a valid http(s) URL</string>
+    <string name="vm_m3u_no_entries">No playable entries found</string>
+    <string name="vm_m3u_server_error">Server returned %1$d</string>
+    <string name="vm_m3u_playlist_too_large">Playlist too large</string>
+    <string name="vm_m3u_download_failed">Could not download playlist</string>
+    <string name="vm_m3u_imported_name">Imported playlist</string>
+    <string name="vm_playlist_empty">Playlist is empty</string>
+    <string name="vm_m3u_no_source_url">No source URL saved</string>
+
+    <string name="vm_library_storage_permission">Storage permission required to browse videos.</string>
+    <string name="vm_library_load_failed">Couldn\'t load videos. Pull to retry.</string>
+    <string name="vm_library_refresh_failed">Refresh failed. Pull to retry.</string>
+
+    <string name="vm_name_empty">Name cannot be empty</string>
+    <string name="vm_name_invalid_chars">Name contains invalid characters</string>
+    <string name="vm_name_trailing_dot">Name cannot end with a dot</string>
+    <string name="vm_file_original_missing">Original file not found</string>
+    <string name="vm_file_no_extension">File has no extension</string>
+    <string name="vm_file_name_exists">A file with this name already exists</string>
+    <string name="vm_rename_failed">Rename failed</string>
+
+    <string name="vm_dest_folder_missing">Destination folder not found</string>
+    <string name="vm_already_in_folder">Already in this folder</string>
+    <string name="vm_move_failed">Move failed</string>
+    <string name="vm_move_not_verified">Move failed: destination not verified</string>
+    <string name="vm_move_not_permitted">Move not permitted</string>
+    <string name="vm_move_not_allowed_here">Cannot move there</string>
+    <string name="vm_move_failed_named">Move failed: %1$s</string>
+
+    <string name="vm_delete_failed">Delete failed</string>
+    <string name="vm_delete_partial">Could not delete all selected videos</string>
+
+    <string name="vm_folder_parent_missing">Parent folder not found</string>
+    <string name="vm_folder_full_access_required">Full storage access required to create folders</string>
+    <string name="vm_folder_name_exists">A folder with this name already exists</string>
+    <string name="vm_folder_create_failed">Could not create folder</string>
+
+    <string name="vm_dest_not_writable">Destination is not writable</string>
+    <string name="vm_full_access_required_action">Full storage access required to %1$s. Enable All Files Access in Settings.</string>
+    <string name="vm_action_copy_files">copy files</string>
+    <string name="vm_action_move_files">move files</string>
+    <string name="vm_batch_no_files_copy">No files to copy</string>
+    <string name="vm_batch_no_files_move">No files to move</string>
+    <string name="vm_batch_no_valid_files">No valid files to copy</string>
+    <string name="vm_batch_no_disk_space">Not enough disk space</string>
+    <string name="vm_batch_nothing_to_move">Nothing to move</string>
+    <string name="vm_copy_source_missing">Original file not found: %1$s</string>
+    <string name="vm_copy_verify_failed">Copy verification failed: %1$s</string>
+
+    <!-- AudioService (svc_): notification channel + media actions. -->
+    <string name="svc_channel_audio_playback">Audio Playback</string>
+    <string name="svc_unknown">Unknown</string>
+    <string name="svc_action_previous">Previous</string>
+    <string name="svc_action_play">Play</string>
+    <string name="svc_action_pause">Pause</string>
+    <string name="svc_action_next">Next</string>
+    <string name="svc_action_stop">Stop</string>
+
+    <!-- StorageAccess status text (shown in Settings). -->
+    <string name="storage_full_access_enabled">Full storage access enabled</string>
+    <string name="storage_full_access_disabled">Full storage access disabled</string>
+</resources>

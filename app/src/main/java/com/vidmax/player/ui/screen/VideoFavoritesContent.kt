@@ -37,10 +37,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.R
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.viewmodel.LibraryViewModel
 
@@ -88,13 +90,13 @@ fun VideoFavoritesContent(
               modifier = Modifier.size(64.dp))
           Spacer(modifier = Modifier.height(16.dp))
           Text(
-              text = "No favorite videos yet",
+              text = stringResource(R.string.fav_empty_title),
               color = MaterialTheme.colorScheme.onBackground,
               fontSize = 16.sp,
               fontWeight = FontWeight.SemiBold)
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-              text = "Long-press a video and choose Add to Favorites",
+              text = stringResource(R.string.fav_empty_hint),
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               fontSize = 13.sp)
         }

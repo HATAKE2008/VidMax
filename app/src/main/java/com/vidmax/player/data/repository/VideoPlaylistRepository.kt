@@ -43,6 +43,8 @@ class VideoPlaylistRepository(private val videoPlaylistDao: VideoPlaylistDao) {
 
   // Playlist item operations
   suspend fun addItemToPlaylist(playlistId: Int, filePath: String, fileName: String) {
+    // No duplicate items: skip paths already in this playlist.
+    if (videoPlaylistDao.getPlaylistItemByPath(playlistId, filePath) != null) return
     val maxPosition = videoPlaylistDao.getMaxPosition(playlistId) ?: -1
     videoPlaylistDao.insertPlaylistItem(
       VidMaxVideoPlaylistItem(
@@ -60,9 +62,18 @@ class VideoPlaylistRepository(private val videoPlaylistDao: VideoPlaylistDao) {
   }
 
   suspend fun addItemsToPlaylist(playlistId: Int, items: List<Pair<String, String>>) {
+    // No duplicate items: skip paths already in this playlist.
+    val existingPaths = videoPlaylistDao.getPlaylistItems(playlistId).map { it.filePath }.toSet()
+    val freshItems = items.filterNot { existingPaths.contains(it.first) }
+    if (freshItems.isEmpty()) {
+      getPlaylistById(playlistId)?.let { playlist ->
+        updatePlaylist(playlist)
+      }
+      return
+    }
     val maxPosition = videoPlaylistDao.getMaxPosition(playlistId) ?: -1
     val now = System.currentTimeMillis()
-    val playlistItems = items.mapIndexed { index, (filePath, fileName) ->
+    val playlistItems = freshItems.mapIndexed { index, (filePath, fileName) ->
       VidMaxVideoPlaylistItem(
         playlistId = playlistId,
         filePath = filePath,
@@ -102,6 +113,10 @@ class VideoPlaylistRepository(private val videoPlaylistDao: VideoPlaylistDao) {
 
   suspend fun updatePathReferences(oldPath: String, newPath: String, newName: String) {
     videoPlaylistDao.updateItemPath(oldPath, newPath, newName)
+  }
+
+  suspend fun removeItemsByPath(path: String) {
+    videoPlaylistDao.deleteItemsByPath(path)
   }
 
   suspend fun clearPlaylist(playlistId: Int) {

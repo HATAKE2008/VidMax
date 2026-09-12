@@ -80,6 +80,9 @@ interface VideoPlaylistDao {
   @Query("UPDATE VidMaxVideoPlaylistItem SET filePath = :newPath, fileName = :newName WHERE filePath = :oldPath")
   suspend fun updateItemPath(oldPath: String, newPath: String, newName: String)
 
+  @Query("DELETE FROM VidMaxVideoPlaylistItem WHERE filePath = :path")
+  suspend fun deleteItemsByPath(path: String)
+
   @Query("UPDATE VidMaxVideoPlaylistItem SET position = :newPosition WHERE id = :itemId")
   suspend fun updateItemPosition(itemId: Int, newPosition: Int)
 

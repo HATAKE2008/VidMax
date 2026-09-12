@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LibraryViewModel (vm_) — Hindi translations. -->
+
+    <string name="vm_unknown_artist">अज्ञात कलाकार</string>
+    <string name="vm_playlist_favorites">पसंदीदा</string>
+    <string name="vm_playlist_my_mix">मेरा मिक्स</string>
+
+    <string name="vm_m3u_invalid_url">एक मान्य http(s) URL दर्ज करें</string>
+    <string name="vm_m3u_no_entries">चलाने योग्य कोई आइटम नहीं मिला</string>
+    <string name="vm_m3u_server_error">सर्वर ने %1$d वापस भेजा</string>
+    <string name="vm_m3u_playlist_too_large">प्लेलिस्ट बहुत बड़ी है</string>
+    <string name="vm_m3u_download_failed">प्लेलिस्ट डाउनलोड नहीं हो सकी</string>
+    <string name="vm_m3u_imported_name">आयातित प्लेलिस्ट</string>
+    <string name="vm_playlist_empty">प्लेलिस्ट खाली है</string>
+    <string name="vm_m3u_no_source_url">कोई स्रोत URL सहेजा नहीं गया</string>
+
+    <string name="vm_library_storage_permission">वीडियो देखने के लिए स्टोरेज अनुमति आवश्यक है।</string>
+    <string name="vm_library_load_failed">वीडियो लोड नहीं हो सके। पुनः प्रयास के लिए खींचें।</string>
+    <string name="vm_library_refresh_failed">रिफ्रेश विफल रहा। पुनः प्रयास के लिए खींचें।</string>
+
+    <string name="vm_name_empty">नाम खाली नहीं हो सकता</string>
+    <string name="vm_name_invalid_chars">नाम में अमान्य वर्ण हैं</string>
+    <string name="vm_name_trailing_dot">नाम बिंदु (.) से समाप्त नहीं हो सकता</string>
+    <string name="vm_file_original_missing">मूल फ़ाइल नहीं मिली</string>
+    <string name="vm_file_no_extension">फ़ाइल में कोई एक्सटेंशन नहीं है</string>
+    <string name="vm_file_name_exists">इस नाम की फ़ाइल पहले से मौजूद है</string>
+    <string name="vm_rename_failed">नाम बदलना विफल रहा</string>
+
+    <string name="vm_dest_folder_missing">गंतव्य फ़ोल्डर नहीं मिला</string>
+    <string name="vm_already_in_folder">पहले से इसी फ़ोल्डर में है</string>
+    <string name="vm_move_failed">स्थानांतरण विफल रहा</string>
+    <string name="vm_move_not_verified">स्थानांतरण विफल: गंतव्य सत्यापित नहीं हुआ</string>
+    <string name="vm_move_not_permitted">स्थानांतरण की अनुमति नहीं है</string>
+    <string name="vm_move_not_allowed_here">वहाँ स्थानांतरित नहीं किया जा सकता</string>
+    <string name="vm_move_failed_named">स्थानांतरण विफल: %1$s</string>
+
+    <string name="vm_delete_failed">हटाना विफल रहा</string>
+    <string name="vm_delete_partial">चयनित सभी वीडियो हटाए नहीं जा सके</string>
+
+    <string name="vm_folder_parent_missing">मूल फ़ोल्डर नहीं मिला</string>
+    <string name="vm_folder_full_access_required">फ़ोल्डर बनाने के लिए पूर्ण स्टोरेज एक्सेस आवश्यक है</string>
+    <string name="vm_folder_name_exists">इस नाम का फ़ोल्डर पहले से मौजूद है</string>
+    <string name="vm_folder_create_failed">फ़ोल्डर बनाया नहीं जा सका</string>
+
+    <string name="vm_dest_not_writable">गंतव्य में लिखा नहीं जा सकता</string>
+    <string name="vm_full_access_required_action">%1$s पूर्ण स्टोरेज एक्सेस आवश्यक है। सेटिंग्स में All Files Access चालू करें।</string>
+    <string name="vm_action_copy_files">फ़ाइल कॉपी करने के लिए</string>
+    <string name="vm_action_move_files">फ़ाइल ले जाने के लिए</string>
+    <string name="vm_batch_no_files_copy">कॉपी करने के लिए कोई फ़ाइल नहीं</string>
+    <string name="vm_batch_no_files_move">ले जाने के लिए कोई फ़ाइल नहीं</string>
+    <string name="vm_batch_no_valid_files">कॉपी करने योग्य कोई मान्य फ़ाइल नहीं</string>
+    <string name="vm_batch_no_disk_space">पर्याप्त डिस्क स्थान नहीं है</string>
+    <string name="vm_batch_nothing_to_move">ले जाने के लिए कुछ नहीं</string>
+    <string name="vm_copy_source_missing">मूल फ़ाइल नहीं मिली: %1$s</string>
+    <string name="vm_copy_verify_failed">कॉपी सत्यापन विफल: %1$s</string>
+
+    <!-- AudioService (svc_) — Hindi translations. -->
+    <string name="svc_channel_audio_playback">ऑडियो प्लेबैक</string>
+    <string name="svc_unknown">अज्ञात</string>
+    <string name="svc_action_previous">पिछला</string>
+    <string name="svc_action_play">चलाएँ</string>
+    <string name="svc_action_pause">रोकें</string>
+    <string name="svc_action_next">अगला</string>
+    <string name="svc_action_stop">बंद करें</string>
+
+    <!-- StorageAccess status text. -->
+    <string name="storage_full_access_enabled">पूर्ण स्टोरेज एक्सेस चालू है</string>
+    <string name="storage_full_access_disabled">पूर्ण स्टोरेज एक्सेस बंद है</string>
+</resources>

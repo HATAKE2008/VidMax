@@ -85,6 +85,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.coerceIn
@@ -188,27 +189,27 @@ fun ModernPlayerScreen(
   if (showDeleteConfirmDialog) {
     AlertDialog(
         onDismissRequest = { showDeleteConfirmDialog = false },
-        title = { Text("Delete Audio", fontWeight = FontWeight.Bold) },
-        text = { Text("Are you sure you want to delete '$title'?") },
+        title = { Text(stringResource(R.string.mpscr_delete_title), fontWeight = FontWeight.Bold) },
+        text = { Text(stringResource(R.string.mpscr_delete_message, title)) },
         confirmButton = {
           TextButton(
               onClick = {
                 showDeleteConfirmDialog = false
                 try {
                   if (File(currentPath).delete()) {
-                    Toast.makeText(context, "Deleted", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.mpscr_deleted), Toast.LENGTH_SHORT).show()
                     viewModel.pauseAudio()
                     onBack()
                   }
                 } catch (e: Exception) {
-                  Toast.makeText(context, "Failed", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, context.getString(R.string.mpscr_delete_failed), Toast.LENGTH_SHORT).show()
                 }
               }) {
-                Text("Delete", color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.mpscr_delete), color = MaterialTheme.colorScheme.error)
               }
         },
         dismissButton = {
-          TextButton(onClick = { showDeleteConfirmDialog = false }) { Text("Cancel") }
+          TextButton(onClick = { showDeleteConfirmDialog = false }) { Text(stringResource(R.string.action_cancel)) }
         })
   }
 
@@ -216,30 +217,30 @@ fun ModernPlayerScreen(
     val file = File(currentPath)
     val fileSizeMb =
         if (file.exists()) String.format(java.util.Locale.US, "%.2f MB", file.length() / (1024.0 * 1024.0))
-        else "Unknown Size"
+        else context.getString(R.string.mpscr_unknown_size)
     AlertDialog(
         onDismissRequest = { showPropertiesDialog = false },
-        title = { Text("Audio Properties", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.mpscr_props_title), fontWeight = FontWeight.Bold) },
         text = {
           Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Title: $title", fontSize = 14.sp)
-            Text("Artist: $artist", fontSize = 14.sp)
+            Text(stringResource(R.string.mpscr_prop_title, title), fontSize = 14.sp)
+            Text(stringResource(R.string.mpscr_prop_artist, artist), fontSize = 14.sp)
             Text(
-                "Path: $currentPath",
+                stringResource(R.string.mpscr_prop_path, currentPath),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Size: $fileSizeMb", fontSize = 14.sp)
+            Text(stringResource(R.string.mpscr_prop_size, fileSizeMb), fontSize = 14.sp)
           }
         },
         confirmButton = {
-          TextButton(onClick = { showPropertiesDialog = false }) { Text("Close") }
+          TextButton(onClick = { showPropertiesDialog = false }) { Text(stringResource(R.string.mpscr_close)) }
         })
   }
 
   if (showTimerDialog) {
     AlertDialog(
         onDismissRequest = { showTimerDialog = false },
-        title = { Text("Sleep Timer", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.mpscr_timer_title), fontWeight = FontWeight.Bold) },
         text = {
           Column {
             listOf(0, 15, 30, 60, 120).forEach { mins ->
@@ -259,12 +260,12 @@ fun ModernPlayerScreen(
                             if (currentTimerMinutes == mins) MaterialTheme.colorScheme.primary
                             else Color.Transparent)
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text(if (mins == 0) "Off" else "$mins Minutes", fontSize = 16.sp)
+                    Text(if (mins == 0) stringResource(R.string.mpscr_timer_off) else stringResource(R.string.mpscr_timer_minutes, mins), fontSize = 16.sp)
                   }
             }
           }
         },
-        confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text("Close") } })
+        confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text(stringResource(R.string.mpscr_close)) } })
   }
 
   // MAIN LAYOUT
@@ -387,20 +388,20 @@ fun ModernPlayerScreen(
                         DropdownMenu(
                             expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
                               DropdownMenuItem(
-                                  text = { Text("Properties") },
+                                  text = { Text(stringResource(R.string.mpscr_menu_properties)) },
                                   onClick = {
                                     showMoreMenu = false
                                     showPropertiesDialog = true
                                   })
                               DropdownMenuItem(
-                                  text = { Text("Sleep Timer") },
+                                  text = { Text(stringResource(R.string.mpscr_timer_title)) },
                                   onClick = {
                                     showMoreMenu = false
                                     showTimerDialog = true
                                   })
                               DropdownMenuItem(
                                   text = {
-                                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                                    Text(stringResource(R.string.mpscr_delete), color = MaterialTheme.colorScheme.error)
                                   },
                                   onClick = {
                                     showMoreMenu = false
@@ -726,7 +727,7 @@ fun ModernPlayerScreen(
                         Modifier.fillMaxWidth()
                             .padding(horizontal = 24.dp, vertical = 16.dp)
                             .fillMaxHeight(0.6f)) {
-                      Text("Up Next", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                      Text(stringResource(R.string.mpscr_up_next), fontSize = 20.sp, fontWeight = FontWeight.Bold)
                       Spacer(modifier = Modifier.height(16.dp))
                       LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                         itemsIndexed(queueList) { index, audio ->

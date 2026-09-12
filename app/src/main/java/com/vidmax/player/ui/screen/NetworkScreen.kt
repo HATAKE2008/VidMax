@@ -5,7 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,14 +12,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -172,7 +174,7 @@ private fun ConnectionsList(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Network",
+                text = stringResource(R.string.net_title),
                 color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -200,7 +202,7 @@ private fun ConnectionsList(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Recent Links",
+                        text = stringResource(R.string.net_recent_links),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -231,20 +233,20 @@ private fun ConnectionsList(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "No servers yet",
+                            text = stringResource(R.string.net_empty_title),
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Add an SMB, FTP or WebDAV server to stream videos",
+                            text = stringResource(R.string.net_empty_hint),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = onAdd) {
-                            Text("Add Server")
+                            Text(stringResource(R.string.net_add_server))
                         }
                     }
                 }
@@ -252,7 +254,7 @@ private fun ConnectionsList(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Servers",
+                        text = stringResource(R.string.net_servers),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -289,124 +291,184 @@ private fun ConnectionCard(
     val isConnecting = status?.isConnecting == true
     val errorText = status?.error
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable { onOpen() }
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    // REX NetworkConnectionCard language: M3 Card with title + protocol/host
+    // subtitle, edit/delete actions, status error and tonal action buttons.
+    // All callbacks unchanged.
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        onClick = onOpen,
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center,
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
         ) {
-            Icon(
-                imageVector = Icons.Filled.Dns,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp),
-            )
-        }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Dns,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
+                            modifier = Modifier.size(26.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = connection.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = "${connection.protocol.displayName} • ${connection.host}:${connection.port}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
 
-        Spacer(modifier = Modifier.width(12.dp))
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = "Edit connection",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Delete connection",
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = connection.name,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "${connection.host}:${connection.port} • ${connection.protocol.displayName}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (errorText != null) {
-                Spacer(modifier = Modifier.height(2.dp))
+            if (connection.path != "/") {
                 Text(
-                    text = errorText,
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 11.sp,
+                    text = stringResource(R.string.net_path_label, connection.path),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
-        }
 
-        if (isConnected) {
-            Icon(
-                imageVector = Icons.Filled.Wifi,
-                contentDescription = "Connected",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-
-        Spacer(modifier = Modifier.width(4.dp))
-
-        if (isConnecting) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp,
-            )
-        } else if (isConnected) {
-            TextButton(onClick = onDisconnect) {
-                Text("Disconnect")
+            if (connection.username.isNotEmpty() && !connection.isAnonymous) {
+                Text(
+                    text = stringResource(R.string.net_user_label, connection.username),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
             }
-        } else {
-            TextButton(onClick = onConnect) {
-                Text("Connect")
+
+            if (errorText != null) {
+                Text(
+                    text = errorText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
-        }
 
-        DropdownMenuActions(
-            onEdit = onEdit,
-            onDelete = onDelete,
-        )
-    }
-}
-
-@Composable
-private fun DropdownMenuActions(
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(
-                imageVector = Icons.Filled.MoreVert,
-                contentDescription = "More",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text("Edit") },
-                onClick = {
-                    expanded = false
-                    onEdit()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("Delete") },
-                onClick = {
-                    expanded = false
-                    onDelete()
-                },
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                when {
+                    isConnecting -> {
+                        FilledTonalButton(onClick = {}, enabled = false) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                                )
+                                Text(
+                                    stringResource(R.string.net_connecting),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                                )
+                            }
+                        }
+                    }
+                    isConnected -> {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilledTonalButton(
+                                onClick = { onOpen() },
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ),
+                            ) {
+                                Icon(
+                                    Icons.Filled.FolderOpen,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(end = 8.dp),
+                                )
+                                Text(stringResource(R.string.net_browse))
+                            }
+                            FilledTonalButton(
+                                onClick = onDisconnect,
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                ),
+                            ) {
+                                Icon(
+                                    Icons.Filled.LinkOff,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(end = 8.dp),
+                                )
+                                Text(stringResource(R.string.net_disconnect))
+                            }
+                        }
+                    }
+                    else -> {
+                        FilledTonalButton(
+                            onClick = onConnect,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                        ) {
+                            Icon(
+                                Icons.Filled.Link,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                                Text(stringResource(R.string.net_connect))
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -485,7 +547,7 @@ private fun NetworkBrowser(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "No files found",
+                        text = stringResource(R.string.net_empty_files),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                     )
@@ -585,89 +647,89 @@ private fun NetworkFloatingBottomBar(
 
 @Composable
 private fun NetworkFolderRow(file: NetworkFile, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .padding(vertical = 10.dp, horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        onClick = onClick,
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center,
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Filled.Folder,
-                contentDescription = "Folder",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(26.dp),
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Folder,
+                    contentDescription = "Folder",
+                    tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Text(
+                text = file.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
         }
-        Spacer(modifier = Modifier.width(14.dp))
-        Text(
-            text = file.name,
-            color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
     }
 }
 
 @Composable
 private fun NetworkVideoRow(file: NetworkFile, onClick: () -> Unit) {
-    // mpvRex NetworkVideoCard-style row: 16:9 thumbnail placeholder on the
+    // REX NetworkVideoCard-style row: 16:9 thumbnail placeholder on the
     // left, two-line title and a size chip — playback logic unchanged.
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable { onClick() }
-            .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        onClick = onClick,
     ) {
-        Box(
-            modifier = Modifier
-                .width(110.dp)
-                .height(62.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color.DarkGray),
-            contentAlignment = Alignment.Center,
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Filled.PlayArrow,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(36.dp),
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = file.name,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 14.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (file.size > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = formatFileSize(file.size),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
+            Box(
+                modifier = Modifier
+                    .width(110.dp)
+                    .height(62.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.DarkGray),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(36.dp),
                 )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = file.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (file.size > 0) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        com.vidmax.player.ui.components.MetaChip(
+                            text = formatFileSize(file.size))
+                    }
+                }
             }
         }
     }

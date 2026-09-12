@@ -17,6 +17,7 @@ import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -27,7 +28,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -63,9 +66,13 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,6 +85,8 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.vidmax.player.R
+import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.ui.screen.VideoDetailsDialog
 import com.vidmax.player.viewmodel.AspectRatioMode
 import com.vidmax.player.viewmodel.LoopMode
 import com.vidmax.player.viewmodel.PanelMode
@@ -99,7 +108,7 @@ import kotlinx.coroutines.withContext
 
 data class MpvTrackInfo(val id: Int, val name: String)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PlayerControls(
     modifier: Modifier = Modifier,
@@ -125,10 +134,18 @@ fun PlayerControls(
 ) {
 
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     val activity = context as? Activity
     val configuration = LocalConfiguration.current
     val coroutineScope = rememberCoroutineScope()
+    // Localized messages hoisted here: takeScreenshot() and toggleEngine run
+    // in non-composable callbacks, so they capture these pre-read values.
+    val captureUnavailableText = stringResource(R.string.player_capture_unavailable)
+    val frameSavedText = stringResource(R.string.player_frame_saved)
+    val captureFailedText = stringResource(R.string.player_capture_failed)
+    val engineMpvText = stringResource(R.string.player_engine_mpv)
+    val engineExoText = stringResource(R.string.player_engine_exo)
 
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val rightSafePadding = 16.dp
@@ -139,9 +156,22 @@ fun PlayerControls(
     val duration by viewModel.duration.collectAsState()
     val isLocked by viewModel.isLocked.collectAsState()
     val controlsVisible by viewModel.controlsVisible.collectAsState()
+    // Lock overlay visibility: shown on lock, auto-hides after ~2.8s of
+    // inactivity, toggled by taps while locked (hide when visible, reveal
+    // + restart countdown when hidden). Unlock restores full controls.
+    // Locked taps toggle the shared controls visibility (REX model: the
+    // lock UI is purely controlsVisible && isLocked, so show/hide always
+    // stays in sync and taps can never strand the user on a hidden overlay).
+    // Fresh reads via UpdatedState because this detector coroutine restarts
+    // only on key change and would otherwise freeze stale values.
+    val lockedTapToggle = rememberUpdatedState {
+        viewModel.setControlsVisible(!viewModel.controlsVisible.value)
+    }
     val loopMode by viewModel.loopMode.collectAsState()
     val abPointA by viewModel.abRepeatA.collectAsState()
     val abPointB by viewModel.abRepeatB.collectAsState()
+    val abLoopEnabled by viewModel.abLoopEnabled.collectAsState()
+    val showABPanel by viewModel.showABPanel.collectAsState()
     val videoTitle by viewModel.videoTitle.collectAsState()
 
     val currentEngine by viewModel.currentEngine.collectAsState()
@@ -181,9 +211,6 @@ fun PlayerControls(
     var seekGestureSensitivity by remember {
         mutableIntStateOf(settingsPrefs.getInt("seek_gesture_sensitivity", 60000))
     }
-    var singleTapAction by remember {
-        mutableStateOf(settingsPrefs.getString("single_tap_action", "toggle_controls") ?: "toggle_controls")
-    }
     var preventSeekbarTap by remember {
         mutableStateOf(settingsPrefs.getBoolean("prevent_seekbar_tap", false))
     }
@@ -198,21 +225,6 @@ fun PlayerControls(
     }
     var bottomControlsBelowSeekbar by remember {
         mutableStateOf(settingsPrefs.getBoolean("bottom_controls_below_seekbar", false))
-    }
-    var ambientMode by remember {
-        mutableStateOf(settingsPrefs.getBoolean("ambient_mode", false))
-    }
-    var keepScreenOn by remember {
-        mutableStateOf(settingsPrefs.getBoolean("keep_screen_on", true))
-    }
-    var hideButtonBackground by remember {
-        mutableStateOf(settingsPrefs.getBoolean("hide_button_background", false))
-    }
-    var reduceMotion by remember {
-        mutableStateOf(settingsPrefs.getBoolean("reduce_motion", false))
-    }
-    var whiteSeekbar by remember {
-        mutableStateOf(settingsPrefs.getBoolean("white_seekbar", false))
     }
     var showDoubleTapIndicator by remember {
         mutableStateOf(settingsPrefs.getBoolean("show_double_tap_indicator", true))
@@ -285,10 +297,11 @@ fun PlayerControls(
     val bottomDeadZonePx = remember(density) { with(density) { 120.dp.toPx() } }
 
     var showMoreMenu by remember { mutableStateOf(false) }
-    var showPropertiesDialog by remember { mutableStateOf(false) }
+    var showDetailsDialog by remember { mutableStateOf(false) }
     var showBookmarkDialog by remember { mutableStateOf(false) }
     var showBookmarkList by remember { mutableStateOf(false) }
     var bookmarkLabel by remember { mutableStateOf("") }
+    var bookmarkPosition by remember(currentPath) { mutableLongStateOf(0L) }
 
     val showSpeedButton = settingsPrefs.getBoolean("show_speed_button", true)
     val showLoopButton = settingsPrefs.getBoolean("show_loop_button", true)
@@ -297,6 +310,10 @@ fun PlayerControls(
 
     var boostPrevSpeed by remember { mutableStateOf<Float?>(null) }
     val isBoosting = boostPrevSpeed != null
+    // Release after a real 2x hold must not leak into tap handling below.
+    var boostTapLatch by remember { mutableStateOf(false) }
+    // Generation guard so only the latest double-tap feedback reset clears.
+    var doubleTapFeedbackGen by remember { mutableIntStateOf(0) }
 
     val bookmarkList =
         remember(currentPath) {
@@ -314,26 +331,60 @@ fun PlayerControls(
       }
     }
 
+    // REX parity: glide the engine speed in short steps instead of jumping,
+    // so engaging/releasing the 2x hold never stutters audio (MPV) or jerks
+    // playback (Exo). The ViewModel state flips instantly so the 2x
+    // indicator and speed UI stay truthful while the engine catches up.
+    fun rampEngineSpeed(from: Float, to: Float) {
+      coroutineScope.launch {
+        val steps = 5
+        repeat(steps) { i ->
+          val t = (i + 1).toFloat() / steps
+          val v = from + (to - from) * t
+          if (currentEngine == PlayerEngine.MPV) {
+            try {
+              MPVLib.setPropertyDouble("speed", v.toDouble())
+            } catch (e: Exception) {}
+          } else {
+            try {
+              exoPlayer?.setPlaybackSpeed(v)
+            } catch (e: Exception) {}
+          }
+          if (i < steps - 1) delay(16)
+        }
+      }
+    }
+
     fun startSpeedBoost() {
-      if (isLocked || boostPrevSpeed != null) return
-      boostPrevSpeed = viewModel.playbackSpeed.value
+      if (isLocked || boostPrevSpeed != null || !isPlaying) return
+      val prev = viewModel.playbackSpeed.value
+      boostPrevSpeed = prev
       applyEngineSpeed(2f)
+      rampEngineSpeed(prev, 2f)
     }
 
     fun stopSpeedBoost() {
       val prev = boostPrevSpeed ?: return
       boostPrevSpeed = null
+      boostTapLatch = true
       applyEngineSpeed(prev)
+      rampEngineSpeed(2f, prev)
     }
 
-    LaunchedEffect(currentPath) { boostPrevSpeed = null }
+    LaunchedEffect(currentPath) {
+      boostPrevSpeed = null
+      boostTapLatch = false
+      doubleTapFeedbackGen++
+      showDoubleTapRipple = 0
+      viewModel.hideGestureOverlay()
+    }
 
     // A-B repeat: loop inside the same file via absolute seek — no reload,
     // so the restart has no black flash on either engine.
-    LaunchedEffect(currentPosition, abPointA, abPointB) {
+    LaunchedEffect(currentPosition, abPointA, abPointB, abLoopEnabled) {
         val a = abPointA
         val b = abPointB
-        if (a != null && b != null && b > a && currentPosition >= b) {
+        if (abLoopEnabled && a != null && b != null && b > a && currentPosition >= b) {
             onSeek(a)
         }
     }
@@ -347,7 +398,7 @@ fun PlayerControls(
           delay(900)
           if (!mpvShot.exists()) {
             withContext(Dispatchers.Main) {
-              Toast.makeText(context, "Capture not available for this video", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, captureUnavailableText, Toast.LENGTH_SHORT).show()
             }
             return@launch
           }
@@ -368,17 +419,24 @@ fun PlayerControls(
         withContext(Dispatchers.Main) {
           Toast.makeText(
                   context,
-                  if (ok) "Frame saved to Pictures/VidMax" else "Capture failed",
+                  if (ok) frameSavedText else captureFailedText,
                   Toast.LENGTH_SHORT)
               .show()
         }
       }
     }
 
-    LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs) {
-        // The lock button + slide-to-unlock overlay also auto-hides, like all
-        // other controls — a tap anywhere brings it back while locked.
-        if (controlsVisible && autoHideControls && controlsHideDelayMs > 0) {
+    val keepRepeatControlsVisible = !isLocked &&
+        (showBookmarkDialog || showBookmarkList)
+    LaunchedEffect(controlsVisible, isLocked, autoHideControls, controlsHideDelayMs, keepRepeatControlsVisible) {
+        if (keepRepeatControlsVisible) {
+            viewModel.setControlsVisible(true)
+        } else if (isLocked && controlsVisible) {
+            // REX model: the locked overlay always auto-hides on a short
+            // fixed delay (2s), independent of the user's auto-hide pref.
+            delay(2000)
+            viewModel.setControlsVisible(false)
+        } else if (controlsVisible && autoHideControls && controlsHideDelayMs > 0) {
             delay(controlsHideDelayMs.toLong())
             viewModel.setControlsVisible(false)
         }
@@ -390,14 +448,11 @@ fun PlayerControls(
         }
     }
 
-    LaunchedEffect(ambientMode, keepScreenOn) {
+    // Permanent screen-on while the player is open: no toggle, the flag
+    // is always added and never cleared by a user setting.
+    LaunchedEffect(Unit) {
         val act = activity ?: return@LaunchedEffect
-        act.window.setDimAmount(if (ambientMode) 0.85f else 0f)
-        if (keepScreenOn) {
-            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        } else {
-            act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
+        act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     LaunchedEffect(currentEngine, mpvVideoSync, mpvInterpolation, mpvAudioPitchCorrection) {
@@ -492,6 +547,19 @@ fun PlayerControls(
         Unit
     }
 
+    // Settings-sheet booster bridge: publishes the local booster state on
+    // open and applies sheet toggles through the untouched toggle above.
+    val playerVolumeBoost by viewModel.playerVolumeBoost.collectAsState()
+    LaunchedEffect(Unit) {
+        if (playerVolumeBoost != localBoostEnabled) {
+            viewModel.setPlayerVolumeBoost(localBoostEnabled)
+        }
+    }
+    LaunchedEffect(playerVolumeBoost) {
+        val target = playerVolumeBoost ?: return@LaunchedEffect
+        if (target != localBoostEnabled) toggleAudioBoost()
+    }
+
     val toggleImmersive = {
         val activityRef = activity
         if (activityRef != null) {
@@ -523,7 +591,7 @@ fun PlayerControls(
             settingsPrefs.edit().putString("player_engine", engine.name).apply()
             Toast.makeText(
                 context,
-                if (engine == PlayerEngine.MPV) "Switched to MPV. Reloading..." else "Switched to ExoPlayer. Reloading...",
+                if (engine == PlayerEngine.MPV) engineMpvText else engineExoText,
                 Toast.LENGTH_SHORT
             ).show()
             activity?.recreate()
@@ -542,7 +610,7 @@ fun PlayerControls(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {
-                Text("Video Zoom", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.player_zoom_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -559,7 +627,7 @@ fun PlayerControls(
                     )
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(60.dp)) {
-                        Text("Zoom", color = Color.White, fontSize = 14.sp)
+                        Text(stringResource(R.string.player_zoom_label), color = Color.White, fontSize = 14.sp)
                         Text(
                             String.format(Locale.US, "%.2fx", videoScale),
                             color = primaryColor,
@@ -598,14 +666,14 @@ fun PlayerControls(
                         border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.5f)),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                     ) {
-                        Text("Set as default", fontSize = 14.sp)
+                        Text(stringResource(R.string.player_set_as_default), fontSize = 14.sp)
                     }
                     Button(
                         onClick = { onVideoScaleChange(1f / videoScale, Offset.Zero, null) },
                         modifier = Modifier.weight(1f).height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                     ) {
-                        Text("Reset", color = onPrimaryColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.player_reset), color = onPrimaryColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -619,11 +687,11 @@ fun PlayerControls(
         val aspect by viewModel.aspectRatio.collectAsState()
         ModalBottomSheet(onDismissRequest = { viewModel.setShowAspectSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Aspect Ratio", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                Text(stringResource(R.string.player_aspect_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 listOf(
-                    Triple(AspectRatioMode.FIT, "Fit", Icons.Outlined.FitScreen),
-                    Triple(AspectRatioMode.FILL, "Crop / Fill", Icons.Outlined.AspectRatio),
-                    Triple(AspectRatioMode.STRETCH, "Stretch", Icons.Outlined.Fullscreen)
+                    Triple(AspectRatioMode.FIT, stringResource(R.string.player_aspect_fit), Icons.Outlined.FitScreen),
+                    Triple(AspectRatioMode.FILL, stringResource(R.string.player_aspect_fill), Icons.Outlined.AspectRatio),
+                    Triple(AspectRatioMode.STRETCH, stringResource(R.string.player_aspect_stretch), Icons.Outlined.Fullscreen)
                 ).forEach { (mode, label, icon) ->
                     val isSelected = aspect == mode
                     Row(
@@ -659,12 +727,12 @@ fun PlayerControls(
     if (showDecoderMenu) {
         ModalBottomSheet(onDismissRequest = { viewModel.setShowDecoderMenu(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Hardware Decoder", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                Text(stringResource(R.string.player_decoder_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 val decoderOptions = listOf(
-                    Pair("auto-copy", "Auto (auto-copy)"),
-                    Pair("no", "SW (no)"),
-                    Pair("mediacodec-copy", "HW (mediacodec-copy)"),
-                    Pair("mediacodec", "HW+ (mediacodec)")
+                    Pair("auto-copy", stringResource(R.string.player_decoder_auto)),
+                    Pair("no", stringResource(R.string.player_decoder_sw)),
+                    Pair("mediacodec-copy", stringResource(R.string.player_decoder_hw)),
+                    Pair("mediacodec", stringResource(R.string.player_decoder_hwplus))
                 )
                 decoderOptions.forEach { (value, label) ->
                     val isSelected = currentMpvDecoder == value
@@ -696,11 +764,11 @@ fun PlayerControls(
     if (showTimerDialog) {
         AlertDialog(
             onDismissRequest = { showTimerDialog = false }, containerColor = Color(0xFF1E1E1E),
-            title = { Text("Sleep Timer", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.player_sleep_timer), color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     listOf(0, 15, 30, 60, 120).forEach { mins ->
-                        val text = if (mins == 0) "Off" else "$mins Minutes"
+                        val text = if (mins == 0) stringResource(R.string.player_off) else pluralStringResource(R.plurals.player_sleep_minutes, mins, mins)
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { sleepTimerMinutes = mins; showTimerDialog = false }.padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -716,118 +784,139 @@ fun PlayerControls(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text("Close") } }
+            confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text(stringResource(R.string.player_close)) } }
         )
     }
 
     // ============================================================
-    // Video properties dialog
+    // Details dialog (shared library dialog, no separate Properties UI)
     // ============================================================
-    if (showPropertiesDialog) {
-        val file = File(currentPath)
-        val fileSizeMb = if (file.exists()) String.format(Locale.US, "%.2f MB", file.length() / (1024.0 * 1024.0)) else "Unknown"
-        AlertDialog(
-            onDismissRequest = { showPropertiesDialog = false },
-            title = { Text("Video Properties", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Title: $videoTitle", fontSize = 14.sp)
-                    Text("Path: $currentPath", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Size: $fileSizeMb", fontSize = 14.sp)
-                    Text(
-                        "Engine: ${if (currentEngine == PlayerEngine.EXO) "ExoPlayer (Media3)" else "MPV Engine (HW)"}",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
-            confirmButton = { TextButton(onClick = { showPropertiesDialog = false }) { Text("Close") } }
-        )
+    if (showDetailsDialog) {
+        val detailsFile = remember(currentPath) { File(currentPath) }
+        val detailsVideo = remember(currentPath, videoTitle, duration) {
+            VideoItem(
+                id = 0L,
+                title = videoTitle.ifEmpty { detailsFile.nameWithoutExtension },
+                path = currentPath,
+                duration = duration,
+                size = runCatching { detailsFile.length() }.getOrDefault(0L),
+                width = 0,
+                height = 0,
+                dateAdded = 0L,
+                folderPath = runCatching { detailsFile.parent }.getOrNull() ?: "",
+                folderName = runCatching { detailsFile.parentFile?.name }.getOrNull() ?: "")
+        }
+        VideoDetailsDialog(
+            video = detailsVideo,
+            onDismiss = { showDetailsDialog = false })
     }
 
-    if (showBookmarkDialog) {
-        AlertDialog(
-            onDismissRequest = { showBookmarkDialog = false },
-            title = { Text("Add bookmark", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Save ${formatTimeHelper(currentPosition)} as a bookmark?", fontSize = 14.sp)
-                    OutlinedTextField(
-                        value = bookmarkLabel,
-                        onValueChange = { bookmarkLabel = it },
-                        label = { Text("Label (optional)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth())
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val updated =
-                        (bookmarkList.toList() + VideoBookmark(currentPosition, bookmarkLabel.trim()))
-                            .sortedBy { it.positionMs }
-                            .take(50)
-                    bookmarkList.clear()
-                    bookmarkList.addAll(updated)
-                    saveBookmarks(settingsPrefs, currentPath, updated)
-                    showBookmarkDialog = false
-                }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = { TextButton(onClick = { showBookmarkDialog = false }) { Text("Cancel") } }
-        )
+    BackHandler(enabled = showBookmarkDialog || showBookmarkList) {
+        showBookmarkDialog = false
+        showBookmarkList = false
     }
 
-    if (showBookmarkList) {
-        AlertDialog(
-            onDismissRequest = { showBookmarkList = false },
-            title = { Text("Bookmarks", fontWeight = FontWeight.Bold) },
-            text = {
-                if (bookmarkList.isEmpty()) {
-                    Text("No bookmarks yet. Use More → Add bookmark here.", fontSize = 14.sp)
-                } else {
-                    Column(
-                        modifier = Modifier.verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        bookmarkList.toList().forEach { bm ->
-                            Row(
-                                modifier =
-                                    Modifier.fillMaxWidth()
-                                        .clickable {
-                                            onSeek(bm.positionMs)
-                                            viewModel.setCurrentPosition(bm.positionMs)
-                                            showBookmarkList = false
+    // Shared inline content sits immediately above the seekbar in all three layouts.
+    val repeatBookmarkPanel: @Composable () -> Unit = {
+        if (showBookmarkDialog || showBookmarkList) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (showBookmarkDialog || showBookmarkList) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().widthIn(max = 360.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    if (showBookmarkDialog) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                stringResource(R.string.player_bookmark_at_time, formatTimeHelper(bookmarkPosition)),
+                                modifier = Modifier.weight(1f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold)
+                            IconButton(onClick = { showBookmarkDialog = false }) {
+                                Icon(Icons.Default.Close, contentDescription = "Cancel bookmark")
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = bookmarkLabel,
+                                onValueChange = { bookmarkLabel = it },
+                                label = { Text(stringResource(R.string.player_bookmark_label_hint)) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f))
+                            TextButton(onClick = {
+                                val updated =
+                                    (bookmarkList.toList() + VideoBookmark(bookmarkPosition, bookmarkLabel.trim()))
+                                        .sortedBy { it.positionMs }
+                                        .take(50)
+                                bookmarkList.clear()
+                                bookmarkList.addAll(updated)
+                                saveBookmarks(settingsPrefs, currentPath, updated)
+                                showBookmarkDialog = false
+                            }) {
+                                Text(stringResource(R.string.player_save))
+                            }
+                        }
+                    }
+                    if (showBookmarkList) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(pluralStringResource(R.plurals.player_bookmarks_count, bookmarkList.size, bookmarkList.size), modifier = Modifier.weight(1f),
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            IconButton(onClick = { showBookmarkList = false }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close bookmarks")
+                            }
+                        }
+                        if (bookmarkList.isEmpty()) {
+                            Text(stringResource(R.string.player_no_bookmarks_hint), fontSize = 12.sp)
+                        } else {
+                            Column(
+                                modifier = Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                bookmarkList.toList().forEach { bm ->
+                                    Row(
+                                        modifier =
+                                            Modifier.fillMaxWidth()
+                                                .clickable {
+                                                    onSeek(bm.positionMs)
+                                                    viewModel.setCurrentPosition(bm.positionMs)
+                                                    showBookmarkList = false
+                                                }
+                                                .padding(vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                if (bm.label.isNotEmpty()) bm.label else stringResource(R.string.player_bookmark_fallback),
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 14.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis)
+                                            Text(
+                                                formatTimeHelper(bm.positionMs),
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
-                                        .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        if (bm.label.isNotEmpty()) bm.label else "Bookmark",
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 14.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis)
-                                    Text(
-                                        formatTimeHelper(bm.positionMs),
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                IconButton(onClick = {
-                                    bookmarkList.remove(bm)
-                                    saveBookmarks(settingsPrefs, currentPath, bookmarkList.toList())
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Delete,
-                                        contentDescription = "Remove bookmark",
-                                        tint = MaterialTheme.colorScheme.error)
+                                        IconButton(onClick = {
+                                            bookmarkList.remove(bm)
+                                            saveBookmarks(settingsPrefs, currentPath, bookmarkList.toList())
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Delete,
+                                                contentDescription = "Remove bookmark",
+                                                tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            },
-            confirmButton = { TextButton(onClick = { showBookmarkList = false }) { Text("Close") } }
-        )
+            }
+        }
+    }
+        }
     }
 
     // ============================================================
@@ -844,9 +933,9 @@ fun PlayerControls(
         }
         ModalBottomSheet(onDismissRequest = { viewModel.setShowSyncSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text("Speed & Sync", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.player_speed_sync_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Column {
-                    Text("Playback Speed", color = Color.Gray, fontSize = 14.sp)
+                    Text(stringResource(R.string.player_playback_speed), color = Color.Gray, fontSize = 14.sp)
                     Spacer(Modifier.height(12.dp))
                     val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -860,7 +949,7 @@ fun PlayerControls(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    "${speed}x",
+                                    stringResource(R.string.player_speed_value, speed),
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -873,26 +962,26 @@ fun PlayerControls(
                 if (currentEngine == PlayerEngine.MPV) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
-                            Text("Audio Delay", color = Color.White, fontSize = 16.sp)
-                            Text(if (audioDelayMs == 0L) "0 ms" else "${audioDelayMs} ms", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                            Text(stringResource(R.string.player_audio_delay), color = Color.White, fontSize = 16.sp)
+                            Text(stringResource(R.string.player_delay_ms, audioDelayMs), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs -= 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text("-50ms", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs += 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text("+50ms", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs -= 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_minus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs += 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_plus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
                         }
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
-                            Text("Subtitle Delay", color = Color.White, fontSize = 16.sp)
-                            Text(if (subtitleDelayMs == 0L) "0 ms" else "${subtitleDelayMs} ms", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                            Text(stringResource(R.string.player_subtitle_delay), color = Color.White, fontSize = 16.sp)
+                            Text(stringResource(R.string.player_delay_ms, subtitleDelayMs), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs -= 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text("-50ms", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs += 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text("+50ms", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs -= 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_minus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs += 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_plus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
                         }
                     }
                 } else {
-                    Text("Sync delays are automatically handled by ExoPlayer.", color = Color.Gray, fontSize = 14.sp)
+                    Text(stringResource(R.string.player_sync_auto_exo), color = Color.Gray, fontSize = 14.sp)
                 }
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -1000,7 +1089,7 @@ fun PlayerControls(
                                     accX += dx
                                     accY += dy
                                     
-                                    if (sqrt(accX * accX + accY * accY) > 40f) {
+                                    if (sqrt(accX * accX + accY * accY) > 40f && boostPrevSpeed == null) {
                                         isDraggingLocal = true
                                         dragType = if (abs(accX) > abs(accY)) {
                                             // horizontal seek, only outside bottom dead zone
@@ -1104,14 +1193,63 @@ fun PlayerControls(
                         lastTwoFingerActive = false
                     }
                 }
-                .pointerInput(isLocked) {
-                    // Press-and-hold anywhere on the video for temporary 2x.
-                    // No onTap here, so normal taps/double-taps still belong
-                    // to the tap detector below; release always restores speed.
-                    detectTapGestures(
-                        onLongPress = { startSpeedBoost() },
-                        onPress = { tryAwaitRelease(); stopSpeedBoost() }
-                    )
+                .pointerInput(isLocked, isPlaying) {
+                    // REX-style press-and-hold for temporary 2x: one unified
+                    // detector instead of detectTapGestures, which the volume /
+                    // brightness / seek drag detector above could starve or
+                    // cancel on natural finger drift.
+                    // - 500ms timer; fires only if the finger stayed within
+                    //   slop (well under the 40px drag threshold, so drags
+                    //   never fight the hold) and playback is running.
+                    // - Multi-finger press cancels the hold attempt.
+                    // - Release always restores the previous speed, so the
+                    //   release can never leak into tap handling or pause.
+                    // Nothing is consumed here, so taps, double-taps and all
+                    // drags keep working in their own detectors.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val downPos = down.position
+                        val slopPx = 24.dp.toPx()
+                        var maxDrift = 0f
+                        var cancelled = false
+                        var boostedByThisGesture = false
+                        val holdJob = coroutineScope.launch {
+                            delay(500L)
+                            if (!cancelled && maxDrift <= slopPx && !isLocked &&
+                                isPlaying && boostPrevSpeed == null) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                startSpeedBoost()
+                                boostedByThisGesture = true
+                            }
+                        }
+                        try {
+                            do {
+                                val event = awaitPointerEvent()
+                                if (event.changes.count { it.pressed } > 1) {
+                                    cancelled = true
+                                    holdJob.cancel()
+                                } else {
+                                    event.changes.forEach { change ->
+                                        if (change.pressed) {
+                                            val drift =
+                                                (change.position - downPos).getDistance()
+                                            if (drift > maxDrift) maxDrift = drift
+                                            if (maxDrift > slopPx) {
+                                                cancelled = true
+                                                holdJob.cancel()
+                                            }
+                                        }
+                                    }
+                                }
+                            } while (event.changes.any { it.pressed })
+                        } finally {
+                            holdJob.cancel()
+                            if (boostedByThisGesture) {
+                                boostedByThisGesture = false
+                                stopSpeedBoost()
+                            }
+                        }
+                    }
                 }
                 .pointerInput(isLocked) {
                     if (!isLocked) {
@@ -1136,21 +1274,44 @@ fun PlayerControls(
                                 viewModel.setCurrentPosition(target)
                                 if (showDoubleTapIndicator) {
                                     showDoubleTapRipple = if (seekBackward) -1 else 1
+                                    viewModel.setGestureIndicator(4, target.toFloat())
+                                    doubleTapFeedbackGen++
+                                    val feedbackGen = doubleTapFeedbackGen
                                     coroutineScope.launch {
-                                        delay(600)
-                                        showDoubleTapRipple = 0
+                                        delay(1000)
+                                        if (feedbackGen == doubleTapFeedbackGen) {
+                                            showDoubleTapRipple = 0
+                                            if (!isDragging) viewModel.hideGestureOverlay()
+                                        }
                                     }
                                 }
                             },
+                            onPress = { boostTapLatch = false },
                             onTap = {
-                                when (singleTapAction) {
-                                    "play_pause" -> onPlayPause()
-                                    else -> viewModel.setControlsVisible(!controlsVisible)
+                                if (boostTapLatch) {
+                                    boostTapLatch = false
+                                    return@detectTapGestures
                                 }
+                                // Single tap strictly toggles player controls.
+                                viewModel.setControlsVisible(!controlsVisible)
                             }
                         )
                     } else {
-                        detectTapGestures(onTap = { viewModel.setControlsVisible(true) })
+                        detectTapGestures(
+                            onPress = { boostTapLatch = false },
+                            onTap = {
+                                if (boostTapLatch) {
+                                    boostTapLatch = false
+                                    return@detectTapGestures
+                                }
+                                // Locked taps only toggle the shared controls
+                                // visibility (REX): show the unlock button when
+                                // hidden, hide it when visible. Seeking and
+                                // all other interactions stay locked.
+                                // (Fresh-state handler: the detector coroutine
+                                // outlives state changes.)
+                                lockedTapToggle.value()
+                            })
                     }
                 }
         )
@@ -1169,7 +1330,7 @@ fun PlayerControls(
                     .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text("Zoom: ${(videoScale * 100).toInt()}%", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.player_zoom_percent, (videoScale * 100).toInt()), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -1188,9 +1349,9 @@ fun PlayerControls(
                         if (isLeft) {
                             CombiningChevronsAnimation(isRight = false, trigger = showDoubleTapRipple)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("- ${abs(amount)}s", fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
+                            Text(stringResource(R.string.player_seek_backward, abs(amount)), fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
                         } else {
-                            Text("+ ${abs(amount)}s", fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
+                            Text(stringResource(R.string.player_seek_forward, abs(amount)), fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
                             Spacer(modifier = Modifier.width(8.dp))
                             CombiningChevronsAnimation(isRight = true, trigger = showDoubleTapRipple)
                         }
@@ -1212,10 +1373,10 @@ fun PlayerControls(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     val targetMs = gestureIndicatorValue.toLong()
-                    Text("Seek to", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.player_seek_to), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(formatTimeHelper(targetMs), color = MaterialTheme.colorScheme.primary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("/ ${formatTimeHelper(duration)}", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                    Text(stringResource(R.string.player_seek_total, formatTimeHelper(duration)), color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
                 }
             }
         }
@@ -1231,8 +1392,38 @@ fun PlayerControls(
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(50)).padding(horizontal = 20.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("2× speed", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.player_speed_2x), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
+        }
+
+        // ---- Floating A-B panel (bottom-right independent overlay) ----
+        // Compact content-sized pill floating above the bottom controls. It
+        // lives inside the controls-visibility gate, so tap-to-hide and
+        // auto-hide hide it together with every other control, and it never
+        // pushes, moves or resizes any existing control or the seekbar.
+        if (showABPanel && !isLocked) {
+            ABLoopPanel(
+                pointA = abPointA,
+                pointB = abPointB,
+                loopEnabled = abLoopEnabled,
+                onSetA = { viewModel.setABPointA(currentPosition) },
+                onSetB = { viewModel.setABPointB(currentPosition) },
+                onClear = {
+                    viewModel.clearABRepeat()
+                    viewModel.setShowABPanel(false)
+                },
+                onToggleLoop = {
+                    if (abPointA != null && abPointB != null) {
+                        viewModel.setABLoopEnabled(!abLoopEnabled)
+                    } else {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.player_ab_set_both),
+                            Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 180.dp))
         }
 
         // ---- Brightness gesture overlay ----
@@ -1287,7 +1478,7 @@ fun PlayerControls(
         AnimatedVisibility(
             // The locked overlay also hides with the controls; a tap brings
             // it back since gestures stay disabled while locked.
-            visible = controlsVisible,
+            visible = controlsVisible || keepRepeatControlsVisible,
             enter = fadeIn(tween(300)),
             exit = fadeOut(tween(300)),
             modifier = Modifier.fillMaxSize()
@@ -1320,25 +1511,34 @@ fun PlayerControls(
                     )
                 }
                 if (isLocked) {
-                    // ---- Locked state: lock button + slide to unlock ----
+                    // ---- Locked state: single-tap Unlock button ----
+                    // Visible exactly when the controls overlay is visible
+                    // (REX: controlsShown && locked), so it auto-hides and
+                    // tap-toggles together with everything else and can never
+                    // strand the user. One tap unlocks instantly: the old
+                    // slide-to-unlock could never complete because the video
+                    // surface claims horizontal drags for seeking.
                     MpvCircleButton(
-                        icon = Icons.Default.Lock,
+                        icon = Icons.Default.LockOpen,
                         contentDescription = "Unlock",
-                        onClick = { viewModel.setControlsVisible(true) },
+                        onClick = {
+                            viewModel.toggleLock()
+                            viewModel.setControlsVisible(true)
+                        },
                         modifier = Modifier.align(Alignment.CenterStart).padding(start = leftSafePadding),
                         size = 48.dp
                     )
-                    MpvSlideToUnlock(
-                        onUnlock = { viewModel.toggleLock() },
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)
-                    )
                 } else {
                     // ==================== TOP BAR ====================
-                    Row(
+                    Column(
                         modifier = Modifier.align(Alignment.TopCenter)
                             .fillMaxWidth()
                             .padding(top = 24.dp, start = leftSafePadding, end = rightSafePadding)
                             .windowInsetsPadding(WindowInsets.statusBars),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -1362,10 +1562,14 @@ fun PlayerControls(
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.basicMarquee()
                             )
                         }
 
+                        // Portrait collapses these into the More menu so the
+                        // title keeps full width; landscape shows everything.
+                        if (isLandscape) {
                         // Engine badge + extra top-bar actions (hidden in minimalist mode)
                         if (!minimalist) {
                         Box {
@@ -1381,19 +1585,19 @@ fun PlayerControls(
                                 modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Engine: ExoPlayer", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_engine_exo), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { viewModel.setShowEngineMenu(false); toggleEngine(PlayerEngine.EXO) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Engine: MPV (HW)", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_engine_mpv), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { viewModel.setShowEngineMenu(false); toggleEngine(PlayerEngine.MPV) }
                                 )
                                 if (currentEngine == PlayerEngine.MPV) {
                                     Divider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
                                     DropdownMenuItem(
-                                        text = { Text("MPV Decoder Settings", color = MaterialTheme.colorScheme.onSurface) },
+                                        text = { Text(stringResource(R.string.player_menu_mpv_decoder), color = MaterialTheme.colorScheme.onSurface) },
                                         leadingIcon = { Icon(Icons.Outlined.Memory, null, tint = MaterialTheme.colorScheme.primary) },
                                         onClick = { viewModel.setShowEngineMenu(false); viewModel.setShowDecoderMenu(true) }
                                     )
@@ -1428,8 +1632,10 @@ fun PlayerControls(
                             onClick = { viewModel.setPanelMode(PanelMode.SETTINGS) },
                             size = 42.dp
                         )
+                        } // !minimalist
+                        } // isLandscape
 
-                        // More menu
+                        // More menu (always visible, incl. portrait collapsed items)
                         Box {
                             MpvCircleButton(
                                 icon = Icons.Outlined.MoreVert,
@@ -1443,40 +1649,74 @@ fun PlayerControls(
                                 modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Speed & Sync", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_speed_sync_title), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { showMoreMenu = false; viewModel.setShowSyncSheet(true) }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("Set A-B point A", color = MaterialTheme.colorScheme.onSurface) },
-                                    leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; viewModel.setABPointA(currentPosition) }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Set A-B point B", color = MaterialTheme.colorScheme.onSurface) },
-                                    enabled = abPointA != null,
-                                    leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; viewModel.setABPointB(currentPosition) }
-                                )
-                                if (abPointA != null) {
+                                // Portrait-collapsed top-bar actions (landscape
+                                // keeps them as direct icon buttons).
+                                if (!isLandscape) {
                                     DropdownMenuItem(
-                                        text = { Text("Clear A-B repeat", color = MaterialTheme.colorScheme.onSurface) },
-                                        leadingIcon = { Icon(Icons.Outlined.Repeat, null, tint = MaterialTheme.colorScheme.primary) },
-                                        onClick = { showMoreMenu = false; viewModel.clearABRepeat() }
+                                        text = {
+                                            Text(
+                                                if (currentEngine == PlayerEngine.EXO) stringResource(R.string.player_menu_engine_to_mpv)
+                                                else stringResource(R.string.player_menu_engine_to_exo),
+                                                color = MaterialTheme.colorScheme.onSurface)
+                                        },
+                                        leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            toggleEngine(
+                                                if (currentEngine == PlayerEngine.EXO) PlayerEngine.MPV
+                                                else PlayerEngine.EXO)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.player_menu_audio_tracks), color = MaterialTheme.colorScheme.onSurface) },
+                                        leadingIcon = { Icon(Icons.Outlined.Audiotrack, null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            viewModel.setSubtitleAudioTab(SubtitleAudioTab.AUDIO)
+                                            viewModel.setPanelMode(PanelMode.SUB_AUDIO)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.player_menu_subtitles), color = MaterialTheme.colorScheme.onSurface) },
+                                        leadingIcon = { Icon(Icons.Outlined.Subtitles, null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            viewModel.setSubtitleAudioTab(SubtitleAudioTab.SUBTITLE)
+                                            viewModel.setPanelMode(PanelMode.SUB_AUDIO)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.player_menu_settings), color = MaterialTheme.colorScheme.onSurface) },
+                                        leadingIcon = { Icon(Icons.Outlined.Settings, null, tint = MaterialTheme.colorScheme.primary) },
+                                        onClick = { showMoreMenu = false; viewModel.setPanelMode(PanelMode.SETTINGS) }
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("Add bookmark here", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_add_bookmark), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Filled.BookmarkAdd, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; bookmarkLabel = ""; showBookmarkDialog = true }
+                                    onClick = {
+                                        showMoreMenu = false
+                                        bookmarkLabel = ""
+                                        bookmarkPosition = currentPosition
+                                        showBookmarkList = false
+                                        showBookmarkDialog = true
+                                    }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Bookmarks (${bookmarkList.size})", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(pluralStringResource(R.plurals.player_bookmarks_count, bookmarkList.size, bookmarkList.size), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Filled.Bookmarks, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; showBookmarkList = true }
+                                    onClick = {
+                                        showMoreMenu = false
+                                        showBookmarkDialog = false
+                                        showBookmarkList = true
+                                    }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Share", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_share), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
                                         showMoreMenu = false
@@ -1487,18 +1727,40 @@ fun PlayerControls(
                                                 putExtra(Intent.EXTRA_STREAM, uri as android.os.Parcelable)
                                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                             }
-                                            context.startActivity(Intent.createChooser(shareIntent, "Share Video"))
+                                            context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.player_share_video_title)))
                                         }
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Properties", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_details), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
-                                    onClick = { showMoreMenu = false; showPropertiesDialog = true }
+                                    onClick = { showMoreMenu = false; showDetailsDialog = true }
                                 )
                             }
                         }
-                        }
+                    }
+
+                    // ---- AB + Screenshot quick row, directly beneath the
+                    // title area, left-aligned under back/title.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ABTextCircleButton(
+                            text = "AB",
+                            active = showABPanel,
+                            onClick = { viewModel.setShowABPanel(!showABPanel) },
+                            size = 42.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        MpvCircleButton(
+                            icon = Icons.Filled.PhotoCamera,
+                            contentDescription = "Screenshot",
+                            onClick = { takeScreenshot() },
+                            size = 42.dp
+                        )
+                    }
                     }
 
                     // ==================== CENTER TRANSPORT ====================
@@ -1579,42 +1841,19 @@ fun PlayerControls(
                     Column(
                         modifier = Modifier.align(Alignment.BottomCenter)
                             .fillMaxWidth()
+                            .imePadding()
                             .padding(bottom = 20.dp, start = leftSafePadding, end = rightSafePadding),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Bookmark + A-B pins (REX passes loop points to its
+                        // seekbar; VidMax reuses the existing pin markers).
                         val pinFractions =
-                            if (duration > 0) bookmarkList.map { (it.positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f) }
-                            else emptyList()
-                        val abAValue = abPointA
-                        val abBValue = abPointB
-                        if (abAValue != null) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth()
-                                    .clip(RoundedCornerShape(50))
-                                    .background(Color.White.copy(alpha = 0.12f))
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text =
-                                        if (abBValue != null) "A-B  ${formatTimeHelper(abAValue)} → ${formatTimeHelper(abBValue)}"
-                                        else "A ${formatTimeHelper(abAValue)} set — pick point B",
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    text = "Clear",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable { viewModel.clearABRepeat() }.padding(4.dp)
-                                )
-                            }
-                        }
+                            if (duration > 0) {
+                                bookmarkList.map { (it.positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f) } +
+                                    listOfNotNull(
+                                        abPointA?.let { (it.toFloat() / duration.toFloat()).coerceIn(0f, 1f) },
+                                        abPointB?.let { (it.toFloat() / duration.toFloat()).coerceIn(0f, 1f) })
+                            } else emptyList()
                         if (minimalist) {
                             // Minimalist: lock + rotate stay reachable, everything
                             // else hides; seekbar below keeps seeking accessible.
@@ -1629,21 +1868,22 @@ fun PlayerControls(
                                     onClick = { viewModel.toggleLock() },
                                     size = 42.dp,
                                     active = isLocked,
-                                    hideBackground = hideButtonBackground
+                                    hideBackground = false
                                 )
                                 MpvCircleButton(
                                     icon = Icons.Outlined.ScreenRotation,
                                     contentDescription = "Rotate",
                                     onClick = toggleScreenRotation,
                                     size = 42.dp,
-                                    hideBackground = hideButtonBackground
+                                    hideBackground = false
                                 )
                             }
+                            repeatBookmarkPanel()
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,
-                                whiteSeekbar = whiteSeekbar,
-                                reduceMotion = reduceMotion,
+                                whiteSeekbar = false,
+                                reduceMotion = false,
                                 preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
                                 onPositionChange = viewModel::setCurrentPosition,
@@ -1651,11 +1891,12 @@ fun PlayerControls(
                                 onPinClick = { onSeek(it) }
                             )
                         } else if (bottomControlsBelowSeekbar) {
+                            repeatBookmarkPanel()
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,
-                                whiteSeekbar = whiteSeekbar,
-                                reduceMotion = reduceMotion,
+                                whiteSeekbar = false,
+                                reduceMotion = false,
                                 preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
                                 onPositionChange = viewModel::setCurrentPosition,
@@ -1665,25 +1906,18 @@ fun PlayerControls(
                             BottomControlsScrollRow(
                                 isLocked = isLocked,
                                 bgPlayEnabled = bgPlayEnabled,
-                                videoScale = videoScale,
                                 currentPlaybackSpeed = currentPlaybackSpeed,
                                 loopMode = loopMode,
-                                localBoostEnabled = localBoostEnabled,
                                 sleepTimerMinutes = sleepTimerMinutes,
-                                showImmersive = showImmersive,
-                                hideBackground = hideButtonBackground,
+                                hideBackground = false,
                                 onToggleLock = { viewModel.toggleLock() },
                                 onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
                                 onRotate = toggleScreenRotation,
-                                onZoom = { viewModel.setShowZoomSheet(true) },
                                 onAspect = { viewModel.setShowAspectSheet(true) },
                                 onSpeed = { viewModel.setShowSyncSheet(true) },
                                 onRepeat = { viewModel.cycleLoopMode() },
-                                onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
-                                onImmersive = toggleImmersive,
                                 onKeepVisible = { viewModel.setControlsVisible(true) },
-                                onScreenshot = { takeScreenshot() },
                                 showSpeedButton = showSpeedButton,
                                 showLoopButton = showLoopButton,
                                 showZoomButtons = showZoomButtons,
@@ -1693,35 +1927,29 @@ fun PlayerControls(
                             BottomControlsScrollRow(
                                 isLocked = isLocked,
                                 bgPlayEnabled = bgPlayEnabled,
-                                videoScale = videoScale,
                                 currentPlaybackSpeed = currentPlaybackSpeed,
                                 loopMode = loopMode,
-                                localBoostEnabled = localBoostEnabled,
                                 sleepTimerMinutes = sleepTimerMinutes,
-                                showImmersive = showImmersive,
-                                hideBackground = hideButtonBackground,
+                                hideBackground = false,
                                 onToggleLock = { viewModel.toggleLock() },
                                 onToggleBgPlay = { onBgPlayToggle(!bgPlayEnabled) },
                                 onRotate = toggleScreenRotation,
-                                onZoom = { viewModel.setShowZoomSheet(true) },
                                 onAspect = { viewModel.setShowAspectSheet(true) },
                                 onSpeed = { viewModel.setShowSyncSheet(true) },
                                 onRepeat = { viewModel.cycleLoopMode() },
-                                onBoost = toggleAudioBoost,
                                 onTimer = { showTimerDialog = true },
-                                onImmersive = toggleImmersive,
                                 onKeepVisible = { viewModel.setControlsVisible(true) },
-                                onScreenshot = { takeScreenshot() },
                                 showSpeedButton = showSpeedButton,
                                 showLoopButton = showLoopButton,
                                 showZoomButtons = showZoomButtons,
                                 showExtraButtons = showExtraButtons
                             )
+                            repeatBookmarkPanel()
                             SeekBarRow(
                                 currentPosition = currentPosition,
                                 duration = duration,
-                                whiteSeekbar = whiteSeekbar,
-                                reduceMotion = reduceMotion,
+                                whiteSeekbar = false,
+                                reduceMotion = false,
                                 preventTap = preventSeekbarTap,
                                 onSeek = onSeek,
                                 onPositionChange = viewModel::setCurrentPosition,
@@ -1743,25 +1971,18 @@ fun PlayerControls(
 private fun BottomControlsScrollRow(
     isLocked: Boolean,
     bgPlayEnabled: Boolean,
-    videoScale: Float,
     currentPlaybackSpeed: Float,
     loopMode: LoopMode,
-    localBoostEnabled: Boolean,
     sleepTimerMinutes: Int,
-    showImmersive: Boolean,
     hideBackground: Boolean,
     onToggleLock: () -> Unit,
     onToggleBgPlay: () -> Unit,
     onRotate: () -> Unit,
-    onZoom: () -> Unit,
     onAspect: () -> Unit,
     onSpeed: () -> Unit,
     onRepeat: () -> Unit,
-    onBoost: () -> Unit,
     onTimer: () -> Unit,
-    onImmersive: () -> Unit,
     onKeepVisible: () -> Unit,
-    onScreenshot: () -> Unit,
     showSpeedButton: Boolean = true,
     showLoopButton: Boolean = true,
     showZoomButtons: Boolean = true,
@@ -1808,14 +2029,6 @@ private fun BottomControlsScrollRow(
         )
         if (showZoomButtons) {
             MpvCircleButton(
-                icon = Icons.Outlined.ZoomIn,
-                contentDescription = "Zoom",
-                onClick = onZoom,
-                size = 42.dp,
-                active = videoScale != 1f,
-                hideBackground = hideBackground
-            )
-            MpvCircleButton(
                 icon = Icons.Outlined.AspectRatio,
                 contentDescription = "Aspect ratio",
                 onClick = onAspect,
@@ -1845,35 +2058,11 @@ private fun BottomControlsScrollRow(
         }
         if (showExtraButtons) {
             MpvCircleButton(
-                icon = Icons.Filled.PhotoCamera,
-                contentDescription = "Screenshot",
-                onClick = onScreenshot,
-                size = 42.dp,
-                hideBackground = hideBackground
-            )
-            MpvCircleButton(
-                icon = Icons.Outlined.VolumeUp,
-                contentDescription = "Volume boost",
-                onClick = onBoost,
-                size = 42.dp,
-                active = localBoostEnabled,
-                hideBackground = hideBackground
-            )
-            MpvCircleButton(
                 icon = Icons.Outlined.Timer,
                 contentDescription = "Sleep timer",
                 onClick = onTimer,
                 size = 42.dp,
                 active = sleepTimerMinutes > 0,
-                hideBackground = hideBackground
-            )
-        }
-        if (showExtraButtons) {
-            MpvCircleButton(
-                icon = if (showImmersive) Icons.Default.Fullscreen else Icons.Default.FullscreenExit,
-                contentDescription = "Fullscreen",
-                onClick = onImmersive,
-                size = 42.dp,
                 hideBackground = hideBackground
             )
         }
@@ -1883,6 +2072,185 @@ private fun BottomControlsScrollRow(
 // ============================================================
 // Seek bar row
 // ============================================================
+/**
+ * Circular "AB" button for the bottom control row: the same translucent
+ * circular styling as [MpvCircleButton] (shape, surface, border, press
+ * scale), rendering a clear text label instead of an icon.
+ */
+@Composable
+private fun ABTextCircleButton(
+    text: String,
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 42.dp,
+    hideBackground: Boolean = false
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.86f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "abTextButtonScale"
+    )
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier.size(size).scale(scale),
+        shape = CircleShape,
+        color = when {
+            active -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+            hideBackground -> Color.Transparent
+            else -> Color.White.copy(alpha = 0.12f)
+        },
+        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else Color.White,
+        border = if (hideBackground && !active) null
+        else BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        interactionSource = interactionSource
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                color = if (active) MaterialTheme.colorScheme.onPrimary else Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
+
+/**
+ * REX-style compact A-B panel: A → X → B → loop toggle in one rounded pill.
+ *
+ * Adapted from REX Player's floating AB loop panel
+ * (ui/player/controls/PlayerControls.kt): the same 40dp circles, 2dp
+ * spacing, tertiaryContainer point highlight and bordered translucent
+ * container. Only the 4th circle differs — REX opens clip-cut there, while
+ * VidMax shows a loop enable/disable toggle (primaryContainer when the
+ * loop is armed), since VidMax has no clip export.
+ */
+@Composable
+private fun ABLoopPanel(
+    pointA: Long?,
+    pointB: Long?,
+    loopEnabled: Boolean,
+    onSetA: () -> Unit,
+    onSetB: () -> Unit,
+    onClear: () -> Unit,
+    onToggleLoop: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val buttonSize = 40.dp
+    val canLoop = pointA != null && pointB != null
+    val looping = canLoop && loopEnabled
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = modifier.height(buttonSize)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        ) {
+            ABLoopCircle(
+                letter = "A",
+                timestamp = pointA?.let(::formatTimeHelper),
+                highlighted = pointA != null,
+                onClick = onSetA)
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .size(buttonSize - 4.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onClear)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear A-B repeat",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(16.dp))
+                }
+            }
+            ABLoopCircle(
+                letter = "B",
+                timestamp = pointB?.let(::formatTimeHelper),
+                highlighted = pointB != null,
+                onClick = onSetB)
+            Surface(
+                shape = CircleShape,
+                color = if (looping) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f),
+                border = BorderStroke(
+                    1.dp,
+                    if (looping) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .size(buttonSize - 4.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onToggleLoop)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.Repeat,
+                        contentDescription = "Enable or disable A-B loop",
+                        tint = if (looping) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Single A/B point circle for [ABLoopPanel]: the letter label is always
+ * visible, with the timestamp appended beside it while the point is set.
+ * Tapping toggles the point.
+ */
+@Composable
+private fun ABLoopCircle(
+    letter: String,
+    timestamp: String?,
+    highlighted: Boolean,
+    onClick: () -> Unit,
+    buttonSize: Dp = 40.dp
+) {
+    Surface(
+        shape = CircleShape,
+        color = if (highlighted) MaterialTheme.colorScheme.tertiaryContainer else Color.Transparent,
+        modifier = Modifier
+            .height(buttonSize - 4.dp)
+            .widthIn(min = buttonSize - 4.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = if (highlighted) 8.dp else 0.dp)) {
+                Text(
+                    text = letter,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (highlighted) MaterialTheme.colorScheme.onTertiaryContainer
+                    else MaterialTheme.colorScheme.onSurface)
+                if (timestamp != null) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = timestamp,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (highlighted) MaterialTheme.colorScheme.onTertiaryContainer
+                        else MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun SeekBarRow(
     currentPosition: Long,
@@ -2111,7 +2479,7 @@ private fun MpvSlideToUnlock(onUnlock: () -> Unit, modifier: Modifier = Modifier
             )
         }
         Text(
-            "Slide to unlock",
+            stringResource(R.string.player_slide_to_unlock),
             color = Color.White.copy(alpha = 0.7f),
             fontSize = 14.sp,
             modifier = Modifier.align(Alignment.Center)

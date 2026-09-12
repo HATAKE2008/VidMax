@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- HomeScreen (home_) -->
+    <string name="home_toast_selected_deleted">Selected videos deleted successfully</string>
+    <string name="home_toast_delete_cancelled">Delete Cancelled</string>
+    <string name="home_delete_title">Delete Videos</string>
+    <string name="home_delete_message">Are you sure you want to delete %1$d selected videos? This action cannot be undone.</string>
+    <string name="home_delete_confirm">Delete</string>
+    <string name="home_cancel">Cancel</string>
+    <string name="home_toast_renamed">Renamed</string>
+    <string name="home_rename_failed">Rename failed</string>
+    <string name="home_rename_cancelled">Rename cancelled</string>
+    <string name="home_toast_video_deleted">Video deleted</string>
+    <string name="home_delete_failed">Delete failed</string>
+    <string name="home_selection_count">%1$d / %2$d Selected</string>
+    <string name="home_menu_share">Share</string>
+    <string name="home_menu_select_all">Select all</string>
+    <string name="home_menu_deselect_all">Deselect all</string>
+    <string name="home_title_videos">Videos</string>
+    <string name="home_title_folders">Folders</string>
+    <string name="home_title_recent">Recent Play</string>
+    <string name="home_title_playlists">Playlists</string>
+    <string name="home_segment_video">Video</string>
+    <string name="home_segment_folder">Folder</string>
+    <string name="home_segment_recent">Recent</string>
+    <string name="home_segment_playlists">Playlists</string>
+    <string name="home_storage_permission">Storage permission required\nto browse videos.</string>
+    <string name="home_no_videos_match">No videos match \"%1$s\"</string>
+    <string name="home_no_videos_found">No videos found on this device.</string>
+    <string name="home_retry">Retry</string>
+    <string name="home_folder_fallback">Folder</string>
+    <string name="home_folder_empty">This folder is empty.</string>
+    <string name="home_copy_to_folder">Copy to folder</string>
+    <string name="home_move_to_folder">Move to folder</string>
+    <string name="home_no_folders">No folders found.</string>
+    <string name="home_copy_failed">Copy failed</string>
+    <string name="home_move_failed">Move failed</string>
+    <string name="home_continue_watching">Continue watching</string>
+    <string name="home_resume">Resume</string>
+    <string name="home_unknown_folder">Unknown</string>
+    <string name="home_meta_format">%1$s • %2$s</string>
+    <string name="home_copied_skipped_suffix"> (%1$d skipped)</string>
+    <string name="home_moved_already_suffix"> (%1$d already here)</string>
+    <plurals name="home_videos_count">
+        <item quantity="one">%1$d video</item>
+        <item quantity="other">%1$d videos</item>
+    </plurals>
+    <plurals name="home_deleted_count">
+        <item quantity="one">%1$d video deleted</item>
+        <item quantity="other">%1$d videos deleted</item>
+    </plurals>
+    <plurals name="home_copied_count">
+        <item quantity="one">Copied %1$d video%2$s</item>
+        <item quantity="other">Copied %1$d videos%2$s</item>
+    </plurals>
+    <plurals name="home_moved_count">
+        <item quantity="one">Moved %1$d video%2$s</item>
+        <item quantity="other">Moved %1$d videos%2$s</item>
+    </plurals>
+    <plurals name="home_share_count">
+        <item quantity="one">Share %1$d Video</item>
+        <item quantity="other">Share %1$d Videos</item>
+    </plurals>
+
+    <!-- VideoPlaylistsContent (vpl_) -->
+    <string name="vpl_selected_count">%1$d Selected</string>
+    <string name="vpl_empty_title">No playlists yet</string>
+    <string name="vpl_empty_hint">Long-press a video and choose Add to Playlist</string>
+    <string name="vpl_play_failed">Could not play playlist</string>
+    <string name="vpl_create_title">Create Playlist</string>
+    <string name="vpl_create_new_title">New playlist</string>
+    <string name="vpl_create_new_subtitle">Create an empty playlist</string>
+    <string name="vpl_import_m3u_title">Import M3U URL</string>
+    <string name="vpl_import_m3u_subtitle">Import an M3U/M3U8 playlist from a link</string>
+    <string name="vpl_cancel">Cancel</string>
+    <string name="vpl_new_playlist_title">New Playlist</string>
+    <string name="vpl_create_confirm">Create</string>
+    <string name="vpl_rename_title">Rename Playlist</string>
+    <string name="vpl_rename_confirm">Rename</string>
+    <string name="vpl_delete_title">Delete \"%1$s\"?</string>
+    <string name="vpl_delete_message">All videos inside this playlist will be removed from it.</string>
+    <string name="vpl_delete_confirm">Delete</string>
+    <string name="vpl_delete_single_title">Delete this playlist?</string>
+    <string name="vpl_delete_multi_title">Delete %1$d playlists?</string>
+    <string name="vpl_delete_list_message">Videos stay in your library; only the playlists are removed.</string>
+    <string name="vpl_menu_play">Play</string>
+    <string name="vpl_menu_rename">Rename</string>
+    <string name="vpl_menu_delete">Delete</string>
+    <string name="vpl_done">Done</string>
+    <string name="vpl_play_all">Play all</string>
+    <string name="vpl_refresh_from_url">Refresh from URL</string>
+    <string name="vpl_refreshed">Refreshed (%1$d videos)</string>
+    <string name="vpl_refresh_failed">Refresh failed</string>
+    <string name="vpl_reorder">Reorder</string>
+    <string name="vpl_shuffle">Shuffle play</string>
+    <string name="vpl_remove_selected">Remove %1$d selected</string>
+    <string name="vpl_clear_videos">Clear videos</string>
+    <string name="vpl_delete_playlist">Delete playlist</string>
+    <string name="vpl_search_in_playlist">Search in playlist</string>
+    <string name="vpl_empty_playlist">This playlist is empty.\nLong-press videos to add them here.</string>
+    <string name="vpl_no_match">No videos match \"%1$s\"</string>
+    <string name="vpl_import_title">Import M3U Playlist</string>
+    <string name="vpl_import_url_label">Playlist URL (.m3u / .m3u8)</string>
+    <string name="vpl_import_hint">Entries keep their titles and are saved to your library</string>
+    <string name="vpl_importing">Importing…</string>
+    <string name="vpl_import_confirm">Import</string>
+    <string name="vpl_imported">Imported \"%1$s\" (%2$d videos)</string>
+    <string name="vpl_import_failed">Import failed</string>
+    <string name="vpl_name_label">Playlist name</string>
+    <string name="vpl_type_local">Local</string>
+    <plurals name="vpl_videos_count">
+        <item quantity="one">%1$d video</item>
+        <item quantity="other">%1$d videos</item>
+    </plurals>
+
+    <!-- SearchScreen (search_) -->
+    <string name="search_hint_videos">Search videos…</string>
+    <string name="search_hint_in_folder">Search in folder…</string>
+    <string name="search_hint_music">Search songs or artists…</string>
+    <string name="search_hint_network">Search this folder…</string>
+    <string name="search_hint_playlists">Search playlists…</string>
+    <string name="search_clear_title">Clear search history?</string>
+    <string name="search_clear_message">All recent searches will be removed from this device.</string>
+    <string name="search_clear_confirm">Clear</string>
+    <string name="search_cancel">Cancel</string>
+    <string name="search_library_title">Search your library</string>
+    <string name="search_library_subtitle">Find videos, music and folders</string>
+    <string name="search_recent_title">Recent searches</string>
+    <string name="search_no_results_title">No results found</string>
+    <string name="search_no_results_hint">Try a different search term.</string>
+    <plurals name="search_results_count">
+        <item quantity="one">%1$d result</item>
+        <item quantity="other">%1$d results</item>
+    </plurals>
+
+    <!-- PlaylistScreen (pl_) -->
+    <string name="pl_empty">No songs found in %1$s</string>
+    <plurals name="pl_songs_count">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
+
+    <!-- VideoRecentContent (recent_) -->
+    <string name="recent_clear_title">Clear Recent Play?</string>
+    <string name="recent_clear_message">All recently played entries will be removed from this device.</string>
+    <string name="recent_clear_confirm">Clear</string>
+    <string name="recent_cancel">Cancel</string>
+    <string name="recent_empty_title">No recently played videos</string>
+    <string name="recent_empty_hint">Videos you play will appear here</string>
+
+    <!-- VideoFavoritesContent (fav_) -->
+    <string name="fav_empty_title">No favorite videos yet</string>
+    <string name="fav_empty_hint">Long-press a video and choose Add to Favorites</string>
+
+    <!-- VideoActionMenu (vam_) -->
+    <string name="vam_share_chooser">Share Video</string>
+    <string name="vam_share_failed">Could not share this video</string>
+    <string name="vam_renamed">Renamed</string>
+    <string name="vam_rename_failed">Rename failed</string>
+    <string name="vam_rename_cancelled">Rename cancelled</string>
+    <string name="vam_moved">Moved</string>
+    <string name="vam_move_failed">Move failed</string>
+    <string name="vam_move_access_hint">%1$s — enable All Files Access in Settings for reliable move.</string>
+    <string name="vam_move_kept">Original kept: delete not permitted</string>
+    <string name="vam_move_cancelled">Move cancelled</string>
+    <string name="vam_move_title">Move to folder</string>
+    <string name="vam_no_folders">No other folders found.</string>
+    <string name="vam_cancel">Cancel</string>
+    <string name="vam_delete_title">Delete Video</string>
+    <string name="vam_delete_message">Are you sure you want to delete \"%1$s\"? This action cannot be undone.</string>
+    <string name="vam_delete_confirm">Delete</string>
+    <string name="vam_menu_play">Play</string>
+    <string name="vam_menu_rename">Rename</string>
+    <string name="vam_menu_share">Share</string>
+    <string name="vam_menu_add_fav">Add to Favorites</string>
+    <string name="vam_menu_remove_fav">Remove from Favorites</string>
+    <string name="vam_menu_add_playlist">Add to Playlist</string>
+    <string name="vam_menu_move">Move to folder</string>
+    <string name="vam_menu_details">Details</string>
+    <string name="vam_menu_delete">Delete</string>
+    <plurals name="vam_folder_videos_count">
+        <item quantity="one">%1$d video</item>
+        <item quantity="other">%1$d videos</item>
+    </plurals>
+
+    <!-- MediaDetails (mdet_) -->
+    <string name="mdet_title">Details</string>
+    <string name="mdet_label_filename">Filename</string>
+    <string name="mdet_label_location">Location</string>
+    <string name="mdet_label_size">Size</string>
+    <string name="mdet_label_modified">Modified</string>
+    <string name="mdet_label_duration">Duration</string>
+    <string name="mdet_label_resolution">Resolution</string>
+    <string name="mdet_label_aspect_ratio">Aspect ratio</string>
+    <string name="mdet_label_frame_rate">Frame rate</string>
+    <string name="mdet_label_video_codec">Video codec</string>
+    <string name="mdet_label_video_bitrate">Video bitrate</string>
+    <string name="mdet_label_audio_codec">Audio codec</string>
+    <string name="mdet_label_sample_rate">Sample rate</string>
+    <string name="mdet_label_channels">Channels</string>
+    <string name="mdet_label_container">Container</string>
+    <string name="mdet_label_mime">MIME type</string>
+    <string name="mdet_close">Close</string>
+    <string name="mdet_rename_title">Rename File</string>
+    <string name="mdet_name_label">Name</string>
+    <string name="mdet_extension_hint">Extension .%1$s is kept automatically</string>
+    <string name="mdet_rename_confirm">Rename</string>
+    <string name="mdet_cancel">Cancel</string>
+    <string name="mdet_unknown">Unknown</string>
+    <string name="mdet_sample_rate">%1$d Hz</string>
+    <string name="mdet_resolution_value">%1$dx%2$d (%3$s)</string>
+
+    <!-- MainScreen (main_) -->
+    <string name="main_tab_videos">Videos</string>
+    <string name="main_tab_music">Music</string>
+    <string name="main_tab_network">Network</string>
+    <string name="main_default_artist">Vibe Music</string>
+</resources>

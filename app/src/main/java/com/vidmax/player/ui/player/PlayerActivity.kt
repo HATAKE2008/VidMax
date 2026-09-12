@@ -14,7 +14,7 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.view.WindowManager
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,12 +34,19 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.audio.BaseAudioProcessor
+import androidx.media3.common.audio.AudioProcessor.AudioFormat
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.SingleSampleMediaSource
+import java.nio.ByteBuffer
+import com.vidmax.player.R
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.ui.theme.VidMaxTheme
@@ -52,11 +59,22 @@ import `is`.xyz.mpv.MPVLib
 import java.io.File
 import java.util.Locale
 
-class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
+class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
 
     private val playerViewModel: PlayerViewModel by viewModels()
     private var exoPlayer: ExoPlayer? = null
+    private var monoMixProcessor: MonoMixAudioProcessor? = null
     private lateinit var mediaSourceFactory: DefaultMediaSourceFactory
+
+    private fun currentStereoMode(): String =
+        runCatching { prefs.getString("audio_stereo_mode", "Normal") }.getOrNull() ?: "Normal"
+
+    private fun applyStereoMode(mode: String) {
+        try { monoMixProcessor?.setStereoMode(mode) } catch (e: Exception) {}
+        if (playerViewModel.currentEngine.value == PlayerEngine.MPV && mpvInitialized) {
+            applyMpvStereoMode(mode)
+        }
+    }
 
     private var pendingPlayIndex: Int = -1
     private var videoPaths: List<String> = emptyList()
@@ -88,16 +106,16 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                         if (fd != null) {
                             val fdUri = "fd://$fd"
                             MPVLib.command(arrayOf("sub-add", fdUri))
-                            Toast.makeText(this, "Subtitle Added! ✅", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, getString(R.string.player_sub_added_mpv), Toast.LENGTH_SHORT).show()
                         }
                     } else {
                         externalSubUri = uri
-                        Toast.makeText(this, "Subtitle Added!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.player_sub_added), Toast.LENGTH_SHORT).show()
                         handler.post { playVideo(playerViewModel.currentVideoIndex.value) }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    Toast.makeText(this, "Error reading subtitle file", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.player_sub_read_error), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -249,10 +267,23 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         mediaSourceFactory = DefaultMediaSourceFactory(
             DefaultDataSource.Factory(this, httpDataSourceFactory)
         )
+        monoMixProcessor = MonoMixAudioProcessor().apply { setStereoMode(currentStereoMode()) }
+        val channelMixProcessor = monoMixProcessor!!
         exoPlayer = ExoPlayer.Builder(this)
             .setRenderersFactory(
-                DefaultRenderersFactory(this)
-                    .setEnableDecoderFallback(true)
+                object : DefaultRenderersFactory(this) {
+                    override fun buildAudioSink(
+                        context: Context,
+                        enableFloatOutput: Boolean,
+                        enableAudioTrackPlaybackParams: Boolean
+                    ): AudioSink {
+                        return DefaultAudioSink.Builder(this@PlayerActivity)
+                            .setAudioProcessors(arrayOf<AudioProcessor>(channelMixProcessor))
+                            .setEnableFloatOutput(enableFloatOutput)
+                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                            .build()
+                    }
+                }.setEnableDecoderFallback(true)
             )
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
@@ -316,6 +347,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                     viewModel = playerViewModel,
                     currentPath = currentPath,
                     audioBoostEnabled = audioBoostEnabled,
+                    onStereoModeChange = { mode -> applyStereoMode(mode) },
                     onMpvLayoutReady = {
                         if (pendingPlayIndex != -1) {
                             playVideo(pendingPlayIndex)
@@ -396,6 +428,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
 
         playerViewModel.setCurrentVideoIndex(index)
         playerViewModel.clearABRepeat()
+        applyStereoMode(currentStereoMode())
         val path = videoPaths[index]
         currentPlayingPath = path
 
@@ -404,6 +437,8 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         }.getOrDefault(path.substringAfterLast("/").substringBeforeLast("."))
         playerViewModel.setVideoTitle(name)
         prefs.edit().putString("recent_video_path", path).putString("recent_video_title", name).apply()
+        // REX recordPlaybackStart: track advance bumps the entry on top.
+        com.vidmax.player.data.repository.RecentPlayStore.record(prefs, path, name)
 
         val uri = if (path.startsWith("/")) Uri.fromFile(File(path)) else Uri.parse(path)
         val startPos = if (isResumePlayback) prefs.getLong("resume_pos_$path", 0L) else 0L
@@ -454,7 +489,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             // 🔥 FIX: MPV branch এ এসে তবেই MPV init হবে
             ensureMpvReady()
             if (!mpvInitialized) {
-                Toast.makeText(this, "MPV engine failed to start, use EXO engine", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.player_mpv_failed), Toast.LENGTH_LONG).show()
                 return
             }
             exoPlayer?.stop()
@@ -476,6 +511,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             } catch (e: Exception) {}
 
             MPVLib.command(arrayOf("loadfile", uri.toString(), "replace"))
+            applyStereoMode(currentStereoMode())
             try {
                 MPVLib.setPropertyDouble("speed", playerViewModel.playbackSpeed.value.coerceIn(0.25f, 3f).toDouble())
             } catch (e: Exception) {}
@@ -547,7 +583,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                 playerViewModel.setPlaying(false)
                 Toast.makeText(
                     this,
-                    "Could not open stream — paste a direct video link (.mp4 / .mkv / .m3u8), not a page URL",
+                    getString(R.string.player_stream_failed),
                     Toast.LENGTH_LONG,
                 ).show()
             }
@@ -632,16 +668,16 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 android.util.Log.e("VidMaxPlayer", "ExoPlayer error for $currentPlayingPath", error)
                 val reason = when (error.errorCode) {
-                    2001, 2002 -> "network connection failed — check internet / server address"
-                    2003 -> "server sent an unexpected content type"
-                    2004 -> "server rejected this link (dead, blocked or needs login)"
-                    2005 -> "file not found on the server"
-                    2007 -> "plain-HTTP links are blocked by the system"
-                    else -> "source could not be read"
+                    2001, 2002 -> getString(R.string.player_err_network)
+                    2003 -> getString(R.string.player_err_content_type)
+                    2004 -> getString(R.string.player_err_rejected)
+                    2005 -> getString(R.string.player_err_not_found)
+                    2007 -> getString(R.string.player_err_http_blocked)
+                    else -> getString(R.string.player_err_unreadable)
                 }
                 Toast.makeText(
                     this@PlayerActivity,
-                    "Playback error ${error.errorCode}: $reason",
+                    getString(R.string.player_playback_error, error.errorCode, reason),
                     Toast.LENGTH_LONG,
                 ).show()
             }
@@ -732,4 +768,84 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
         exoPlayer = null
         super.onDestroy()
     }
+}
+
+private class MonoMixAudioProcessor : BaseAudioProcessor() {
+    @Volatile private var currentMode: String = "Normal"
+
+    fun setStereoMode(mode: String) {
+        currentMode = mode
+    }
+
+    override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
+        val supportedEncoding =
+            inputAudioFormat.encoding == C.ENCODING_PCM_16BIT ||
+                inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
+        return if ((inputAudioFormat.channelCount == 1 || inputAudioFormat.channelCount == 2) &&
+            supportedEncoding) {
+            AudioFormat(inputAudioFormat.sampleRate, inputAudioFormat.channelCount, inputAudioFormat.encoding)
+        } else {
+            AudioFormat.NOT_SET
+        }
+    }
+
+    override fun queueInput(inputBuffer: ByteBuffer) {
+        val mode = currentMode
+        val channels = inputAudioFormat.channelCount
+        val position = inputBuffer.position()
+        val limit = inputBuffer.limit()
+        val bytesPerFrame = inputAudioFormat.bytesPerFrame
+        val frameCount = (limit - position) / bytesPerFrame
+        val output = replaceOutputBuffer(frameCount * bytesPerFrame)
+        val floating = inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
+        val monoMix = mode == "Mono" && channels == 2
+        val swapChannels = mode == "Reverse" && channels == 2
+        var readAt = position
+        repeat(frameCount) {
+            if (floating) {
+                val left = inputBuffer.getFloat(readAt)
+                val right = inputBuffer.getFloat(readAt + 4)
+                val outLeft: Float
+                val outRight: Float
+                if (monoMix) {
+                    val mixed = ((left + right) / 2f).coerceIn(-1f, 1f)
+                    outLeft = mixed
+                    outRight = mixed
+                } else if (swapChannels) {
+                    outLeft = right
+                    outRight = left
+                } else {
+                    outLeft = left
+                    outRight = right
+                }
+                output.putFloat(outLeft)
+                output.putFloat(outRight)
+            } else {
+                val left = inputBuffer.getShort(readAt).toInt()
+                val right = inputBuffer.getShort(readAt + 2).toInt()
+                val outLeft: Int
+                val outRight: Int
+                if (monoMix) {
+                    val mixed = ((left + right) / 2).coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                    outLeft = mixed
+                    outRight = mixed
+                } else if (swapChannels) {
+                    outLeft = right
+                    outRight = left
+                } else {
+                    outLeft = left
+                    outRight = right
+                }
+                output.putShort(outLeft.toShort())
+                output.putShort(outRight.toShort())
+            }
+            readAt += bytesPerFrame
+        }
+        inputBuffer.position(limit)
+        output.flip()
+    }
+
+    override fun onFlush() {}
+
+    override fun onReset() {}
 }

@@ -10,9 +10,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.R
 import com.vidmax.player.data.model.AudioItem
 import com.vidmax.player.viewmodel.LibraryViewModel
 
@@ -54,7 +57,7 @@ fun PlaylistScreen(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold)
                 Text(
-                    text = "${audioList.size} songs",
+                    text = pluralStringResource(R.plurals.pl_songs_count, audioList.size, audioList.size),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp)
               }
@@ -63,7 +66,7 @@ fun PlaylistScreen(
         if (audioList.isEmpty()) {
           Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                text = "No songs found in $title",
+                text = stringResource(R.string.pl_empty, title),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 16.sp)
           }

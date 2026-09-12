@@ -8,7 +8,7 @@
 
 <br/><br/>
 
-[![Build](https://github.com/HATAKE2008/vidamx/actions/workflows/build.yml/badge.svg)](https://github.com/HATAKE2008/vidamx/actions/workflows/build.yml)
+[![Build](https://github.com/HATAKE2008/VidMax/actions/workflows/build.yml/badge.svg)](https://github.com/HATAKE2008/VidMax/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/License-MIT-2563EB?style=flat-square&logo=opensourceinitiative&logoColor=white)](./LICENSE)
 [![Platform](https://img.shields.io/badge/Android-SDK%2021%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org/)
@@ -27,17 +27,17 @@
 
 <br/>
 
-<a href="https://github.com/HATAKE2008/vidamx/releases/latest">
+<a href="https://github.com/HATAKE2008/VidMax/releases/latest">
 <img src="https://img.shields.io/badge/Download%20Latest%20APK-40E0D0?style=for-the-badge&logo=android&logoColor=white"/>
 </a>
 
-<a href="https://github.com/HATAKE2008/vidamx">
+<a href="https://github.com/HATAKE2008/VidMax">
 <img src="https://img.shields.io/badge/Star%20on%20GitHub-FFD700?style=for-the-badge&logo=github&logoColor=black"/>
 </a>
 
 <br/><br/>
 
-<strong>Latest Release: <a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.5">VidMax v1.1.5</a></strong>
+<strong>Latest Release: <a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.6">VidMax v1.1.6</a> · 22.3 MB</strong>
 
 </div>
 
@@ -123,17 +123,31 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 | <img src="https://cdn-icons-png.flaticon.com/512/1077/1077035.png" width="18"/> Favorites | Local and online favorites |
 | <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" width="18"/> AMOLED | Pure black theme |
 | <img src="https://cdn-icons-png.flaticon.com/512/1827/1827951.png" width="18"/> Font Changer | Built-in fonts + TTF/OTF |
+| <img src="https://cdn-icons-png.flaticon.com/512/2462/2462719.png" width="18"/> App Language | English, বাংলা, हिन्दी + System Default |
 | <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="18"/> Auto Updates | GitHub release checker |
 | <img src="https://cdn-icons-png.flaticon.com/512/565/565547.png" width="18"/> Ads | None |
 | <img src="https://cdn-icons-png.flaticon.com/512/2913/2913133.png" width="18"/> Privacy | No unnecessary tracking |
 
 ---
 
+## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.1.6
+
+> **Major update — full app language system, redesigned onboarding, advanced playlists and extensive player/library polish.**
+
+<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.6">View Full Changelog →</a>
+
+- 🌍 **App language**: English, বাংলা, हिन्दी (+ System Default), ~720 strings translated across player, library, music, network and settings — also changeable from Settings → Appearance
+- 👋 **New setup screen**: Language + Storage + Font + Theme → Get Started, with real storage-access state and no extra permission dialogs
+- 🎵 **Playlists**: search, reorder, shuffle, M3U/URL import with refresh-from-source
+- 📁 **Library**: modern folder grid with thumbnails, metadata pills, Continue Watching, unified selection with batch copy/move/delete/share, move-to-folder, atomic full-storage move
+- 🎛 **Player**: AB repeat with markers, bookmark panel, subtitle styling engine, audio output routing, drift-tolerant hold-to-2x, stereo-mode channel mixing
+- 🔧 **Fixes**: player lock state, scoped-storage rename, MediaStore move without duplicates, stuck refresh indicator, SMB in release builds
+
 ## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.1.5
 
 > **Library UX update — smarter browsing, unified views, powerful search, one-click screenshot, Telegram community and Settings Backup & Restore.**
 
-<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.5">View Full Changelog →</a>
+<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.5">View Full Changelog →</a>
 
 ### <img src="https://cdn-icons-png.flaticon.com/512/3059/3059446.png" width="20"/> Video Library
 
@@ -200,7 +214,7 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 - Crash guards around media library queries
 - Refreshed Settings layout with clearer sections
 
-<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.5">View Full Changelog →</a>
+<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.5">View Full Changelog →</a>
 
 ---
 
@@ -208,7 +222,7 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 
 > **Major update — Network Streaming, rebuilt player, improved music experience and extensive UI polish.**
 
-<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.4">View Full Changelog →</a>
+<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.4">View Full Changelog →</a>
 
 ### <img src="https://cdn-icons-png.flaticon.com/512/3059/3059446.png" width="20"/> Network Streaming
 
@@ -558,17 +572,18 @@ When a new release is available, the application can notify the user.
 
 <div align="center">
 
-<h3>VidMax v1.1.5</h3>
+<h3>VidMax v1.1.6</h3>
+<strong>22.3 MB</strong>
 
 <br/><br/>
 
-<a href="https://github.com/HATAKE2008/vidamx/releases/latest">
+<a href="https://github.com/HATAKE2008/VidMax/releases/latest">
 <img src="https://img.shields.io/badge/Download%20Latest%20APK-40E0D0?style=for-the-badge&logo=android&logoColor=white"/>
 </a>
 
 <br/><br/>
 
-<a href="https://github.com/HATAKE2008/vidamx/releases/tag/v1.1.5">View Release Notes</a>
+<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.6">View Release Notes</a>
 
 </div>
 
@@ -576,13 +591,14 @@ When a new release is available, the application can notify the user.
 
 | Version | Date | Size |
 |---|---|---|
+| v1.1.6 | 2026-09-12 | 22.3 MB |
 | v1.1.5 | 2026-09-04 | See release page |
 | v1.1.4 | 2026-08-29 | 22.7 MB |
 | v1.1.3 | 2026-08-12 | 33.2 MB |
 | v1.1.1 | 2026-08-07 | 32.4 MB |
 | v1.1.0 | 2026-08-07 | 32.4 MB |
 
-All releases: https://github.com/HATAKE2008/vidamx/releases
+All releases: https://github.com/HATAKE2008/VidMax/releases
 
 ---
 
@@ -712,7 +728,7 @@ app/src/main/java/com/vidmax/player/
 **Clone Repository**
 
 ```bash
-git clone https://github.com/HATAKE2008/vidamx.git
+git clone https://github.com/HATAKE2008/VidMax.git
 cd vidamx
 ```
 
@@ -761,7 +777,7 @@ Open Pull Request
 
 ## <img src="https://cdn-icons-png.flaticon.com/512/9068/9068699.png" width="22"/> Bug Reports
 
-Found a bug? <a href="https://github.com/HATAKE2008/vidamx/issues">Open an Issue</a>
+Found a bug? <a href="https://github.com/HATAKE2008/VidMax/issues">Open an Issue</a>
 
 Please include:
 
@@ -848,16 +864,16 @@ VidMax is built using and inspired by excellent open-source technologies.
 
 <br/>
 
-<a href="https://github.com/HATAKE2008/vidamx">
+<a href="https://github.com/HATAKE2008/VidMax">
 <img src="https://img.shields.io/badge/Star%20VidMax%20on%20GitHub-FFD700?style=for-the-badge&logo=github&logoColor=black"/>
 </a>
 
 <br/><br/>
 
-<img src="https://img.shields.io/github/stars/HATAKE2008/vidamx?style=for-the-badge&logo=github&label=Stars"/>
-<img src="https://img.shields.io/github/forks/HATAKE2008/vidamx?style=for-the-badge&logo=github&label=Forks"/>
-<img src="https://img.shields.io/github/issues/HATAKE2008/vidamx?style=for-the-badge&logo=github&label=Issues"/>
-<img src="https://img.shields.io/github/license/HATAKE2008/vidamx?style=for-the-badge&label=License"/>
+<img src="https://img.shields.io/github/stars/HATAKE2008/VidMax?style=for-the-badge&logo=github&label=Stars"/>
+<img src="https://img.shields.io/github/forks/HATAKE2008/VidMax?style=for-the-badge&logo=github&label=Forks"/>
+<img src="https://img.shields.io/github/issues/HATAKE2008/VidMax?style=for-the-badge&logo=github&label=Issues"/>
+<img src="https://img.shields.io/github/license/HATAKE2008/VidMax?style=for-the-badge&label=License"/>
 
 </div>
 
@@ -871,13 +887,13 @@ VidMax is built using and inspired by excellent open-source technologies.
 
 <br/><br/>
 
-<a href="https://github.com/HATAKE2008/vidamx">
+<a href="https://github.com/HATAKE2008/VidMax">
 <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white"/>
 </a>
-<a href="https://github.com/HATAKE2008/vidamx/releases">
+<a href="https://github.com/HATAKE2008/VidMax/releases">
 <img src="https://img.shields.io/badge/Releases-Download-40E0D0?style=for-the-badge&logo=android&logoColor=white"/>
 </a>
-<a href="https://github.com/HATAKE2008/vidamx/issues">
+<a href="https://github.com/HATAKE2008/VidMax/issues">
 <img src="https://img.shields.io/badge/Issues-Feedback-0EA5E9?style=for-the-badge&logo=github&logoColor=white"/>
 </a>
 

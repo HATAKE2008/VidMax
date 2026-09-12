@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Common actions -->
+    <string name="action_done">हो गया</string>
+    <string name="action_cancel">रद्द करें</string>
+    <string name="action_change">बदलें</string>
+    <string name="action_remove">हटाएँ</string>
+    <string name="action_open_settings">सेटिंग खोलें</string>
+
+    <!-- Language -->
+    <string name="language_title">पसंदीदा भाषा</string>
+
+    <!-- Font -->
+    <string name="font_title">फ़ॉन्ट</string>
+    <string name="font_system_default">सिस्टम डिफ़ॉल्ट</string>
+
+    <!-- Theme -->
+    <string name="theme_title">थीम</string>
+    <string name="theme_appearance">रूप</string>
+    <string name="theme_amoled_black">AMOLED ब्लैक</string>
+    <string name="theme_color_theme">कलर थीम</string>
+    <string name="dark_mode_dark">डार्क</string>
+    <string name="dark_mode_light">लाइट</string>
+    <string name="dark_mode_system">सिस्टम</string>
+
+    <!-- Onboarding setup -->
+    <string name="onboarding_title">VidMax में स्वागत है</string>
+    <string name="onboarding_subtitle">आपका आधुनिक, शक्तिशाली और\nकस्टमाइज़ करने योग्य मीडिया प्लेयर।</string>
+    <string name="onboarding_get_started">शुरू करें</string>
+    <string name="onboarding_storage_required_hint">आगे बढ़ने के लिए स्टोरेज एक्सेस ज़रूरी है।</string>
+
+    <!-- Storage access -->
+    <string name="storage_title">स्टोरेज एक्सेस</string>
+    <string name="storage_required_desc">आपका मीडिया खोजने और चलाने के लिए अनुमति ज़रूरी है।</string>
+    <string name="storage_grant">स्टोरेज एक्सेस दें</string>
+    <string name="storage_granted_title">स्टोरेज एक्सेस मिल गया</string>
+    <string name="storage_granted_desc">अनुमति मिल गई है। VidMax आपका मीडिया खोजने और चलाने के लिए तैयार है।</string>
+    <string name="storage_partial_desc">मीडिया एक्सेस मिल गया है। सेटअप पूरा करने के लिए ऑल फाइल्स एक्सेस चालू करें।</string>
+
+    <!-- Modern player screen -->
+    <string name="mpscr_delete_title">ऑडियो हटाएँ</string>
+    <string name="mpscr_delete_message">क्या आप वाकई \'%1$s\' हटाना चाहते हैं?</string>
+    <string name="mpscr_delete">हटाएँ</string>
+    <string name="mpscr_deleted">हटा दिया गया</string>
+    <string name="mpscr_delete_failed">विफल रहा</string>
+    <string name="mpscr_props_title">ऑडियो प्रॉपर्टीज़</string>
+    <string name="mpscr_prop_title">शीर्षक: %1$s</string>
+    <string name="mpscr_prop_artist">कलाकार: %1$s</string>
+    <string name="mpscr_prop_path">पाथ: %1$s</string>
+    <string name="mpscr_prop_size">साइज़: %1$s</string>
+    <string name="mpscr_unknown_size">अज्ञात साइज़</string>
+    <string name="mpscr_close">बंद करें</string>
+    <string name="mpscr_timer_title">स्लीप टाइमर</string>
+    <string name="mpscr_timer_off">बंद</string>
+    <string name="mpscr_timer_minutes">%1$d मिनट</string>
+    <string name="mpscr_menu_properties">प्रॉपर्टीज़</string>
+    <string name="mpscr_up_next">आगे</string>
+
+</resources>
