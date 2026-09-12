@@ -729,7 +729,7 @@ app/src/main/java/com/vidmax/player/
 
 ```bash
 git clone https://github.com/HATAKE2008/VidMax.git
-cd vidamx
+cd VidMax
 ```
 
 **Build Debug APK**
