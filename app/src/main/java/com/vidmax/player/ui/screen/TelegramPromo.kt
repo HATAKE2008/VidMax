@@ -7,7 +7,6 @@ import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,7 +82,7 @@ fun openTelegramCommunity(context: Context) {
 }
 
 /**
- * Compact floating Material 3 card promoting the Telegram community.
+ * Compact, minimal Material 3 card promoting the Telegram community.
  * Used both for the first-launch invitation and the Home top-bar action.
  * Dismisses on outside tap / back press via Dialog defaults.
  */
@@ -96,77 +95,76 @@ fun TelegramPromoSheet(
   val telegramAccent = Color(0xFF229ED9)
   Dialog(onDismissRequest = onDismiss) {
     Card(
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         border = androidx.compose.foundation.BorderStroke(
-            1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 24.dp)
+            .padding(horizontal = 24.dp, vertical = 32.dp)
             .navigationBarsPadding()) {
       Column(
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp),
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 18.dp),
           horizontalAlignment = Alignment.CenterHorizontally) {
 
-            // Hero Telegram badge
+            // Badge
             Box(
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(44.dp)
                     .clip(CircleShape)
-                    .background(telegramAccent.copy(alpha = 0.18f)),
+                    .background(telegramAccent.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center) {
                   Icon(
                       imageVector = Icons.AutoMirrored.Rounded.Send,
                       contentDescription = null,
                       tint = telegramAccent,
-                      modifier = Modifier.size(28.dp))
+                      modifier = Modifier.size(20.dp))
                 }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = stringResource(R.string.tg_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = stringResource(R.string.tg_subtitle),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 maxLines = 2,
                 textAlign = TextAlign.Center)
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
                   FeaturePill(text = stringResource(R.string.tg_pill_updates))
                   FeaturePill(text = stringResource(R.string.tg_pill_requests))
                   FeaturePill(text = stringResource(R.string.tg_pill_bugfix))
                 }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             Button(
                 onClick = onJoin,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = telegramAccent,
                     contentColor = Color.White),
-                modifier = Modifier.fillMaxWidth()) {
+                modifier = Modifier.fillMaxWidth().height(44.dp)) {
                   Icon(
                       imageVector = Icons.AutoMirrored.Rounded.Send,
                       contentDescription = null,
-                      modifier = Modifier.size(18.dp))
-                  Spacer(modifier = Modifier.width(8.dp))
-                  Text(text = stringResource(R.string.tg_open), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                      modifier = Modifier.size(16.dp))
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Text(text = stringResource(R.string.tg_open), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             TextButton(onClick = onDismiss) {
               Text(
                   text = stringResource(R.string.tg_not_now),
-                  fontSize = 14.sp,
+                  fontSize = 13.sp,
                   color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
           }
@@ -178,14 +176,14 @@ fun TelegramPromoSheet(
 private fun FeaturePill(text: String) {
   Box(
       modifier = Modifier
-          .clip(RoundedCornerShape(12.dp))
+          .clip(RoundedCornerShape(10.dp))
           .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-          .padding(horizontal = 12.dp, vertical = 8.dp),
+          .padding(horizontal = 10.dp, vertical = 6.dp),
       contentAlignment = Alignment.Center) {
         Text(
             text = text,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Medium)
       }
 }
