@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -173,7 +174,7 @@ private fun ConnectionsList(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Network",
+                text = stringResource(R.string.net_title),
                 color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -201,7 +202,7 @@ private fun ConnectionsList(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Recent Links",
+                        text = stringResource(R.string.net_recent_links),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -232,20 +233,20 @@ private fun ConnectionsList(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "No servers yet",
+                            text = stringResource(R.string.net_empty_title),
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Add an SMB, FTP or WebDAV server to stream videos",
+                            text = stringResource(R.string.net_empty_hint),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 13.sp,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(onClick = onAdd) {
-                            Text("Add Server")
+                            Text(stringResource(R.string.net_add_server))
                         }
                     }
                 }
@@ -253,7 +254,7 @@ private fun ConnectionsList(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Servers",
+                        text = stringResource(R.string.net_servers),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -366,7 +367,7 @@ private fun ConnectionCard(
 
             if (connection.path != "/") {
                 Text(
-                    text = "Path: ${connection.path}",
+                    text = stringResource(R.string.net_path_label, connection.path),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -377,7 +378,7 @@ private fun ConnectionCard(
 
             if (connection.username.isNotEmpty() && !connection.isAnonymous) {
                 Text(
-                    text = "User: ${connection.username}",
+                    text = stringResource(R.string.net_user_label, connection.username),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
@@ -412,7 +413,7 @@ private fun ConnectionCard(
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                                 )
                                 Text(
-                                    "Connecting",
+                                    stringResource(R.string.net_connecting),
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                                 )
                             }
@@ -432,7 +433,7 @@ private fun ConnectionCard(
                                     contentDescription = null,
                                     modifier = Modifier.padding(end = 8.dp),
                                 )
-                                Text("Browse")
+                                Text(stringResource(R.string.net_browse))
                             }
                             FilledTonalButton(
                                 onClick = onDisconnect,
@@ -446,7 +447,7 @@ private fun ConnectionCard(
                                     contentDescription = null,
                                     modifier = Modifier.padding(end = 8.dp),
                                 )
-                                Text("Disconnect")
+                                Text(stringResource(R.string.net_disconnect))
                             }
                         }
                     }
@@ -463,7 +464,7 @@ private fun ConnectionCard(
                                 contentDescription = null,
                                 modifier = Modifier.padding(end = 8.dp),
                             )
-                            Text("Connect")
+                                Text(stringResource(R.string.net_connect))
                         }
                     }
                 }
@@ -546,7 +547,7 @@ private fun NetworkBrowser(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "No files found",
+                        text = stringResource(R.string.net_empty_files),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                     )

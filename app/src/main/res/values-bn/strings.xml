@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Common actions -->
+    <string name="action_done">সম্পন্ন</string>
+    <string name="action_cancel">বাতিল</string>
+    <string name="action_change">পরিবর্তন</string>
+    <string name="action_remove">মুছুন</string>
+    <string name="action_open_settings">সেটিংস খুলুন</string>
+
+    <!-- Language -->
+    <string name="language_title">পছন্দের ভাষা</string>
+
+    <!-- Font -->
+    <string name="font_title">ফন্ট</string>
+    <string name="font_system_default">সিস্টেম ডিফল্ট</string>
+
+    <!-- Theme -->
+    <string name="theme_title">থিম</string>
+    <string name="theme_appearance">রূপ</string>
+    <string name="theme_amoled_black">AMOLED কালো</string>
+    <string name="theme_color_theme">কালার থিম</string>
+    <string name="dark_mode_dark">ডার্ক</string>
+    <string name="dark_mode_light">লাইট</string>
+    <string name="dark_mode_system">সিস্টেম</string>
+
+    <!-- Onboarding setup -->
+    <string name="onboarding_title">VidMax-এ স্বাগতম</string>
+    <string name="onboarding_subtitle">আপনার আধুনিক, শক্তিশালী এবং\nকাস্টমাইজযোগ্য মিডিয়া প্লেয়ার।</string>
+    <string name="onboarding_get_started">শুরু করুন</string>
+    <string name="onboarding_storage_required_hint">এগিয়ে যেতে স্টোরেজ অ্যাক্সেস প্রয়োজন।</string>
+
+    <!-- Storage access -->
+    <string name="storage_title">স্টোরেজ অ্যাক্সেস</string>
+    <string name="storage_required_desc">আপনার মিডিয়া খুঁজতে ও চালাতে অনুমতি প্রয়োজন।</string>
+    <string name="storage_grant">স্টোরেজ অ্যাক্সেস দিন</string>
+    <string name="storage_granted_title">স্টোরেজ অ্যাক্সেস দেওয়া হয়েছে</string>
+    <string name="storage_granted_desc">অনুমতি দেওয়া হয়েছে। VidMax আপনার মিডিয়া খুঁজতে ও চালাতে প্রস্তুত।</string>
+    <string name="storage_partial_desc">মিডিয়া অ্যাক্সেস দেওয়া হয়েছে। সেটআপ শেষ করতে সব ফাইল অ্যাক্সেস চালু করুন।</string>
+
+    <!-- Modern player screen -->
+    <string name="mpscr_delete_title">অডিও মুছুন</string>
+    <string name="mpscr_delete_message">আপনি কি নিশ্চিত যে \'%1$s\' মুছতে চান?</string>
+    <string name="mpscr_delete">মুছুন</string>
+    <string name="mpscr_deleted">মোছা হয়েছে</string>
+    <string name="mpscr_delete_failed">ব্যর্থ হয়েছে</string>
+    <string name="mpscr_props_title">অডিও প্রপার্টিজ</string>
+    <string name="mpscr_prop_title">শিরোনাম: %1$s</string>
+    <string name="mpscr_prop_artist">শিল্পী: %1$s</string>
+    <string name="mpscr_prop_path">পাথ: %1$s</string>
+    <string name="mpscr_prop_size">সাইজ: %1$s</string>
+    <string name="mpscr_unknown_size">অজানা সাইজ</string>
+    <string name="mpscr_close">বন্ধ করুন</string>
+    <string name="mpscr_timer_title">স্লিপ টাইমার</string>
+    <string name="mpscr_timer_off">বন্ধ</string>
+    <string name="mpscr_timer_minutes">%1$d মিনিট</string>
+    <string name="mpscr_menu_properties">প্রপার্টিজ</string>
+    <string name="mpscr_up_next">পরবর্তী</string>
+
+</resources>

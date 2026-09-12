@@ -64,6 +64,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -206,11 +208,11 @@ fun HomeScreen(
       rememberLauncherForActivityResult(
           contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-              Toast.makeText(context, "Selected videos deleted successfully", Toast.LENGTH_SHORT)
+              Toast.makeText(context, context.getString(R.string.home_toast_selected_deleted), Toast.LENGTH_SHORT)
                   .show()
               selection = selection.clear()
             } else {
-              Toast.makeText(context, "Delete Cancelled", Toast.LENGTH_SHORT).show()
+              Toast.makeText(context, context.getString(R.string.home_toast_delete_cancelled), Toast.LENGTH_SHORT).show()
             }
           }
 
@@ -235,14 +237,14 @@ fun HomeScreen(
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
-        title = { Text("Delete Videos", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+        title = { Text(stringResource(R.string.home_delete_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
         text = {
           Text(
-              "Are you sure you want to delete ${selectedVideos.size} selected videos? This action cannot be undone.")
+              stringResource(R.string.home_delete_message, selectedVideos.size))
         },
         confirmButton = {
           DialogConfirmButton(
-              label = "Delete",
+              label = stringResource(R.string.home_delete_confirm),
               danger = true,
               onClick = {
                 showDeleteConfirmDialog = false
@@ -253,11 +255,11 @@ fun HomeScreen(
                   // All-files access: direct delete, no consent dialog.
                   viewModel.deleteVideos(targets) { result ->
                     result.onSuccess { count ->
-                      Toast.makeText(context, "$count video(s) deleted", Toast.LENGTH_SHORT)
+                      Toast.makeText(context, context.resources.getQuantityString(R.plurals.home_deleted_count, count, count), Toast.LENGTH_SHORT)
                           .show()
                       selection = selection.clear()
                     }.onFailure {
-                      Toast.makeText(context, it.message ?: "Delete failed", Toast.LENGTH_SHORT)
+                      Toast.makeText(context, it.message ?: context.getString(R.string.home_delete_failed), Toast.LENGTH_SHORT)
                           .show()
                     }
                   }
@@ -287,7 +289,7 @@ fun HomeScreen(
                       }
                     }
                   }
-                  Toast.makeText(context, "$deletedCount video(s) deleted", Toast.LENGTH_SHORT)
+                  Toast.makeText(context, context.resources.getQuantityString(R.plurals.home_deleted_count, deletedCount, deletedCount), Toast.LENGTH_SHORT)
                       .show()
                   selection = selection.clear()
                 }
@@ -295,7 +297,7 @@ fun HomeScreen(
               })
         },
         dismissButton = {
-          DialogCancelButton(label = "Cancel", onClick = { showDeleteConfirmDialog = false })
+          DialogCancelButton(label = stringResource(R.string.home_cancel), onClick = { showDeleteConfirmDialog = false })
         })
   }
 
@@ -338,12 +340,12 @@ fun HomeScreen(
     pendingRename = null
     // REX renameSelected: exit selection mode after a successful op.
     selection = selection.clear()
-    Toast.makeText(context, "Renamed", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.home_toast_renamed), Toast.LENGTH_SHORT).show()
   }
 
   fun failRename(message: String?) {
     renameBusy = false
-    renameError = message ?: "Rename failed"
+    renameError = message ?: context.getString(R.string.home_rename_failed)
   }
 
   val renameWriteLauncher =
@@ -356,7 +358,7 @@ fun HomeScreen(
                 retryResult.onSuccess { succeedRename() }.onFailure { failRename(it.message) }
               }
             } else {
-              failRename("Rename cancelled")
+              failRename(context.getString(R.string.home_rename_cancelled))
             }
           }
 
@@ -389,9 +391,9 @@ fun HomeScreen(
       // All-files access: direct delete, no "Allow VidMax to delete?" prompt.
       viewModel.deleteVideo(video) { result ->
         result.onSuccess {
-          Toast.makeText(context, "Video deleted", Toast.LENGTH_SHORT).show()
+          Toast.makeText(context, context.getString(R.string.home_toast_video_deleted), Toast.LENGTH_SHORT).show()
         }.onFailure {
-          Toast.makeText(context, it.message ?: "Delete failed", Toast.LENGTH_SHORT).show()
+          Toast.makeText(context, it.message ?: context.getString(R.string.home_delete_failed), Toast.LENGTH_SHORT).show()
         }
       }
       return
@@ -411,7 +413,7 @@ fun HomeScreen(
               } ?: false
       Toast.makeText(
               context,
-              if (deleted) "Video deleted" else "Delete failed",
+              if (deleted) context.getString(R.string.home_toast_video_deleted) else context.getString(R.string.home_delete_failed),
               Toast.LENGTH_SHORT)
           .show()
     }
@@ -484,7 +486,7 @@ fun HomeScreen(
                       modifier = Modifier.size(24.dp))
                 }
                 Text(
-                    text = "${selection.selectedCount} / ${videos.size} Selected",
+                    text = stringResource(R.string.home_selection_count, selection.selectedCount, videos.size),
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold)
@@ -526,7 +528,7 @@ fun HomeScreen(
                       expanded = topOverflowOpen,
                       onDismissRequest = { topOverflowOpen = false }) {
                         DropdownMenuItem(
-                            text = { Text("Share") },
+                            text = { Text(stringResource(R.string.home_menu_share)) },
                             leadingIcon = {
                               Icon(
                                   painter = painterResource(id = R.drawable.ic_share_custom),
@@ -549,15 +551,15 @@ fun HomeScreen(
                                       addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     }
                                 context.startActivity(
-                                    Intent.createChooser(intent, "Share ${uris.size} Videos"))
+                                    Intent.createChooser(intent, context.resources.getQuantityString(R.plurals.home_share_count, uris.size, uris.size)))
                                 selection = selection.clear()
                               }
                             })
                         DropdownMenuItem(
                             text = {
                               Text(
-                                  if (selection.selectedCount == videos.size) "Deselect all"
-                                  else "Select all")
+                                  if (selection.selectedCount == videos.size) stringResource(R.string.home_menu_deselect_all)
+                                  else stringResource(R.string.home_menu_select_all))
                             },
                             leadingIcon = {
                               Icon(
@@ -585,10 +587,10 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically) {
               Text(
                   text = when (currentContentMode) {
-                      HomeContentMode.VIDEO -> "Videos"
-                      HomeContentMode.FOLDER -> "Folders"
-                      HomeContentMode.FAVORITES -> "Recent Play"
-                      HomeContentMode.PLAYLISTS -> "Playlists"
+                      HomeContentMode.VIDEO -> stringResource(R.string.home_title_videos)
+                      HomeContentMode.FOLDER -> stringResource(R.string.home_title_folders)
+                      HomeContentMode.FAVORITES -> stringResource(R.string.home_title_recent)
+                      HomeContentMode.PLAYLISTS -> stringResource(R.string.home_title_playlists)
                   },
                   color = MaterialTheme.colorScheme.onBackground,
                   fontSize = 24.sp,
@@ -680,7 +682,7 @@ fun HomeScreen(
 
                   Row(modifier = Modifier.fillMaxSize()) {
                     HomeContentSegment(
-                        label = "Video",
+                        label = stringResource(R.string.home_segment_video),
                         isActive = currentContentMode == HomeContentMode.VIDEO,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         onClick = {
@@ -694,7 +696,7 @@ fun HomeScreen(
                       Icon(painterResource(id = R.drawable.ic_video_library), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
                     }
                     HomeContentSegment(
-                        label = "Folder",
+                        label = stringResource(R.string.home_segment_folder),
                         isActive = currentContentMode == HomeContentMode.FOLDER,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         onClick = {
@@ -708,7 +710,7 @@ fun HomeScreen(
                       Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
                     }
                     HomeContentSegment(
-                        label = "Recent",
+                        label = stringResource(R.string.home_segment_recent),
                         isActive = currentContentMode == HomeContentMode.FAVORITES,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         onClick = {
@@ -722,7 +724,7 @@ fun HomeScreen(
                       Icon(Icons.Default.History, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
                     }
                     HomeContentSegment(
-                        label = "Playlists",
+                        label = stringResource(R.string.home_segment_playlists),
                         isActive = currentContentMode == HomeContentMode.PLAYLISTS,
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         onClick = {
@@ -758,7 +760,7 @@ fun HomeScreen(
           !hasPermission -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
               Text(
-                  text = "Storage permission required\nto browse videos.",
+                  text = stringResource(R.string.home_storage_permission),
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                   fontSize = 15.sp,
                   lineHeight = 22.sp,
@@ -774,13 +776,13 @@ fun HomeScreen(
                 Text(
                     text =
                         if (libraryError != null) libraryError!!
-                        else if (searchQuery.isNotEmpty()) "No videos match \"$searchQuery\""
-                        else "No videos found on this device.",
+                        else if (searchQuery.isNotEmpty()) stringResource(R.string.home_no_videos_match, searchQuery)
+                        else stringResource(R.string.home_no_videos_found),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 15.sp,
                     textAlign = TextAlign.Center)
                 if (libraryError != null && hasPermission) {
-                  Button(onClick = { viewModel.refreshVideos() }) { Text("Retry") }
+                  Button(onClick = { viewModel.refreshVideos() }) { Text(stringResource(R.string.home_retry)) }
                 }
               }
             }
@@ -915,7 +917,7 @@ fun HomeScreen(
                       // existing folder logic...
                       if (isInsideFolder) {
                         val folderName: String =
-                            folders.firstOrNull { it.path == currentFolderPath }?.name ?: "Folder"
+                            folders.firstOrNull { it.path == currentFolderPath }?.name ?: stringResource(R.string.home_folder_fallback)
                         Column(modifier = Modifier.fillMaxSize()) {
                           Row(
                               modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -936,7 +938,7 @@ fun HomeScreen(
                                       maxLines = 1,
                                       overflow = TextOverflow.Ellipsis)
                                   Text(
-                                      text = "${folderVideos.size} videos",
+                                      text = pluralStringResource(R.plurals.home_videos_count, folderVideos.size, folderVideos.size),
                                       color = MaterialTheme.colorScheme.onSurfaceVariant,
                                       fontSize = 12.sp)
                                 }
@@ -972,7 +974,7 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center) {
                               Text(
-                                  text = "This folder is empty.",
+                                  text = stringResource(R.string.home_folder_empty),
                                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                                   fontSize = 15.sp)
                             }
@@ -1184,11 +1186,11 @@ fun HomeScreen(
   folderPickerMode?.let { mode ->
     val isCopy = mode == "copy"
     FolderPickerDialog(
-        title = if (isCopy) "Copy to folder" else "Move to folder",
+        title = if (isCopy) stringResource(R.string.home_copy_to_folder) else stringResource(R.string.home_move_to_folder),
         folders = folders,
         busy = pickerBusy,
         error = pickerError,
-        emptyText = "No folders found.",
+        emptyText = stringResource(R.string.home_no_folders),
         onFolderClick = { folder ->
           val targets = selectedVideos
           if (targets.isEmpty()) {
@@ -1203,14 +1205,14 @@ fun HomeScreen(
                 result.onSuccess { r ->
                   folderPickerMode = null
                   selection = selection.clear()
-                  val skipNote = if (r.skipped > 0) " (${r.skipped} skipped)" else ""
+                  val skipNote = if (r.skipped > 0) context.getString(R.string.home_copied_skipped_suffix, r.skipped) else ""
                   Toast.makeText(
                           context,
-                          "Copied ${r.newPaths.size} video(s)$skipNote",
+                          context.resources.getQuantityString(R.plurals.home_copied_count, r.newPaths.size, r.newPaths.size, skipNote),
                           Toast.LENGTH_SHORT)
                       .show()
                 }.onFailure {
-                  pickerError = it.message ?: "Copy failed"
+                  pickerError = it.message ?: context.getString(R.string.home_copy_failed)
                 }
               }
             } else {
@@ -1219,14 +1221,14 @@ fun HomeScreen(
                 result.onSuccess { r ->
                   folderPickerMode = null
                   selection = selection.clear()
-                  val skipNote = if (r.skipped > 0) " (${r.skipped} already here)" else ""
+                  val skipNote = if (r.skipped > 0) context.getString(R.string.home_moved_already_suffix, r.skipped) else ""
                   Toast.makeText(
                           context,
-                          "Moved ${r.newPaths.size} video(s)$skipNote",
+                          context.resources.getQuantityString(R.plurals.home_moved_count, r.newPaths.size, r.newPaths.size, skipNote),
                           Toast.LENGTH_SHORT)
                       .show()
                 }.onFailure {
-                  pickerError = it.message ?: "Move failed"
+                  pickerError = it.message ?: context.getString(R.string.home_move_failed)
                 }
               }
             }
@@ -1323,7 +1325,7 @@ private fun ContinueWatchingPill(
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
               Text(
-                  text = "Continue watching",
+                  text = stringResource(R.string.home_continue_watching),
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                   fontSize = 11.sp,
                   fontWeight = FontWeight.Medium)
@@ -1343,7 +1345,7 @@ private fun ContinueWatchingPill(
                   modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Resume",
+                    text = stringResource(R.string.home_resume),
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold)
@@ -1370,7 +1372,7 @@ fun PremiumVideoListCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-  val folderName = File(video.path).parentFile?.name ?: "Unknown"
+  val folderName = File(video.path).parentFile?.name ?: stringResource(R.string.home_unknown_folder)
 
   Row(
       modifier =
@@ -1445,7 +1447,7 @@ fun PremiumVideoListCard(
             Spacer(modifier = Modifier.width(8.dp))
 
             Text(
-                text = "$size  •  $folderName",
+                text = stringResource(R.string.home_meta_format, size, folderName),
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
@@ -1554,7 +1556,7 @@ fun CustomVideoLargeCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-  val folderName = File(video.path).parentFile?.name ?: "Unknown"
+  val folderName = File(video.path).parentFile?.name ?: stringResource(R.string.home_unknown_folder)
 
   Card(
       modifier =
@@ -1626,7 +1628,7 @@ fun CustomVideoLargeCard(
                         }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "$size  •  $folderName",
+                        text = stringResource(R.string.home_meta_format, size, folderName),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                   }
@@ -1770,10 +1772,11 @@ fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
   }
 }
 
+@Composable
 private fun folderMetaLabel(folder: FolderItem): String {
-  val count = if (folder.videoCount == 1) "1 video" else "${folder.videoCount} videos"
+  val count = pluralStringResource(R.plurals.home_videos_count, folder.videoCount, folder.videoCount)
   val size = formatCompactSize(folder.totalSize)
-  return if (size.isNotEmpty()) "$count • $size" else count
+  return if (size.isNotEmpty()) stringResource(R.string.home_meta_format, count, size) else count
 }
 
 private fun formatCompactSize(bytes: Long): String {
@@ -1945,7 +1948,7 @@ fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modif
                   Spacer(modifier = Modifier.height(6.dp))
                   Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     val countLabel =
-                        if (folder.videoCount == 1) "1 video" else "${folder.videoCount} videos"
+                        pluralStringResource(R.plurals.home_videos_count, folder.videoCount, folder.videoCount)
                     MetaChip(text = countLabel, highlighted = true)
                     val sizeLabel = formatCompactSize(folder.totalSize)
                     if (sizeLabel.isNotEmpty()) MetaChip(text = sizeLabel)

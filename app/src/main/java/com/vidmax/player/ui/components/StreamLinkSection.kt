@@ -36,10 +36,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.vidmax.player.R
 
 /**
  * Supported stream protocols (mirrors mpv's protocol list).
@@ -74,7 +76,7 @@ fun StreamLinkSection(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Stream Link",
+            text = stringResource(R.string.comp_stream_title),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -93,7 +95,7 @@ fun StreamLinkSection(
                         linkUrl = it
                         showError = false
                     },
-                    label = { Text("Video URL") },
+                    label = { Text(stringResource(R.string.comp_stream_url_label)) },
                     placeholder = { Text("https://example.com/video.m3u8") },
                     leadingIcon = {
                         Icon(
@@ -104,7 +106,7 @@ fun StreamLinkSection(
                     },
                     isError = showError,
                     supportingText = if (showError) {
-                        { Text("Enter a valid http/https, .m3u8, rtsp, etc. link") }
+                        { Text(stringResource(R.string.comp_stream_url_error)) }
                     } else {
                         null
                     },
@@ -142,7 +144,7 @@ fun StreamLinkSection(
                             modifier = Modifier.padding(end = 8.dp),
                         )
                         Text(
-                            text = "Paste",
+                            text = stringResource(R.string.comp_stream_paste),
                             fontWeight = FontWeight.Bold,
                         )
                     }
@@ -171,7 +173,7 @@ fun StreamLinkSection(
                             modifier = Modifier.padding(end = 8.dp),
                         )
                         Text(
-                            text = "Play",
+                            text = stringResource(R.string.comp_stream_play),
                             fontWeight = FontWeight.Bold,
                         )
                     }

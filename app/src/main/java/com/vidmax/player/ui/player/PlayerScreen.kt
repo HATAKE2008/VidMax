@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -309,13 +310,13 @@ fun PlayerScreen(
                 }
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                "Audio Mode Active",
+                stringResource(R.string.player_audio_mode_active),
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Video rendering is disabled to save battery", color = Color.Gray, fontSize = 14.sp)
+                stringResource(R.string.player_audio_mode_desc), color = Color.Gray, fontSize = 14.sp)
           }
     }
 

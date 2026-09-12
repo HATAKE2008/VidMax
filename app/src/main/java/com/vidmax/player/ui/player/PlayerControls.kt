@@ -71,6 +71,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -137,6 +139,13 @@ fun PlayerControls(
     val activity = context as? Activity
     val configuration = LocalConfiguration.current
     val coroutineScope = rememberCoroutineScope()
+    // Localized messages hoisted here: takeScreenshot() and toggleEngine run
+    // in non-composable callbacks, so they capture these pre-read values.
+    val captureUnavailableText = stringResource(R.string.player_capture_unavailable)
+    val frameSavedText = stringResource(R.string.player_frame_saved)
+    val captureFailedText = stringResource(R.string.player_capture_failed)
+    val engineMpvText = stringResource(R.string.player_engine_mpv)
+    val engineExoText = stringResource(R.string.player_engine_exo)
 
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val rightSafePadding = 16.dp
@@ -389,7 +398,7 @@ fun PlayerControls(
           delay(900)
           if (!mpvShot.exists()) {
             withContext(Dispatchers.Main) {
-              Toast.makeText(context, "Capture not available for this video", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, captureUnavailableText, Toast.LENGTH_SHORT).show()
             }
             return@launch
           }
@@ -410,7 +419,7 @@ fun PlayerControls(
         withContext(Dispatchers.Main) {
           Toast.makeText(
                   context,
-                  if (ok) "Frame saved to Pictures/VidMax" else "Capture failed",
+                  if (ok) frameSavedText else captureFailedText,
                   Toast.LENGTH_SHORT)
               .show()
         }
@@ -582,7 +591,7 @@ fun PlayerControls(
             settingsPrefs.edit().putString("player_engine", engine.name).apply()
             Toast.makeText(
                 context,
-                if (engine == PlayerEngine.MPV) "Switched to MPV. Reloading..." else "Switched to ExoPlayer. Reloading...",
+                if (engine == PlayerEngine.MPV) engineMpvText else engineExoText,
                 Toast.LENGTH_SHORT
             ).show()
             activity?.recreate()
@@ -601,7 +610,7 @@ fun PlayerControls(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {
-                Text("Video Zoom", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.player_zoom_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -618,7 +627,7 @@ fun PlayerControls(
                     )
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(60.dp)) {
-                        Text("Zoom", color = Color.White, fontSize = 14.sp)
+                        Text(stringResource(R.string.player_zoom_label), color = Color.White, fontSize = 14.sp)
                         Text(
                             String.format(Locale.US, "%.2fx", videoScale),
                             color = primaryColor,
@@ -657,14 +666,14 @@ fun PlayerControls(
                         border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.5f)),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                     ) {
-                        Text("Set as default", fontSize = 14.sp)
+                        Text(stringResource(R.string.player_set_as_default), fontSize = 14.sp)
                     }
                     Button(
                         onClick = { onVideoScaleChange(1f / videoScale, Offset.Zero, null) },
                         modifier = Modifier.weight(1f).height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
                     ) {
-                        Text("Reset", color = onPrimaryColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.player_reset), color = onPrimaryColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -678,11 +687,11 @@ fun PlayerControls(
         val aspect by viewModel.aspectRatio.collectAsState()
         ModalBottomSheet(onDismissRequest = { viewModel.setShowAspectSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Aspect Ratio", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                Text(stringResource(R.string.player_aspect_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 listOf(
-                    Triple(AspectRatioMode.FIT, "Fit", Icons.Outlined.FitScreen),
-                    Triple(AspectRatioMode.FILL, "Crop / Fill", Icons.Outlined.AspectRatio),
-                    Triple(AspectRatioMode.STRETCH, "Stretch", Icons.Outlined.Fullscreen)
+                    Triple(AspectRatioMode.FIT, stringResource(R.string.player_aspect_fit), Icons.Outlined.FitScreen),
+                    Triple(AspectRatioMode.FILL, stringResource(R.string.player_aspect_fill), Icons.Outlined.AspectRatio),
+                    Triple(AspectRatioMode.STRETCH, stringResource(R.string.player_aspect_stretch), Icons.Outlined.Fullscreen)
                 ).forEach { (mode, label, icon) ->
                     val isSelected = aspect == mode
                     Row(
@@ -718,12 +727,12 @@ fun PlayerControls(
     if (showDecoderMenu) {
         ModalBottomSheet(onDismissRequest = { viewModel.setShowDecoderMenu(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Hardware Decoder", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                Text(stringResource(R.string.player_decoder_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 val decoderOptions = listOf(
-                    Pair("auto-copy", "Auto (auto-copy)"),
-                    Pair("no", "SW (no)"),
-                    Pair("mediacodec-copy", "HW (mediacodec-copy)"),
-                    Pair("mediacodec", "HW+ (mediacodec)")
+                    Pair("auto-copy", stringResource(R.string.player_decoder_auto)),
+                    Pair("no", stringResource(R.string.player_decoder_sw)),
+                    Pair("mediacodec-copy", stringResource(R.string.player_decoder_hw)),
+                    Pair("mediacodec", stringResource(R.string.player_decoder_hwplus))
                 )
                 decoderOptions.forEach { (value, label) ->
                     val isSelected = currentMpvDecoder == value
@@ -755,11 +764,11 @@ fun PlayerControls(
     if (showTimerDialog) {
         AlertDialog(
             onDismissRequest = { showTimerDialog = false }, containerColor = Color(0xFF1E1E1E),
-            title = { Text("Sleep Timer", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.player_sleep_timer), color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     listOf(0, 15, 30, 60, 120).forEach { mins ->
-                        val text = if (mins == 0) "Off" else "$mins Minutes"
+                        val text = if (mins == 0) stringResource(R.string.player_off) else pluralStringResource(R.plurals.player_sleep_minutes, mins, mins)
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { sleepTimerMinutes = mins; showTimerDialog = false }.padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -775,7 +784,7 @@ fun PlayerControls(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text("Close") } }
+            confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text(stringResource(R.string.player_close)) } }
         )
     }
 
@@ -823,7 +832,7 @@ fun PlayerControls(
                     if (showBookmarkDialog) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                "Bookmark ${formatTimeHelper(bookmarkPosition)}",
+                                stringResource(R.string.player_bookmark_at_time, formatTimeHelper(bookmarkPosition)),
                                 modifier = Modifier.weight(1f),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold)
@@ -835,7 +844,7 @@ fun PlayerControls(
                             OutlinedTextField(
                                 value = bookmarkLabel,
                                 onValueChange = { bookmarkLabel = it },
-                                label = { Text("Label (optional)") },
+                                label = { Text(stringResource(R.string.player_bookmark_label_hint)) },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f))
                             TextButton(onClick = {
@@ -848,20 +857,20 @@ fun PlayerControls(
                                 saveBookmarks(settingsPrefs, currentPath, updated)
                                 showBookmarkDialog = false
                             }) {
-                                Text("Save")
+                                Text(stringResource(R.string.player_save))
                             }
                         }
                     }
                     if (showBookmarkList) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Bookmarks (${bookmarkList.size})", modifier = Modifier.weight(1f),
+                            Text(pluralStringResource(R.plurals.player_bookmarks_count, bookmarkList.size, bookmarkList.size), modifier = Modifier.weight(1f),
                                 fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                             IconButton(onClick = { showBookmarkList = false }) {
                                 Icon(Icons.Default.Close, contentDescription = "Close bookmarks")
                             }
                         }
                         if (bookmarkList.isEmpty()) {
-                            Text("No bookmarks yet. Use More > Add bookmark here.", fontSize = 12.sp)
+                            Text(stringResource(R.string.player_no_bookmarks_hint), fontSize = 12.sp)
                         } else {
                             Column(
                                 modifier = Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState()),
@@ -879,7 +888,7 @@ fun PlayerControls(
                                         verticalAlignment = Alignment.CenterVertically) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                if (bm.label.isNotEmpty()) bm.label else "Bookmark",
+                                                if (bm.label.isNotEmpty()) bm.label else stringResource(R.string.player_bookmark_fallback),
                                                 fontWeight = FontWeight.SemiBold,
                                                 fontSize = 14.sp,
                                                 maxLines = 1,
@@ -924,9 +933,9 @@ fun PlayerControls(
         }
         ModalBottomSheet(onDismissRequest = { viewModel.setShowSyncSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text("Speed & Sync", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.player_speed_sync_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Column {
-                    Text("Playback Speed", color = Color.Gray, fontSize = 14.sp)
+                    Text(stringResource(R.string.player_playback_speed), color = Color.Gray, fontSize = 14.sp)
                     Spacer(Modifier.height(12.dp))
                     val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -940,7 +949,7 @@ fun PlayerControls(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    "${speed}x",
+                                    stringResource(R.string.player_speed_value, speed),
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -953,26 +962,26 @@ fun PlayerControls(
                 if (currentEngine == PlayerEngine.MPV) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
-                            Text("Audio Delay", color = Color.White, fontSize = 16.sp)
-                            Text(if (audioDelayMs == 0L) "0 ms" else "${audioDelayMs} ms", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                            Text(stringResource(R.string.player_audio_delay), color = Color.White, fontSize = 16.sp)
+                            Text(stringResource(R.string.player_delay_ms, audioDelayMs), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs -= 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text("-50ms", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs += 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text("+50ms", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs -= 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_minus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs += 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_plus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
                         }
                     }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
-                            Text("Subtitle Delay", color = Color.White, fontSize = 16.sp)
-                            Text(if (subtitleDelayMs == 0L) "0 ms" else "${subtitleDelayMs} ms", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                            Text(stringResource(R.string.player_subtitle_delay), color = Color.White, fontSize = 16.sp)
+                            Text(stringResource(R.string.player_delay_ms, subtitleDelayMs), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs -= 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text("-50ms", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs += 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text("+50ms", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs -= 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_minus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs += 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_plus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
                         }
                     }
                 } else {
-                    Text("Sync delays are automatically handled by ExoPlayer.", color = Color.Gray, fontSize = 14.sp)
+                    Text(stringResource(R.string.player_sync_auto_exo), color = Color.Gray, fontSize = 14.sp)
                 }
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -1321,7 +1330,7 @@ fun PlayerControls(
                     .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text("Zoom: ${(videoScale * 100).toInt()}%", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.player_zoom_percent, (videoScale * 100).toInt()), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -1340,9 +1349,9 @@ fun PlayerControls(
                         if (isLeft) {
                             CombiningChevronsAnimation(isRight = false, trigger = showDoubleTapRipple)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("- ${abs(amount)}s", fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
+                            Text(stringResource(R.string.player_seek_backward, abs(amount)), fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
                         } else {
-                            Text("+ ${abs(amount)}s", fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
+                            Text(stringResource(R.string.player_seek_forward, abs(amount)), fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
                             Spacer(modifier = Modifier.width(8.dp))
                             CombiningChevronsAnimation(isRight = true, trigger = showDoubleTapRipple)
                         }
@@ -1364,10 +1373,10 @@ fun PlayerControls(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     val targetMs = gestureIndicatorValue.toLong()
-                    Text("Seek to", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.player_seek_to), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(formatTimeHelper(targetMs), color = MaterialTheme.colorScheme.primary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("/ ${formatTimeHelper(duration)}", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                    Text(stringResource(R.string.player_seek_total, formatTimeHelper(duration)), color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
                 }
             }
         }
@@ -1383,7 +1392,7 @@ fun PlayerControls(
                 modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(50)).padding(horizontal = 20.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("2× speed", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.player_speed_2x), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -1409,7 +1418,7 @@ fun PlayerControls(
                     } else {
                         Toast.makeText(
                             context,
-                            "Set both A and B first",
+                            context.getString(R.string.player_ab_set_both),
                             Toast.LENGTH_SHORT).show()
                     }
                 },
@@ -1576,19 +1585,19 @@ fun PlayerControls(
                                 modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Engine: ExoPlayer", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_engine_exo), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { viewModel.setShowEngineMenu(false); toggleEngine(PlayerEngine.EXO) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Engine: MPV (HW)", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_engine_mpv), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { viewModel.setShowEngineMenu(false); toggleEngine(PlayerEngine.MPV) }
                                 )
                                 if (currentEngine == PlayerEngine.MPV) {
                                     Divider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
                                     DropdownMenuItem(
-                                        text = { Text("MPV Decoder Settings", color = MaterialTheme.colorScheme.onSurface) },
+                                        text = { Text(stringResource(R.string.player_menu_mpv_decoder), color = MaterialTheme.colorScheme.onSurface) },
                                         leadingIcon = { Icon(Icons.Outlined.Memory, null, tint = MaterialTheme.colorScheme.primary) },
                                         onClick = { viewModel.setShowEngineMenu(false); viewModel.setShowDecoderMenu(true) }
                                     )
@@ -1640,7 +1649,7 @@ fun PlayerControls(
                                 modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Speed & Sync", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_speed_sync_title), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { showMoreMenu = false; viewModel.setShowSyncSheet(true) }
                                 )
@@ -1650,8 +1659,8 @@ fun PlayerControls(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                if (currentEngine == PlayerEngine.EXO) "Engine: ExoPlayer → MPV"
-                                                else "Engine: MPV → ExoPlayer",
+                                                if (currentEngine == PlayerEngine.EXO) stringResource(R.string.player_menu_engine_to_mpv)
+                                                else stringResource(R.string.player_menu_engine_to_exo),
                                                 color = MaterialTheme.colorScheme.onSurface)
                                         },
                                         leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = MaterialTheme.colorScheme.primary) },
@@ -1663,7 +1672,7 @@ fun PlayerControls(
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Audio tracks", color = MaterialTheme.colorScheme.onSurface) },
+                                        text = { Text(stringResource(R.string.player_menu_audio_tracks), color = MaterialTheme.colorScheme.onSurface) },
                                         leadingIcon = { Icon(Icons.Outlined.Audiotrack, null, tint = MaterialTheme.colorScheme.primary) },
                                         onClick = {
                                             showMoreMenu = false
@@ -1672,7 +1681,7 @@ fun PlayerControls(
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Subtitles", color = MaterialTheme.colorScheme.onSurface) },
+                                        text = { Text(stringResource(R.string.player_menu_subtitles), color = MaterialTheme.colorScheme.onSurface) },
                                         leadingIcon = { Icon(Icons.Outlined.Subtitles, null, tint = MaterialTheme.colorScheme.primary) },
                                         onClick = {
                                             showMoreMenu = false
@@ -1681,13 +1690,13 @@ fun PlayerControls(
                                         }
                                     )
                                     DropdownMenuItem(
-                                        text = { Text("Settings", color = MaterialTheme.colorScheme.onSurface) },
+                                        text = { Text(stringResource(R.string.player_menu_settings), color = MaterialTheme.colorScheme.onSurface) },
                                         leadingIcon = { Icon(Icons.Outlined.Settings, null, tint = MaterialTheme.colorScheme.primary) },
                                         onClick = { showMoreMenu = false; viewModel.setPanelMode(PanelMode.SETTINGS) }
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("Add bookmark here", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_add_bookmark), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Filled.BookmarkAdd, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
                                         showMoreMenu = false
@@ -1698,7 +1707,7 @@ fun PlayerControls(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Bookmarks (${bookmarkList.size})", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(pluralStringResource(R.plurals.player_bookmarks_count, bookmarkList.size, bookmarkList.size), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Filled.Bookmarks, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
                                         showMoreMenu = false
@@ -1707,7 +1716,7 @@ fun PlayerControls(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Share", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_share), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
                                         showMoreMenu = false
@@ -1718,12 +1727,12 @@ fun PlayerControls(
                                                 putExtra(Intent.EXTRA_STREAM, uri as android.os.Parcelable)
                                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                             }
-                                            context.startActivity(Intent.createChooser(shareIntent, "Share Video"))
+                                            context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.player_share_video_title)))
                                         }
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Details", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text(stringResource(R.string.player_menu_details), color = MaterialTheme.colorScheme.onSurface) },
                                     leadingIcon = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { showMoreMenu = false; showDetailsDialog = true }
                                 )
@@ -2470,7 +2479,7 @@ private fun MpvSlideToUnlock(onUnlock: () -> Unit, modifier: Modifier = Modifier
             )
         }
         Text(
-            "Slide to unlock",
+            stringResource(R.string.player_slide_to_unlock),
             color = Color.White.copy(alpha = 0.7f),
             fontSize = 14.sp,
             modifier = Modifier.align(Alignment.Center)

@@ -22,6 +22,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.vidmax.player.R
 import com.vidmax.player.data.model.AudioItem
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
@@ -114,6 +115,10 @@ enum class DarkMode {
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
 
+  /** Resolves a user-visible string (thread-safe; usable from IO dispatchers). */
+  private fun resString(resId: Int, vararg args: Any): String =
+      getApplication<Application>().getString(resId, *args)
+
   private val repository: VideoRepository = VideoRepository(application.contentResolver)
   private val audioRepository: AudioRepository = AudioRepository(application.contentResolver)
   private val prefs: SharedPreferences =
@@ -140,7 +145,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   val audioDuration: StateFlow<Long> = _audioDuration
 
   private var audioProgressJob: Job? = null
-  private val _currentAudioArtist: MutableStateFlow<String> = MutableStateFlow("Unknown Artist")
+  private val _currentAudioArtist: MutableStateFlow<String> = MutableStateFlow(getApplication<Application>().getString(R.string.vm_unknown_artist))
   val currentAudioArtist: StateFlow<String> = _currentAudioArtist
 
   private var currentAudioList: MutableList<AudioItem> = mutableListOf()
@@ -299,10 +304,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       val result = runCatching {
         val url = rawUrl.trim()
         require(url.startsWith("http://") || url.startsWith("https://")) {
-          "Enter a valid http(s) URL"
+          resString(R.string.vm_m3u_invalid_url)
         }
         val (text, entries) = downloadAndParseM3U(url)
-        require(entries.isNotEmpty()) { "No playable entries found" }
+        require(entries.isNotEmpty()) { resString(R.string.vm_m3u_no_entries) }
         val name = deriveM3UPlaylistName(url, text)
         val playlistId = playlistRepository.createPlaylist(name).toInt()
         playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
@@ -323,7 +328,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       connection.setRequestProperty("User-Agent", "VidMax")
       try {
         require(connection.responseCode in 200..299) {
-          "Server returned ${connection.responseCode}"
+          resString(R.string.vm_m3u_server_error, connection.responseCode)
         }
         connection.inputStream.bufferedReader().use { reader ->
           val builder = StringBuilder()
@@ -331,7 +336,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           while (true) {
             val line = reader.readLine() ?: break
             total += line.length
-            if (total > 2_000_000) throw IllegalStateException("Playlist too large")
+            if (total > 2_000_000) throw IllegalStateException(resString(R.string.vm_m3u_playlist_too_large))
             builder.appendLine(line)
           }
           builder.toString()
@@ -339,7 +344,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       } finally {
         connection.disconnect()
       }
-    }.getOrElse { throw IllegalStateException("Could not download playlist") }
+    }.getOrElse { throw IllegalStateException(resString(R.string.vm_m3u_download_failed)) }
     return text to parseM3UEntries(text)
   }
 
@@ -374,7 +379,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     if (last.isNotEmpty() && last.contains('.')) {
       return last.substringBeforeLast('.').ifEmpty { url }.take(80)
     }
-    return runCatching { java.net.URL(url).host }.getOrDefault("Imported playlist").take(80)
+    return runCatching { java.net.URL(url).host }.getOrDefault(resString(R.string.vm_m3u_imported_name)).take(80)
   }
 
   // M3U/M3U8 source registry: which playlists were imported from a URL
@@ -403,7 +408,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
               folderPath = "",
               folderName = "")
         }
-        require(list.isNotEmpty()) { "Playlist is empty" }
+        require(list.isNotEmpty()) { resString(R.string.vm_playlist_empty) }
         list
       }
       withContext(Dispatchers.Main) { onResult(result) }
@@ -418,9 +423,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
         val url = M3uSourceStore.getUrl(prefs, playlistId)
-            ?: throw IllegalStateException("No source URL saved")
+            ?: throw IllegalStateException(resString(R.string.vm_m3u_no_source_url))
         val (text, entries) = downloadAndParseM3U(url)
-        require(entries.isNotEmpty()) { "No playable entries found" }
+        require(entries.isNotEmpty()) { resString(R.string.vm_m3u_no_entries) }
         playlistRepository.clearPlaylist(playlistId)
         playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
         entries.size
@@ -802,13 +807,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   }
 
   fun openFavorites() {
-    _openedPlaylistTitle.value = "Favorites"
+    _openedPlaylistTitle.value = resString(R.string.vm_playlist_favorites)
     _openedPlaylistAudio.value =
         _allAudio.value.filter { _favoriteAudioPaths.value.contains(it.path) }
   }
 
   fun openMyMix() {
-    _openedPlaylistTitle.value = "My Mix"
+    _openedPlaylistTitle.value = resString(R.string.vm_playlist_my_mix)
     _openedPlaylistAudio.value = _allAudio.value.shuffled().take(20)
   }
 
@@ -1051,9 +1056,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           else _currentFolderPath.value = ""
         }
       } catch (e: SecurityException) {
-        _libraryError.value = "Storage permission required to browse videos."
+        _libraryError.value = resString(R.string.vm_library_storage_permission)
       } catch (e: Exception) {
-        _libraryError.value = "Couldn't load videos. Pull to retry."
+        _libraryError.value = resString(R.string.vm_library_load_failed)
       } finally {
         _isLoading.value = false
         // P4a-fix: release a pull gesture that arrived mid-load (see refreshVideos).
@@ -1119,9 +1124,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           else _currentFolderPath.value = ""
         }
       } catch (e: SecurityException) {
-        _libraryError.value = "Storage permission required to browse videos."
+        _libraryError.value = resString(R.string.vm_library_storage_permission)
       } catch (e: Exception) {
-        _libraryError.value = "Refresh failed. Pull to retry."
+        _libraryError.value = resString(R.string.vm_library_refresh_failed)
       } finally {
         settleRefreshing()
       }
@@ -1159,22 +1164,22 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
         val base = newBaseName.trim()
-        require(base.isNotEmpty()) { "Name cannot be empty" }
-        require(base.none { it in "/\\:*?\"<>|" || it.code < 32 }) { "Name contains invalid characters" }
-        require(!base.endsWith(".")) { "Name cannot end with a dot" }
+        require(base.isNotEmpty()) { resString(R.string.vm_name_empty) }
+        require(base.none { it in "/\\:*?\"<>|" || it.code < 32 }) { resString(R.string.vm_name_invalid_chars) }
+        require(!base.endsWith(".")) { resString(R.string.vm_name_trailing_dot) }
         val src = File(video.path)
-        require(src.exists()) { "Original file not found" }
+        require(src.exists()) { resString(R.string.vm_file_original_missing) }
         val ext = src.name.substringAfterLast('.', "")
-        require(ext.isNotEmpty()) { "File has no extension" }
+        require(ext.isNotEmpty()) { resString(R.string.vm_file_no_extension) }
         val dst = File(src.parent, "$base.$ext")
         if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = true) && dst.exists()) {
-          throw IllegalStateException("A file with this name already exists")
+          throw IllegalStateException(resString(R.string.vm_file_name_exists))
         }
         if (!dst.absolutePath.equals(src.absolutePath, ignoreCase = false)) {
           if (hasFullStorageAccess()) {
             // All-files access: direct filesystem rename, no consent dialogs.
             // Source is removed only after the destination is verified.
-            require(directMoveFile(src, dst)) { "Rename failed" }
+            require(directMoveFile(src, dst)) { resString(R.string.vm_rename_failed) }
             moveSidecars(src, dst)
             syncMediaStoreAfterDirectMove(video.path, dst.absolutePath)
             val newPath = dst.absolutePath
@@ -1199,7 +1204,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           }
           if (!renamed) {
             consentUris?.let { throw RenameConsentRequiredException(it) }
-            if (!src.renameTo(dst)) throw IllegalStateException("Rename failed")
+            if (!src.renameTo(dst)) throw IllegalStateException(resString(R.string.vm_rename_failed))
             MediaScannerConnection.scanFile(getApplication(), arrayOf(dst.absolutePath), null, null)
           }
         }
@@ -1278,11 +1283,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
         val src = File(video.path)
-        require(src.exists()) { "Original file not found" }
+        require(src.exists()) { resString(R.string.vm_file_original_missing) }
         val destDir = File(destFolderPath)
-        require(destDir.isDirectory) { "Destination folder not found" }
+        require(destDir.isDirectory) { resString(R.string.vm_dest_folder_missing) }
         require(!destDir.absolutePath.equals(src.parent, ignoreCase = false)) {
-          "Already in this folder"
+          resString(R.string.vm_already_in_folder)
         }
         val dst = resolveMoveDestination(destDir, src.name)
         if (hasFullStorageAccess()) {
@@ -1291,9 +1296,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           // only then drop the source MediaStore row -> refresh library.
           // Never triggers the system delete-consent dialog.
           val srcLen = src.length()
-          require(directMoveFile(src, dst)) { "Move failed" }
+          require(directMoveFile(src, dst)) { resString(R.string.vm_move_failed) }
           require(dst.exists() && (srcLen <= 0L || dst.length() == srcLen)) {
-            "Move failed: destination not verified"
+            resString(R.string.vm_move_not_verified)
           }
           moveSidecars(src, dst)
           syncMediaStoreAfterDirectMove(video.path, dst.absolutePath)
@@ -1314,11 +1319,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           return@runCatching newPath
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-          throw IllegalStateException("Move failed")
+          throw IllegalStateException(resString(R.string.vm_move_failed))
         }
         val resolver = getApplication<Application>().contentResolver
         val externalRoot = android.os.Environment.getExternalStorageDirectory().absolutePath
-        require(destDir.absolutePath.startsWith(externalRoot)) { "Cannot move there" }
+        require(destDir.absolutePath.startsWith(externalRoot)) { resString(R.string.vm_move_not_allowed_here) }
         val relativePath = destDir.absolutePath.removePrefix(externalRoot).trim('/') + "/"
         val srcUri = ContentUris.withAppendedId(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
@@ -1343,12 +1348,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           put(MediaStore.Video.Media.IS_PENDING, 1)
         }
         val newUri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, pendingValues)
-            ?: throw IllegalStateException("Move failed")
+            ?: throw IllegalStateException(resString(R.string.vm_move_failed))
         try {
           resolver.openInputStream(srcUri)?.use { input ->
             resolver.openOutputStream(newUri)?.use { output -> input.copyTo(output) }
-                ?: throw IllegalStateException("Move failed")
-          } ?: throw IllegalStateException("Move failed")
+                ?: throw IllegalStateException(resString(R.string.vm_move_failed))
+          } ?: throw IllegalStateException(resString(R.string.vm_move_failed))
           ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }.let { done ->
             resolver.update(newUri, done, null, null)
           }
@@ -1364,7 +1369,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
         if (deleteOutcome.getOrDefault(0) <= 0) {
           runCatching { resolver.delete(newUri, null, null) }
-          throw IllegalStateException("Move failed")
+          throw IllegalStateException(resString(R.string.vm_move_failed))
         }
         MediaScannerConnection.scanFile(getApplication(), arrayOf(dst.absolutePath), null, null)
         val newPath = dst.absolutePath
@@ -1379,13 +1384,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
         val src = File(pending.video.path)
-        require(src.exists()) { "Original file not found" }
+        require(src.exists()) { resString(R.string.vm_file_original_missing) }
         val destDir = File(pending.destFolderPath)
-        require(destDir.isDirectory) { "Destination folder not found" }
+        require(destDir.isDirectory) { resString(R.string.vm_dest_folder_missing) }
         val dst = resolveMoveDestination(destDir, pending.fileName)
         val resolver = getApplication<Application>().contentResolver
         val externalRoot = android.os.Environment.getExternalStorageDirectory().absolutePath
-        require(destDir.absolutePath.startsWith(externalRoot)) { "Cannot move there" }
+        require(destDir.absolutePath.startsWith(externalRoot)) { resString(R.string.vm_move_not_allowed_here) }
         val relativePath = destDir.absolutePath.removePrefix(externalRoot).trim('/') + "/"
         val srcUri = ContentUris.withAppendedId(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI, pending.video.id)
@@ -1396,9 +1401,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val moved = try {
           resolver.update(srcUri, moveValues, null, null) > 0
         } catch (e: RecoverableSecurityException) {
-          throw IllegalStateException("Move not permitted")
+          throw IllegalStateException(resString(R.string.vm_move_not_permitted))
         }
-        require(moved) { "Move failed" }
+        require(moved) { resString(R.string.vm_move_failed) }
         val newPath = dst.absolutePath
         applyPathChange(pending.video, newPath, dst.nameWithoutExtension)
         newPath
@@ -1445,7 +1450,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   private fun directMoveFile(src: File, dst: File): Boolean {
     if (src.renameTo(dst)) return dst.exists()
     return runCatching {
-      require(src.exists()) { "Original file not found" }
+      require(src.exists()) { resString(R.string.vm_file_original_missing) }
       dst.parentFile?.mkdirs()
       val srcLen = src.length()
       src.inputStream().use { input ->
@@ -1591,7 +1596,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           val uri = ContentUris.withAppendedId(
               MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
           val rows = getApplication<Application>().contentResolver.delete(uri, null, null)
-          if (rows <= 0) throw IllegalStateException("Delete failed")
+          if (rows <= 0) throw IllegalStateException(resString(R.string.vm_delete_failed))
           removePathsFromLibrary(setOf(video.path))
           return@runCatching Unit
         }
@@ -1621,7 +1626,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             if (file.exists() && !file.delete()) {
               val uri = ContentUris.withAppendedId(
                   MediaStore.Video.Media.EXTERNAL_CONTENT_URI, video.id)
-              require(app.contentResolver.delete(uri, null, null) > 0) { "Delete failed" }
+              require(app.contentResolver.delete(uri, null, null) > 0) { resString(R.string.vm_delete_failed) }
             } else {
               runCatching {
                 val uri = ContentUris.withAppendedId(
@@ -1635,7 +1640,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             removed++
             true
           }.getOrDefault(false)
-          if (!ok) throw IllegalStateException("Could not delete all selected videos")
+          if (!ok) throw IllegalStateException(resString(R.string.vm_delete_partial))
         }
         removed
       }
@@ -1651,18 +1656,18 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
         val base = name.trim()
-        require(base.isNotEmpty()) { "Name cannot be empty" }
+        require(base.isNotEmpty()) { resString(R.string.vm_name_empty) }
         require(base.none { it in "/\\:*?\"<>|" || it.code < 32 }) {
-          "Name contains invalid characters"
+          resString(R.string.vm_name_invalid_chars)
         }
         val parent = File(parentPath)
-        require(parent.isDirectory || parent.mkdirs()) { "Parent folder not found" }
+        require(parent.isDirectory || parent.mkdirs()) { resString(R.string.vm_folder_parent_missing) }
         if (!hasFullStorageAccess() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-          throw IllegalStateException("Full storage access required to create folders")
+          throw IllegalStateException(resString(R.string.vm_folder_full_access_required))
         }
         val dir = File(parent, base)
-        require(!dir.exists()) { "A folder with this name already exists" }
-        require(dir.mkdirs() && dir.isDirectory) { "Could not create folder" }
+        require(!dir.exists()) { resString(R.string.vm_folder_name_exists) }
+        require(dir.mkdirs() && dir.isDirectory) { resString(R.string.vm_folder_create_failed) }
         MediaScannerConnection.scanFile(getApplication(), arrayOf(dir.absolutePath), null, null)
         dir.absolutePath
       }
@@ -1686,15 +1691,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
   private fun prepareBatchDestination(destFolderPath: String): File {
     val destDir = File(destFolderPath)
-    require(destDir.isDirectory || destDir.mkdirs()) { "Destination folder not found" }
-    require(destDir.canWrite()) { "Destination is not writable" }
+    require(destDir.isDirectory || destDir.mkdirs()) { resString(R.string.vm_dest_folder_missing) }
+    require(destDir.canWrite()) { resString(R.string.vm_dest_not_writable) }
     return destDir
   }
 
   private fun requireBatchFullAccess(action: String) {
     if (!hasFullStorageAccess()) {
       throw IllegalStateException(
-          "Full storage access required to $action. Enable All Files Access in Settings.")
+          resString(R.string.vm_full_access_required_action, action))
     }
   }
 
@@ -1717,16 +1722,16 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   ) {
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
-        require(videos.isNotEmpty()) { "No files to copy" }
-        requireBatchFullAccess("copy files")
+        require(videos.isNotEmpty()) { resString(R.string.vm_batch_no_files_copy) }
+        requireBatchFullAccess(resString(R.string.vm_action_copy_files))
         val destDir = prepareBatchDestination(destFolderPath)
         val valid = videos.filter {
           File(it.path).exists() && File(it.path).parent != destDir.absolutePath
         }
         val skipped = videos.size - valid.size
-        require(valid.isNotEmpty()) { "No valid files to copy" }
+        require(valid.isNotEmpty()) { resString(R.string.vm_batch_no_valid_files) }
         val totalBytes = valid.sumOf { File(it.path).length() }
-        require(hasEnoughDiskSpace(destDir, totalBytes)) { "Not enough disk space" }
+        require(hasEnoughDiskSpace(destDir, totalBytes)) { resString(R.string.vm_batch_no_disk_space) }
         val newPaths = mutableListOf<String>()
         valid.forEach { video ->
           val src = File(video.path)
@@ -1756,8 +1761,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   ) {
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
-        require(videos.isNotEmpty()) { "No files to move" }
-        requireBatchFullAccess("move files")
+        require(videos.isNotEmpty()) { resString(R.string.vm_batch_no_files_move) }
+        requireBatchFullAccess(resString(R.string.vm_action_move_files))
         val destDir = prepareBatchDestination(destFolderPath)
         var skipped = 0
         val newPaths = mutableListOf<String>()
@@ -1774,15 +1779,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
           }
           val dst = resolveMoveDestination(destDir, src.name)
           val srcLen = src.length()
-          require(directMoveFile(src, dst)) { "Move failed: ${src.name}" }
+          require(directMoveFile(src, dst)) { resString(R.string.vm_move_failed_named, src.name) }
           require(dst.exists() && (srcLen <= 0L || dst.length() == srcLen)) {
-            "Move failed: destination not verified"
+            resString(R.string.vm_move_not_verified)
           }
           moveSidecars(src, dst)
           newPaths.add(dst.absolutePath)
           pathChanges.add(Triple(video, dst.absolutePath, dst.nameWithoutExtension))
         }
-        require(newPaths.isNotEmpty()) { "Nothing to move" }
+        require(newPaths.isNotEmpty()) { resString(R.string.vm_batch_nothing_to_move) }
         // Guarded row cleanup per old path (missing-file only, never by id).
         val app = getApplication<Application>()
         pathChanges.forEach { (video, _, _) ->
@@ -1811,7 +1816,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
    * so a failed copy never leaves a ghost file behind.
    */
   private fun copyFileVerified(src: File, dst: File) {
-    require(src.exists()) { "Original file not found: ${src.name}" }
+    require(src.exists()) { resString(R.string.vm_copy_source_missing, src.name) }
     dst.parentFile?.mkdirs()
     val srcLen = src.length()
     try {
@@ -1825,7 +1830,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
     if (!dst.exists() || (srcLen > 0 && dst.length() != srcLen)) {
       runCatching { dst.delete() }
-      throw IllegalStateException("Copy verification failed: ${src.name}")
+      throw IllegalStateException(resString(R.string.vm_copy_verify_failed, src.name))
     }
   }
 

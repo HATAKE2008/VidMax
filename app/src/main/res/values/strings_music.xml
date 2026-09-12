@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ============ MusicScreen (msc_) ============ -->
+    <string name="msc_toast_deleted_success">Selected audio deleted successfully</string>
+    <string name="msc_toast_delete_cancelled">Delete Cancelled</string>
+    <string name="msc_dialog_delete_audios_title">Delete Audios</string>
+    <string name="msc_dialog_delete_audios_msg">Are you sure you want to delete %1$d selected songs? This action cannot be undone.</string>
+    <string name="msc_action_delete">Delete</string>
+    <string name="msc_action_cancel">Cancel</string>
+    <string name="msc_dialog_delete_playlist_title">Delete Playlist</string>
+    <string name="msc_dialog_delete_playlist_msg">Are you sure you want to delete \'%1$s\'? This will not delete the actual songs.</string>
+    <string name="msc_toast_playlist_deleted">Playlist deleted</string>
+    <string name="msc_dialog_new_playlist_title">New Playlist</string>
+    <string name="msc_hint_playlist_name">Enter playlist name</string>
+    <string name="msc_toast_playlist_created">Playlist created</string>
+    <string name="msc_action_create">Create</string>
+    <string name="msc_dialog_add_to_playlist_title">Add to Playlist</string>
+    <string name="msc_create_new_playlist">Create New Playlist</string>
+    <string name="msc_toast_added_to_playlist">Added to %1$s</string>
+    <string name="msc_selected_count">%1$d Selected</string>
+    <string name="msc_share_audios_title">Share %1$d Audios</string>
+    <string name="msc_title_music">Music</string>
+    <string name="msc_tab_songs">Songs</string>
+    <string name="msc_tab_folders">Folders</string>
+    <string name="msc_tab_playlists">Playlists</string>
+    <string name="msc_tab_favorites">Favorites</string>
+    <string name="msc_empty_albums">No Albums found</string>
+    <string name="msc_empty_folders">No Folders found</string>
+    <string name="msc_empty_playlists">No Playlists created yet</string>
+    <string name="msc_empty_favorites">No songs found in Favorites</string>
+    <string name="msc_empty_playlist_songs">No songs in this playlist</string>
+    <string name="msc_empty_in_tab">No items found in %1$s</string>
+    <string name="msc_unknown_album">Unknown Album</string>
+    <string name="msc_unknown_folder">Unknown Folder</string>
+    <string name="msc_unknown">Unknown</string>
+    <plurals name="msc_songs_count">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
+    <plurals name="msc_albums_count">
+        <item quantity="one">%1$d album</item>
+        <item quantity="other">%1$d albums</item>
+    </plurals>
+    <plurals name="msc_folders_count">
+        <item quantity="one">%1$d folder</item>
+        <item quantity="other">%1$d folders</item>
+    </plurals>
+    <plurals name="msc_audios_deleted">
+        <item quantity="one">%1$d audio deleted</item>
+        <item quantity="other">%1$d audios deleted</item>
+    </plurals>
+
+    <!-- ============ MusicPlayerScreen (mps_) ============ -->
+    <string name="mps_toast_deleted_success">Audio Deleted Successfully</string>
+    <string name="mps_dialog_delete_title">Delete Audio</string>
+    <string name="mps_dialog_delete_msg">Are you sure you want to delete \'%1$s\'? This action cannot be undone.</string>
+    <string name="mps_action_delete">Delete</string>
+    <string name="mps_action_cancel">Cancel</string>
+    <string name="mps_toast_deleted">Audio Deleted</string>
+    <string name="mps_toast_delete_failed">Failed to delete.</string>
+    <string name="mps_toast_permission_denied">Permission Denied!</string>
+    <string name="mps_toast_error_generic">Error: %1$s</string>
+    <string name="mps_dialog_properties_title">Audio Properties</string>
+    <string name="mps_prop_title">Title: %1$s</string>
+    <string name="mps_prop_artist">Artist: %1$s</string>
+    <string name="mps_prop_path">Path: %1$s</string>
+    <string name="mps_prop_size">Size: %1$s</string>
+    <string name="mps_unknown_size">Unknown Size</string>
+    <string name="mps_action_close">Close</string>
+    <string name="mps_dialog_sleep_timer_title">Sleep Timer</string>
+    <string name="mps_timer_off">Off</string>
+    <string name="mps_timer_minutes">%1$d Minutes</string>
+    <string name="mps_now_playing">Now Playing</string>
+    <string name="mps_online_stream">Online Stream</string>
+    <string name="mps_menu_properties">Properties</string>
+    <string name="mps_menu_delete">Delete</string>
+    <string name="mps_theme_default">Default Theme</string>
+    <string name="mps_theme_modern">Modern Circle</string>
+    <string name="mps_theme_wavy">Wavy Pastel</string>
+    <string name="mps_unknown_song">Unknown Song</string>
+    <string name="mps_share_listening">Listening to %1$s 🎵</string>
+    <string name="mps_share_audio_title">Share Audio</string>
+    <string name="mps_toast_share_failed">Could not share this file</string>
+    <string name="mps_queue">Queue</string>
+    <string name="mps_up_next">Up Next</string>
+    <string name="mps_queue_empty">Queue list is currently empty.</string>
+    <string name="mps_boost_on">🚀 Software Boost ON: Volume forced to 200%</string>
+    <string name="mps_boost_off">🎵 Boost OFF: Volume back to 100%</string>
+    <string name="mps_boost_label">Boost</string>
+    <string name="mps_volume_percent">Volume: %1$d%%</string>
+    <string name="mps_online_music_title">Online Music</string>
+
+    <!-- ============ OnlineMusicScreen (oms_) ============ -->
+    <string name="oms_snackbar_playlist_empty">Playlist is empty</string>
+    <string name="oms_greeting_morning">Good Morning</string>
+    <string name="oms_greeting_afternoon">Good Afternoon</string>
+    <string name="oms_greeting_evening">Good Evening</string>
+    <string name="oms_greeting_night">Good Night</string>
+    <string name="oms_profile_you">You</string>
+    <string name="oms_profile_account_free">VidMax is account-free — no YouTube login needed.</string>
+    <string name="oms_stat_favorites">Favorites</string>
+    <string name="oms_stat_recently_played">Recently Played</string>
+    <string name="oms_error_title">Something went wrong</string>
+    <string name="oms_error_fallback">Unable to load music suggestions</string>
+    <string name="oms_action_retry">Try again</string>
+    <string name="oms_section_speed_dial">Speed Dial</string>
+    <string name="oms_section_daily_discover">Daily Discover</string>
+    <string name="oms_section_keep_listening">Keep Listening</string>
+    <string name="oms_section_similar_to">Similar to %1$s</string>
+    <string name="oms_section_forgotten_favorites">Forgotten Favorites</string>
+    <string name="oms_section_favorites">Favorites</string>
+    <string name="oms_section_recently_played">Recently Played</string>
+    <string name="oms_action_play_all">Play all</string>
+    <string name="oms_section_quick_picks">Quick Picks</string>
+    <string name="oms_section_mood_genres">Mood &amp; Genres</string>
+    <string name="oms_section_popular_artists">Popular Artists</string>
+    <string name="oms_mood_chill_title">Chill</string>
+    <string name="oms_mood_chill_subtitle">Relax &amp; unwind</string>
+    <string name="oms_mood_focus_title">Focus</string>
+    <string name="oms_mood_focus_subtitle">Deep work</string>
+    <string name="oms_mood_commute_title">Commute</string>
+    <string name="oms_mood_commute_subtitle">On the go</string>
+    <string name="oms_mood_gaming_title">Gaming</string>
+    <string name="oms_mood_gaming_subtitle">Level up</string>
+    <string name="oms_mood_energize_title">Energize</string>
+    <string name="oms_mood_energize_subtitle">Boost your day</string>
+    <string name="oms_mood_party_title">Party</string>
+    <string name="oms_mood_party_subtitle">Dance floor</string>
+    <string name="oms_mood_feelgood_title">Feel good</string>
+    <string name="oms_mood_feelgood_subtitle">Happy vibes</string>
+    <string name="oms_mood_romance_title">Romance</string>
+    <string name="oms_mood_romance_subtitle">Love songs</string>
+    <string name="oms_empty_songs">No songs found</string>
+    <string name="oms_search_hint">Search songs, artists...</string>
+    <string name="oms_suggested_results">Suggested Results</string>
+    <string name="oms_artist_fallback">Artist</string>
+    <plurals name="oms_playlist_detail_subtitle">
+        <item quantity="one">%1$s • %2$d song</item>
+        <item quantity="other">%1$s • %2$d songs</item>
+    </plurals>
+    <plurals name="oms_artist_detail_subtitle">
+        <item quantity="one">%1$s • %2$d song</item>
+        <item quantity="other">%1$s • %2$d songs</item>
+    </plurals>
+
+    <!-- ============ NetworkScreen (net_) ============ -->
+    <string name="net_title">Network</string>
+    <string name="net_recent_links">Recent Links</string>
+    <string name="net_empty_title">No servers yet</string>
+    <string name="net_empty_hint">Add an SMB, FTP or WebDAV server to stream videos</string>
+    <string name="net_add_server">Add Server</string>
+    <string name="net_servers">Servers</string>
+    <string name="net_path_label">Path: %1$s</string>
+    <string name="net_user_label">User: %1$s</string>
+    <string name="net_connecting">Connecting</string>
+    <string name="net_browse">Browse</string>
+    <string name="net_disconnect">Disconnect</string>
+    <string name="net_connect">Connect</string>
+    <string name="net_empty_files">No files found</string>
+
+</resources>

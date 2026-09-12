@@ -37,11 +37,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.vidmax.player.R
 
 const val TELEGRAM_CHANNEL_USERNAME: String = "vidmax_opensource"
 const val TELEGRAM_CHANNEL_URL: String = "https://t.me/vidmax_opensource"
@@ -76,7 +78,7 @@ fun openTelegramCommunity(context: Context) {
   try {
     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TELEGRAM_CHANNEL_URL)))
   } catch (e: Exception) {
-    Toast.makeText(context, "Could not open Telegram", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.tg_open_fail), Toast.LENGTH_SHORT).show()
   }
 }
 
@@ -122,7 +124,7 @@ fun TelegramPromoSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Join us on Telegram",
+                text = stringResource(R.string.tg_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -130,7 +132,7 @@ fun TelegramPromoSheet(
                 textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Get early feature releases, request new tools, and report bugs directly.",
+                text = stringResource(R.string.tg_subtitle),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 maxLines = 2,
@@ -141,9 +143,9 @@ fun TelegramPromoSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                  FeaturePill(text = "⚡ Early Updates")
-                  FeaturePill(text = "💬 Feature Requests")
-                  FeaturePill(text = "🛠️ Direct Bug Fixes")
+                  FeaturePill(text = stringResource(R.string.tg_pill_updates))
+                  FeaturePill(text = stringResource(R.string.tg_pill_requests))
+                  FeaturePill(text = stringResource(R.string.tg_pill_bugfix))
                 }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -159,11 +161,11 @@ fun TelegramPromoSheet(
                       contentDescription = null,
                       modifier = Modifier.size(18.dp))
                   Spacer(modifier = Modifier.width(8.dp))
-                  Text(text = "Open Telegram", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                  Text(text = stringResource(R.string.tg_open), fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             TextButton(onClick = onDismiss) {
               Text(
-                  text = "Not now",
+                  text = stringResource(R.string.tg_not_now),
                   fontSize = 14.sp,
                   color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

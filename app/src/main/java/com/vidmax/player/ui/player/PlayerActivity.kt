@@ -14,7 +14,7 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.view.WindowManager
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,6 +46,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.SingleSampleMediaSource
 import java.nio.ByteBuffer
+import com.vidmax.player.R
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.ui.theme.VidMaxTheme
@@ -58,7 +59,7 @@ import `is`.xyz.mpv.MPVLib
 import java.io.File
 import java.util.Locale
 
-class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
+class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
 
     private val playerViewModel: PlayerViewModel by viewModels()
     private var exoPlayer: ExoPlayer? = null
@@ -105,16 +106,16 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                         if (fd != null) {
                             val fdUri = "fd://$fd"
                             MPVLib.command(arrayOf("sub-add", fdUri))
-                            Toast.makeText(this, "Subtitle Added! ✅", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, getString(R.string.player_sub_added_mpv), Toast.LENGTH_SHORT).show()
                         }
                     } else {
                         externalSubUri = uri
-                        Toast.makeText(this, "Subtitle Added!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, getString(R.string.player_sub_added), Toast.LENGTH_SHORT).show()
                         handler.post { playVideo(playerViewModel.currentVideoIndex.value) }
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    Toast.makeText(this, "Error reading subtitle file", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.player_sub_read_error), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -488,7 +489,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             // 🔥 FIX: MPV branch এ এসে তবেই MPV init হবে
             ensureMpvReady()
             if (!mpvInitialized) {
-                Toast.makeText(this, "MPV engine failed to start, use EXO engine", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.player_mpv_failed), Toast.LENGTH_LONG).show()
                 return
             }
             exoPlayer?.stop()
@@ -582,7 +583,7 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
                 playerViewModel.setPlaying(false)
                 Toast.makeText(
                     this,
-                    "Could not open stream — paste a direct video link (.mp4 / .mkv / .m3u8), not a page URL",
+                    getString(R.string.player_stream_failed),
                     Toast.LENGTH_LONG,
                 ).show()
             }
@@ -667,16 +668,16 @@ class PlayerActivity : ComponentActivity(), MPVLib.EventObserver {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 android.util.Log.e("VidMaxPlayer", "ExoPlayer error for $currentPlayingPath", error)
                 val reason = when (error.errorCode) {
-                    2001, 2002 -> "network connection failed — check internet / server address"
-                    2003 -> "server sent an unexpected content type"
-                    2004 -> "server rejected this link (dead, blocked or needs login)"
-                    2005 -> "file not found on the server"
-                    2007 -> "plain-HTTP links are blocked by the system"
-                    else -> "source could not be read"
+                    2001, 2002 -> getString(R.string.player_err_network)
+                    2003 -> getString(R.string.player_err_content_type)
+                    2004 -> getString(R.string.player_err_rejected)
+                    2005 -> getString(R.string.player_err_not_found)
+                    2007 -> getString(R.string.player_err_http_blocked)
+                    else -> getString(R.string.player_err_unreadable)
                 }
                 Toast.makeText(
                     this@PlayerActivity,
-                    "Playback error ${error.errorCode}: $reason",
+                    getString(R.string.player_playback_error, error.errorCode, reason),
                     Toast.LENGTH_LONG,
                 ).show()
             }

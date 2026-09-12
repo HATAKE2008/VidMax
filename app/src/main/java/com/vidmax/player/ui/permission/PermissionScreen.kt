@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -61,6 +62,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.vidmax.player.R
+import com.vidmax.player.ui.components.LanguageSelectionDialog
+import com.vidmax.player.ui.components.darkModeDisplayName
+import com.vidmax.player.ui.components.fontDisplayName
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.utils.AppLocale
@@ -128,7 +132,7 @@ fun OnboardingSetupScreen(
     val themeSubtitle = buildString {
         append(currentTheme.name)
         append(" · ")
-        append(darkMode.name)
+        append(darkModeDisplayName(darkMode))
         if (amoledMode && isCurrentlyDark) append(" · AMOLED")
     }
 
@@ -159,7 +163,7 @@ fun OnboardingSetupScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Welcome to VidMax",
+                    text = stringResource(R.string.onboarding_title),
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -167,7 +171,7 @@ fun OnboardingSetupScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Your modern, powerful and\ncustomizable media player.",
+                    text = stringResource(R.string.onboarding_subtitle),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center,
@@ -178,9 +182,9 @@ fun OnboardingSetupScreen(
                 // ── Language ──────────────────────────────────────────
                 SetupCard(
                     icon = Icons.Rounded.Language,
-                    title = "Preferred Language",
+                    title = stringResource(R.string.language_title),
                     subtitle = AppLocale.displayNameFor(appLocale),
-                    actionLabel = "Change",
+                    actionLabel = stringResource(R.string.action_change),
                     onAction = { showLanguageDialog = true }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -189,24 +193,24 @@ fun OnboardingSetupScreen(
                 if (storageReady) {
                     SetupCard(
                         icon = Icons.Rounded.CheckCircle,
-                        title = "Storage Access Granted",
-                        subtitle = "Permission is granted. VidMax is ready to discover and play your media.",
+                        title = stringResource(R.string.storage_granted_title),
+                        subtitle = stringResource(R.string.storage_granted_desc),
                         iconTint = MaterialTheme.colorScheme.primary,
                         onCardClick = null
                     )
                 } else {
                     val subtitle = when {
                         !mediaGranted ->
-                            "Permission is required to discover and play your media."
+                            stringResource(R.string.storage_required_desc)
                         needsFullAccess && !hasFullAccess ->
-                            "Media access granted. Enable All files access to finish setup."
+                            stringResource(R.string.storage_partial_desc)
                         else ->
-                            "Permission is required to discover and play your media."
+                            stringResource(R.string.storage_required_desc)
                     }
                     val buttonText = when {
-                        !mediaGranted -> "Grant Storage Access"
-                        needsFullAccess && !hasFullAccess -> "Open Settings"
-                        else -> "Grant Storage Access"
+                        !mediaGranted -> stringResource(R.string.storage_grant)
+                        needsFullAccess && !hasFullAccess -> stringResource(R.string.action_open_settings)
+                        else -> stringResource(R.string.storage_grant)
                     }
                     Column(
                         modifier = Modifier
@@ -217,7 +221,7 @@ fun OnboardingSetupScreen(
                     ) {
                         SetupCardHeader(
                             icon = Icons.Rounded.FolderOpen,
-                            title = "Storage Access",
+                            title = stringResource(R.string.storage_title),
                             subtitle = subtitle
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -241,9 +245,9 @@ fun OnboardingSetupScreen(
                 // ── Font (only real, resolvable fonts) ────────────────
                 SetupCard(
                     icon = Icons.Rounded.TextFields,
-                    title = "Font",
-                    subtitle = AppFonts.displayNameFor(currentFontId),
-                    actionLabel = "Change",
+                    title = stringResource(R.string.font_title),
+                    subtitle = fontDisplayName(currentFontId),
+                    actionLabel = stringResource(R.string.action_change),
                     onAction = { showFontDialog = true }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -251,9 +255,9 @@ fun OnboardingSetupScreen(
                 // ── Theme (existing VidMax themes) ────────────────────
                 SetupCard(
                     icon = Icons.Rounded.Palette,
-                    title = "Theme",
+                    title = stringResource(R.string.theme_title),
                     subtitle = themeSubtitle,
-                    actionLabel = "Change",
+                    actionLabel = stringResource(R.string.action_change),
                     onAction = { showThemeDialog = true }
                 )
                 Spacer(modifier = Modifier.height(24.dp))
@@ -275,7 +279,7 @@ fun OnboardingSetupScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Get Started",
+                        text = stringResource(R.string.onboarding_get_started),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -283,7 +287,7 @@ fun OnboardingSetupScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 if (!storageReady) {
                     Text(
-                        text = "Storage access is required to continue.",
+                        text = stringResource(R.string.onboarding_storage_required_hint),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center
@@ -295,58 +299,23 @@ fun OnboardingSetupScreen(
 
     // ── Dialogs (same prefs as Settings) ──────────────────────────────
     if (showLanguageDialog) {
-        AlertDialog(
-            onDismissRequest = { showLanguageDialog = false },
-            title = { Text(text = "Preferred Language") },
-            text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
-                    items(AppLocale.supported) { locale ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    viewModel.setAppLocale(locale.tag)
-                                    showLanguageDialog = false
-                                }
-                                .padding(horizontal = 8.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = appLocale == locale.tag,
-                                onClick = {
-                                    viewModel.setAppLocale(locale.tag)
-                                    showLanguageDialog = false
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = locale.displayName,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 15.sp
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showLanguageDialog = false }) { Text(text = "Done") }
-            }
+        LanguageSelectionDialog(
+            currentTag = appLocale,
+            onSelect = { viewModel.setAppLocale(it) },
+            onDismiss = { showLanguageDialog = false }
         )
     }
 
     if (showFontDialog) {
+        val systemDefaultLabel = stringResource(R.string.font_system_default)
         val options: List<Pair<String, String>> = buildList {
-            add(AppFonts.SYSTEM_DEFAULT to "System Default")
+            add(AppFonts.SYSTEM_DEFAULT to systemDefaultLabel)
             AppFonts.builtInFonts.forEach { add(it.id to it.displayName) }
             importedFonts.forEach { add(it to AppFonts.displayNameFor(it)) }
         }
         AlertDialog(
             onDismissRequest = { showFontDialog = false },
-            title = { Text(text = "Font") },
+            title = { Text(text = stringResource(R.string.font_title)) },
             text = {
                 LazyColumn(modifier = Modifier.heightIn(max = 340.dp)) {
                     items(options, key = { it.first }) { (id, name) ->
@@ -391,7 +360,7 @@ fun OnboardingSetupScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showFontDialog = false }) { Text(text = "Done") }
+                TextButton(onClick = { showFontDialog = false }) { Text(text = stringResource(R.string.action_done)) }
             }
         )
     }
@@ -404,13 +373,13 @@ fun OnboardingSetupScreen(
         }
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
-            title = { Text(text = "Theme") },
+            title = { Text(text = stringResource(R.string.theme_title)) },
             text = {
                 LazyColumn(modifier = Modifier.heightIn(max = 380.dp)) {
                     // Dark / Light / System
                     item {
                         Text(
-                            text = "Appearance",
+                            text = stringResource(R.string.theme_appearance),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -435,7 +404,7 @@ fun OnboardingSetupScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = mode.name,
+                                text = darkModeDisplayName(mode),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 15.sp
                             )
@@ -449,7 +418,7 @@ fun OnboardingSetupScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "AMOLED Black",
+                                text = stringResource(R.string.theme_amoled_black),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 15.sp,
                                 modifier = Modifier.weight(1f)
@@ -463,7 +432,7 @@ fun OnboardingSetupScreen(
                     }
                     item {
                         Text(
-                            text = "Color theme",
+                            text = stringResource(R.string.theme_color_theme),
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -506,7 +475,7 @@ fun OnboardingSetupScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showThemeDialog = false }) { Text(text = "Done") }
+                TextButton(onClick = { showThemeDialog = false }) { Text(text = stringResource(R.string.action_done)) }
             }
         )
     }

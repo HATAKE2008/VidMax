@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,7 @@ fun MiniPlayer(
 
   val safeDuration = if (duration > 0) duration else 1L
   val progress = (currentPosition.toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
+  val fallbackTitle = stringResource(R.string.comp_miniplayer_fallback_title)
 
   // যদি কোনো গান সিলেক্ট করা না থাকে, তাহলে মিনি প্লেয়ার হাইড থাকবে
   AnimatedVisibility(
@@ -60,7 +62,7 @@ fun MiniPlayer(
                     // গানের নাম
                     Column(modifier = Modifier.weight(1f)) {
                       Text(
-                          text = title.ifEmpty { "VidMax Music" },
+                          text = title.ifEmpty { fallbackTitle },
                           color = Color.White,
                           fontWeight = FontWeight.Bold,
                           fontSize = 14.sp,

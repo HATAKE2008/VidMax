@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Repeat
@@ -78,6 +79,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -89,7 +91,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.vidmax.player.data.repository.SettingsBackup
 import com.vidmax.player.utils.StorageAccess
+import com.vidmax.player.ui.components.LanguageSelectionDialog
 import com.vidmax.player.ui.components.UpdateResultDialog
+import com.vidmax.player.ui.components.darkModeDisplayName
+import com.vidmax.player.ui.components.fontDisplayName
+import com.vidmax.player.utils.AppLocale
 import com.vidmax.player.ui.theme.AppFonts
 import com.vidmax.player.ui.theme.AppTheme
 import com.vidmax.player.utils.UpdateChecker
@@ -115,6 +121,8 @@ fun SettingsScreen(
     val currentTheme by viewModel.appTheme.collectAsState()
     val darkMode by viewModel.darkMode.collectAsState()
     val amoledMode by viewModel.amoledMode.collectAsState()
+    val appLocale by viewModel.appLocale.collectAsState()
+    var showLanguageDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     // ── Storage Access (All files access) state ──────────────────────
@@ -151,6 +159,14 @@ fun SettingsScreen(
     var updateResult by remember { mutableStateOf<UpdateChecker.CheckResult?>(null) }
     val scope = rememberCoroutineScope()
 
+    // Localized Toast / message formats (hoisted: stringResource can't run inside launch{}).
+    val fontImportedFmt = stringResource(R.string.sett_font_imported)
+    val fontImportFail = stringResource(R.string.sett_font_import_fail)
+    val exportOkMsg = stringResource(R.string.sett_export_ok)
+    val exportFailMsg = stringResource(R.string.sett_export_fail)
+    val importOkMsg = stringResource(R.string.sett_import_ok)
+    val importInvalidMsg = stringResource(R.string.sett_import_invalid)
+
     val checkForUpdates: () -> Unit = {
         if (!isCheckingUpdate) {
             isCheckingUpdate = true
@@ -184,8 +200,8 @@ fun SettingsScreen(
                 val result = viewModel.importCustomFont(uri)
                 isImportingFont = false
                 val message = result.fold(
-                    onSuccess = { fileName -> "Font \"${fileName.substringBeforeLast('.')}\" imported" },
-                    onFailure = { it.message ?: "Could not import font" }
+                    onSuccess = { fileName -> fontImportedFmt.format(fileName.substringBeforeLast('.')) },
+                    onFailure = { it.message ?: fontImportFail }
                 )
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
@@ -213,7 +229,7 @@ fun SettingsScreen(
             isBackingUp = false
             Toast.makeText(
                 context,
-                if (ok) "Settings exported successfully" else "Could not export settings",
+                if (ok) exportOkMsg else exportFailMsg,
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -245,10 +261,10 @@ fun SettingsScreen(
                 is SettingsBackup.ImportResult.Applied -> {
                     viewModel.reloadSettingsFromDisk()
                     backupTick++
-                    Toast.makeText(context, "Settings imported successfully", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, importOkMsg, Toast.LENGTH_SHORT).show()
                 }
                 is SettingsBackup.ImportResult.Invalid -> {
-                    Toast.makeText(context, "Invalid or unsupported settings backup", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, importInvalidMsg, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -282,7 +298,7 @@ fun SettingsScreen(
                 }
 
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.sett_title),
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -307,7 +323,7 @@ fun SettingsScreen(
             ) {
 
                 // ── Dark / Light / System toggle ──────────────────────────────
-                item { SettingsSectionHeader(title = "Appearance & Theming") }
+                item { SettingsSectionHeader(title = stringResource(R.string.sett_header_appearance)) }
                 item {
                     Row(
                         modifier = Modifier
@@ -346,7 +362,7 @@ fun SettingsScreen(
                                         Spacer(modifier = Modifier.width(4.dp))
                                     }
                                     Text(
-                                        text = mode.name,
+                                        text = darkModeDisplayName(mode),
                                         color = if (isSelected)
                                             MaterialTheme.colorScheme.onSecondaryContainer
                                         else
@@ -385,12 +401,39 @@ fun SettingsScreen(
                 item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
-                            title = "AMOLED Black Mode",
-                            subtitle = "Pure black background to save battery on OLED",
+                            title = stringResource(R.string.sett_amoled_title),
+                            subtitle = stringResource(R.string.sett_amoled_sub),
                             icon = Icons.Rounded.DarkMode,
                             checked = amoledMode,
                             enabled = isCurrentlyDark,
                             onCheckedChange = { viewModel.setAmoledMode(it) }
+                        )
+                    }
+                }
+
+                // ── Language (same pref + dialog as onboarding) ───────────────
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item {
+                    SettingsGroupCard {
+                        SettingsGroupItem(
+                            title = stringResource(R.string.language_title),
+                            subtitle = AppLocale.displayNameFor(appLocale),
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.Language,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailing = {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = { showLanguageDialog = true }
                         )
                     }
                 }
@@ -405,7 +448,7 @@ fun SettingsScreen(
                         item {
                             FontPreviewCard(
                                 sampleText = "Aa Bb",
-                                displayName = "System Default",
+                                displayName = fontDisplayName(AppFonts.SYSTEM_DEFAULT),
                                 fontFamily = FontFamily.Default,
                                 isSelected = currentFontId == AppFonts.SYSTEM_DEFAULT,
                                 onClick = { viewModel.setAppFont(AppFonts.SYSTEM_DEFAULT) }
@@ -446,13 +489,13 @@ fun SettingsScreen(
                 // ── Advanced player ───────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Advanced Player", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_advanced), paddingTop = 4.dp)
                 }
                 item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
-                            title = "Volume Boost (200%)",
-                            subtitle = "Amplify software sound beyond device limits",
+                            title = stringResource(R.string.sett_volume_boost_title),
+                            subtitle = stringResource(R.string.sett_volume_boost_sub),
                             icon = Icons.Rounded.VolumeUp,
                             checked = audioBoost,
                             onCheckedChange = { viewModel.setAudioBoost(it) }
@@ -463,13 +506,13 @@ fun SettingsScreen(
                 // ── Player engine ─────────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Player Engine", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_engine), paddingTop = 4.dp)
                 }
                 item {
                     SettingsGroupCard {
                         SettingsGroupItem(
-                            title = "ExoPlayer  ·  Media3",
-                            subtitle = "Default — smooth, battery-efficient playback",
+                            title = stringResource(R.string.sett_engine_exo_title),
+                            subtitle = stringResource(R.string.sett_engine_exo_sub),
                             icon = {
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_gear),
@@ -492,8 +535,8 @@ fun SettingsScreen(
                         )
                         SettingsGroupDivider()
                         SettingsGroupItem(
-                            title = "MPV Engine  ·  HW",
-                            subtitle = "Hardware-accelerated, codec-rich powerhouse",
+                            title = stringResource(R.string.sett_engine_mpv_title),
+                            subtitle = stringResource(R.string.sett_engine_mpv_sub),
                             icon = {
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_gear),
@@ -520,29 +563,29 @@ fun SettingsScreen(
                 // ── Playback ──────────────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Playback", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_playback), paddingTop = 4.dp)
                 }
                 item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
-                            title = "Resume Playback",
-                            subtitle = "Continue from where you left off",
+                            title = stringResource(R.string.sett_resume_title),
+                            subtitle = stringResource(R.string.sett_resume_sub),
                             icon = Icons.Rounded.History,
                             checked = resumePlayback,
                             onCheckedChange = { viewModel.setResumePlayback(it) }
                         )
                         SettingsGroupDivider()
                         SettingsGroupToggle(
-                            title = "Auto Rotate",
-                            subtitle = "Rotate screen with video orientation",
+                            title = stringResource(R.string.sett_autorotate_title),
+                            subtitle = stringResource(R.string.sett_autorotate_sub),
                             icon = Icons.Rounded.ScreenRotation,
                             checked = autoRotate,
                             onCheckedChange = { viewModel.setAutoRotate(it) }
                         )
                         SettingsGroupDivider()
                         SettingsGroupToggle(
-                            title = "Show Startup Intro",
-                            subtitle = "Show logo splash when app opens",
+                            title = stringResource(R.string.sett_intro_title),
+                            subtitle = stringResource(R.string.sett_intro_sub),
                             icon = Icons.Rounded.RocketLaunch,
                             checked = showIntro,
                             onCheckedChange = { on ->
@@ -552,8 +595,8 @@ fun SettingsScreen(
                         )
                         SettingsGroupDivider()
                         SettingsGroupToggle(
-                            title = "Minimalist Player",
-                            subtitle = "Use a cleaner player interface with reduced controls",
+                            title = stringResource(R.string.sett_minimalist_title),
+                            subtitle = stringResource(R.string.sett_minimalist_sub),
                             icon = Icons.Rounded.FullscreenExit,
                             checked = minimalistPlayer,
                             onCheckedChange = { viewModel.setMinimalistPlayer(it) }
@@ -564,13 +607,13 @@ fun SettingsScreen(
                 // ── Player Buttons ────────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Player Overlay Buttons", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_overlay), paddingTop = 4.dp)
                 }
                 item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
-                            title = "Speed Button",
-                            subtitle = "Show the playback speed button",
+                            title = stringResource(R.string.sett_speed_title),
+                            subtitle = stringResource(R.string.sett_speed_sub),
                             icon = Icons.Rounded.Speed,
                             checked = showSpeedButton,
                             onCheckedChange = { on ->
@@ -580,8 +623,8 @@ fun SettingsScreen(
                         )
                         SettingsGroupDivider()
                         SettingsGroupToggle(
-                            title = "Loop Button",
-                            subtitle = "Show the repeat/loop button",
+                            title = stringResource(R.string.sett_loop_title),
+                            subtitle = stringResource(R.string.sett_loop_sub),
                             icon = Icons.Rounded.Repeat,
                             checked = showLoopButton,
                             onCheckedChange = { on ->
@@ -591,8 +634,8 @@ fun SettingsScreen(
                         )
                         SettingsGroupDivider()
                         SettingsGroupToggle(
-                            title = "Zoom Buttons",
-                            subtitle = "Show the zoom and aspect-ratio buttons",
+                            title = stringResource(R.string.sett_zoom_title),
+                            subtitle = stringResource(R.string.sett_zoom_sub),
                             icon = Icons.Rounded.AspectRatio,
                             checked = showZoomButtons,
                             onCheckedChange = { on ->
@@ -602,8 +645,8 @@ fun SettingsScreen(
                         )
                         SettingsGroupDivider()
                         SettingsGroupToggle(
-                            title = "Extra Buttons",
-                            subtitle = "Show background play, timer, boost and fullscreen buttons",
+                            title = stringResource(R.string.sett_extra_title),
+                            subtitle = stringResource(R.string.sett_extra_sub),
                             icon = Icons.Rounded.Widgets,
                             checked = showExtraButtons,
                             onCheckedChange = { on ->
@@ -617,21 +660,21 @@ fun SettingsScreen(
                 // ── Library / Content ─────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Library & Audio", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_library), paddingTop = 4.dp)
                 }
                 item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
-                            title = "Music Player",
-                            subtitle = "Enable music player features",
+                            title = stringResource(R.string.sett_music_title),
+                            subtitle = stringResource(R.string.sett_music_sub),
                             icon = Icons.Rounded.MusicNote,
                             checked = musicPlayerEnabled,
                             onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
                         )
                         SettingsGroupDivider()
                         SettingsGroupToggle(
-                            title = "Local Mode",
-                            subtitle = "Show only local media features and hide streaming-related options",
+                            title = stringResource(R.string.sett_local_title),
+                            subtitle = stringResource(R.string.sett_local_sub),
                             icon = Icons.Rounded.Folder,
                             checked = localMode,
                             onCheckedChange = { viewModel.setLocalMode(it) }
@@ -642,16 +685,16 @@ fun SettingsScreen(
                 // ── Storage Access (All files access) ─────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Storage Access", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_storage), paddingTop = 4.dp)
                 }
                 item {
                     SettingsGroupCard {
                         SettingsGroupItem(
-                            title = "All Files Access",
+                            title = stringResource(R.string.sett_storage_all_title),
                             subtitle = if (hasFullAccess)
-                                "✓ Full storage access enabled"
+                                stringResource(R.string.sett_storage_enabled_sub)
                             else
-                                "Full storage management permission",
+                                stringResource(R.string.sett_storage_perm_sub),
                             icon = {
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_folder_open),
@@ -691,8 +734,8 @@ fun SettingsScreen(
                         if (!hasFullAccess) {
                             SettingsGroupDivider()
                             SettingsGroupItem(
-                                title = "Allow All Files Access",
-                                subtitle = "Required for move, rename, create folder and delete without extra prompts",
+                                title = stringResource(R.string.sett_storage_allow_title),
+                                subtitle = stringResource(R.string.sett_storage_allow_sub),
                                 icon = {
                                     Icon(
                                         painter = painterResource(id = R.drawable.ic_folder),
@@ -717,13 +760,13 @@ fun SettingsScreen(
                 // ── Updates ───────────────────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Updates", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_updates), paddingTop = 4.dp)
                 }
                 item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
-                            title = "Update Notifications",
-                            subtitle = "Notify me when a new version is released",
+                            title = stringResource(R.string.sett_update_notif_title),
+                            subtitle = stringResource(R.string.sett_update_notif_sub),
                             icon = Icons.Rounded.Notifications,
                             checked = updateNotifications,
                             onCheckedChange = { on ->
@@ -733,9 +776,9 @@ fun SettingsScreen(
                         )
                         SettingsGroupDivider()
                         SettingsGroupItem(
-                            title = "Check for Updates",
+                            title = stringResource(R.string.sett_check_updates_title),
                             subtitle = if (isCheckingUpdate)
-                                "Checking GitHub…"
+                                stringResource(R.string.sett_checking_updates)
                             else
                                 "VidMax v${BuildConfig.VERSION_NAME} · Latest release",
                             icon = {
@@ -769,13 +812,13 @@ fun SettingsScreen(
                 // ── Backup & Restore (P4b) ────────────────────────────────────
                 item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = "Backup & Restore", paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_backup), paddingTop = 4.dp)
                 }
                 item {
                     SettingsGroupCard {
                         SettingsGroupItem(
-                            title = "Export Settings",
-                            subtitle = "Save settings to a JSON backup file",
+                            title = stringResource(R.string.sett_export_title),
+                            subtitle = stringResource(R.string.sett_export_sub),
                             icon = {
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_share_custom),
@@ -796,8 +839,8 @@ fun SettingsScreen(
                         )
                         SettingsGroupDivider()
                         SettingsGroupItem(
-                            title = "Import Settings",
-                            subtitle = "Restore settings from a backup file",
+                            title = stringResource(R.string.sett_import_title),
+                            subtitle = stringResource(R.string.sett_import_sub),
                             icon = {
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_folder_open),
@@ -860,7 +903,7 @@ fun SettingsScreen(
                                 .padding(horizontal = 16.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = "VidMax · Open Source · MIT License",
+                                text = stringResource(R.string.sett_about_license),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium
@@ -885,11 +928,13 @@ fun SettingsScreen(
             pendingDeleteFont?.let { fontId ->
                 AlertDialog(
                     onDismissRequest = { pendingDeleteFont = null },
-                    title = { Text(text = "Remove Font?") },
+                    title = { Text(text = stringResource(R.string.sett_remove_font_title)) },
                     text = {
                         Text(
-                            text = "\"${AppFonts.displayNameFor(fontId)}\" will be removed from your imported fonts. " +
-                                    "The app will switch back to the system default if it was active.",
+                            text = stringResource(
+                                R.string.sett_remove_font_msg,
+                                AppFonts.displayNameFor(fontId)
+                            ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
@@ -898,14 +943,22 @@ fun SettingsScreen(
                             viewModel.deleteCustomFont(fontId)
                             pendingDeleteFont = null
                         }) {
-                            Text(text = "Remove", color = MaterialTheme.colorScheme.error)
+                            Text(text = stringResource(R.string.sett_remove_font_confirm), color = MaterialTheme.colorScheme.error)
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { pendingDeleteFont = null }) {
-                            Text(text = "Cancel")
+                            Text(text = stringResource(R.string.sett_dialog_cancel))
                         }
                     }
+                )
+            }
+
+            if (showLanguageDialog) {
+                LanguageSelectionDialog(
+                    currentTag = appLocale,
+                    onSelect = { viewModel.setAppLocale(it) },
+                    onDismiss = { showLanguageDialog = false }
                 )
             }
         }
@@ -1127,7 +1180,7 @@ private fun ImportFontCard(
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Add Font",
+            text = stringResource(R.string.sett_add_font),
             fontSize = 11.sp,
             fontWeight = FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSurfaceVariant

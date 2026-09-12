@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ============ MusicScreen (msc_) ============ -->
+    <string name="msc_toast_deleted_success">নির্বাচিত অডিও সফলভাবে মুছে ফেলা হয়েছে</string>
+    <string name="msc_toast_delete_cancelled">মুছে ফেলা বাতিল হয়েছে</string>
+    <string name="msc_dialog_delete_audios_title">অডিও মুছুন</string>
+    <string name="msc_dialog_delete_audios_msg">আপনি কি নিশ্চিত যে %1$dটি নির্বাচিত গান মুছতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</string>
+    <string name="msc_action_delete">মুছুন</string>
+    <string name="msc_action_cancel">বাতিল</string>
+    <string name="msc_dialog_delete_playlist_title">প্লেলিস্ট মুছুন</string>
+    <string name="msc_dialog_delete_playlist_msg">আপনি কি নিশ্চিত যে \'%1$s\' মুছতে চান? এতে আসল গানগুলি মুছবে না।</string>
+    <string name="msc_toast_playlist_deleted">প্লেলিস্ট মুছে ফেলা হয়েছে</string>
+    <string name="msc_dialog_new_playlist_title">নতুন প্লেলিস্ট</string>
+    <string name="msc_hint_playlist_name">প্লেলিস্টের নাম লিখুন</string>
+    <string name="msc_toast_playlist_created">প্লেলিস্ট তৈরি হয়েছে</string>
+    <string name="msc_action_create">তৈরি করুন</string>
+    <string name="msc_dialog_add_to_playlist_title">প্লেলিস্টে যোগ করুন</string>
+    <string name="msc_create_new_playlist">নতুন প্লেলিস্ট তৈরি করুন</string>
+    <string name="msc_toast_added_to_playlist">%1$s এ যোগ করা হয়েছে</string>
+    <string name="msc_selected_count">%1$dটি নির্বাচিত</string>
+    <string name="msc_share_audios_title">%1$dটি অডিও শেয়ার করুন</string>
+    <string name="msc_title_music">মিউজিক</string>
+    <string name="msc_tab_songs">গান</string>
+    <string name="msc_tab_folders">ফোল্ডার</string>
+    <string name="msc_tab_playlists">প্লেলিস্ট</string>
+    <string name="msc_tab_favorites">পছন্দের</string>
+    <string name="msc_empty_albums">কোনো অ্যালবাম পাওয়া যায়নি</string>
+    <string name="msc_empty_folders">কোনো ফোল্ডার পাওয়া যায়নি</string>
+    <string name="msc_empty_playlists">এখনও কোনো প্লেলিস্ট তৈরি হয়নি</string>
+    <string name="msc_empty_favorites">পছন্দের তালিকায় কোনো গান পাওয়া যায়নি</string>
+    <string name="msc_empty_playlist_songs">এই প্লেলিস্টে কোনো গান নেই</string>
+    <string name="msc_empty_in_tab">%1$s এ কোনো আইটেম পাওয়া যায়নি</string>
+    <string name="msc_unknown_album">অজানা অ্যালবাম</string>
+    <string name="msc_unknown_folder">অজানা ফোল্ডার</string>
+    <string name="msc_unknown">অজানা</string>
+    <plurals name="msc_songs_count">
+        <item quantity="one">%1$dটি গান</item>
+        <item quantity="other">%1$dটি গান</item>
+    </plurals>
+    <plurals name="msc_albums_count">
+        <item quantity="one">%1$dটি অ্যালবাম</item>
+        <item quantity="other">%1$dটি অ্যালবাম</item>
+    </plurals>
+    <plurals name="msc_folders_count">
+        <item quantity="one">%1$dটি ফোল্ডার</item>
+        <item quantity="other">%1$dটি ফোল্ডার</item>
+    </plurals>
+    <plurals name="msc_audios_deleted">
+        <item quantity="one">%1$dটি অডিও মুছে ফেলা হয়েছে</item>
+        <item quantity="other">%1$dটি অডিও মুছে ফেলা হয়েছে</item>
+    </plurals>
+
+    <!-- ============ MusicPlayerScreen (mps_) ============ -->
+    <string name="mps_toast_deleted_success">অডিও সফলভাবে মুছে ফেলা হয়েছে</string>
+    <string name="mps_dialog_delete_title">অডিও মুছুন</string>
+    <string name="mps_dialog_delete_msg">আপনি কি নিশ্চিত যে \'%1$s\' মুছতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।</string>
+    <string name="mps_action_delete">মুছুন</string>
+    <string name="mps_action_cancel">বাতিল</string>
+    <string name="mps_toast_deleted">অডিও মুছে ফেলা হয়েছে</string>
+    <string name="mps_toast_delete_failed">মুছতে ব্যর্থ হয়েছে।</string>
+    <string name="mps_toast_permission_denied">অনুমতি প্রত্যাখ্যান করা হয়েছে!</string>
+    <string name="mps_toast_error_generic">ত্রুটি: %1$s</string>
+    <string name="mps_dialog_properties_title">অডিও বৈশিষ্ট্য</string>
+    <string name="mps_prop_title">শিরোনাম: %1$s</string>
+    <string name="mps_prop_artist">শিল্পী: %1$s</string>
+    <string name="mps_prop_path">পাথ: %1$s</string>
+    <string name="mps_prop_size">আকার: %1$s</string>
+    <string name="mps_unknown_size">অজানা আকার</string>
+    <string name="mps_action_close">বন্ধ করুন</string>
+    <string name="mps_dialog_sleep_timer_title">স্লিপ টাইমার</string>
+    <string name="mps_timer_off">বন্ধ</string>
+    <string name="mps_timer_minutes">%1$d মিনিট</string>
+    <string name="mps_now_playing">এখন বাজছে</string>
+    <string name="mps_online_stream">অনলাইন স্ট্রিম</string>
+    <string name="mps_menu_properties">বৈশিষ্ট্য</string>
+    <string name="mps_menu_delete">মুছুন</string>
+    <string name="mps_theme_default">ডিফল্ট থিম</string>
+    <string name="mps_theme_modern">মডার্ন সার্কেল</string>
+    <string name="mps_theme_wavy">ওয়েভি প্যাস্টেল</string>
+    <string name="mps_unknown_song">অজানা গান</string>
+    <string name="mps_share_listening">%1$s শুনছি 🎵</string>
+    <string name="mps_share_audio_title">অডিও শেয়ার করুন</string>
+    <string name="mps_toast_share_failed">এই ফাইলটি শেয়ার করা যায়নি</string>
+    <string name="mps_queue">সারি</string>
+    <string name="mps_up_next">পরবর্তী</string>
+    <string name="mps_queue_empty">সারির তালিকা বর্তমানে খালি।</string>
+    <string name="mps_boost_on">🚀 সফটওয়্যার বুস্ট চালু: ভলিউম 200% করা হয়েছে</string>
+    <string name="mps_boost_off">🎵 বুস্ট বন্ধ: ভলিউম 100%-এ ফিরেছে</string>
+    <string name="mps_boost_label">বুস্ট</string>
+    <string name="mps_volume_percent">ভলিউম: %1$d%%</string>
+    <string name="mps_online_music_title">অনলাইন মিউজিক</string>
+
+    <!-- ============ OnlineMusicScreen (oms_) ============ -->
+    <string name="oms_snackbar_playlist_empty">প্লেলিস্ট খালি</string>
+    <string name="oms_greeting_morning">শুভ সকাল</string>
+    <string name="oms_greeting_afternoon">শুভ দুপুর</string>
+    <string name="oms_greeting_evening">শুভ সন্ধ্যা</string>
+    <string name="oms_greeting_night">শুভ রাত্রি</string>
+    <string name="oms_profile_you">আপনি</string>
+    <string name="oms_profile_account_free">VidMax সম্পূর্ণ অ্যাকাউন্ট-মুক্ত — কোনো YouTube লগইন দরকার নেই।</string>
+    <string name="oms_stat_favorites">পছন্দের</string>
+    <string name="oms_stat_recently_played">সম্প্রতি শোনা</string>
+    <string name="oms_error_title">কিছু ভুল হয়েছে</string>
+    <string name="oms_error_fallback">গানের পরামর্শ লোড করা যায়নি</string>
+    <string name="oms_action_retry">আবার চেষ্টা করুন</string>
+    <string name="oms_section_speed_dial">স্পিড ডায়াল</string>
+    <string name="oms_section_daily_discover">ডেইলি ডিসকভার</string>
+    <string name="oms_section_keep_listening">শুনতে থাকুন</string>
+    <string name="oms_section_similar_to">%1$s এর মতো</string>
+    <string name="oms_section_forgotten_favorites">ভুলে যাওয়া পছন্দের</string>
+    <string name="oms_section_favorites">পছন্দের</string>
+    <string name="oms_section_recently_played">সম্প্রতি শোনা</string>
+    <string name="oms_action_play_all">সব চালান</string>
+    <string name="oms_section_quick_picks">কুইক পিক্স</string>
+    <string name="oms_section_mood_genres">মুড ও জনরা</string>
+    <string name="oms_section_popular_artists">জনপ্রিয় শিল্পীরা</string>
+    <string name="oms_mood_chill_title">চিল</string>
+    <string name="oms_mood_chill_subtitle">আরাম করুন</string>
+    <string name="oms_mood_focus_title">ফোকাস</string>
+    <string name="oms_mood_focus_subtitle">গভীর মনোযোগ</string>
+    <string name="oms_mood_commute_title">যাতায়াত</string>
+    <string name="oms_mood_commute_subtitle">পথে চলতে</string>
+    <string name="oms_mood_gaming_title">গেমিং</string>
+    <string name="oms_mood_gaming_subtitle">লেভেল আপ</string>
+    <string name="oms_mood_energize_title">এনার্জাইজ</string>
+    <string name="oms_mood_energize_subtitle">দিনটি চাঙ্গা করুন</string>
+    <string name="oms_mood_party_title">পার্টি</string>
+    <string name="oms_mood_party_subtitle">ড্যান্স ফ্লোর</string>
+    <string name="oms_mood_feelgood_title">ফিল গুড</string>
+    <string name="oms_mood_feelgood_subtitle">আনন্দময় ভাইবস</string>
+    <string name="oms_mood_romance_title">রোমান্স</string>
+    <string name="oms_mood_romance_subtitle">ভালোবাসার গান</string>
+    <string name="oms_empty_songs">কোনো গান পাওয়া যায়নি</string>
+    <string name="oms_search_hint">গান, শিল্পী খুঁজুন...</string>
+    <string name="oms_suggested_results">প্রস্তাবিত ফলাফল</string>
+    <string name="oms_artist_fallback">শিল্পী</string>
+    <plurals name="oms_playlist_detail_subtitle">
+        <item quantity="one">%1$s • %2$dটি গান</item>
+        <item quantity="other">%1$s • %2$dটি গান</item>
+    </plurals>
+    <plurals name="oms_artist_detail_subtitle">
+        <item quantity="one">%1$s • %2$dটি গান</item>
+        <item quantity="other">%1$s • %2$dটি গান</item>
+    </plurals>
+
+    <!-- ============ NetworkScreen (net_) ============ -->
+    <string name="net_title">নেটওয়ার্ক</string>
+    <string name="net_recent_links">সাম্প্রতিক লিংক</string>
+    <string name="net_empty_title">এখনও কোনো সার্ভার নেই</string>
+    <string name="net_empty_hint">ভিডিও স্ট্রিম করতে একটি SMB, FTP বা WebDAV সার্ভার যোগ করুন</string>
+    <string name="net_add_server">সার্ভার যোগ করুন</string>
+    <string name="net_servers">সার্ভার</string>
+    <string name="net_path_label">পাথ: %1$s</string>
+    <string name="net_user_label">ব্যবহারকারী: %1$s</string>
+    <string name="net_connecting">সংযোগ হচ্ছে</string>
+    <string name="net_browse">ব্রাউজ করুন</string>
+    <string name="net_disconnect">সংযোগ বিচ্ছিন্ন করুন</string>
+    <string name="net_connect">সংযোগ করুন</string>
+    <string name="net_empty_files">কোনো ফাইল পাওয়া যায়নি</string>
+
+</resources>

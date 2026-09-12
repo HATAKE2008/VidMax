@@ -22,10 +22,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.R
 import com.vidmax.player.data.model.FolderItem
 
 /**
@@ -42,17 +44,18 @@ fun FolderPickerDialog(
     folders: List<FolderItem>,
     busy: Boolean,
     error: String?,
-    emptyText: String = "No folders found.",
+    emptyText: String? = null,
     onFolderClick: (FolderItem) -> Unit,
     onDismiss: () -> Unit,
 ) {
+  val resolvedEmptyText = emptyText ?: stringResource(R.string.comp_folder_empty)
   AlertDialog(
       onDismissRequest = { if (!busy) onDismiss() },
       title = { Text(title, fontWeight = FontWeight.Bold) },
       text = {
         Column {
           if (folders.isEmpty()) {
-            Text(emptyText, fontSize = 14.sp)
+            Text(resolvedEmptyText, fontSize = 14.sp)
           } else {
             LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
               items(folders, key = { it.path }) { folder ->
@@ -75,7 +78,7 @@ fun FolderPickerDialog(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis)
                     Text(
-                        text = "${folder.videoCount} videos",
+                        text = stringResource(R.string.comp_folder_videos, folder.videoCount),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                   }
@@ -94,6 +97,6 @@ fun FolderPickerDialog(
       },
       confirmButton = {},
       dismissButton = {
-        TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") }
+        TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.comp_folder_cancel)) }
       })
 }

@@ -90,6 +90,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.coerceIn
@@ -194,8 +196,8 @@ fun WavyPlayerScreen(
   if (showDeleteConfirmDialog) {
     AlertDialog(
         onDismissRequest = { showDeleteConfirmDialog = false },
-        title = { Text("Delete Audio", fontWeight = FontWeight.Bold) },
-        text = { Text("Are you sure you want to delete '$title'? This action cannot be undone.") },
+        title = { Text(stringResource(R.string.player_delete_audio), fontWeight = FontWeight.Bold) },
+        text = { Text(stringResource(R.string.player_delete_audio_confirm, title)) },
         confirmButton = {
           TextButton(
               onClick = {
@@ -203,19 +205,19 @@ fun WavyPlayerScreen(
                 try {
                   val file = File(currentPath)
                   if (file.exists() && file.delete()) {
-                    Toast.makeText(context, "Audio Deleted", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.player_audio_deleted), Toast.LENGTH_SHORT).show()
                     viewModel.pauseAudio()
                     onBack()
                   }
                 } catch (e: Exception) {
-                  Toast.makeText(context, "Failed to delete.", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, context.getString(R.string.player_delete_failed), Toast.LENGTH_SHORT).show()
                 }
               }) {
-                Text("Delete", color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.player_delete), color = MaterialTheme.colorScheme.error)
               }
         },
         dismissButton = {
-          TextButton(onClick = { showDeleteConfirmDialog = false }) { Text("Cancel") }
+          TextButton(onClick = { showDeleteConfirmDialog = false }) { Text(stringResource(R.string.player_cancel)) }
         })
   }
 
@@ -223,34 +225,34 @@ fun WavyPlayerScreen(
     val file = File(currentPath)
     val fileSizeMb =
         if (file.exists()) String.format(java.util.Locale.US, "%.2f MB", file.length() / (1024.0 * 1024.0))
-        else "Unknown Size"
+        else context.getString(R.string.player_unknown_size)
     AlertDialog(
         onDismissRequest = { showPropertiesDialog = false },
-        title = { Text("Audio Properties", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.player_audio_props), fontWeight = FontWeight.Bold) },
         text = {
           Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Title: $title", fontSize = 14.sp)
-            Text("Artist: $artist", fontSize = 14.sp)
+            Text(stringResource(R.string.player_prop_title, title), fontSize = 14.sp)
+            Text(stringResource(R.string.player_prop_artist, artist), fontSize = 14.sp)
             Text(
-                "Path: $currentPath",
+                stringResource(R.string.player_prop_path, currentPath),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Size: $fileSizeMb", fontSize = 14.sp)
+            Text(stringResource(R.string.player_prop_size, fileSizeMb), fontSize = 14.sp)
           }
         },
         confirmButton = {
-          TextButton(onClick = { showPropertiesDialog = false }) { Text("Close") }
+          TextButton(onClick = { showPropertiesDialog = false }) { Text(stringResource(R.string.player_close)) }
         })
   }
 
   if (showTimerDialog) {
     AlertDialog(
         onDismissRequest = { showTimerDialog = false },
-        title = { Text("Sleep Timer", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(R.string.player_sleep_timer), fontWeight = FontWeight.Bold) },
         text = {
           Column {
             listOf(0, 15, 30, 60, 120).forEach { mins ->
-              val text = if (mins == 0) "Off" else "$mins Minutes"
+              val text = if (mins == 0) stringResource(R.string.player_off) else pluralStringResource(R.plurals.player_sleep_minutes, mins, mins)
               Row(
                   modifier =
                       Modifier.fillMaxWidth()
@@ -272,7 +274,7 @@ fun WavyPlayerScreen(
             }
           }
         },
-        confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text("Close") } })
+        confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text(stringResource(R.string.player_close)) } })
   }
 
   // Main Layout Box (Handles Gestures)
@@ -343,9 +345,9 @@ fun WavyPlayerScreen(
                             viewModel.toggleMusicBoost()
                             val msg =
                                 if (!isAudioBoosted) {
-                                  "🚀 Software Boost ON: Volume forced to 200%"
+                                  context.getString(R.string.player_boost_on)
                                 } else {
-                                  "🎵 Boost OFF: Volume back to 100%"
+                                  context.getString(R.string.player_boost_off)
                                 }
                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                           }) {
@@ -367,14 +369,14 @@ fun WavyPlayerScreen(
                                   Intent(Intent.ACTION_SEND).apply {
                                     type = "audio/*"
                                     putExtra(Intent.EXTRA_STREAM, uri)
-                                    putExtra(Intent.EXTRA_TEXT, "Listening to $title 🎵")
+                                    putExtra(Intent.EXTRA_TEXT, context.getString(R.string.player_share_listening, title))
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                   }
                               context.startActivity(
-                                  Intent.createChooser(shareIntent, "Share Audio"))
+                                  Intent.createChooser(shareIntent, context.getString(R.string.player_share_audio_title)))
                             } else {
                               Toast.makeText(
-                                      context, "Could not share this file", Toast.LENGTH_SHORT)
+                                      context, context.getString(R.string.player_share_failed), Toast.LENGTH_SHORT)
                                   .show()
                             }
                           }) {
@@ -398,7 +400,7 @@ fun WavyPlayerScreen(
                             expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
                               DropdownMenuItem(
                                   text = {
-                                    Text("Properties", color = MaterialTheme.colorScheme.onSurface)
+                                    Text(stringResource(R.string.player_menu_properties), color = MaterialTheme.colorScheme.onSurface)
                                   },
                                   leadingIcon = {
                                     Icon(
@@ -412,7 +414,7 @@ fun WavyPlayerScreen(
                                   })
                               DropdownMenuItem(
                                   text = {
-                                    Text("Sleep Timer", color = MaterialTheme.colorScheme.onSurface)
+                                    Text(stringResource(R.string.player_sleep_timer), color = MaterialTheme.colorScheme.onSurface)
                                   },
                                   leadingIcon = {
                                     Icon(
@@ -427,7 +429,7 @@ fun WavyPlayerScreen(
                                   })
                               DropdownMenuItem(
                                   text = {
-                                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                                    Text(stringResource(R.string.player_delete), color = MaterialTheme.colorScheme.error)
                                   },
                                   leadingIcon = {
                                     Icon(
@@ -499,7 +501,7 @@ fun WavyPlayerScreen(
 
               // --- TITLE & ARTIST ---
               Text(
-                  text = title.ifEmpty { "Unknown Song" },
+                  text = title.ifEmpty { stringResource(R.string.player_unknown_song) },
                   color = MaterialTheme.colorScheme.onSurface,
                   fontSize = 26.sp,
                   fontWeight = FontWeight.Bold,
@@ -789,7 +791,7 @@ fun WavyPlayerScreen(
                   contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                       Text(
-                          "Volume: $displayVolPercent%",
+                          stringResource(R.string.player_volume_percent, displayVolPercent),
                           color = Color.White,
                           fontWeight = FontWeight.Bold)
                       Spacer(modifier = Modifier.height(8.dp))
@@ -814,7 +816,7 @@ fun WavyPlayerScreen(
                             .padding(horizontal = 24.dp, vertical = 16.dp)
                             .fillMaxHeight(0.6f)) {
                       Text(
-                          "Up Next",
+                          stringResource(R.string.player_up_next),
                           fontSize = 20.sp,
                           fontWeight = FontWeight.Bold,
                           color = MaterialTheme.colorScheme.onSurface)
@@ -825,7 +827,7 @@ fun WavyPlayerScreen(
                             modifier = Modifier.fillMaxWidth().weight(1f),
                             contentAlignment = Alignment.Center) {
                               Text(
-                                  "Queue list is currently empty.",
+                                  stringResource(R.string.player_queue_empty),
                                   color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                   fontSize = 16.sp)
                             }

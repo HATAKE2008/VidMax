@@ -4,12 +4,12 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge // 🔥 Edge to Edge ইম্পোর্ট
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,7 +27,7 @@ import com.vidmax.player.viewmodel.LibraryViewModel
 import dagger.hilt.android.AndroidEntryPoint // 🔥 এই ইমপোর্টটি যুক্ত করা হলো
 
 @AndroidEntryPoint // 🔥 Hilt-কে কাজ করানোর জন্য এই লাইনটি অত্যন্ত জরুরি
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
   private val libraryViewModel: LibraryViewModel by viewModels()
   private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>

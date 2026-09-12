@@ -5,7 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,13 +30,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.R
 import kotlin.system.exitProcess
 
-class CrashActivity : ComponentActivity() {
+class CrashActivity : AppCompatActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
-    val errorDetails = intent.getStringExtra("EXTRA_ERROR_DETAILS") ?: "Unknown Error"
+    val errorDetails = intent.getStringExtra("EXTRA_ERROR_DETAILS") ?: getString(R.string.misc_crash_unknown)
+    val crashTitle = getString(R.string.misc_crash_title)
+    val copyLabel = getString(R.string.misc_crash_copy)
+    val closeLabel = getString(R.string.misc_crash_close)
+    val copiedToast = getString(R.string.misc_crash_copied)
 
     setContent {
       MaterialTheme {
@@ -45,7 +50,7 @@ class CrashActivity : ComponentActivity() {
             ) {
               Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 Text(
-                    text = "Oh snap! App Crashed \uD83D\uDE2D",
+                    text = crashTitle,
                     color = Color(0xFFFF5252),
                     fontSize = 22.sp,
                     modifier = Modifier.padding(bottom = 12.dp))
@@ -79,13 +84,13 @@ class CrashActivity : ComponentActivity() {
                             clipboard.setPrimaryClip(clip)
                             Toast.makeText(
                                     this@CrashActivity,
-                                    "Log Copied! Send it to Dev \uD83D\uDE80",
+                                    copiedToast,
                                     Toast.LENGTH_LONG)
                                 .show()
                           },
                           colors =
                               ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))) {
-                            Text("Copy Error", color = Color.White)
+                            Text(copyLabel, color = Color.White)
                           }
 
                       // ক্লোজ বাটন
@@ -96,7 +101,7 @@ class CrashActivity : ComponentActivity() {
                           },
                           colors =
                               ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))) {
-                            Text("Close App", color = Color.White)
+                            Text(closeLabel, color = Color.White)
                           }
                     }
               }

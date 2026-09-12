@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import com.vidmax.player.R
 
 /**
  * Full-storage-access helper (All files access).
@@ -35,9 +36,9 @@ object StorageAccess {
 
   fun statusText(context: Context): String {
     return if (hasFullStorageAccess(context)) {
-      "Full storage access enabled"
+      context.getString(R.string.storage_full_access_enabled)
     } else {
-      "Full storage access disabled"
+      context.getString(R.string.storage_full_access_disabled)
     }
   }
 

@@ -65,6 +65,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -188,10 +190,10 @@ fun SearchScreen(
   }
 
   val hint = when (scope) {
-    SearchScope.VIDEOS -> if (inFolder) "Search in folder…" else "Search videos…"
-    SearchScope.MUSIC -> "Search songs or artists…"
-    SearchScope.NETWORK -> "Search this folder…"
-    SearchScope.PLAYLISTS -> "Search playlists…"
+    SearchScope.VIDEOS -> if (inFolder) stringResource(R.string.search_hint_in_folder) else stringResource(R.string.search_hint_videos)
+    SearchScope.MUSIC -> stringResource(R.string.search_hint_music)
+    SearchScope.NETWORK -> stringResource(R.string.search_hint_network)
+    SearchScope.PLAYLISTS -> stringResource(R.string.search_hint_playlists)
   }
 
   VideoActionMenuHost(
@@ -211,19 +213,19 @@ fun SearchScreen(
   if (showClearHistoryConfirm) {
     AlertDialog(
         onDismissRequest = { showClearHistoryConfirm = false },
-        title = { Text("Clear search history?", fontWeight = FontWeight.Bold) },
-        text = { Text("All recent searches will be removed from this device.") },
+        title = { Text(stringResource(R.string.search_clear_title), fontWeight = FontWeight.Bold) },
+        text = { Text(stringResource(R.string.search_clear_message)) },
         confirmButton = {
           TextButton(
               onClick = {
                 viewModel.clearSearchHistory()
                 showClearHistoryConfirm = false
               }) {
-                Text("Clear", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.search_clear_confirm), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
               }
         },
         dismissButton = {
-          TextButton(onClick = { showClearHistoryConfirm = false }) { Text("Cancel") }
+          TextButton(onClick = { showClearHistoryConfirm = false }) { Text(stringResource(R.string.search_cancel)) }
         })
   }
 
@@ -329,14 +331,14 @@ fun SearchScreen(
                             }
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Search your library",
+                            text = stringResource(R.string.search_library_title),
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Find videos, music and folders",
+                            text = stringResource(R.string.search_library_subtitle),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center)
@@ -348,14 +350,14 @@ fun SearchScreen(
                           .padding(vertical = 4.dp, horizontal = 4.dp),
                       verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Recent searches",
+                            text = stringResource(R.string.search_recent_title),
                             color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f))
                         TextButton(onClick = { showClearHistoryConfirm = true }) {
                           Text(
-                              text = "Clear",
+                              text = stringResource(R.string.search_clear_confirm),
                               color = MaterialTheme.colorScheme.primary,
                               fontSize = 13.sp,
                               fontWeight = FontWeight.Bold)
@@ -421,14 +423,14 @@ fun SearchScreen(
                           }
                       Spacer(modifier = Modifier.height(16.dp))
                       Text(
-                          text = "No results found",
+                          text = stringResource(R.string.search_no_results_title),
                           color = MaterialTheme.colorScheme.onBackground,
                           fontSize = 17.sp,
                           fontWeight = FontWeight.Bold,
                           textAlign = TextAlign.Center)
                       Spacer(modifier = Modifier.height(4.dp))
                       Text(
-                          text = "Try a different search term.",
+                          text = stringResource(R.string.search_no_results_hint),
                           color = MaterialTheme.colorScheme.onSurfaceVariant,
                           fontSize = 14.sp,
                           textAlign = TextAlign.Center)
@@ -436,7 +438,7 @@ fun SearchScreen(
               } else {
                 // ── Results ──
                 Text(
-                    text = "$resultCount result${if (resultCount == 1) "" else "s"}",
+                    text = pluralStringResource(R.plurals.search_results_count, resultCount, resultCount),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,

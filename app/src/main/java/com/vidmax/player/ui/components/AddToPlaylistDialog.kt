@@ -39,9 +39,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vidmax.player.R
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.viewmodel.LibraryViewModel
 
@@ -67,7 +69,7 @@ fun AddToPlaylistDialog(
       containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
       icon = { DialogHeaderBadge(icon = Icons.Rounded.PlaylistAdd) },
       title = {
-        Text("Add to Playlist", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text(stringResource(R.string.comp_playlist_title), fontWeight = FontWeight.Bold, fontSize = 20.sp)
       },
       text = {
         Column(
@@ -112,7 +114,7 @@ fun AddToPlaylistDialog(
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface)
                         Text(
-                            text = "${entry.itemCount} videos",
+                            text = stringResource(R.string.comp_playlist_count, entry.itemCount),
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                       }
@@ -129,7 +131,7 @@ fun AddToPlaylistDialog(
                 newName = it
                 if (it.isNotBlank()) selectedId = -1
               },
-              label = { Text("Or create new playlist") },
+              label = { Text(stringResource(R.string.comp_playlist_new_hint)) },
               leadingIcon = {
                 Icon(imageVector = Icons.Filled.Add, contentDescription = null)
               },
@@ -153,7 +155,7 @@ fun AddToPlaylistDialog(
       },
       confirmButton = {
         DialogConfirmButton(
-            label = "Add",
+            label = stringResource(R.string.comp_playlist_add),
             enabled = newName.isNotBlank() || selectedId != -1,
             onClick = {
               when {
@@ -164,5 +166,5 @@ fun AddToPlaylistDialog(
               onDismiss()
             })
       },
-      dismissButton = { DialogCancelButton(label = "Cancel", onClick = onDismiss) })
+      dismissButton = { DialogCancelButton(label = stringResource(R.string.comp_playlist_cancel), onClick = onDismiss) })
 }

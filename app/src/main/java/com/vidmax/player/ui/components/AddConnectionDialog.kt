@@ -31,10 +31,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.vidmax.player.R
 import com.vidmax.player.data.model.NetworkConnection
 import com.vidmax.player.data.model.NetworkProtocol
 
@@ -69,7 +71,7 @@ fun AddConnectionDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = if (initial == null) "Add Connection" else "Edit Connection",
+                text = if (initial == null) stringResource(R.string.comp_conn_add_title) else stringResource(R.string.comp_conn_edit_title),
                 fontWeight = FontWeight.Bold,
             )
         },
@@ -83,7 +85,7 @@ fun AddConnectionDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.comp_conn_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -98,7 +100,7 @@ fun AddConnectionDialog(
                         value = protocol.displayName,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Protocol") },
+                        label = { Text(stringResource(R.string.comp_conn_protocol)) },
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = protocolExpanded)
                         },
@@ -125,7 +127,7 @@ fun AddConnectionDialog(
                 OutlinedTextField(
                     value = host,
                     onValueChange = { host = it },
-                    label = { Text("Host / IP") },
+                    label = { Text(stringResource(R.string.comp_conn_host)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -133,7 +135,7 @@ fun AddConnectionDialog(
                 OutlinedTextField(
                     value = port,
                     onValueChange = { port = it },
-                    label = { Text("Port") },
+                    label = { Text(stringResource(R.string.comp_conn_port)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
@@ -143,7 +145,7 @@ fun AddConnectionDialog(
                     value = path,
                     onValueChange = { path = it },
                     label = {
-                        Text(if (protocol == NetworkProtocol.SMB) "Share name (e.g. /Media)" else "Path")
+                        Text(if (protocol == NetworkProtocol.SMB) stringResource(R.string.comp_conn_share_smb) else stringResource(R.string.comp_conn_path))
                     },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -152,7 +154,7 @@ fun AddConnectionDialog(
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },
-                    label = { Text("Username") },
+                    label = { Text(stringResource(R.string.comp_conn_username)) },
                     singleLine = true,
                     enabled = !isAnonymous,
                     modifier = Modifier.fillMaxWidth(),
@@ -161,7 +163,7 @@ fun AddConnectionDialog(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Password") },
+                    label = { Text(stringResource(R.string.comp_conn_password)) },
                     singleLine = true,
                     enabled = !isAnonymous,
                     visualTransformation = PasswordVisualTransformation(),
@@ -173,7 +175,7 @@ fun AddConnectionDialog(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        text = "Anonymous",
+                        text = stringResource(R.string.comp_conn_anonymous),
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.weight(1f),
                     )
@@ -189,7 +191,7 @@ fun AddConnectionDialog(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            text = "Use HTTPS",
+                            text = stringResource(R.string.comp_conn_use_https),
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.weight(1f),
                         )
@@ -221,12 +223,12 @@ fun AddConnectionDialog(
                     onSave(connection)
                 },
             ) {
-                Text("Save")
+                Text(stringResource(R.string.comp_conn_save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.comp_conn_cancel))
             }
         },
     )

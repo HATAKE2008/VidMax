@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Player toasts / capture -->
+    <string name="player_capture_unavailable">Capture not available for this video</string>
+    <string name="player_frame_saved">Frame saved to Pictures/VidMax</string>
+    <string name="player_capture_failed">Capture failed</string>
+    <string name="player_engine_mpv">Switched to MPV. Reloading...</string>
+    <string name="player_engine_exo">Switched to ExoPlayer. Reloading...</string>
+    <string name="player_ab_set_both">Set both A and B first</string>
+
+    <!-- Zoom sheet -->
+    <string name="player_zoom_title">Video Zoom</string>
+    <string name="player_zoom_label">Zoom</string>
+    <string name="player_set_as_default">Set as default</string>
+    <string name="player_reset">Reset</string>
+    <string name="player_zoom_percent">Zoom: %1$d%%</string>
+
+    <!-- Aspect ratio sheet -->
+    <string name="player_aspect_title">Aspect Ratio</string>
+    <string name="player_aspect_fit">Fit</string>
+    <string name="player_aspect_fill">Crop / Fill</string>
+    <string name="player_aspect_stretch">Stretch</string>
+
+    <!-- Hardware decoder -->
+    <string name="player_decoder_title">Hardware Decoder</string>
+    <string name="player_decoder_auto">Auto (auto-copy)</string>
+    <string name="player_decoder_sw">SW (no)</string>
+    <string name="player_decoder_hw">HW (mediacodec-copy)</string>
+    <string name="player_decoder_hwplus">HW+ (mediacodec)</string>
+    <string name="player_ok">OK</string>
+
+    <!-- Sleep timer -->
+    <string name="player_sleep_timer">Sleep Timer</string>
+    <string name="player_off">Off</string>
+    <plurals name="player_sleep_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <string name="player_close">Close</string>
+
+    <!-- Bookmarks -->
+    <string name="player_bookmark_at_time">Bookmark %1$s</string>
+    <string name="player_bookmark_label_hint">Label (optional)</string>
+    <string name="player_save">Save</string>
+    <plurals name="player_bookmarks_count">
+        <item quantity="one">%1$d bookmark</item>
+        <item quantity="other">%1$d bookmarks</item>
+    </plurals>
+    <string name="player_no_bookmarks_hint">No bookmarks yet. Use More &gt; Add bookmark here.</string>
+    <string name="player_bookmark_fallback">Bookmark</string>
+
+    <!-- Speed &amp; sync sheet -->
+    <string name="player_speed_sync_title">Speed &amp; Sync</string>
+    <string name="player_playback_speed">Playback Speed</string>
+    <string name="player_speed_value">%1$sx</string>
+    <string name="player_audio_delay">Audio Delay</string>
+    <string name="player_panel_audio_delay">Audio delay</string>
+    <string name="player_subtitle_delay">Subtitle Delay</string>
+    <string name="player_panel_sub_delay">Subtitle delay</string>
+    <string name="player_delay_ms">%1$d ms</string>
+    <string name="player_delay_minus50">-50ms</string>
+    <string name="player_delay_plus50">+50ms</string>
+    <string name="player_sync_auto_exo">Sync delays are automatically handled by ExoPlayer.</string>
+
+    <!-- Gesture overlays -->
+    <string name="player_seek_to">Seek to</string>
+    <string name="player_seek_total">/ %1$s</string>
+    <string name="player_speed_2x">2× speed</string>
+    <string name="player_seek_backward">- %1$ds</string>
+    <string name="player_seek_forward">+ %1$ds</string>
+    <string name="player_slide_to_unlock">Slide to unlock</string>
+
+    <!-- Overflow / engine menu -->
+    <string name="player_menu_engine_exo">Engine: ExoPlayer</string>
+    <string name="player_menu_engine_mpv">Engine: MPV (HW)</string>
+    <string name="player_menu_mpv_decoder">MPV Decoder Settings</string>
+    <string name="player_menu_engine_to_mpv">Engine: ExoPlayer → MPV</string>
+    <string name="player_menu_engine_to_exo">Engine: MPV → ExoPlayer</string>
+    <string name="player_menu_audio_tracks">Audio tracks</string>
+    <string name="player_menu_subtitles">Subtitles</string>
+    <string name="player_menu_settings">Settings</string>
+    <string name="player_menu_add_bookmark">Add bookmark here</string>
+    <string name="player_menu_share">Share</string>
+    <string name="player_menu_details">Details</string>
+    <string name="player_share_video_title">Share Video</string>
+    <string name="player_subtitle_track_meta">Subtitle track %1$d</string>
+
+    <!-- Player settings sheet -->
+    <string name="player_settings_title">Player Settings</string>
+    <string name="player_section_controls">Controls</string>
+    <string name="player_autohide">Auto-hide Controls</string>
+    <string name="player_autohide_sub">Fade out controls after a delay</string>
+    <string name="player_autohide_delay">Auto-hide Delay</string>
+    <string name="player_delay_never">Never</string>
+    <string name="player_show_on_play">Show Controls on Play</string>
+    <string name="player_show_on_play_sub">Reveal controls when playback starts</string>
+    <string name="player_volume_booster">Volume Booster (200%)</string>
+    <string name="player_volume_booster_sub">Amplify volume beyond device limits</string>
+    <string name="player_controls_below">Controls Below Seek Bar</string>
+    <string name="player_controls_below_sub">Place the button row under the progress bar</string>
+    <string name="player_section_aesthetics">Aesthetics</string>
+    <string name="player_dtap_indicator">Double-tap Seek Indicator</string>
+    <string name="player_dtap_indicator_sub">Show the ripple when seeking by double-tap</string>
+    <string name="player_section_gestures">Gestures</string>
+    <string name="player_gesture_brightness">Brightness Gesture</string>
+    <string name="player_gesture_brightness_sub">Swipe up / down on the left edge</string>
+    <string name="player_gesture_volume">Volume Gesture</string>
+    <string name="player_gesture_volume_sub">Swipe up / down on the right edge</string>
+    <string name="player_pinch_zoom">Pinch to Zoom</string>
+    <string name="player_pinch_zoom_sub">Pinch to zoom the video in / out</string>
+    <string name="player_hswipe_seek">Horizontal Swipe Seek</string>
+    <string name="player_hswipe_seek_sub">Drag across the screen to seek</string>
+    <string name="player_dtap_seek">Double-tap Seek</string>
+    <string name="player_reverse_dtap">Reverse Double-tap</string>
+    <string name="player_reverse_dtap_sub">Swap the left and right seek directions</string>
+    <string name="player_seek_sensitivity">Seek Gesture Sensitivity</string>
+    <string name="player_sensitivity_low">Low</string>
+    <string name="player_sensitivity_medium">Medium</string>
+    <string name="player_sensitivity_high">High</string>
+    <string name="player_prevent_seek_tap">Prevent Seek Bar Tap</string>
+    <string name="player_prevent_seek_tap_sub">Require dragging the seek bar to seek</string>
+    <string name="player_section_advanced">Settings / Advanced</string>
+    <string name="player_subtitle_size">Subtitle Size</string>
+    <string name="player_decoder_modes">Auto / SW / HW / HW+</string>
+    <string name="player_video_sync">Video Sync</string>
+    <string name="player_sync_audio">Audio</string>
+    <string name="player_sync_display">Display Resample</string>
+    <string name="player_interpolation">Interpolation</string>
+    <string name="player_interpolation_sub">Smooth motion by frame blending</string>
+    <string name="player_pitch_correction">Audio Pitch Correction</string>
+    <string name="player_pitch_correction_sub">Keep pitch stable when changing speed</string>
+    <string name="player_mpv_advanced">MPV Advanced</string>
+    <string name="player_mpv_advanced_value">Switch to MPV (HW) to configure</string>
+    <string name="player_current_engine">Current Engine</string>
+
+    <!-- Subtitle / audio panel -->
+    <string name="player_subtitle_tab">Subtitle</string>
+    <string name="player_audio_tab">Audio Track</string>
+    <string name="player_text_color">Text color</string>
+    <string name="player_bg_color">Background color</string>
+    <string name="player_stereo_mode">Stereo mode</string>
+    <string name="player_avsync_title">Audio synchronization (AV sync)</string>
+    <string name="player_audio_output">Audio output</string>
+    <string name="player_audio_renderer">Audio renderer</string>
+    <string name="player_subtitle_files">Subtitle files</string>
+    <string name="player_open_subtitle">Open subtitle file</string>
+    <string name="player_open_subtitle_sub">Load subtitle from device</string>
+    <string name="player_subtitle_tracks">Subtitle tracks</string>
+    <string name="player_disable_subs">Disable subtitles</string>
+    <string name="player_no_subs">No subtitle tracks available</string>
+    <string name="player_no_subs_sub">No subtitle tracks found in the current video</string>
+    <string name="player_appearance">Appearance</string>
+    <string name="player_text_size">Text size</string>
+    <string name="player_percent_format">%1$d%%</string>
+    <string name="player_outline">Outline</string>
+    <string name="player_background">Background</string>
+    <string name="player_bottom_margin">Bottom margin</string>
+    <string name="player_synchronization">Synchronization</string>
+    <string name="player_mpv_only">MPV engine only</string>
+    <string name="player_audio_tracks_title">Audio tracks</string>
+    <string name="player_audio_disable">Disable</string>
+    <string name="player_disable_audio">Disable audio</string>
+    <string name="player_no_audio">No audio tracks available</string>
+    <string name="player_no_audio_sub">No audio tracks found in the current video</string>
+    <string name="player_audio_options">Audio options</string>
+    <string name="player_sw_decoder">Use SW audio decoder</string>
+    <string name="player_sw_decoder_sub">Use software decoder instead of hardware</string>
+    <string name="player_normalize">Normalize volume</string>
+    <string name="player_normalize_sub">Balance audio volume</string>
+    <string name="player_default_badge">Default</string>
+    <string name="player_done">Done</string>
+    <string name="player_cancel">Cancel</string>
+    <string name="player_track_fallback">Track #%1$d</string>
+    <string name="player_mpv_sub_fallback">Subtitle Track %1$d</string>
+    <string name="player_mpv_audio_fallback">Audio Track %1$d</string>
+    <string name="player_audio_track_numbered">Audio track #%1$d</string>
+
+    <!-- Background-audio placeholder -->
+    <string name="player_audio_mode_active">Audio Mode Active</string>
+    <string name="player_audio_mode_desc">Video rendering is disabled to save battery</string>
+
+    <!-- PlayerActivity toasts -->
+    <string name="player_sub_added_mpv">Subtitle Added! ✅</string>
+    <string name="player_sub_added">Subtitle Added!</string>
+    <string name="player_sub_read_error">Error reading subtitle file</string>
+    <string name="player_mpv_failed">MPV engine failed to start, use EXO engine</string>
+    <string name="player_stream_failed">Could not open stream — paste a direct video link (.mp4 / .mkv / .m3u8), not a page URL</string>
+    <string name="player_err_network">network connection failed — check internet / server address</string>
+    <string name="player_err_content_type">server sent an unexpected content type</string>
+    <string name="player_err_rejected">server rejected this link (dead, blocked or needs login)</string>
+    <string name="player_err_not_found">file not found on the server</string>
+    <string name="player_err_http_blocked">plain-HTTP links are blocked by the system</string>
+    <string name="player_err_unreadable">source could not be read</string>
+    <string name="player_playback_error">Playback error %1$d: %2$s</string>
+
+    <!-- Music (wavy) player -->
+    <string name="player_delete_audio">Delete Audio</string>
+    <string name="player_delete_audio_confirm">Are you sure you want to delete \'%1$s\'? This action cannot be undone.</string>
+    <string name="player_audio_deleted">Audio Deleted</string>
+    <string name="player_delete_failed">Failed to delete.</string>
+    <string name="player_delete">Delete</string>
+    <string name="player_audio_props">Audio Properties</string>
+    <string name="player_prop_title">Title: %1$s</string>
+    <string name="player_prop_artist">Artist: %1$s</string>
+    <string name="player_prop_path">Path: %1$s</string>
+    <string name="player_prop_size">Size: %1$s</string>
+    <string name="player_unknown_size">Unknown Size</string>
+    <string name="player_boost_on">🚀 Software Boost ON: Volume forced to 200%</string>
+    <string name="player_boost_off">🎵 Boost OFF: Volume back to 100%</string>
+    <string name="player_share_listening">Listening to %1$s 🎵</string>
+    <string name="player_share_audio_title">Share Audio</string>
+    <string name="player_share_failed">Could not share this file</string>
+    <string name="player_menu_properties">Properties</string>
+    <string name="player_unknown_song">Unknown Song</string>
+    <string name="player_volume_percent">Volume: %1$d%%</string>
+    <string name="player_up_next">Up Next</string>
+    <string name="player_queue_empty">Queue list is currently empty.</string>
+</resources>

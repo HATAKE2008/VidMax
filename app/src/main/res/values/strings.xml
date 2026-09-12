@@ -1,4 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- Common actions -->
+    <string name="action_done">Done</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_change">Change</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_open_settings">Open Settings</string>
+
+    <!-- Language -->
+    <string name="language_title">Preferred Language</string>
+
+    <!-- Font -->
+    <string name="font_title">Font</string>
+    <string name="font_system_default">System Default</string>
+
+    <!-- Theme -->
+    <string name="theme_title">Theme</string>
+    <string name="theme_appearance">Appearance</string>
+    <string name="theme_amoled_black">AMOLED Black</string>
+    <string name="theme_color_theme">Color theme</string>
+    <string name="dark_mode_dark">Dark</string>
+    <string name="dark_mode_light">Light</string>
+    <string name="dark_mode_system">System</string>
+
+    <!-- Onboarding setup -->
+    <string name="onboarding_title">Welcome to VidMax</string>
+    <string name="onboarding_subtitle">Your modern, powerful and\ncustomizable media player.</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_storage_required_hint">Storage access is required to continue.</string>
+
+    <!-- Storage access -->
+    <string name="storage_title">Storage Access</string>
+    <string name="storage_required_desc">Permission is required to discover and play your media.</string>
+    <string name="storage_grant">Grant Storage Access</string>
+    <string name="storage_granted_title">Storage Access Granted</string>
+    <string name="storage_granted_desc">Permission is granted. VidMax is ready to discover and play your media.</string>
+    <string name="storage_partial_desc">Media access granted. Enable All files access to finish setup.</string>
+
+    <!-- Modern player screen -->
+    <string name="mpscr_delete_title">Delete Audio</string>
+    <string name="mpscr_delete_message">Are you sure you want to delete \'%1$s\'?</string>
+    <string name="mpscr_delete">Delete</string>
+    <string name="mpscr_deleted">Deleted</string>
+    <string name="mpscr_delete_failed">Failed</string>
+    <string name="mpscr_props_title">Audio Properties</string>
+    <string name="mpscr_prop_title">Title: %1$s</string>
+    <string name="mpscr_prop_artist">Artist: %1$s</string>
+    <string name="mpscr_prop_path">Path: %1$s</string>
+    <string name="mpscr_prop_size">Size: %1$s</string>
+    <string name="mpscr_unknown_size">Unknown Size</string>
+    <string name="mpscr_close">Close</string>
+    <string name="mpscr_timer_title">Sleep Timer</string>
+    <string name="mpscr_timer_off">Off</string>
+    <string name="mpscr_timer_minutes">%1$d Minutes</string>
+    <string name="mpscr_menu_properties">Properties</string>
+    <string name="mpscr_up_next">Up Next</string>
+
 </resources>

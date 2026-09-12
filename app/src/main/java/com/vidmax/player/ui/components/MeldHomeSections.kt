@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,7 +69,7 @@ fun MeldChipsRow(
                 onClick = { onChipSelect(null) },
                 label = {
                     Text(
-                        "For You",
+                        stringResource(R.string.comp_chips_for_you),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -307,7 +308,7 @@ private fun RandomizeTile(
                 modifier = Modifier.size(28.dp),
             )
             Text(
-                text = "Surprise Me",
+                text = stringResource(R.string.comp_surprise_me),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimary,

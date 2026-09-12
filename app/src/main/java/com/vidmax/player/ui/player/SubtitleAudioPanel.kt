@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,6 +71,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.ui.CaptionStyleCompat
+import com.vidmax.player.R
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
 import com.vidmax.player.viewmodel.SubtitleAudioTab
@@ -88,10 +90,10 @@ private data class ExoTrackInfo(
 // ---------------------------------------------------------------------------
 // EXO track helpers
 // ---------------------------------------------------------------------------
-private fun exoLabel(format: Format, index: Int): String =
+private fun exoLabel(format: Format, index: Int, fallbackTemplate: String): String =
     format.label?.takeIf { it.isNotBlank() }
         ?: format.language?.takeIf { it.isNotBlank() }
-        ?: "Track #${index + 1}"
+        ?: String.format(fallbackTemplate, index + 1)
 
 private fun exoSecondary(format: Format, channelCount: Int?): String {
     val parts = mutableListOf<String>()
@@ -170,6 +172,11 @@ fun SubtitleAudioPanel(
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
     val isMpv = currentEngine == PlayerEngine.MPV
+    // Templates hoisted here: the refresh helpers below run in
+    // non-composable callbacks, so they capture these pre-read values.
+    val exoTrackFallbackTemplate = stringResource(R.string.player_track_fallback)
+    val mpvSubFallbackTemplate = stringResource(R.string.player_mpv_sub_fallback)
+    val mpvAudioFallbackTemplate = stringResource(R.string.player_mpv_audio_fallback)
 
     var tab by remember { mutableStateOf(initialTab) }
 
@@ -228,7 +235,7 @@ fun SubtitleAudioPanel(
                     val name =
                         if (title.isNotEmpty()) title
                         else if (lang.isNotEmpty()) lang
-                        else "Subtitle Track $id"
+                        else String.format(mpvSubFallbackTemplate, id)
                     if (id != -1) tracks.add(MpvTrackInfo(id, name))
                 }
             }
@@ -250,7 +257,7 @@ fun SubtitleAudioPanel(
                     val name =
                         if (title.isNotEmpty()) title
                         else if (lang.isNotEmpty()) lang
-                        else "Audio Track $id"
+                        else String.format(mpvAudioFallbackTemplate, id)
                     if (id != -1) tracks.add(MpvTrackInfo(id, name))
                 }
             }
@@ -273,7 +280,7 @@ fun SubtitleAudioPanel(
                             ExoTrackInfo(
                                 group = group,
                                 trackIndex = i,
-                                label = exoLabel(format, i),
+                                label = exoLabel(format, i, exoTrackFallbackTemplate),
                                 secondary = exoSecondary(format, null),
                                 selected = group.isTrackSelected(i)
                             )
@@ -287,7 +294,7 @@ fun SubtitleAudioPanel(
                             ExoTrackInfo(
                                 group = group,
                                 trackIndex = i,
-                                label = exoLabel(format, i),
+                                label = exoLabel(format, i, exoTrackFallbackTemplate),
                                 secondary = exoSecondary(format, format.channelCount),
                                 selected = group.isTrackSelected(i)
                             )
@@ -584,7 +591,7 @@ fun SubtitleAudioPanel(
                         // ==================== MAIN AREA ====================
                         Column(Modifier.weight(1f).fillMaxHeight()) {
                             PanelTopBar(
-                                title = if (tab == SubtitleAudioTab.SUBTITLE) "Subtitle" else "Audio Track",
+                                title = if (tab == SubtitleAudioTab.SUBTITLE) stringResource(R.string.player_subtitle_tab) else stringResource(R.string.player_audio_tab),
                                 onClose = onClose
                             )
                             Column(
@@ -622,7 +629,7 @@ fun SubtitleAudioPanel(
                         .background(MaterialTheme.colorScheme.surface)
                 ) {
                     PanelTopBar(
-                        title = if (tab == SubtitleAudioTab.SUBTITLE) "Subtitle" else "Audio Track",
+                        title = if (tab == SubtitleAudioTab.SUBTITLE) stringResource(R.string.player_subtitle_tab) else stringResource(R.string.player_audio_tab),
                         onClose = onClose
                     )
                     // ==================== HORIZONTAL ICON RAIL ====================
@@ -656,7 +663,7 @@ fun SubtitleAudioPanel(
     // ==================== DIALOGS ====================
     if (showTextColorDialog) {
         ColorPickerDialog(
-            title = "Text color",
+            title = stringResource(R.string.player_text_color),
             current = Color(subColor),
             onPick = {
                 applySubColor(it)
@@ -668,7 +675,7 @@ fun SubtitleAudioPanel(
 
     if (showBgColorDialog) {
         ColorPickerDialog(
-            title = "Background color",
+            title = stringResource(R.string.player_bg_color),
             current = Color(subBgColor),
             onPick = {
                 applySubBgColor(it)
@@ -680,7 +687,7 @@ fun SubtitleAudioPanel(
 
     if (showStereoDialog) {
         OptionListDialog(
-            title = "Stereo mode",
+            title = stringResource(R.string.player_stereo_mode),
             options = listOf("Normal", "Mono", "Stereo", "Reverse"),
             selected = stereoMode,
             onSelect = {
@@ -695,7 +702,7 @@ fun SubtitleAudioPanel(
 
     if (showAvSyncDialog) {
         StepperDialog(
-            title = "Audio synchronization (AV sync)",
+            title = stringResource(R.string.player_avsync_title),
             valueText = String.format(Locale.US, "%.2fs", avSyncSec),
             onDecrease = {
                 avSyncSec = (avSyncSec - 0.1f).coerceAtLeast(-5f)
@@ -711,7 +718,7 @@ fun SubtitleAudioPanel(
 
     if (showAudioDelayDialog) {
         StepperDialog(
-            title = "Audio delay",
+            title = stringResource(R.string.player_panel_audio_delay),
             valueText = String.format(Locale.US, "%.2fs", audioDelaySec),
             onDecrease = { applyAudioDelay(audioDelaySec - 0.1f) },
             onIncrease = { applyAudioDelay(audioDelaySec + 0.1f) },
@@ -721,7 +728,7 @@ fun SubtitleAudioPanel(
 
     if (showAudioOutputDialog) {
         OptionListDialog(
-            title = "Audio output",
+            title = stringResource(R.string.player_audio_output),
             options = listOf("Device default", "Speaker", "Bluetooth"),
             selected = audioOutput,
             onSelect = {
@@ -736,7 +743,7 @@ fun SubtitleAudioPanel(
 
     if (showAudioRendererDialog) {
         OptionListDialog(
-            title = "Audio renderer",
+            title = stringResource(R.string.player_audio_renderer),
             options = listOf("Auto (Best quality)", "Software (Compatibility)", "Hardware (Low latency)"),
             selected = audioRenderer,
             onSelect = {
@@ -778,21 +785,21 @@ private fun SubtitleTab(
     onMarginChange: (Float) -> Unit,
     onSubDelayChange: (Float) -> Unit
 ) {
-    PanelCard("Subtitle files") {
+    PanelCard(stringResource(R.string.player_subtitle_files)) {
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.FolderOpen) },
-            label = "Open subtitle file",
-            secondary = "Load subtitle from device",
+            label = stringResource(R.string.player_open_subtitle),
+            secondary = stringResource(R.string.player_open_subtitle_sub),
             onClick = onPickSubtitle
         )
     }
 
     if (isMpv && mpvSubTracks.isNotEmpty()) {
-        PanelCard("Subtitle tracks") {
+        PanelCard(stringResource(R.string.player_subtitle_tracks)) {
             PanelRow(
                 leading = { PanelRadio(currentMpvSubId == "no") },
-                label = "Off",
-                secondary = "Disable subtitles",
+                label = stringResource(R.string.player_off),
+                secondary = stringResource(R.string.player_disable_subs),
                 onClick = onOffSubtitle
             )
             mpvSubTracks.forEachIndexed { index, track ->
@@ -800,17 +807,17 @@ private fun SubtitleTab(
                 PanelRow(
                     leading = { PanelRadio(currentMpvSubId == track.id.toString()) },
                     label = track.name,
-                    secondary = "Subtitle track ${track.id}",
+                    secondary = stringResource(R.string.player_subtitle_track_meta, track.id),
                     onClick = { onSelectSubtitle(track.id) }
                 )
             }
         }
     } else if (!isMpv && exoSubTracks.isNotEmpty()) {
-        PanelCard("Subtitle tracks") {
+        PanelCard(stringResource(R.string.player_subtitle_tracks)) {
             PanelRow(
                 leading = { PanelRadio(exoSubTracks.none { it.selected }) },
-                label = "Off",
-                secondary = "Disable subtitles",
+                label = stringResource(R.string.player_off),
+                secondary = stringResource(R.string.player_disable_subs),
                 onClick = onOffExoSubtitle
             )
             exoSubTracks.forEachIndexed { _, track ->
@@ -824,22 +831,22 @@ private fun SubtitleTab(
             }
         }
     } else if (!isMpv) {
-        PanelCard("Subtitle tracks") {
+        PanelCard(stringResource(R.string.player_subtitle_tracks)) {
             PanelRow(
                 leading = { LeadingIcon(Icons.Outlined.Subtitles) },
-                label = "No subtitle tracks available",
-                secondary = "No subtitle tracks found in the current video"
+                label = stringResource(R.string.player_no_subs),
+                secondary = stringResource(R.string.player_no_subs_sub)
             )
         }
     }
 
-    PanelCard("Appearance") {
+    PanelCard(stringResource(R.string.player_appearance)) {
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.FormatSize) },
-            label = "Text size",
+            label = stringResource(R.string.player_text_size),
             trailing = {
                 PanelStepper(
-                    valueText = "$textSizePercent%",
+                    valueText = stringResource(R.string.player_percent_format, textSizePercent),
                     onDecrease = { if (textSizePercent > 50) onTextSizeChange(textSizePercent - 10) },
                     onIncrease = { if (textSizePercent < 200) onTextSizeChange(textSizePercent + 10) }
                 )
@@ -848,13 +855,13 @@ private fun SubtitleTab(
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.Palette) },
-            label = "Text color",
+            label = stringResource(R.string.player_text_color),
             trailing = { ColorCircle(Color(subColor), onTextColorClick) }
         )
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.TextFormat) },
-            label = "Outline",
+            label = stringResource(R.string.player_outline),
             trailing = {
                 PanelStepper(
                     valueText = String.format(Locale.US, "%.1fpx", subOutline),
@@ -866,22 +873,22 @@ private fun SubtitleTab(
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.CropSquare) },
-            label = "Background",
+            label = stringResource(R.string.player_background),
             trailing = { PanelSwitch(subBgEnabled, onBgEnabledChange) }
         )
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.Colorize) },
-            label = "Background color",
+            label = stringResource(R.string.player_bg_color),
             trailing = { ColorCircle(Color(subBgColor), onBgColorClick) }
         )
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.VerticalAlignBottom) },
-            label = "Bottom margin",
+            label = stringResource(R.string.player_bottom_margin),
             trailing = {
                 PanelStepper(
-                    valueText = "${subMarginPercent.roundToInt()}%",
+                    valueText = stringResource(R.string.player_percent_format, subMarginPercent.roundToInt()),
                     onDecrease = { if (subMarginPercent > 0f) onMarginChange(subMarginPercent - 1f) },
                     onIncrease = { if (subMarginPercent < 20f) onMarginChange(subMarginPercent + 1f) }
                 )
@@ -889,12 +896,12 @@ private fun SubtitleTab(
         )
     }
 
-    PanelCard("Synchronization") {
+    PanelCard(stringResource(R.string.player_synchronization)) {
         Box(if (isMpv) Modifier else Modifier.alpha(0.4f)) {
             PanelRow(
                 leading = { LeadingIcon(Icons.Outlined.Schedule) },
-                label = "Subtitle delay",
-                secondary = if (isMpv) null else "MPV engine only",
+                label = stringResource(R.string.player_panel_sub_delay),
+                secondary = if (isMpv) null else stringResource(R.string.player_mpv_only),
                 trailing = {
                     PanelStepper(
                         valueText = String.format(Locale.US, "%.2fs", subtitleDelaySec),
@@ -937,13 +944,13 @@ private fun AudioTab(
     onNormalizeChange: (Boolean) -> Unit,
     onAudioRendererClick: () -> Unit
 ) {
-    PanelCard("Audio tracks") {
+    PanelCard(stringResource(R.string.player_audio_tracks_title)) {
         if (isMpv) {
             mpvAudioTracks.forEachIndexed { index, track ->
                 val isSelected = currentMpvAudioId == track.id.toString()
                 PanelRow(
                     leading = { PanelRadio(isSelected) },
-                    label = "Audio track #${index + 1}",
+                    label = stringResource(R.string.player_audio_track_numbered, index + 1),
                     secondary = track.name,
                     trailing = {
                         Row(
@@ -963,8 +970,8 @@ private fun AudioTab(
                 currentMpvAudioId == "no" || currentMpvAudioId == "0" || currentMpvAudioId == "false"
             PanelRow(
                 leading = { PanelRadio(isDisabled) },
-                label = "Disable",
-                secondary = "Disable audio",
+                label = stringResource(R.string.player_audio_disable),
+                secondary = stringResource(R.string.player_disable_audio),
                 trailing = { KebabIcon() },
                 onClick = onDisableAudio
             )
@@ -991,39 +998,39 @@ private fun AudioTab(
             val isDisabled = exoAudioTracks.none { it.selected }
             PanelRow(
                 leading = { PanelRadio(isDisabled) },
-                label = "Disable",
-                secondary = "Disable audio",
+                label = stringResource(R.string.player_audio_disable),
+                secondary = stringResource(R.string.player_disable_audio),
                 trailing = { KebabIcon() },
                 onClick = onDisableExoAudio
             )
         } else {
             PanelRow(
                 leading = { LeadingIcon(Icons.Outlined.Audiotrack) },
-                label = "No audio tracks available",
-                secondary = "No audio tracks found in the current video"
+                label = stringResource(R.string.player_no_audio),
+                secondary = stringResource(R.string.player_no_audio_sub)
             )
         }
     }
 
-    PanelCard("Audio options") {
+    PanelCard(stringResource(R.string.player_audio_options)) {
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.Memory) },
-            label = "Use SW audio decoder",
-            secondary = "Use software decoder instead of hardware",
+            label = stringResource(R.string.player_sw_decoder),
+            secondary = stringResource(R.string.player_sw_decoder_sub),
             trailing = { PanelSwitch(swAudioDecoder, onSwAudioDecoderChange) }
         )
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.GraphicEq) },
-            label = "Stereo mode",
+            label = stringResource(R.string.player_stereo_mode),
             trailing = { ValueChevron(stereoMode, accent = stereoMode != "Normal", onStereoClick) }
         )
         CardDivider()
         Box(if (isMpv) Modifier else Modifier.alpha(0.4f)) {
             PanelRow(
                 leading = { LeadingIcon(Icons.Outlined.Sync) },
-                label = "Audio synchronization (AV sync)",
-                secondary = if (isMpv) null else "MPV engine only",
+                label = stringResource(R.string.player_avsync_title),
+                secondary = if (isMpv) null else stringResource(R.string.player_mpv_only),
                 trailing = {
                     ValueChevron(
                         String.format(Locale.US, "%.2fs", avSyncSec),
@@ -1038,8 +1045,8 @@ private fun AudioTab(
         Box(if (isMpv) Modifier else Modifier.alpha(0.4f)) {
             PanelRow(
                 leading = { LeadingIcon(Icons.Outlined.Schedule) },
-                label = "Audio delay",
-                secondary = if (isMpv) null else "MPV engine only",
+                label = stringResource(R.string.player_panel_audio_delay),
+                secondary = if (isMpv) null else stringResource(R.string.player_mpv_only),
                 trailing = {
                     ValueChevron(
                         String.format(Locale.US, "%.2fs", audioDelaySec),
@@ -1053,20 +1060,20 @@ private fun AudioTab(
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.VolumeUp) },
-            label = "Audio output",
+            label = stringResource(R.string.player_audio_output),
             trailing = { ValueChevron(audioOutput, accent = audioOutput != "Device default", onAudioOutputClick) }
         )
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.Equalizer) },
-            label = "Normalize volume",
-            secondary = "Balance audio volume",
+            label = stringResource(R.string.player_normalize),
+            secondary = stringResource(R.string.player_normalize_sub),
             trailing = { PanelSwitch(normalizeVolume, onNormalizeChange) }
         )
         CardDivider()
         PanelRow(
             leading = { LeadingIcon(Icons.Outlined.Audiotrack) },
-            label = "Audio renderer",
+            label = stringResource(R.string.player_audio_renderer),
             trailing = {
                 ValueChevron(audioRenderer, accent = audioRenderer != "Auto (Best quality)", onAudioRendererClick)
             }
@@ -1263,7 +1270,7 @@ private fun DefaultBadge() {
     Box(modifier = Modifier.clip(RoundedCornerShape(6.dp))
         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
         .padding(horizontal = 5.dp, vertical = 2.dp)) {
-        Text("Default", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
+        Text(stringResource(R.string.player_default_badge), color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
     }
 }
 
@@ -1306,7 +1313,7 @@ private fun OptionListDialog(
              }
          },
          confirmButton = {
-             TextButton(onClick = onDismiss) { Text("OK", color = MaterialTheme.colorScheme.primary) }
+              TextButton(onClick = onDismiss) { Text(stringResource(R.string.player_ok), color = MaterialTheme.colorScheme.primary) }
          }
      )
  }
@@ -1325,7 +1332,7 @@ private fun StepperDialog(
         title = { Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
         text = { PanelStepper(valueText, onDecrease, onIncrease) },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Done", color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.player_done), color = MaterialTheme.colorScheme.primary) }
         }
     )
 }
@@ -1370,7 +1377,7 @@ private fun ColorPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.player_cancel), color = MaterialTheme.colorScheme.primary) }
         }
     )
 }

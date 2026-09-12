@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- HomeScreen (home_) -->
+    <string name="home_toast_selected_deleted">चयनित वीडियो सफलतापूर्वक हटाए गए</string>
+    <string name="home_toast_delete_cancelled">हटाना रद्द किया गया</string>
+    <string name="home_delete_title">वीडियो हटाएं</string>
+    <string name="home_delete_message">क्या आप %1$d चयनित वीडियो हटाना चाहते हैं? यह क्रिया वापस नहीं होगी।</string>
+    <string name="home_delete_confirm">हटाएं</string>
+    <string name="home_cancel">रद्द करें</string>
+    <string name="home_toast_renamed">नाम बदल दिया गया</string>
+    <string name="home_rename_failed">नाम बदलना विफल रहा</string>
+    <string name="home_rename_cancelled">नाम बदलना रद्द किया गया</string>
+    <string name="home_toast_video_deleted">वीडियो हटा दिया गया</string>
+    <string name="home_delete_failed">हटाना विफल रहा</string>
+    <string name="home_selection_count">%1$d / %2$d चयनित</string>
+    <string name="home_menu_share">साझा करें</string>
+    <string name="home_menu_select_all">सभी चुनें</string>
+    <string name="home_menu_deselect_all">सभी हटाएं</string>
+    <string name="home_title_videos">वीडियो</string>
+    <string name="home_title_folders">फ़ोल्डर</string>
+    <string name="home_title_recent">हाल में चलाए गए</string>
+    <string name="home_title_playlists">प्लेलिस्ट</string>
+    <string name="home_segment_video">वीडियो</string>
+    <string name="home_segment_folder">फ़ोल्डर</string>
+    <string name="home_segment_recent">हाल के</string>
+    <string name="home_segment_playlists">प्लेलिस्ट</string>
+    <string name="home_storage_permission">वीडियो देखने के लिए\nस्टोरेज अनुमति आवश्यक है।</string>
+    <string name="home_no_videos_match">\"%1$s\" से कोई वीडियो नहीं मिला</string>
+    <string name="home_no_videos_found">इस डिवाइस पर कोई वीडियो नहीं मिला।</string>
+    <string name="home_retry">पुनः प्रयास करें</string>
+    <string name="home_folder_fallback">फ़ोल्डर</string>
+    <string name="home_folder_empty">यह फ़ोल्डर खाली है।</string>
+    <string name="home_copy_to_folder">फ़ोल्डर में कॉपी करें</string>
+    <string name="home_move_to_folder">फ़ोल्डर में ले जाएं</string>
+    <string name="home_no_folders">कोई फ़ोल्डर नहीं मिला।</string>
+    <string name="home_copy_failed">कॉपी विफल रहा</string>
+    <string name="home_move_failed">ले जाना विफल रहा</string>
+    <string name="home_continue_watching">देखना जारी रखें</string>
+    <string name="home_resume">फिर से शुरू करें</string>
+    <string name="home_unknown_folder">अज्ञात</string>
+    <string name="home_meta_format">%1$s • %2$s</string>
+    <string name="home_copied_skipped_suffix"> (%1$d छोड़े गए)</string>
+    <string name="home_moved_already_suffix"> (%1$d पहले से यहाँ है)</string>
+    <plurals name="home_videos_count">
+        <item quantity="one">%1$d वीडियो</item>
+        <item quantity="other">%1$d वीडियो</item>
+    </plurals>
+    <plurals name="home_deleted_count">
+        <item quantity="one">%1$d वीडियो हटाया गया</item>
+        <item quantity="other">%1$d वीडियो हटाए गए</item>
+    </plurals>
+    <plurals name="home_copied_count">
+        <item quantity="one">%1$d वीडियो कॉपी हुआ%2$s</item>
+        <item quantity="other">%1$d वीडियो कॉपी हुए%2$s</item>
+    </plurals>
+    <plurals name="home_moved_count">
+        <item quantity="one">%1$d वीडियो ले जाया गया%2$s</item>
+        <item quantity="other">%1$d वीडियो ले जाए गए%2$s</item>
+    </plurals>
+    <plurals name="home_share_count">
+        <item quantity="one">%1$d वीडियो साझा करें</item>
+        <item quantity="other">%1$d वीडियो साझा करें</item>
+    </plurals>
+
+    <!-- VideoPlaylistsContent (vpl_) -->
+    <string name="vpl_selected_count">%1$d चयनित</string>
+    <string name="vpl_empty_title">अभी कोई प्लेलिस्ट नहीं</string>
+    <string name="vpl_empty_hint">वीडियो को देर तक दबाएं और प्लेलिस्ट में जोड़ें चुनें</string>
+    <string name="vpl_play_failed">प्लेलिस्ट नहीं चलाई जा सकी</string>
+    <string name="vpl_create_title">प्लेलिस्ट बनाएं</string>
+    <string name="vpl_create_new_title">नई प्लेलिस्ट</string>
+    <string name="vpl_create_new_subtitle">एक खाली प्लेलिस्ट बनाएं</string>
+    <string name="vpl_import_m3u_title">M3U लिंक आयात करें</string>
+    <string name="vpl_import_m3u_subtitle">लिंक से M3U/M3U8 प्लेलिस्ट आयात करें</string>
+    <string name="vpl_cancel">रद्द करें</string>
+    <string name="vpl_new_playlist_title">नई प्लेलिस्ट</string>
+    <string name="vpl_create_confirm">बनाएं</string>
+    <string name="vpl_rename_title">प्लेलिस्ट का नाम बदलें</string>
+    <string name="vpl_rename_confirm">नाम बदलें</string>
+    <string name="vpl_delete_title">\"%1$s\" हटाएं?</string>
+    <string name="vpl_delete_message">इस प्लेलिस्ट के अंदर के सभी वीडियो इससे हटा दिए जाएंगे।</string>
+    <string name="vpl_delete_confirm">हटाएं</string>
+    <string name="vpl_delete_single_title">यह प्लेलिस्ट हटाएं?</string>
+    <string name="vpl_delete_multi_title">%1$d प्लेलिस्ट हटाएं?</string>
+    <string name="vpl_delete_list_message">वीडियो आपकी लाइब्रेरी में रहेंगे; केवल प्लेलिस्ट हटेंगी।</string>
+    <string name="vpl_menu_play">चलाएं</string>
+    <string name="vpl_menu_rename">नाम बदलें</string>
+    <string name="vpl_menu_delete">हटाएं</string>
+    <string name="vpl_done">पूर्ण</string>
+    <string name="vpl_play_all">सभी चलाएं</string>
+    <string name="vpl_refresh_from_url">लिंक से रीफ्रेश करें</string>
+    <string name="vpl_refreshed">रीफ्रेश हुआ (%1$d वीडियो)</string>
+    <string name="vpl_refresh_failed">रीफ्रेश विफल रहा</string>
+    <string name="vpl_reorder">क्रम बदलें</string>
+    <string name="vpl_shuffle">शफल चलाएं</string>
+    <string name="vpl_remove_selected">%1$d चयनित हटाएं</string>
+    <string name="vpl_clear_videos">वीडियो साफ़ करें</string>
+    <string name="vpl_delete_playlist">प्लेलिस्ट हटाएं</string>
+    <string name="vpl_search_in_playlist">प्लेलिस्ट में खोजें</string>
+    <string name="vpl_empty_playlist">यह प्लेलिस्ट खाली है।\nयहाँ जोड़ने के लिए वीडियो को देर तक दबाएं।</string>
+    <string name="vpl_no_match">\"%1$s\" से कोई वीडियो नहीं मिला</string>
+    <string name="vpl_import_title">M3U प्लेलिस्ट आयात करें</string>
+    <string name="vpl_import_url_label">प्लेलिस्ट लिंक (.m3u / .m3u8)</string>
+    <string name="vpl_import_hint">प्रविष्टियाँ अपने शीर्षकों के साथ आपकी लाइब्रेरी में सहेजी जाएंगी</string>
+    <string name="vpl_importing">आयात हो रहा है…</string>
+    <string name="vpl_import_confirm">आयात करें</string>
+    <string name="vpl_imported">\"%1$s\" आयात हुआ (%2$d वीडियो)</string>
+    <string name="vpl_import_failed">आयात विफल रहा</string>
+    <string name="vpl_name_label">प्लेलिस्ट का नाम</string>
+    <string name="vpl_type_local">स्थानीय</string>
+    <plurals name="vpl_videos_count">
+        <item quantity="one">%1$d वीडियो</item>
+        <item quantity="other">%1$d वीडियो</item>
+    </plurals>
+
+    <!-- SearchScreen (search_) -->
+    <string name="search_hint_videos">वीडियो खोजें…</string>
+    <string name="search_hint_in_folder">फ़ोल्डर में खोजें…</string>
+    <string name="search_hint_music">गाने या कलाकार खोजें…</string>
+    <string name="search_hint_network">इस फ़ोल्डर में खोजें…</string>
+    <string name="search_hint_playlists">प्लेलिस्ट खोजें…</string>
+    <string name="search_clear_title">खोज इतिहास साफ़ करें?</string>
+    <string name="search_clear_message">हाल की सभी खोजें इस डिवाइस से हटा दी जाएंगी।</string>
+    <string name="search_clear_confirm">साफ़ करें</string>
+    <string name="search_cancel">रद्द करें</string>
+    <string name="search_library_title">अपनी लाइब्रेरी खोजें</string>
+    <string name="search_library_subtitle">वीडियो, संगीत और फ़ोल्डर खोजें</string>
+    <string name="search_recent_title">हाल की खोजें</string>
+    <string name="search_no_results_title">कोई परिणाम नहीं मिला</string>
+    <string name="search_no_results_hint">कोई दूसरा शब्द आज़माएं।</string>
+    <plurals name="search_results_count">
+        <item quantity="one">%1$d परिणाम</item>
+        <item quantity="other">%1$d परिणाम</item>
+    </plurals>
+
+    <!-- PlaylistScreen (pl_) -->
+    <string name="pl_empty">%1$s में कोई गाना नहीं मिला</string>
+    <plurals name="pl_songs_count">
+        <item quantity="one">%1$d गाना</item>
+        <item quantity="other">%1$d गाने</item>
+    </plurals>
+
+    <!-- VideoRecentContent (recent_) -->
+    <string name="recent_clear_title">हाल में चलाए गए साफ़ करें?</string>
+    <string name="recent_clear_message">हाल में चलाई गई सभी प्रविष्टियाँ इस डिवाइस से हटा दी जाएंगी।</string>
+    <string name="recent_clear_confirm">साफ़ करें</string>
+    <string name="recent_cancel">रद्द करें</string>
+    <string name="recent_empty_title">हाल में कोई वीडियो नहीं चलाया गया</string>
+    <string name="recent_empty_hint">आप जो वीडियो चलाएंगे वे यहाँ दिखेंगे</string>
+
+    <!-- VideoFavoritesContent (fav_) -->
+    <string name="fav_empty_title">अभी कोई पसंदीदा वीडियो नहीं</string>
+    <string name="fav_empty_hint">वीडियो को देर तक दबाएं और पसंदीदा में जोड़ें चुनें</string>
+
+    <!-- VideoActionMenu (vam_) -->
+    <string name="vam_share_chooser">वीडियो साझा करें</string>
+    <string name="vam_share_failed">यह वीडियो साझा नहीं किया जा सका</string>
+    <string name="vam_renamed">नाम बदल दिया गया</string>
+    <string name="vam_rename_failed">नाम बदलना विफल रहा</string>
+    <string name="vam_rename_cancelled">नाम बदलना रद्द किया गया</string>
+    <string name="vam_moved">ले जाया गया</string>
+    <string name="vam_move_failed">ले जाना विफल रहा</string>
+    <string name="vam_move_access_hint">%1$s — भरोसेमंद स्थानांतरण के लिए सेटिंग्स में सभी फ़ाइलों की एक्सेस चालू करें।</string>
+    <string name="vam_move_kept">मूल रखा गया: हटाने की अनुमति नहीं</string>
+    <string name="vam_move_cancelled">ले जाना रद्द किया गया</string>
+    <string name="vam_move_title">फ़ोल्डर में ले जाएं</string>
+    <string name="vam_no_folders">कोई अन्य फ़ोल्डर नहीं मिला।</string>
+    <string name="vam_cancel">रद्द करें</string>
+    <string name="vam_delete_title">वीडियो हटाएं</string>
+    <string name="vam_delete_message">क्या आप \"%1$s\" हटाना चाहते हैं? यह क्रिया वापस नहीं होगी।</string>
+    <string name="vam_delete_confirm">हटाएं</string>
+    <string name="vam_menu_play">चलाएं</string>
+    <string name="vam_menu_rename">नाम बदलें</string>
+    <string name="vam_menu_share">साझा करें</string>
+    <string name="vam_menu_add_fav">पसंदीदा में जोड़ें</string>
+    <string name="vam_menu_remove_fav">पसंदीदा से हटाएं</string>
+    <string name="vam_menu_add_playlist">प्लेलिस्ट में जोड़ें</string>
+    <string name="vam_menu_move">फ़ोल्डर में ले जाएं</string>
+    <string name="vam_menu_details">विवरण</string>
+    <string name="vam_menu_delete">हटाएं</string>
+    <plurals name="vam_folder_videos_count">
+        <item quantity="one">%1$d वीडियो</item>
+        <item quantity="other">%1$d वीडियो</item>
+    </plurals>
+
+    <!-- MediaDetails (mdet_) -->
+    <string name="mdet_title">विवरण</string>
+    <string name="mdet_label_filename">फ़ाइल का नाम</string>
+    <string name="mdet_label_location">स्थान</string>
+    <string name="mdet_label_size">आकार</string>
+    <string name="mdet_label_modified">संशोधित</string>
+    <string name="mdet_label_duration">अवधि</string>
+    <string name="mdet_label_resolution">रिज़ॉल्यूशन</string>
+    <string name="mdet_label_aspect_ratio">पहलू अनुपात</string>
+    <string name="mdet_label_frame_rate">फ्रेम दर</string>
+    <string name="mdet_label_video_codec">वीडियो कोडेक</string>
+    <string name="mdet_label_video_bitrate">वीडियो बिटरेट</string>
+    <string name="mdet_label_audio_codec">ऑडियो कोडेक</string>
+    <string name="mdet_label_sample_rate">सैंपल दर</string>
+    <string name="mdet_label_channels">चैनल</string>
+    <string name="mdet_label_container">कंटेनर</string>
+    <string name="mdet_label_mime">MIME प्रकार</string>
+    <string name="mdet_close">बंद करें</string>
+    <string name="mdet_rename_title">फ़ाइल का नाम बदलें</string>
+    <string name="mdet_name_label">नाम</string>
+    <string name="mdet_extension_hint">.%1$s एक्सटेंशन अपने आप रखा जाएगा</string>
+    <string name="mdet_rename_confirm">नाम बदलें</string>
+    <string name="mdet_cancel">रद्द करें</string>
+    <string name="mdet_unknown">अज्ञात</string>
+    <string name="mdet_sample_rate">%1$d हर्ट्ज़</string>
+    <string name="mdet_resolution_value">%1$dx%2$d (%3$s)</string>
+
+    <!-- MainScreen (main_) -->
+    <string name="main_tab_videos">वीडियो</string>
+    <string name="main_tab_music">संगीत</string>
+    <string name="main_tab_network">नेटवर्क</string>
+    <string name="main_default_artist">वाइब संगीत</string>
+</resources>

@@ -29,10 +29,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vidmax.player.BuildConfig
+import com.vidmax.player.R
 import com.vidmax.player.utils.UpdateChecker
 
 /**
@@ -77,7 +79,7 @@ fun UpdateResultDialog(
                     },
                     title = {
                         Text(
-                            text = "New Version Available",
+                            text = stringResource(R.string.comp_update_new_version),
                             fontWeight = FontWeight.Bold,
                             fontSize = 20.sp,
                         )
@@ -121,7 +123,7 @@ fun UpdateResultDialog(
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Text(
-                                        text = "What's new",
+                                        text = stringResource(R.string.comp_update_whats_new),
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold
@@ -157,11 +159,11 @@ fun UpdateResultDialog(
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Update Now", fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.comp_update_now), fontWeight = FontWeight.Bold)
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = onDismiss) { Text("Later") }
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.comp_update_later)) }
                     },
                 )
             } else {
@@ -171,19 +173,19 @@ fun UpdateResultDialog(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     title = {
                         Text(
-                            text = "You're up to date",
+                            text = stringResource(R.string.comp_update_uptodate_title),
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                         )
                     },
                     text = {
                         Text(
-                            text = "VidMax ${info.versionName} is the latest version. No update needed.",
+                            text = stringResource(R.string.comp_update_uptodate_msg, info.versionName),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     },
                     confirmButton = {
-                        TextButton(onClick = onDismiss) { Text("OK") }
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.comp_update_ok)) }
                     },
                 )
             }
@@ -196,19 +198,19 @@ fun UpdateResultDialog(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 title = {
                     Text(
-                        text = "You're up to date",
+                        text = stringResource(R.string.comp_update_uptodate_title),
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                     )
                 },
                 text = {
                     Text(
-                        text = "No releases have been published yet. Stay tuned!",
+                        text = stringResource(R.string.comp_update_no_release),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = onDismiss) { Text("OK") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.comp_update_ok)) }
                 },
             )
         }
@@ -220,19 +222,19 @@ fun UpdateResultDialog(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 title = {
                     Text(
-                        text = "Couldn't check for updates",
+                        text = stringResource(R.string.comp_update_check_fail_title),
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                     )
                 },
                 text = {
                     Text(
-                        text = "Please check your internet connection and try again.",
+                        text = stringResource(R.string.comp_update_check_fail_msg),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = onDismiss) { Text("OK") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.comp_update_ok)) }
                 },
             )
         }

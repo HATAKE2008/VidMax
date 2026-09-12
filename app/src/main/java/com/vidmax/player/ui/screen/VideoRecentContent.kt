@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,11 +74,11 @@ fun VideoRecentContent(
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
-        title = { Text("Clear Recent Play?", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-        text = { Text("All recently played entries will be removed from this device.") },
+        title = { Text(stringResource(R.string.recent_clear_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+        text = { Text(stringResource(R.string.recent_clear_message)) },
         confirmButton = {
           DialogConfirmButton(
-              label = "Clear",
+              label = stringResource(R.string.recent_clear_confirm),
               danger = true,
               onClick = {
                 viewModel.clearRecentHistory()
@@ -85,7 +86,7 @@ fun VideoRecentContent(
               })
         },
         dismissButton = {
-          DialogCancelButton(label = "Cancel", onClick = { showClearConfirm = false })
+          DialogCancelButton(label = stringResource(R.string.recent_cancel), onClick = { showClearConfirm = false })
         })
   }
 
@@ -101,13 +102,13 @@ fun VideoRecentContent(
               modifier = Modifier.size(64.dp))
           Spacer(modifier = Modifier.height(16.dp))
           Text(
-              text = "No recently played videos",
+              text = stringResource(R.string.recent_empty_title),
               color = MaterialTheme.colorScheme.onBackground,
               fontSize = 16.sp,
               fontWeight = FontWeight.SemiBold)
           Spacer(modifier = Modifier.height(4.dp))
           Text(
-              text = "Videos you play will appear here",
+              text = stringResource(R.string.recent_empty_hint),
               color = MaterialTheme.colorScheme.onSurfaceVariant,
               fontSize = 13.sp)
         }

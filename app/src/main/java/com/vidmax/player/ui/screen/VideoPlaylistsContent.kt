@@ -91,6 +91,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.layout.ContentScale
 import com.vidmax.player.R
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
@@ -169,7 +171,7 @@ fun VideoPlaylistsContent(
                       modifier = Modifier.size(24.dp))
                 }
                 Text(
-                    text = "${selectedIds.size} Selected",
+                    text = stringResource(R.string.vpl_selected_count, selectedIds.size),
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold)
@@ -211,14 +213,14 @@ fun VideoPlaylistsContent(
                   modifier = Modifier.size(64.dp))
               Spacer(modifier = Modifier.height(16.dp))
               Text(
-                  text = "No playlists yet",
+                  text = stringResource(R.string.vpl_empty_title),
                   color = MaterialTheme.colorScheme.onBackground,
                   fontSize = 16.sp,
                   fontWeight = FontWeight.SemiBold)
               Spacer(modifier = Modifier.height(4.dp))
               Text(
                   text =
-                      "Long-press a video and choose Add to Playlist",
+                      stringResource(R.string.vpl_empty_hint),
                   color = MaterialTheme.colorScheme.onSurfaceVariant,
                   fontSize = 13.sp,
                   modifier = Modifier.padding(horizontal = 12.dp))
@@ -256,7 +258,7 @@ fun VideoPlaylistsContent(
                             .onFailure {
                               Toast.makeText(
                                   context,
-                                  it.message ?: "Could not play playlist",
+                                  it.message ?: context.getString(R.string.vpl_play_failed),
                                   Toast.LENGTH_SHORT).show()
                             }
                       }
@@ -310,21 +312,21 @@ fun VideoPlaylistsContent(
         shape = RoundedCornerShape(28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = { DialogHeaderBadge(icon = Icons.Filled.Add) },
-        title = { Text("Create Playlist", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+        title = { Text(stringResource(R.string.vpl_create_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
         text = {
           Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CreateMenuRow(
                 icon = Icons.Filled.Add,
-                title = "New playlist",
-                subtitle = "Create an empty playlist",
+                title = stringResource(R.string.vpl_create_new_title),
+                subtitle = stringResource(R.string.vpl_create_new_subtitle),
                 onClick = {
                   showCreateMenu = false
                   showCreateDialog = true
                 })
             CreateMenuRow(
                 icon = Icons.Filled.Link,
-                title = "Import M3U URL",
-                subtitle = "Import an M3U/M3U8 playlist from a link",
+                title = stringResource(R.string.vpl_import_m3u_title),
+                subtitle = stringResource(R.string.vpl_import_m3u_subtitle),
                 onClick = {
                   showCreateMenu = false
                   showImportDialog = true
@@ -333,7 +335,7 @@ fun VideoPlaylistsContent(
         },
         confirmButton = {},
         dismissButton = {
-          DialogCancelButton(label = "Cancel", onClick = { showCreateMenu = false })
+          DialogCancelButton(label = stringResource(R.string.vpl_cancel), onClick = { showCreateMenu = false })
         })
   }
 
@@ -347,8 +349,8 @@ fun VideoPlaylistsContent(
 
   if (showCreateDialog) {
     NamePromptDialog(
-        title = "New Playlist",
-        confirmLabel = "Create",
+        title = stringResource(R.string.vpl_new_playlist_title),
+        confirmLabel = stringResource(R.string.vpl_create_confirm),
         onDismiss = { showCreateDialog = false }) { name ->
           viewModel.createVideoPlaylist(name)
           showCreateDialog = false
@@ -357,8 +359,8 @@ fun VideoPlaylistsContent(
 
   if (showRenameDialog && current != null) {
     NamePromptDialog(
-        title = "Rename Playlist",
-        confirmLabel = "Rename",
+        title = stringResource(R.string.vpl_rename_title),
+        confirmLabel = stringResource(R.string.vpl_rename_confirm),
         initialText = current.name,
         icon = Icons.Rounded.DriveFileRenameOutline,
         onDismiss = {
@@ -382,11 +384,11 @@ fun VideoPlaylistsContent(
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
-        title = { Text("Delete \"${current.name}\"?", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-        text = { Text("All videos inside this playlist will be removed from it.") },
+        title = { Text(stringResource(R.string.vpl_delete_title, current.name), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+        text = { Text(stringResource(R.string.vpl_delete_message)) },
         confirmButton = {
           DialogConfirmButton(
-              label = "Delete",
+              label = stringResource(R.string.vpl_delete_confirm),
               danger = true,
               onClick = {
                 viewModel.deleteVideoPlaylist(current.id)
@@ -394,14 +396,14 @@ fun VideoPlaylistsContent(
               })
         },
         dismissButton = {
-          DialogCancelButton(label = "Cancel", onClick = { showDeleteConfirm = false })
+          DialogCancelButton(label = stringResource(R.string.vpl_cancel), onClick = { showDeleteConfirm = false })
         })
   }
 
   renameListTarget?.let { target ->
     NamePromptDialog(
-        title = "Rename Playlist",
-        confirmLabel = "Rename",
+        title = stringResource(R.string.vpl_rename_title),
+        confirmLabel = stringResource(R.string.vpl_rename_confirm),
         initialText = target.playlist.name,
         icon = Icons.Rounded.DriveFileRenameOutline,
         onDismiss = { renameListTarget = null },
@@ -425,14 +427,14 @@ fun VideoPlaylistsContent(
         },
         title = {
           Text(
-              if (selectedIds.size == 1) "Delete this playlist?" else "Delete ${selectedIds.size} playlists?",
+              if (selectedIds.size == 1) stringResource(R.string.vpl_delete_single_title) else stringResource(R.string.vpl_delete_multi_title, selectedIds.size),
               fontWeight = FontWeight.Bold,
               fontSize = 20.sp)
         },
-        text = { Text("Videos stay in your library; only the playlists are removed.") },
+        text = { Text(stringResource(R.string.vpl_delete_list_message)) },
         confirmButton = {
           DialogConfirmButton(
-              label = "Delete",
+              label = stringResource(R.string.vpl_delete_confirm),
               danger = true,
               onClick = {
                 selectedIds.forEach { viewModel.deleteVideoPlaylist(it) }
@@ -441,7 +443,7 @@ fun VideoPlaylistsContent(
               })
         },
         dismissButton = {
-          DialogCancelButton(label = "Cancel", onClick = { showListDeleteConfirm = false })
+          DialogCancelButton(label = stringResource(R.string.vpl_cancel), onClick = { showListDeleteConfirm = false })
         })
   }
 }
@@ -507,9 +509,9 @@ fun PlaylistCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                   MetaChip(
-                      text = if (count == 1) "1 video" else "$count videos",
+                      text = pluralStringResource(R.plurals.vpl_videos_count, count, count),
                       highlighted = true)
-                  MetaChip(text = if (isM3u) "M3U" else "Local")
+                  MetaChip(text = if (isM3u) "M3U" else stringResource(R.string.vpl_type_local))
                 }
           }
           IconButton(onClick = onPlay) {
@@ -529,7 +531,7 @@ fun PlaylistCard(
             }
             DropdownMenu(expanded = overflowOpen, onDismissRequest = { overflowOpen = false }) {
               DropdownMenuItem(
-                  text = { Text("Play") },
+                  text = { Text(stringResource(R.string.vpl_menu_play)) },
                   leadingIcon = {
                     Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
                   },
@@ -538,7 +540,7 @@ fun PlaylistCard(
                     onPlay()
                   })
               DropdownMenuItem(
-                  text = { Text("Rename") },
+                  text = { Text(stringResource(R.string.vpl_menu_rename)) },
                   leadingIcon = {
                     Icon(imageVector = Icons.Filled.Edit, contentDescription = null)
                   },
@@ -547,7 +549,7 @@ fun PlaylistCard(
                     onRename()
                   })
               DropdownMenuItem(
-                  text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                  text = { Text(stringResource(R.string.vpl_menu_delete), color = MaterialTheme.colorScheme.error) },
                   leadingIcon = {
                     Icon(
                         imageVector = Icons.Filled.Delete,
@@ -684,7 +686,7 @@ private fun PlaylistDetailContent(
               Spacer(modifier = Modifier.height(4.dp))
               Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MetaChip(
-                    text = if (items.size == 1) "1 video" else "${items.size} videos",
+                    text = pluralStringResource(R.plurals.vpl_videos_count, items.size, items.size),
                     highlighted = true)
               }
             }
@@ -695,7 +697,7 @@ private fun PlaylistDetailContent(
                 localOrder = null
                 draggingId = null
               }) {
-                Text("Done", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.vpl_done), fontWeight = FontWeight.Bold)
               }
             } else {
             if (visibleItems.isNotEmpty()) {
@@ -705,7 +707,7 @@ private fun PlaylistDetailContent(
                     contentDescription = null,
                     modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Play all")
+                Text(stringResource(R.string.vpl_play_all))
               }
             }
             Box {
@@ -717,14 +719,14 @@ private fun PlaylistDetailContent(
               }
               DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("Rename") },
+                    text = { Text(stringResource(R.string.vpl_menu_rename)) },
                     onClick = {
                       menuOpen = false
                       onRename()
                     })
                 if (isM3u) {
                   DropdownMenuItem(
-                      text = { Text("Refresh from URL") },
+                      text = { Text(stringResource(R.string.vpl_refresh_from_url)) },
                       leadingIcon = {
                         Icon(
                             imageVector = Icons.Filled.Refresh,
@@ -737,13 +739,13 @@ private fun PlaylistDetailContent(
                               .onSuccess { count ->
                                 Toast.makeText(
                                     context,
-                                    "Refreshed ($count videos)",
+                                    context.getString(R.string.vpl_refreshed, count),
                                     Toast.LENGTH_SHORT).show()
                               }
                               .onFailure {
                                 Toast.makeText(
                                     context,
-                                    it.message ?: "Refresh failed",
+                                    it.message ?: context.getString(R.string.vpl_refresh_failed),
                                     Toast.LENGTH_SHORT).show()
                               }
                         }
@@ -751,7 +753,7 @@ private fun PlaylistDetailContent(
                 }
                 if (itemQuery.isBlank()) {
                   DropdownMenuItem(
-                      text = { Text("Reorder") },
+                      text = { Text(stringResource(R.string.vpl_reorder)) },
                       leadingIcon = {
                         Icon(
                             imageVector = Icons.Outlined.SwapVert,
@@ -763,7 +765,7 @@ private fun PlaylistDetailContent(
                       })
                 }
                 DropdownMenuItem(
-                    text = { Text("Shuffle play") },
+                    text = { Text(stringResource(R.string.vpl_shuffle)) },
                     leadingIcon = {
                       Icon(
                           imageVector = Icons.Filled.Shuffle,
@@ -778,7 +780,7 @@ private fun PlaylistDetailContent(
                   DropdownMenuItem(
                       text = {
                         Text(
-                            "Remove ${selectedHere.size} selected",
+                            stringResource(R.string.vpl_remove_selected, selectedHere.size),
                             color = MaterialTheme.colorScheme.error)
                       },
                       leadingIcon = {
@@ -796,13 +798,13 @@ private fun PlaylistDetailContent(
                       })
                 }
                 DropdownMenuItem(
-                    text = { Text("Clear videos") },
+                    text = { Text(stringResource(R.string.vpl_clear_videos)) },
                     onClick = {
                       menuOpen = false
                       viewModel.clearVideoPlaylist(playlistId)
                     })
                 DropdownMenuItem(
-                    text = { Text("Delete playlist", color = MaterialTheme.colorScheme.error) },
+                    text = { Text(stringResource(R.string.vpl_delete_playlist), color = MaterialTheme.colorScheme.error) },
                     onClick = {
                       menuOpen = false
                       onDelete()
@@ -817,7 +819,7 @@ private fun PlaylistDetailContent(
       OutlinedTextField(
           value = itemQuery,
           onValueChange = { itemQuery = it },
-          label = { Text("Search in playlist") },
+          label = { Text(stringResource(R.string.vpl_search_in_playlist)) },
           leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_search), contentDescription = null) },
           trailingIcon = {
             if (itemQuery.isNotEmpty()) {
@@ -833,14 +835,14 @@ private fun PlaylistDetailContent(
     if (items.isEmpty()) {
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
-            text = "This playlist is empty.\nLong-press videos to add them here.",
+            text = stringResource(R.string.vpl_empty_playlist),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp)
       }
     } else if (visibleItems.isEmpty()) {
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
-            text = "No videos match \"$itemQuery\"",
+            text = stringResource(R.string.vpl_no_match, itemQuery),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp)
       }
@@ -1071,7 +1073,7 @@ private fun ImportM3UDialog(
       shape = RoundedCornerShape(28.dp),
       containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
       icon = { DialogHeaderBadge(icon = Icons.Filled.Link) },
-      title = { Text("Import M3U Playlist", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+      title = { Text(stringResource(R.string.vpl_import_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
           OutlinedTextField(
@@ -1080,7 +1082,7 @@ private fun ImportM3UDialog(
                 url = it
                 error = null
               },
-              label = { Text("Playlist URL (.m3u / .m3u8)") },
+              label = { Text(stringResource(R.string.vpl_import_url_label)) },
               placeholder = { Text("https://…") },
               singleLine = true,
               enabled = !busy,
@@ -1101,7 +1103,7 @@ private fun ImportM3UDialog(
               },
               supportingText = {
                 Text(
-                    text = error ?: "Entries keep their titles and are saved to your library",
+                    text = error ?: stringResource(R.string.vpl_import_hint),
                     color = if (error != null) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurfaceVariant)
               },
@@ -1110,7 +1112,7 @@ private fun ImportM3UDialog(
       },
       confirmButton = {
         DialogConfirmButton(
-            label = if (busy) "Importing…" else "Import",
+            label = if (busy) stringResource(R.string.vpl_importing) else stringResource(R.string.vpl_import_confirm),
             enabled = !busy && url.isNotBlank(),
             onClick = {
               busy = true
@@ -1121,18 +1123,18 @@ private fun ImportM3UDialog(
                     .onSuccess { (name, count) ->
                       Toast.makeText(
                           context,
-                          "Imported \"$name\" ($count videos)",
+                          context.getString(R.string.vpl_imported, name, count),
                           Toast.LENGTH_SHORT).show()
                       onDismiss()
                     }
                     .onFailure {
-                      error = it.message ?: "Import failed"
+                      error = it.message ?: context.getString(R.string.vpl_import_failed)
                     }
               }
             })
       },
       dismissButton = {
-        DialogCancelButton(label = "Cancel", onClick = { if (!busy) onDismiss() })
+        DialogCancelButton(label = stringResource(R.string.vpl_cancel), onClick = { if (!busy) onDismiss() })
       })
 }
 
@@ -1157,7 +1159,7 @@ fun NamePromptDialog(
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
-            label = { Text("Playlist name") },
+            label = { Text(stringResource(R.string.vpl_name_label)) },
             singleLine = true,
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -1181,5 +1183,5 @@ fun NamePromptDialog(
             enabled = text.isNotBlank(),
             onClick = { onConfirm(text.trim()) })
       },
-      dismissButton = { DialogCancelButton(label = "Cancel", onClick = onDismiss) })
+      dismissButton = { DialogCancelButton(label = stringResource(R.string.vpl_cancel), onClick = onDismiss) })
 }

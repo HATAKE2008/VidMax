@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LibraryViewModel (vm_) — Bengali translations. -->
+
+    <string name="vm_unknown_artist">অজানা শিল্পী</string>
+    <string name="vm_playlist_favorites">প্রিয় গান</string>
+    <string name="vm_playlist_my_mix">আমার মিক্স</string>
+
+    <string name="vm_m3u_invalid_url">একটি সঠিক http(s) URL দিন</string>
+    <string name="vm_m3u_no_entries">চালানোর মতো কোনো আইটেম পাওয়া যায়নি</string>
+    <string name="vm_m3u_server_error">সার্ভার %1$d ফেরত দিয়েছে</string>
+    <string name="vm_m3u_playlist_too_large">প্লেলিস্ট অনেক বড়</string>
+    <string name="vm_m3u_download_failed">প্লেলিস্ট ডাউনলোড করা যায়নি</string>
+    <string name="vm_m3u_imported_name">আমদানি করা প্লেলিস্ট</string>
+    <string name="vm_playlist_empty">প্লেলিস্ট খালি</string>
+    <string name="vm_m3u_no_source_url">কোনো সোর্স URL সংরক্ষিত নেই</string>
+
+    <string name="vm_library_storage_permission">ভিডিও দেখতে স্টোরেজ অনুমতি দরকার।</string>
+    <string name="vm_library_load_failed">ভিডিও লোড করা যায়নি। আবার চেষ্টা করতে টানুন।</string>
+    <string name="vm_library_refresh_failed">রিফ্রেশ ব্যর্থ হয়েছে। আবার চেষ্টা করতে টানুন।</string>
+
+    <string name="vm_name_empty">নাম খালি রাখা যাবে না</string>
+    <string name="vm_name_invalid_chars">নামে অবৈধ অক্ষর আছে</string>
+    <string name="vm_name_trailing_dot">নাম ডট দিয়ে শেষ হতে পারবে না</string>
+    <string name="vm_file_original_missing">মূল ফাইল পাওয়া যায়নি</string>
+    <string name="vm_file_no_extension">ফাইলের কোনো এক্সটেনশন নেই</string>
+    <string name="vm_file_name_exists">এই নামে একটি ফাইল ইতিমধ্যে আছে</string>
+    <string name="vm_rename_failed">নাম বদলানো যায়নি</string>
+
+    <string name="vm_dest_folder_missing">গন্তব্য ফোল্ডার পাওয়া যায়নি</string>
+    <string name="vm_already_in_folder">ইতিমধ্যে এই ফোল্ডারে আছে</string>
+    <string name="vm_move_failed">সরানো যায়নি</string>
+    <string name="vm_move_not_verified">সরানো যায়নি: গন্তব্য যাচাই করা যায়নি</string>
+    <string name="vm_move_not_permitted">সরানোর অনুমতি নেই</string>
+    <string name="vm_move_not_allowed_here">ওখানে সরানো যাবে না</string>
+    <string name="vm_move_failed_named">সরানো যায়নি: %1$s</string>
+
+    <string name="vm_delete_failed">মোছা যায়নি</string>
+    <string name="vm_delete_partial">নির্বাচিত সব ভিডিও মোছা যায়নি</string>
+
+    <string name="vm_folder_parent_missing">মূল ফোল্ডার পাওয়া যায়নি</string>
+    <string name="vm_folder_full_access_required">ফোল্ডার বানাতে সম্পূর্ণ স্টোরেজ অ্যাক্সেস দরকার</string>
+    <string name="vm_folder_name_exists">এই নামে একটি ফোল্ডার ইতিমধ্যে আছে</string>
+    <string name="vm_folder_create_failed">ফোল্ডার বানানো যায়নি</string>
+
+    <string name="vm_dest_not_writable">গন্তব্যে লেখা যাবে না</string>
+    <string name="vm_full_access_required_action">%1$s সম্পূর্ণ স্টোরেজ অ্যাক্সেস দরকার। সেটিংসে All Files Access চালু করুন।</string>
+    <string name="vm_action_copy_files">ফাইল কপি করতে</string>
+    <string name="vm_action_move_files">ফাইল সরাতে</string>
+    <string name="vm_batch_no_files_copy">কপি করার মতো ফাইল নেই</string>
+    <string name="vm_batch_no_files_move">সরানোর মতো ফাইল নেই</string>
+    <string name="vm_batch_no_valid_files">কপি করার মতো সঠিক ফাইল নেই</string>
+    <string name="vm_batch_no_disk_space">পর্যাপ্ত জায়গা নেই</string>
+    <string name="vm_batch_nothing_to_move">সরানোর কিছু নেই</string>
+    <string name="vm_copy_source_missing">মূল ফাইল পাওয়া যায়নি: %1$s</string>
+    <string name="vm_copy_verify_failed">কপি যাচাই ব্যর্থ হয়েছে: %1$s</string>
+
+    <!-- AudioService (svc_) — Bengali translations. -->
+    <string name="svc_channel_audio_playback">অডিও প্লেব্যাক</string>
+    <string name="svc_unknown">অজানা</string>
+    <string name="svc_action_previous">আগেরটি</string>
+    <string name="svc_action_play">চালান</string>
+    <string name="svc_action_pause">বিরতি</string>
+    <string name="svc_action_next">পরেরটি</string>
+    <string name="svc_action_stop">বন্ধ করুন</string>
+
+    <!-- StorageAccess status text. -->
+    <string name="storage_full_access_enabled">সম্পূর্ণ স্টোরেজ অ্যাক্সেস চালু আছে</string>
+    <string name="storage_full_access_disabled">সম্পূর্ণ স্টোরেজ অ্যাক্সেস বন্ধ আছে</string>
+</resources>
