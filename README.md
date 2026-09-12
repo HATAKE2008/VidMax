@@ -132,7 +132,7 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 
 ## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.1.6
 
-> **Major update — full app language system, redesigned onboarding, REX-parity playlists and extensive player/library polish.**
+> **Major update — full app language system, redesigned onboarding, advanced playlists and extensive player/library polish.**
 
 <a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.6">View Full Changelog →</a>
 
