@@ -453,9 +453,16 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
                 if (playerViewModel.loopMode.value == LoopMode.ONE) Player.REPEAT_MODE_ONE
                 else Player.REPEAT_MODE_OFF
 
+            val mediaItemBuilder = MediaItem.Builder().setUri(uri)
+            val lowerPath = path.lowercase(Locale.US)
+            if (lowerPath.contains(".m3u8") || lowerPath.contains(".m3u") || (lowerPath.startsWith("http") && !lowerPath.substringAfterLast("/").contains("."))) {
+                mediaItemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+            }
+            val mediaItem = mediaItemBuilder.build()
+
             val externalSub = externalSubUri
             if (externalSub != null) {
-                val videoSource = mediaSourceFactory.createMediaSource(MediaItem.fromUri(uri))
+                val videoSource = mediaSourceFactory.createMediaSource(mediaItem)
                 val ext = externalSub.lastPathSegment
                     ?.substringAfterLast('.', "")
                     ?.lowercase(Locale.US) ?: ""
@@ -477,7 +484,7 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
                         )
                 exoPlayer?.setMediaSource(MergingMediaSource(videoSource, subSource))
             } else {
-                exoPlayer?.setMediaItem(MediaItem.fromUri(uri))
+                exoPlayer?.setMediaItem(mediaItem)
             }
             exoPlayer?.prepare()
             if (startPos > 3000L) {
