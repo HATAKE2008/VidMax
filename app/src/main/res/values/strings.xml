@@ -57,4 +57,9 @@
     <string name="mpscr_menu_properties">Properties</string>
     <string name="mpscr_up_next">Up Next</string>
 
+
+    <!-- Accessibility Descriptions -->
+    <string name="a11y_empty_favorites">No favorites found</string>
+    <string name="a11y_empty_playlists">No playlists found</string>
+    <string name="a11y_empty_playlist_videos">Playlist is empty</string>
 </resources>

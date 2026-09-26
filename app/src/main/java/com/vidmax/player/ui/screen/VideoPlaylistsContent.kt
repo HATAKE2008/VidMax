@@ -208,7 +208,7 @@ fun VideoPlaylistsContent(
             verticalArrangement = Arrangement.Center) {
               Icon(
                   imageVector = Icons.Filled.QueueMusic,
-                  contentDescription = null,
+                  contentDescription = stringResource(R.string.a11y_empty_playlists),
                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                   modifier = Modifier.size(64.dp))
               Spacer(modifier = Modifier.height(16.dp))
@@ -670,7 +670,7 @@ private fun PlaylistDetailContent(
                 contentAlignment = Alignment.Center) {
                   Icon(
                       imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
-                      contentDescription = null,
+                      contentDescription = stringResource(R.string.a11y_empty_playlist_videos),
                       tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
                       modifier = Modifier.size(26.dp))
                 }

@@ -85,7 +85,7 @@ fun VideoFavoritesContent(
         verticalArrangement = Arrangement.Center) {
           Icon(
               imageVector = Icons.Filled.Favorite,
-              contentDescription = null,
+              contentDescription = stringResource(R.string.a11y_empty_favorites),
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.size(64.dp))
           Spacer(modifier = Modifier.height(16.dp))
