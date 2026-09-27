@@ -439,36 +439,22 @@ fun OnlineMusicScreen(
                 .align(Alignment.BottomEnd)
                 .padding(bottom = 165.dp, end = 20.dp)
         ) {
-            var fabPressed by remember { mutableStateOf(false) }
-            val fabScale by animateFloatAsState(
-                targetValue = if (fabPressed) 0.85f else 1f,
-                animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
-                label = "fabScale"
-            )
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .scale(fabScale)
-                    .shadow(12.dp, CircleShape, spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        fabPressed = true
-                        val pool = homeState.categories.flatMap { it.songs } + homeState.recentlyPlayed
-                        val distinct = pool.distinctBy { it.videoId }
-                        if (distinct.isNotEmpty()) {
-                            handleSongClick(distinct.random())
-                        }
-                    },
-                contentAlignment = Alignment.Center
+            FloatingActionButton(
+                onClick = {
+                    val pool = homeState.categories.flatMap { it.songs } + homeState.recentlyPlayed
+                    val distinct = pool.distinctBy { it.videoId }
+                    if (distinct.isNotEmpty()) {
+                        handleSongClick(distinct.random())
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 12.dp)
             ) {
                 Icon(
                     painter = androidx.compose.ui.res.painterResource(R.drawable.ic_shuffle),
                     contentDescription = "Shuffle",
-                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -518,23 +504,28 @@ private fun OnlineHeader(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HeaderIconButton(icon = Icons.Default.AccountCircle, onClick = onProfileClick)
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable(onClick = onSearchClick),
-                contentAlignment = Alignment.Center
+            HeaderIconButton(
+                icon = Icons.Default.AccountCircle,
+                contentDescription = "Profile",
+                onClick = onProfileClick
+            )
+            FilledTonalIconButton(
+                onClick = onSearchClick,
+                modifier = Modifier.size(42.dp),
+                shape = CircleShape
             ) {
                 Icon(
                     painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_search),
-                    contentDescription = null,
+                    contentDescription = "Search",
                     tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(24.dp)
                 )
             }
-            HeaderIconButton(icon = Icons.Default.Settings, onClick = onSettingsClick)
+            HeaderIconButton(
+                icon = Icons.Default.Settings,
+                contentDescription = "Settings",
+                onClick = onSettingsClick
+            )
         }
     }
 }
@@ -542,19 +533,17 @@ private fun OnlineHeader(
 @Composable
 private fun HeaderIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String?,
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .size(42.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+    FilledTonalIconButton(
+        onClick = onClick,
+        modifier = Modifier.size(42.dp),
+        shape = CircleShape
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = contentDescription,
             tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(24.dp)
         )
