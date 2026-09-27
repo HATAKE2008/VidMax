@@ -2296,9 +2296,7 @@ private fun SeekBarRow(
                 .weight(1f)
                 .padding(horizontal = 12.dp)
                 .height(36.dp)
-                .progressSemantics(
-                    value = displayProgress,
-                    contentDescription = "Seek bar")
+                .progressSemantics(value = displayProgress)
                 .pointerInput(safeDuration) {
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->

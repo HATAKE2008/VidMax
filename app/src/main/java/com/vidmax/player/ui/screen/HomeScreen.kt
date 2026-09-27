@@ -78,6 +78,7 @@ import com.vidmax.player.R
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
 import com.vidmax.player.ui.components.AddToPlaylistDialog
+import com.vidmax.player.ui.components.EmptyState
 import com.vidmax.player.ui.components.SortViewOptionsSheet
 import com.vidmax.player.ui.components.FolderPickerDialog
 import com.vidmax.player.ui.components.MetaChip
@@ -773,22 +774,15 @@ fun HomeScreen(
           }
           videos.isEmpty() && !(currentContentMode == HomeContentMode.FOLDER && folders.isNotEmpty()) -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-              Column(
-                  horizontalAlignment = Alignment.CenterHorizontally,
-                  verticalArrangement = Arrangement.spacedBy(12.dp),
-                  modifier = Modifier.padding(24.dp)) {
-                Text(
-                    text =
-                        if (libraryError != null) libraryError!!
-                        else if (searchQuery.isNotEmpty()) stringResource(R.string.home_no_videos_match, searchQuery)
-                        else stringResource(R.string.home_no_videos_found),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 15.sp,
-                    textAlign = TextAlign.Center)
-                if (libraryError != null && hasPermission) {
-                  Button(onClick = { viewModel.refreshVideos() }) { Text(stringResource(R.string.home_retry)) }
-                }
-              }
+              EmptyState(
+                  icon = Icons.Filled.Folder,
+                  title =
+                      if (libraryError != null) libraryError!!
+                      else if (searchQuery.isNotEmpty()) stringResource(R.string.home_no_videos_match, searchQuery)
+                      else stringResource(R.string.home_no_videos_found),
+                  subtitle = stringResource(R.string.home_storage_permission),
+                  actionLabel = if (libraryError != null && hasPermission) stringResource(R.string.home_retry) else null,
+                  onAction = if (libraryError != null && hasPermission) { { viewModel.refreshVideos() } } else null)
             }
           }
           else -> {
