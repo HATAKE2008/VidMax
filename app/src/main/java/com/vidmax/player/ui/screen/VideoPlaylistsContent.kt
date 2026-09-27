@@ -2,6 +2,11 @@ package com.vidmax.player.ui.screen
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -274,20 +279,23 @@ fun VideoPlaylistsContent(
             }
       }
 
-        if (!inListSelection) {
+        AnimatedVisibility(
+            visible = !inListSelection,
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut(),
+            modifier =
+                Modifier.align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(end = 20.dp, bottom = 148.dp)) {
           FloatingActionButton(
             onClick = { showCreateMenu = true },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             shape = RoundedCornerShape(16.dp),
-            modifier =
-                Modifier.align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(end = 20.dp, bottom = 148.dp)
-                    .size(56.dp)) {
+            modifier = Modifier.size(56.dp)) {
               Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
             }
-      }
+        }
     }
     }
   } else {
