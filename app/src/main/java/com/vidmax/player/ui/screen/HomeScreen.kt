@@ -468,6 +468,10 @@ fun HomeScreen(
       Spacer(modifier = Modifier.height(6.dp))
 
       if (inSelectionMode) {
+        // HIGH fix: per-tab denominator. Videos tab counts against the
+        // filtered videos list, an open folder counts against its own videos.
+        val visibleVideosForSelection = if (isInsideFolder) folderVideos else videos
+        val visibleTotalForSelection = visibleVideosForSelection.size
         Row(
             modifier =
                 Modifier.fillMaxWidth()
@@ -486,7 +490,7 @@ fun HomeScreen(
                       modifier = Modifier.size(24.dp))
                 }
                 Text(
-                    text = stringResource(R.string.home_selection_count, selection.selectedCount, videos.size),
+                    text = stringResource(R.string.home_selection_count, selection.selectedCount, visibleTotalForSelection),
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold)
@@ -558,7 +562,7 @@ fun HomeScreen(
                         DropdownMenuItem(
                             text = {
                               Text(
-                                  if (selection.selectedCount == videos.size) stringResource(R.string.home_menu_deselect_all)
+                                  if (selection.selectedCount == visibleTotalForSelection) stringResource(R.string.home_menu_deselect_all)
                                   else stringResource(R.string.home_menu_select_all))
                             },
                             leadingIcon = {
@@ -570,8 +574,8 @@ fun HomeScreen(
                             onClick = {
                               topOverflowOpen = false
                               selection =
-                                  if (selection.selectedCount == videos.size) selection.clear()
-                                  else selection.selectAll(videos.map { it.path })
+                                  if (selection.selectedCount == visibleTotalForSelection) selection.clear()
+                                  else selection.selectAll(visibleVideosForSelection.map { it.path })
                             })
                       }
                 }
@@ -606,7 +610,7 @@ fun HomeScreen(
                         isVideoSearchOpen = true
                       }
                     },
-                    modifier = Modifier.size(36.dp)) {
+                    modifier = Modifier.size(48.dp)) {
                   Icon(
                       painter = painterResource(id = R.drawable.ic_search),
                       contentDescription = "Search",
@@ -614,7 +618,7 @@ fun HomeScreen(
                       modifier = Modifier.size(24.dp))
                 }
 
-                IconButton(onClick = { showSortViewSheet = true }, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = { showSortViewSheet = true }, modifier = Modifier.size(48.dp)) {
                   Icon(
                       imageVector = Icons.Filled.Tune,
                       contentDescription = "Sort & View Options",
@@ -624,7 +628,7 @@ fun HomeScreen(
 
                 IconButton(
                     onClick = { showTelegramSheet = true },
-                    modifier = Modifier.size(36.dp)) {
+                    modifier = Modifier.size(48.dp)) {
                       Icon(
                           painter = painterResource(id = R.drawable.ic_telegram),
                           contentDescription = "Join VidMax on Telegram",
@@ -632,7 +636,7 @@ fun HomeScreen(
                           modifier = Modifier.size(24.dp))
                     }
 
-                IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onSettingsClick, modifier = Modifier.size(48.dp)) {
                   Icon(
                       imageVector = Icons.Filled.Settings,
                       contentDescription = "Settings",
@@ -824,6 +828,8 @@ fun HomeScreen(
                                           index,
                                           video ->
                                         val isSelected = selection.isSelected(video.path)
+                                        androidx.compose.foundation.layout.Box(
+                                            modifier = Modifier.animateItem()) {
                                         PremiumVideoListCard(
                                             video = video,
                                             duration = viewModel.formatDuration(video.duration),
@@ -842,6 +848,7 @@ fun HomeScreen(
                                               // selection mode instead of opening the menu.
                                               selection = selection.toggle(video.path)
                                             })
+                                        }
                                         }
                                     }
                               }
@@ -947,7 +954,7 @@ fun HomeScreen(
                                       folderSearchPath = currentFolderPath
                                       isVideoSearchOpen = true
                                     },
-                                    modifier = Modifier.size(36.dp)) {
+                                    modifier = Modifier.size(48.dp)) {
                                   Icon(
                                       painter = painterResource(id = R.drawable.ic_search),
                                       contentDescription = "Search in folder",

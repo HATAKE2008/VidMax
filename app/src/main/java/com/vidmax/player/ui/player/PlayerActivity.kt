@@ -652,6 +652,14 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
+                // HIGH: surface buffering so PlayerScreen can show loading
+                // instead of a frozen frame. Keep existing ended handling.
+                if (playerViewModel.currentEngine.value == PlayerEngine.EXO) {
+                    playerViewModel.setBuffering(playbackState == Player.STATE_BUFFERING)
+                    if (playbackState == Player.STATE_READY) {
+                        playerViewModel.clearError()
+                    }
+                }
                 if (playerViewModel.currentEngine.value == PlayerEngine.EXO &&
                     playbackState == Player.STATE_ENDED &&
                     // Seamless loop handled by ExoPlayer itself — a manual
@@ -675,6 +683,8 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
                     2007 -> getString(R.string.player_err_http_blocked)
                     else -> getString(R.string.player_err_unreadable)
                 }
+                playerViewModel.setBuffering(false)
+                playerViewModel.setError(getString(R.string.player_playback_error, error.errorCode, reason))
                 Toast.makeText(
                     this@PlayerActivity,
                     getString(R.string.player_playback_error, error.errorCode, reason),

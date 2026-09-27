@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -527,6 +528,12 @@ private fun NetworkBrowser(
             }
         }
 
+        // HIGH: pull-to-refresh tied to real loading state so the
+        // browser listing can never go stale without feedback.
+        PullToRefreshBox(
+            isRefreshing = isLoading,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize().weight(1f)) {
         when {
             isLoading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -573,6 +580,7 @@ private fun NetworkBrowser(
             }
         }
         }
+        }
 
         // mpvRex-style floating pill bottom bar (FloatingBottomBar port):
         // icon-only tonal buttons in a rounded floating surface.
@@ -580,6 +588,7 @@ private fun NetworkBrowser(
             modifier = Modifier.align(Alignment.BottomCenter),
             onUpClick = onBack,
             onRefreshClick = onRefresh,
+            isRefreshing = isLoading,
         )
     }
 }
@@ -594,6 +603,7 @@ private fun NetworkFloatingBottomBar(
     modifier: Modifier = Modifier,
     onUpClick: () -> Unit,
     onRefreshClick: () -> Unit,
+    isRefreshing: Boolean = false,
 ) {
     val targetBottomPadding = 96.dp
     val animatedBottomPadding by animateDpAsState(
@@ -615,7 +625,7 @@ private fun NetworkFloatingBottomBar(
         ) {
             FilledTonalIconButton(
                 onClick = onUpClick,
-                modifier = Modifier.size(42.dp),
+                modifier = Modifier.size(48.dp),
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -629,17 +639,25 @@ private fun NetworkFloatingBottomBar(
             }
             FilledTonalIconButton(
                 onClick = onRefreshClick,
-                modifier = Modifier.size(42.dp),
+                enabled = !isRefreshing,
+                modifier = Modifier.size(48.dp),
                 colors = IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 ),
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = "Refresh",
-                    modifier = Modifier.size(20.dp),
-                )
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = "Refresh",
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
             }
         }
     }

@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -575,6 +576,19 @@ private fun typographyWithFontFamily(fontFamily: FontFamily): Typography {
 }
 
 /**
+ * Single Shapes token set for the app (audit B1). Keeps the existing VidMax
+ * look — 16dp cards, 28dp dialogs/sheets, 50dp pills — while giving every
+ * screen one place to reference instead of hardcoding ~15 radii.
+ */
+val VidMaxShapes = Shapes(
+    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(32.dp),
+)
+
+/**
  * Main App Theme Component
  */
 @Composable
@@ -601,6 +615,7 @@ fun VidMaxTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = typographyWithFontFamily(appFontFamily),
+        shapes = VidMaxShapes,
         content = content
     )
 }

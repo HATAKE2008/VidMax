@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -62,7 +63,7 @@ fun SplashScreen(onSplashFinished: () -> Unit) {
               fontSize = 36.sp,
               fontWeight = FontWeight.ExtraBold,
               letterSpacing = 2.sp,
-              modifier = Modifier.scale(scale.value))
+              modifier = Modifier.alpha(textAlpha.value).scale(scale.value))
         }
       }
 }

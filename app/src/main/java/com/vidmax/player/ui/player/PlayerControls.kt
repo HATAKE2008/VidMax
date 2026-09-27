@@ -66,6 +66,7 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.progressSemantics
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -2295,6 +2296,9 @@ private fun SeekBarRow(
                 .weight(1f)
                 .padding(horizontal = 12.dp)
                 .height(36.dp)
+                .progressSemantics(
+                    value = displayProgress,
+                    contentDescription = "Seek bar")
                 .pointerInput(safeDuration) {
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
@@ -2392,7 +2396,8 @@ fun MpvCircleButton(
     size: Dp = 42.dp,
     active: Boolean = false,
     tint: Color = Color.White,
-    hideBackground: Boolean = false
+    hideBackground: Boolean = false,
+    enabled: Boolean = true
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -2404,9 +2409,11 @@ fun MpvCircleButton(
 
     Surface(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.size(size).scale(scale),
         shape = CircleShape,
         color = when {
+            !enabled -> Color.White.copy(alpha = 0.06f)
             active -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
             hideBackground -> Color.Transparent
             else -> Color.White.copy(alpha = 0.12f)

@@ -13,6 +13,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -70,6 +73,8 @@ fun PlayerScreen(
   val currentEngine by viewModel.currentEngine.collectAsState()
   val panelMode by viewModel.panelMode.collectAsState()
   val subAudioTab by viewModel.subtitleAudioTab.collectAsState()
+  val isBuffering by viewModel.isBuffering.collectAsState()
+  val playerError by viewModel.errorMessage.collectAsState()
   val panelOpen = panelMode != PanelMode.NONE
   val isLandscape =
       configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -437,6 +442,59 @@ fun PlayerScreen(
         onSeekBackward = onSeekBackward,
         onBack = onBack,
         modifier = Modifier.fillMaxSize())
+    }
+
+    // HIGH: buffering + error/retry overlay centered over video. Keeps
+    // existing behavior (Toast still fires in Activity) while giving a
+    // visible, actionable surface instead of a frozen frame.
+    if (isBuffering && playerError == null) {
+      Box(
+          modifier = Modifier.align(Alignment.Center),
+          contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp))
+          }
+    }
+    playerError?.let { message ->
+      Box(
+          modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp),
+          contentAlignment = Alignment.Center) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .padding(24.dp)) {
+                  Text(
+                      text = message,
+                      color = Color.White,
+                      fontSize = 14.sp,
+                      textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                      maxLines = 3)
+                  Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    androidx.compose.material3.TextButton(onClick = { viewModel.clearError() }) {
+                      Text(stringResource(R.string.player_dismiss))
+                    }
+                    Button(
+                        onClick = {
+                          viewModel.clearError()
+                          try {
+                            if (currentEngine == PlayerEngine.MPV) {
+                              MPVLib.command(arrayOf("seek", "0", "relative+exact"))
+                            } else {
+                              exoPlayer?.play()
+                            }
+                          } catch (e: Exception) {}
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary)) {
+                          Text(stringResource(R.string.player_retry))
+                        }
+                  }
+                }
+          }
     }
   }
 }
