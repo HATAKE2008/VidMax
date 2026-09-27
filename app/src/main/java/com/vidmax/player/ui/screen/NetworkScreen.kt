@@ -2,6 +2,7 @@ package com.vidmax.player.ui.screen
 
 import android.app.Application
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -101,7 +102,10 @@ fun NetworkScreen(libraryViewModel: LibraryViewModel) {
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val conn = currentConnection
-        if (conn == null) {
+        AnimatedContent(
+            targetState = conn?.id,
+            label = "networkContent") {
+          if (conn == null) {
             ConnectionsList(
                 connections = connections,
                 statuses = statuses,
@@ -127,6 +131,7 @@ fun NetworkScreen(libraryViewModel: LibraryViewModel) {
                 onOpenFolder = { viewModel.navigateInto(it) },
                 onPlayFile = { viewModel.playFile(it) },
             )
+        }
         }
 
         if (isNetworkSearchOpen) {

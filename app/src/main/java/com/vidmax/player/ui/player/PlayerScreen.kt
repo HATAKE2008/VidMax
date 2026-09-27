@@ -9,6 +9,7 @@ import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -325,7 +326,10 @@ fun PlayerScreen(
           }
     }
 
-    if (panelOpen) {
+    AnimatedContent(
+        targetState = panelOpen,
+        label = "playerPanel") { open ->
+      if (open) {
       when (panelMode) {
         PanelMode.SUB_AUDIO ->
           SubtitleAudioPanel(
@@ -442,6 +446,7 @@ fun PlayerScreen(
         onSeekBackward = onSeekBackward,
         onBack = onBack,
         modifier = Modifier.fillMaxSize())
+    }
     }
 
     // HIGH: buffering + error/retry overlay centered over video. Keeps

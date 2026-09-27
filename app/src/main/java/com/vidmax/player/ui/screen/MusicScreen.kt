@@ -928,21 +928,23 @@ fun MusicScreen(
       }
 
       // FLOATING ACTION BUTTON
-      Box(
-          modifier = Modifier
-              .align(Alignment.BottomEnd)
-              .padding(end = 16.dp, bottom = 120.dp)) {
-        AnimatedVisibility(
-            visible = currentTab == "Playlists" && activePlaylist == null,
-            enter = scaleIn() + fadeIn(),
-            exit = scaleOut() + fadeOut()) {
-          FloatingActionButton(
-              onClick = { showCreatePlaylistDialog = true },
-              containerColor = MaterialTheme.colorScheme.primary,
-              contentColor = MaterialTheme.colorScheme.onPrimary,
-              shape = RoundedCornerShape(16.dp)) {
-            Icon(Icons.Default.Add, contentDescription = "New Playlist", modifier = Modifier.size(28.dp))
-          }
+      val fabScale by animateFloatAsState(
+          targetValue = if (currentTab == "Playlists" && activePlaylist == null) 1f else 0f,
+          animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+          label = "fabScale"
+      )
+
+      if (fabScale > 0.01f) {
+        FloatingActionButton(
+            onClick = { showCreatePlaylistDialog = true },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 120.dp)
+                .scale(fabScale)) {
+          Icon(Icons.Default.Add, contentDescription = "New Playlist", modifier = Modifier.size(28.dp))
         }
       }
     }

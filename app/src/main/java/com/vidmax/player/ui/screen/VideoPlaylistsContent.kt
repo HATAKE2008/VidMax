@@ -279,25 +279,20 @@ fun VideoPlaylistsContent(
             }
       }
 
-        Box(
+        if (!inListSelection) {
+          FloatingActionButton(
+            onClick = { showCreateMenu = true },
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = RoundedCornerShape(16.dp),
             modifier =
                 Modifier.align(Alignment.BottomEnd)
                     .navigationBarsPadding()
-                    .padding(end = 20.dp, bottom = 148.dp)) {
-          AnimatedVisibility(
-              visible = !inListSelection,
-              enter = scaleIn() + fadeIn(),
-              exit = scaleOut() + fadeOut()) {
-            FloatingActionButton(
-              onClick = { showCreateMenu = true },
-              containerColor = MaterialTheme.colorScheme.primary,
-              contentColor = MaterialTheme.colorScheme.onPrimary,
-              shape = RoundedCornerShape(16.dp),
-              modifier = Modifier.size(56.dp)) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
-              }
-          }
-        }
+                    .padding(end = 20.dp, bottom = 148.dp)
+                    .size(56.dp)) {
+              Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
+            }
+      }
     }
     }
   } else {
