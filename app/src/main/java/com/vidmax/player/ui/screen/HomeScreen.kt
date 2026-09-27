@@ -91,6 +91,7 @@ import com.vidmax.player.viewmodel.LibraryViewModel
 import com.vidmax.player.viewmodel.RenameConsentRequiredException
 import com.vidmax.player.viewmodel.SortOrder
 import java.io.File
+import kotlinx.coroutines.launch
 
 enum class HomeViewStyle {
   LIST,
@@ -134,6 +135,9 @@ fun HomeScreen(
   // current list on every read.
   var selection by remember { mutableStateOf(VideoSelection()) }
   val inSelectionMode = selection.isInSelectionMode
+  // Snackbar feedback for delete results (audit: migrate Toast -> SnackbarHost).
+  val snackbarHostState = remember { SnackbarHostState() }
+  val snackbarScope = rememberCoroutineScope()
   // Copy/Move destination picker: "copy", "move", or null when closed.
   var folderPickerMode by remember { mutableStateOf<String?>(null) }
   var pickerBusy by remember { mutableStateOf(false) }
@@ -209,11 +213,14 @@ fun HomeScreen(
       rememberLauncherForActivityResult(
           contract = ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-              Toast.makeText(context, context.getString(R.string.home_toast_selected_deleted), Toast.LENGTH_SHORT)
-                  .show()
+              snackbarScope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.home_toast_selected_deleted))
+              }
               selection = selection.clear()
             } else {
-              Toast.makeText(context, context.getString(R.string.home_toast_delete_cancelled), Toast.LENGTH_SHORT).show()
+              snackbarScope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.home_toast_delete_cancelled))
+              }
             }
           }
 
@@ -1182,6 +1189,12 @@ fun HomeScreen(
         modifier = Modifier.align(Alignment.BottomCenter)
             .navigationBarsPadding()
             .padding(bottom = 92.dp))
+
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier.align(Alignment.BottomCenter)
+            .navigationBarsPadding()
+            .padding(bottom = 160.dp))
   }
 
   BackHandler(enabled = inSelectionMode) {
