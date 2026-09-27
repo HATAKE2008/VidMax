@@ -352,13 +352,14 @@ fun SettingsScreen(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                         fontSize = 14.sp
                                     )
-                                }
-                            }
-                        }
-                    }
+}
                 }
+                }
+            }
+        }
+    }
 
-                // ── App Theme picker ──────────────────────────────────────────
+            // ── App Theme picker ──────────────────────────────────────────
                 item {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
