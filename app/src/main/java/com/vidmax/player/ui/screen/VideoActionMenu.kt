@@ -37,7 +37,10 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -485,12 +488,21 @@ fun VideoActionSheet(
                       Icons.Filled.Delete, deleteLabel, onDelete))
           actions.forEach { (icon, label, action) ->
             val isDestructive = icon == Icons.Filled.Delete
-            Row(
-                modifier =
-                    Modifier.fillMaxWidth()
-                        .clickable { action() }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically) {
+            if (isDestructive) {
+              HorizontalDivider(
+                  color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                  modifier = Modifier.padding(vertical = 4.dp))
+            }
+            ListItem(
+                headlineContent = {
+                  Text(
+                      text = label,
+                      color =
+                          if (isDestructive) MaterialTheme.colorScheme.error
+                          else MaterialTheme.colorScheme.onSurface,
+                      fontSize = 15.sp)
+                },
+                leadingContent = {
                   Icon(
                       imageVector = icon,
                       contentDescription = null,
@@ -498,14 +510,13 @@ fun VideoActionSheet(
                           if (isDestructive) MaterialTheme.colorScheme.error
                           else MaterialTheme.colorScheme.onSurface,
                       modifier = Modifier.size(22.dp))
-                  Spacer(modifier = Modifier.width(16.dp))
-                  Text(
-                      text = label,
-                      color =
-                          if (isDestructive) MaterialTheme.colorScheme.error
-                          else MaterialTheme.colorScheme.onSurface,
-                      fontSize = 15.sp)
-                }
+                },
+                colors =
+                    ListItemDefaults.colors(
+                        containerColor =
+                            if (isDestructive) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+                            else androidx.compose.ui.graphics.Color.Transparent),
+                modifier = Modifier.clickable { action() })
           }
           Spacer(modifier = Modifier.height(8.dp))
         }

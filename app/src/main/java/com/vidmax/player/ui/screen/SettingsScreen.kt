@@ -1236,6 +1236,7 @@ private fun SettingsGroupToggle(
         title = title,
         subtitle = subtitle,
         enabled = enabled,
+        role = Role.Switch,
         icon = {
             Icon(
                 imageVector = icon,
@@ -1269,13 +1270,17 @@ private fun SettingsGroupItem(
     enabled: Boolean = true,
     icon: @Composable () -> Unit,
     trailing: @Composable () -> Unit,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    role: Role? = null
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .then(
                 if (onClick != null && enabled) Modifier.clickable { onClick() } else Modifier
+            )
+            .then(
+                if (role != null) Modifier.semantics { this.role = role } else Modifier
             )
             .alpha(if (enabled) 1f else 0.45f)
             .padding(horizontal = 16.dp, vertical = 12.dp),
