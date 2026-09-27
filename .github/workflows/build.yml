@@ -41,6 +41,13 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        api-level: 35
+        ndk-version: r26d
+        cache: gradle
+
     - name: Make gradlew executable
       run: chmod +x gradlew
 
