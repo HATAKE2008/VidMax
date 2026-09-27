@@ -274,17 +274,25 @@ fun VideoPlaylistsContent(
             }
       }
 
-        if (!inListSelection) {
+        AnimatedVisibility(
+          visible = !inListSelection,
+          enter = expandVertically(
+              animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+          ) + fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)),
+          exit = shrinkVertically(
+              animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+          ) + fadeOut(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+      ) {
           FloatingActionButton(
-            onClick = { showCreateMenu = true },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = RoundedCornerShape(16.dp),
-            modifier =
-                Modifier.align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(end = 20.dp, bottom = 148.dp)
-                    .size(56.dp)) {
+              onClick = { showCreateMenu = true },
+              containerColor = MaterialTheme.colorScheme.primary,
+              contentColor = MaterialTheme.colorScheme.onPrimary,
+              shape = RoundedCornerShape(16.dp),
+              modifier = Modifier
+                  .align(Alignment.BottomEnd)
+                  .navigationBarsPadding()
+                  .padding(end = 20.dp, bottom = 148.dp)
+                  .size(56.dp)) {
               Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
             }
       }

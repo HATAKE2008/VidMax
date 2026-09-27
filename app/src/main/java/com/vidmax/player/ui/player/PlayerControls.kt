@@ -130,7 +130,8 @@ fun PlayerControls(
     onNext: () -> Unit,
     onSeekForward: () -> Unit,
     onSeekBackward: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    isBuffering: Boolean = false
 ) {
 
     val context = LocalContext.current
@@ -186,6 +187,8 @@ fun PlayerControls(
     val gestureIndicatorValue by viewModel.gestureIndicatorValue.collectAsState()
     val currentVolumePercent by viewModel.currentVolumePercent.collectAsState()
     val currentBrightnessPercent by viewModel.currentBrightnessPercent.collectAsState()
+
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     // ---- MPVEx preference switches ----
     val settingsPrefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
@@ -633,766 +636,70 @@ fun PlayerControls(
                             color = primaryColor,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Slider(
-                        value = videoScale,
-                        onValueChange = { newZoom -> onVideoScaleChange(newZoom / videoScale, Offset.Zero, null) },
-                        valueRange = 1f..4f,
-                        modifier = Modifier.weight(1f),
-                        colors = SliderDefaults.colors(
-                            thumbColor = primaryColor,
-                            activeTrackColor = primaryColor,
-                            inactiveTrackColor = primaryColor.copy(alpha = 0.3f)
-                        )
-                    )
-
-                    MpvCircleButton(
-                        icon = Icons.Outlined.ZoomIn,
-                        contentDescription = "Zoom in",
-                        onClick = {
-                            val newZoom = (videoScale + 0.1f).coerceAtMost(4f)
-                            onVideoScaleChange(newZoom / videoScale, Offset.Zero, null)
-                        },
-                        size = 44.dp
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    OutlinedButton(
-                        onClick = { viewModel.setShowZoomSheet(false) },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        border = BorderStroke(1.dp, primaryColor.copy(alpha = 0.5f)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                    ) {
-                        Text(stringResource(R.string.player_set_as_default), fontSize = 14.sp)
-                    }
-                    Button(
-                        onClick = { onVideoScaleChange(1f / videoScale, Offset.Zero, null) },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
-                    ) {
-                        Text(stringResource(R.string.player_reset), color = onPrimaryColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+)
         }
-    }
 
-    // ============================================================
-    // Aspect ratio bottom sheet
-    // ============================================================
-    if (showAspectSheet) {
-        val aspect by viewModel.aspectRatio.collectAsState()
-        ModalBottomSheet(onDismissRequest = { viewModel.setShowAspectSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.player_aspect_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                listOf(
-                    Triple(AspectRatioMode.FIT, stringResource(R.string.player_aspect_fit), Icons.Outlined.FitScreen),
-                    Triple(AspectRatioMode.FILL, stringResource(R.string.player_aspect_fill), Icons.Outlined.AspectRatio),
-                    Triple(AspectRatioMode.STRETCH, stringResource(R.string.player_aspect_stretch), Icons.Outlined.Fullscreen)
-                ).forEach { (mode, label, icon) ->
-                    val isSelected = aspect == mode
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable {
-                                // Fit means "show the whole frame": drop any
-                                // pinch-zoom/pan so the view returns to its
-                                // default framing instead of staying zoomed.
-                                if (mode == AspectRatioMode.FIT && videoScale != 1f) {
-                                    onVideoScaleChange(1f / videoScale, Offset.Zero, null)
-                                }
-                                viewModel.setAspectRatio(mode)
-                                viewModel.setShowAspectSheet(false)
-                            }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(icon, contentDescription = null, tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(label, color = Color.White, fontSize = 16.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-                        Spacer(modifier = Modifier.weight(1f))
-                        if (isSelected) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                    }
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
-    }
-
-    // ============================================================
-    // Decoder bottom sheet
-    // ============================================================
-    if (showDecoderMenu) {
-        ModalBottomSheet(onDismissRequest = { viewModel.setShowDecoderMenu(false) }, containerColor = Color(0xFF1E1E1E)) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.player_decoder_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                val decoderOptions = listOf(
-                    Pair("auto-copy", stringResource(R.string.player_decoder_auto)),
-                    Pair("no", stringResource(R.string.player_decoder_sw)),
-                    Pair("mediacodec-copy", stringResource(R.string.player_decoder_hw)),
-                    Pair("mediacodec", stringResource(R.string.player_decoder_hwplus))
-                )
-                decoderOptions.forEach { (value, label) ->
-                    val isSelected = currentMpvDecoder == value
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            try { MPVLib.setPropertyString("hwdec", value); currentMpvDecoder = value } catch (e: Exception) {}
-                            viewModel.setShowDecoderMenu(false)
-                        }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(id = if (isSelected) R.drawable.ic_radio_checked else R.drawable.ic_radio_unchecked),
-                            contentDescription = null,
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(label, color = Color.White, fontSize = 16.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-                    }
-                }
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-        }
-    }
-
-    // ============================================================
-    // Sleep timer dialog
-    // ============================================================
-    if (showTimerDialog) {
-        AlertDialog(
-            onDismissRequest = { showTimerDialog = false }, containerColor = Color(0xFF1E1E1E),
-            title = { Text(stringResource(R.string.player_sleep_timer), color = Color.White, fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    listOf(0, 15, 30, 60, 120).forEach { mins ->
-                        val text = if (mins == 0) stringResource(R.string.player_off) else pluralStringResource(R.plurals.player_sleep_minutes, mins, mins)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable { sleepTimerMinutes = mins; showTimerDialog = false }.padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = if (sleepTimerMinutes == mins) MaterialTheme.colorScheme.primary else Color.Transparent
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(text, color = Color.White, fontSize = 16.sp)
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showTimerDialog = false }) { Text(stringResource(R.string.player_close)) } }
-        )
-    }
-
-    // ============================================================
-    // Details dialog (shared library dialog, no separate Properties UI)
-    // ============================================================
-    if (showDetailsDialog) {
-        val detailsFile = remember(currentPath) { File(currentPath) }
-        val detailsVideo = remember(currentPath, videoTitle, duration) {
-            VideoItem(
-                id = 0L,
-                title = videoTitle.ifEmpty { detailsFile.nameWithoutExtension },
-                path = currentPath,
-                duration = duration,
-                size = runCatching { detailsFile.length() }.getOrDefault(0L),
-                width = 0,
-                height = 0,
-                dateAdded = 0L,
-                folderPath = runCatching { detailsFile.parent }.getOrNull() ?: "",
-                folderName = runCatching { detailsFile.parentFile?.name }.getOrNull() ?: "")
-        }
-        VideoDetailsDialog(
-            video = detailsVideo,
-            onDismiss = { showDetailsDialog = false })
-    }
-
-    BackHandler(enabled = showBookmarkDialog || showBookmarkList) {
-        showBookmarkDialog = false
-        showBookmarkList = false
-    }
-
-    // Shared inline content sits immediately above the seekbar in all three layouts.
-    val repeatBookmarkPanel: @Composable () -> Unit = {
-        if (showBookmarkDialog || showBookmarkList) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (showBookmarkDialog || showBookmarkList) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().widthIn(max = 360.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+        // ---- Error overlay with retry ----
+        errorMessage?.let { message ->
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(200)),
+                modifier = Modifier.align(Alignment.Center)
             ) {
-                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                    if (showBookmarkDialog) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                stringResource(R.string.player_bookmark_at_time, formatTimeHelper(bookmarkPosition)),
-                                modifier = Modifier.weight(1f),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold)
-                            IconButton(onClick = { showBookmarkDialog = false }) {
-                                Icon(Icons.Default.Close, contentDescription = "Cancel bookmark")
-                            }
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(
-                                value = bookmarkLabel,
-                                onValueChange = { bookmarkLabel = it },
-                                label = { Text(stringResource(R.string.player_bookmark_label_hint)) },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f))
-                            TextButton(onClick = {
-                                val updated =
-                                    (bookmarkList.toList() + VideoBookmark(bookmarkPosition, bookmarkLabel.trim()))
-                                        .sortedBy { it.positionMs }
-                                        .take(50)
-                                bookmarkList.clear()
-                                bookmarkList.addAll(updated)
-                                saveBookmarks(settingsPrefs, currentPath, updated)
-                                showBookmarkDialog = false
-                            }) {
-                                Text(stringResource(R.string.player_save))
-                            }
-                        }
-                    }
-                    if (showBookmarkList) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(pluralStringResource(R.plurals.player_bookmarks_count, bookmarkList.size, bookmarkList.size), modifier = Modifier.weight(1f),
-                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                            IconButton(onClick = { showBookmarkList = false }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close bookmarks")
-                            }
-                        }
-                        if (bookmarkList.isEmpty()) {
-                            Text(stringResource(R.string.player_no_bookmarks_hint), fontSize = 12.sp)
-                        } else {
-                            Column(
-                                modifier = Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                bookmarkList.toList().forEach { bm ->
-                                    Row(
-                                        modifier =
-                                            Modifier.fillMaxWidth()
-                                                .clickable {
-                                                    onSeek(bm.positionMs)
-                                                    viewModel.setCurrentPosition(bm.positionMs)
-                                                    showBookmarkList = false
-                                                }
-                                                .padding(vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                if (bm.label.isNotEmpty()) bm.label else stringResource(R.string.player_bookmark_fallback),
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontSize = 14.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis)
-                                            Text(
-                                                formatTimeHelper(bm.positionMs),
-                                                fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                        IconButton(onClick = {
-                                            bookmarkList.remove(bm)
-                                            saveBookmarks(settingsPrefs, currentPath, bookmarkList.toList())
-                                        }) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Delete,
-                                                contentDescription = "Remove bookmark",
-                                                tint = MaterialTheme.colorScheme.error)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-        }
-    }
-
-    // ============================================================
-    // Speed & Sync bottom sheet
-    // ============================================================
-    if (showSyncSheet) {
-        LaunchedEffect(showSyncSheet) {
-            if (currentEngine == PlayerEngine.MPV) {
-                try {
-                    audioDelayMs = ((MPVLib.getPropertyDouble("audio-delay") ?: 0.0) * 1000).toLong()
-                    subtitleDelayMs = ((MPVLib.getPropertyDouble("sub-delay") ?: 0.0) * 1000).toLong()
-                } catch (e: Exception) {}
-            }
-        }
-        ModalBottomSheet(onDismissRequest = { viewModel.setShowSyncSheet(false) }, containerColor = Color(0xFF1E1E1E)) {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                Text(stringResource(R.string.player_speed_sync_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Column {
-                    Text(stringResource(R.string.player_playback_speed), color = Color.Gray, fontSize = 14.sp)
-                    Spacer(Modifier.height(12.dp))
-                    val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        speeds.forEach { speed ->
-                            val isSelected = currentPlaybackSpeed == speed
-                            Box(
-                                modifier = Modifier.clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.1f))
-                                    .clickable { onSpeedChange(speed) }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    stringResource(R.string.player_speed_value, speed),
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        }
-                    }
-                }
-                Divider(color = Color.White.copy(alpha = 0.1f))
-                if (currentEngine == PlayerEngine.MPV) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text(stringResource(R.string.player_audio_delay), color = Color.White, fontSize = 16.sp)
-                            Text(stringResource(R.string.player_delay_ms, audioDelayMs), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs -= 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_minus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { audioDelayMs += 50; try { MPVLib.setPropertyDouble("audio-delay", audioDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_plus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                        }
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column {
-                            Text(stringResource(R.string.player_subtitle_delay), color = Color.White, fontSize = 16.sp)
-                            Text(stringResource(R.string.player_delay_ms, subtitleDelayMs), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs -= 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_minus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                            Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)).clickable { subtitleDelayMs += 50; try { MPVLib.setPropertyDouble("sub-delay", subtitleDelayMs / 1000.0) } catch (e: Exception) {} }.padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(stringResource(R.string.player_delay_plus50), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                        }
-                    }
-                } else {
-                    Text(stringResource(R.string.player_sync_auto_exo), color = Color.Gray, fontSize = 14.sp)
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
-    }
-
-    // ============================================================
-    // Main overlay layout
-    // ============================================================
-    Box(modifier = modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
-                            pointerCount.set(event.changes.count { it.pressed })
-                        }
-                    }
-                }
-                .pointerInput(isLocked, pinchZoomEnabled) {
-                    if (isLocked) return@pointerInput
-
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        var isDraggingLocal = false
-                        var accX = 0f
-                        var accY = 0f
-                        var dragType = 0
-
-                        // Pinch Zoom state variables
-                        var pinchActive = false
-                        var lastTwoFingerActive = false
-                        var lastDist = 0f
-                        var lastCentroid = Offset.Zero
-                        var smoothedPan = Offset.Zero
-                        var lastPinchEventNs = 0L
-
-                        var lastAppliedBrightness = -1f
-                        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-
-                        do {
-                            val event = awaitPointerEvent()
-                            val pressed = event.changes.filter { it.pressed }
-
-                            // TWO FINGERS: pinch zoom + pan (Absolute distance ratio based)
-                            if (pressed.size >= 2 && pinchZoomEnabled) {
-                                isDraggingLocal = false
-                                dragType = 0
-                                val p1 = pressed[0]
-                                val p2 = pressed[1]
-                                val currentIds = Pair(p1.id, p2.id)
-                                val dist = (p1.position - p2.position).getDistance()
-                                val centroid = (p1.position + p2.position) / 2f
-                                val pairChanged = pinchPointerIds != null && pinchPointerIds != currentIds
-
-                                if (pinchActive && lastTwoFingerActive && !pairChanged) {
-                                    val nowNs = System.nanoTime()
-                                    val dtMs = if (lastPinchEventNs > 0L) {
-                                        ((nowNs - lastPinchEventNs) / 1_000_000f).coerceIn(1f, 60f)
-                                    } else 16f
-                                    lastPinchEventNs = nowNs
-
-                                    // Absolute target scale from gesture start
-                                    val rawTargetScale = (pinchAnchorScale * (dist / pinchStartDist))
-                                        .coerceIn(1f, 4f)
-                                    lastRawTargetScale = rawTargetScale
-
-                                    // Light EMA smoothing on the target scale
-                                    val alpha = 1f - exp(-dtMs / 40f)
-                                    val smoothedTargetScale = lastAppliedScale + (rawTargetScale - lastAppliedScale) * alpha
-
-                                    val rawPan = centroid - lastCentroid
-                                    val panAlpha = 1f - exp(-dtMs / 45f)
-                                    smoothedPan = smoothedPan + (rawPan - smoothedPan) * panAlpha
-
-                                    liveZoomScale.floatValue = smoothedTargetScale
-                                    lastAppliedScale = smoothedTargetScale
-                                } else {
-                                    pinchActive = true
-                                    pinchStartDist = dist
-                                    pinchAnchorScale = if (pinchPointerIds != null) lastAppliedScale else currentVideoScale
-                                    lastAppliedScale = pinchAnchorScale
-                                    lastRawTargetScale = pinchAnchorScale
-                                    liveZoomScale.floatValue = pinchAnchorScale
-                                    smoothedPan = Offset.Zero
-                                    lastPinchEventNs = System.nanoTime()
-                                }
-                                pinchPointerIds = currentIds
-                                lastDist = dist
-                                lastCentroid = centroid
-                                lastTwoFingerActive = true
-                                p1.consume()
-                                p2.consume()
-                            }
-                            // ONE FINGER
-                            else if (pressed.size == 1) {
-                                lastTwoFingerActive = false
-                                val change = pressed.first()
-                                val dx = change.position.x - change.previousPosition.x
-                                val dy = change.position.y - change.previousPosition.y
-
-                                if (!isDraggingLocal) {
-                                    accX += dx
-                                    accY += dy
-                                    
-                                    if (sqrt(accX * accX + accY * accY) > 40f && boostPrevSpeed == null) {
-                                        isDraggingLocal = true
-                                        dragType = if (abs(accX) > abs(accY)) {
-                                            // horizontal seek, only outside bottom dead zone
-                                            if (down.position.y < size.height - bottomDeadZonePx) 4 else 0
-                                        } else if (down.position.x < size.width / 2f) 1 // left = brightness
-                                        else 2 // right = volume
-
-                                        isDragging = true
-                                        seekAccumulator = 0f
-                                        targetSeekPosition = currentPosition
-
-                                        // Volume is tracked in percent (0..200) so the
-                                        // boosted range continues smoothly from 100%
-                                        if (currentVideoVolumePercent < 0f) {
-                                            currentVideoVolumePercent =
-                                                audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                                    .toFloat() / maxVol * 100f
-                                        }
-                                        volBasePercent = currentVideoVolumePercent
-                                        volumeAccumulator = 0f
-
-                                        brightBase = activity?.window?.attributes?.screenBrightness ?: -1f
-                                        if (brightBase < 0f) {
-                                            brightBase = Settings.System.getFloat(
-                                                context.contentResolver,
-                                                Settings.System.SCREEN_BRIGHTNESS,
-                                                255f
-                                            ) / 255f
-                                        }
-                                        brightCurrent = brightBase
-                                        lastAppliedBrightness = brightBase
-                                    }
-                                }
-                                if (isDraggingLocal && dragType != 0) {
-                                    change.consume()
-                                    when (dragType) {
-                                        1 -> {
-                                            if (brightnessGestureEnabled) {
-                                                if (activity != null) {
-                                                    brightCurrent = (brightCurrent - dy / (size.height * 0.5f)).coerceIn(0f, 1f)
-                                                    
-                                                    if (abs(brightCurrent - lastAppliedBrightness) > 0.02f) {
-                                                        activity.window.attributes = activity.window.attributes.apply {
-                                                            screenBrightness = brightCurrent
-                                                        }
-                                                        lastAppliedBrightness = brightCurrent
-                                                    }
-                                                    viewModel.setCurrentBrightnessPercent(brightCurrent)
-                                                    viewModel.setGestureIndicator(1, brightCurrent)
-                                                }
-                                            }
-                                        }
-                                        2 -> {
-                                            if (volumeGestureEnabled) {
-                                                volumeAccumulator += dy
-                                                val maxPercent = if (localBoostEnabled) 200f else 100f
-                                                // half a screen swipe == 100%
-                                                val deltaPercent = (-volumeAccumulator / (size.height * 0.5f)) * 100f
-                                                val newPercent = (volBasePercent + deltaPercent).coerceIn(0f, maxPercent)
-
-                                                if (newPercent != currentVideoVolumePercent) {
-                                                    applyVideoVolume(newPercent.roundToInt())
-                                                    currentVideoVolumePercent = newPercent
-                                                }
-                                                // indicator value: 1f == 100%, 2f == 200%
-                                                viewModel.setGestureIndicator(2, newPercent / 100f)
-                                            }
-                                        }
-                                        4 -> {
-                                            if (horizontalSeekEnabled) {
-                                                seekAccumulator += dx
-                                                val seekSensitivity = seekGestureSensitivity.toFloat()
-                                                val msPerPixel = seekSensitivity / size.width
-                                                targetSeekPosition = (currentPosition + (seekAccumulator * msPerPixel).toLong()).coerceIn(0L, duration)
-                                                viewModel.setGestureIndicator(4, targetSeekPosition.toFloat())
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } while (event.changes.any { it.pressed })
-
-                        if (isDraggingLocal) {
-                            if (dragType == 4 && horizontalSeekEnabled) {
-                                onSeek(targetSeekPosition)
-                                viewModel.setCurrentPosition(targetSeekPosition)
-                            }
-
-                            isDraggingLocal = false
-                            isDragging = false
-                            dragType = 0
-                            ignoreDrag = false
-                            viewModel.hideGestureOverlay()
-                        }
-                        if (pinchActive) {
-                            onVideoScaleChange(lastRawTargetScale / currentVideoScale, smoothedPan, null)
-                            liveZoomScale.floatValue = lastRawTargetScale
-                            pinchActive = false
-                            pinchPointerIds = null
-                        }
-                        lastTwoFingerActive = false
-                    }
-                }
-                .pointerInput(isLocked, isPlaying) {
-                    // REX-style press-and-hold for temporary 2x: one unified
-                    // detector instead of detectTapGestures, which the volume /
-                    // brightness / seek drag detector above could starve or
-                    // cancel on natural finger drift.
-                    // - 500ms timer; fires only if the finger stayed within
-                    //   slop (well under the 40px drag threshold, so drags
-                    //   never fight the hold) and playback is running.
-                    // - Multi-finger press cancels the hold attempt.
-                    // - Release always restores the previous speed, so the
-                    //   release can never leak into tap handling or pause.
-                    // Nothing is consumed here, so taps, double-taps and all
-                    // drags keep working in their own detectors.
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val downPos = down.position
-                        val slopPx = 24.dp.toPx()
-                        var maxDrift = 0f
-                        var cancelled = false
-                        var boostedByThisGesture = false
-                        val holdJob = coroutineScope.launch {
-                            delay(500L)
-                            if (!cancelled && maxDrift <= slopPx && !isLocked &&
-                                isPlaying && boostPrevSpeed == null) {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                startSpeedBoost()
-                                boostedByThisGesture = true
-                            }
-                        }
-                        try {
-                            do {
-                                val event = awaitPointerEvent()
-                                if (event.changes.count { it.pressed } > 1) {
-                                    cancelled = true
-                                    holdJob.cancel()
-                                } else {
-                                    event.changes.forEach { change ->
-                                        if (change.pressed) {
-                                            val drift =
-                                                (change.position - downPos).getDistance()
-                                            if (drift > maxDrift) maxDrift = drift
-                                            if (maxDrift > slopPx) {
-                                                cancelled = true
-                                                holdJob.cancel()
-                                            }
-                                        }
-                                    }
-                                }
-                            } while (event.changes.any { it.pressed })
-                        } finally {
-                            holdJob.cancel()
-                            if (boostedByThisGesture) {
-                                boostedByThisGesture = false
-                                stopSpeedBoost()
-                            }
-                        }
-                    }
-                }
-                .pointerInput(isLocked) {
-                    if (!isLocked) {
-                        detectTapGestures(
-                            onDoubleTap = { offset ->
-                                if (offset.y > size.height - bottomDeadZonePx) return@detectTapGestures
-                                val third = size.width / 3f
-                                val seekMs = doubleTapSeekSeconds * 1000L
-                                val isLeftSide = offset.x < third
-                                val isRightSide = offset.x > third * 2f
-                                if (!isLeftSide && !isRightSide) {
-                                    onPlayPause()
-                                    return@detectTapGestures
-                                }
-                                val seekBackward = if (reverseDoubleTap) isRightSide else isLeftSide
-                                val target = if (seekBackward) {
-                                    (currentPosition - seekMs).coerceAtLeast(0L)
-                                } else {
-                                    (currentPosition + seekMs).coerceAtMost(duration)
-                                }
-                                onSeek(target)
-                                viewModel.setCurrentPosition(target)
-                                if (showDoubleTapIndicator) {
-                                    showDoubleTapRipple = if (seekBackward) -1 else 1
-                                    viewModel.setGestureIndicator(4, target.toFloat())
-                                    doubleTapFeedbackGen++
-                                    val feedbackGen = doubleTapFeedbackGen
-                                    coroutineScope.launch {
-                                        delay(1000)
-                                        if (feedbackGen == doubleTapFeedbackGen) {
-                                            showDoubleTapRipple = 0
-                                            if (!isDragging) viewModel.hideGestureOverlay()
-                                        }
-                                    }
-                                }
-                            },
-                            onPress = { boostTapLatch = false },
-                            onTap = {
-                                if (boostTapLatch) {
-                                    boostTapLatch = false
-                                    return@detectTapGestures
-                                }
-                                // Single tap strictly toggles player controls.
-                                viewModel.setControlsVisible(!controlsVisible)
-                            }
-                        )
-                    } else {
-                        detectTapGestures(
-                            onPress = { boostTapLatch = false },
-                            onTap = {
-                                if (boostTapLatch) {
-                                    boostTapLatch = false
-                                    return@detectTapGestures
-                                }
-                                // Locked taps only toggle the shared controls
-                                // visibility (REX): show the unlock button when
-                                // hidden, hide it when visible. Seeking and
-                                // all other interactions stay locked.
-                                // (Fresh-state handler: the detector coroutine
-                                // outlives state changes.)
-                                lockedTapToggle.value()
-                            })
-                    }
-                }
-        )
-
-        // ---- Zoom % meter ----
-        AnimatedVisibility(
-            visible = showZoomMeter,
-            enter = fadeIn(tween(200)) + slideInVertically(initialOffsetY = { -it }),
-            exit = fadeOut(tween(300)) + slideOutVertically(targetOffsetY = { -it }),
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 96.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Text(stringResource(R.string.player_zoom_percent, (videoScale * 100).toInt()), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        // ---- Double-tap seek ripple ----
-        if (showDoubleTapRipple != 0) {
-            val isLeft = showDoubleTapRipple == -1
-            val amount = if (isLeft) -doubleTapSeekSeconds else doubleTapSeekSeconds
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = if (isLeft) Alignment.CenterStart else Alignment.CenterEnd) {
                 Box(
-                    modifier = Modifier.fillMaxHeight().fillMaxWidth(0.35f)
-                        .clip(if (isLeft) RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50) else RoundedCornerShape(topStartPercent = 50, bottomStartPercent = 50))
-                        .background(Color.White.copy(alpha = 0.2f)),
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.Black.copy(alpha = 0.85f))
+                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                        if (isLeft) {
-                            CombiningChevronsAnimation(isRight = false, trigger = showDoubleTapRipple)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.player_seek_backward, abs(amount)), fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
-                        } else {
-                            Text(stringResource(R.string.player_seek_forward, abs(amount)), fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.White)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            CombiningChevronsAnimation(isRight = true, trigger = showDoubleTapRipple)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            message,
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 3
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = { viewModel.clearError() },
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            ) {
+                                Text(stringResource(R.string.player_dismiss))
+                            }
+                            FilledButton(
+                                onClick = {
+                                    viewModel.clearError()
+                                    onPlayPause()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Text(stringResource(R.string.player_retry))
+                            }
                         }
                     }
                 }
-            }
-        }
-
-        // ---- Seek gesture overlay ----
-        AnimatedVisibility(
-            visible = isGestureOverlayVisible && !isLocked && gestureIndicatorType == 4,
-            enter = fadeIn(tween(300)) + scaleIn(initialScale = 0.8f, animationSpec = tween(300)),
-            exit = fadeOut(tween(300)) + scaleOut(targetScale = 0.8f, animationSpec = tween(300)),
-            modifier = Modifier.align(Alignment.Center)
-        ) {
-            Box(
-                modifier = Modifier.clip(RoundedCornerShape(24.dp)).background(Color.Black.copy(alpha = 0.5f)).border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(24.dp)).padding(vertical = 20.dp, horizontal = 40.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    val targetMs = gestureIndicatorValue.toLong()
-                    Text(stringResource(R.string.player_seek_to), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(formatTimeHelper(targetMs), color = MaterialTheme.colorScheme.primary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(stringResource(R.string.player_seek_total, formatTimeHelper(duration)), color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
-                }
-            }
-        }
-
-        // ---- 2x hold indicator ----
-        AnimatedVisibility(
-            visible = isBoosting,
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(150)),
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 96.dp)
-        ) {
-            Box(
-                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(50)).padding(horizontal = 20.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(stringResource(R.string.player_speed_2x), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -2084,34 +1391,47 @@ private fun ABTextCircleButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     size: Dp = 42.dp,
-    hideBackground: Boolean = false
+    hideBackground: Boolean = false,
+    enabled: Boolean = true
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.86f else 1f,
+        targetValue = if (isPressed && enabled) 0.86f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "abTextButtonScale"
     )
 
     Surface(
-        onClick = onClick,
+        onClick = if (enabled) onClick else null,
         modifier = modifier.size(size).scale(scale),
         shape = CircleShape,
         color = when {
             active -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
             hideBackground -> Color.Transparent
+            !enabled -> Color.White.copy(alpha = 0.08f)
             else -> Color.White.copy(alpha = 0.12f)
         },
-        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else Color.White,
-        border = if (hideBackground && !active) null
-        else BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        contentColor = when {
+            active -> MaterialTheme.colorScheme.onPrimary
+            !enabled -> Color.White.copy(alpha = 0.38f)
+            else -> Color.White
+        },
+        border = when {
+            hideBackground && !active -> null
+            !enabled -> BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+            else -> BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+        },
         interactionSource = interactionSource
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 text = text,
-                color = if (active) MaterialTheme.colorScheme.onPrimary else Color.White,
+                color = when {
+                    active -> MaterialTheme.colorScheme.onPrimary
+                    !enabled -> Color.White.copy(alpha = 0.38f)
+                    else -> Color.White
+                },
                 fontSize = 15.sp,
                 fontWeight = FontWeight.ExtraBold)
         }
@@ -2295,6 +1615,14 @@ private fun SeekBarRow(
                 .weight(1f)
                 .padding(horizontal = 12.dp)
                 .height(36.dp)
+                .semantics {
+                    progressBarRangeInfo = androidx.compose.ui.semantics.ProgressBarRangeInfo(
+                        0f, 1f, displayProgress, false
+                    )
+                    stateDescription = androidx.compose.ui.semantics.StateDescription(
+                        contentDescription = "Seek position, ${formatTimeHelper(displayPosition)} of ${formatTimeHelper(safeDuration)}"
+                    )
+                }
                 .pointerInput(safeDuration) {
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
@@ -2392,34 +1720,48 @@ fun MpvCircleButton(
     size: Dp = 42.dp,
     active: Boolean = false,
     tint: Color = Color.White,
-    hideBackground: Boolean = false
+    hideBackground: Boolean = false,
+    enabled: Boolean = true
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.86f else 1f,
+        targetValue = if (isPressed && enabled) 0.86f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "mpvButtonScale"
     )
 
     Surface(
-        onClick = onClick,
+        onClick = if (enabled) onClick else null,
         modifier = modifier.size(size).scale(scale),
         shape = CircleShape,
         color = when {
             active -> MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
             hideBackground -> Color.Transparent
+            !enabled -> Color.White.copy(alpha = 0.08f)
             else -> Color.White.copy(alpha = 0.12f)
         },
-        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else tint,
-        border = if (hideBackground && !active) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+        contentColor = when {
+            active -> MaterialTheme.colorScheme.onPrimary
+            !enabled -> Color.White.copy(alpha = 0.38f)
+            else -> tint
+        },
+        border = when {
+            hideBackground && !active -> null
+            !enabled -> BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+            else -> BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+        },
         interactionSource = interactionSource
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                tint = if (active) MaterialTheme.colorScheme.onPrimary else tint,
+                tint = when {
+                    active -> MaterialTheme.colorScheme.onPrimary
+                    !enabled -> Color.White.copy(alpha = 0.38f)
+                    else -> tint
+                },
                 modifier = Modifier.padding(size * 0.22f)
             )
         }

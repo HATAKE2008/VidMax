@@ -1,0 +1,737 @@
+================================================================================
+VIDMAX PLAYER - ANDROID UI/UX & MATERIAL 3 AUDIT REPORT
+READ-ONLY AUDIT - NO SOURCE FILES WERE MODIFIED
+================================================================================
+
+Scope : All Kotlin/Compose sources under app/src/main/java/com/vidmax/player/
+        (~25.5k lines of UI), plus ui/theme, resources and AndroidManifest.
+Build : androidx.compose.material3:material3:1.3.1 (app/build.gradle:122).
+        SegmentedButton, PullToRefreshBox, ListItem, ModalBottomSheet and
+        Modifier.animateItem() are all already available.
+        => No new dependency is required for any recommendation in this report.
+
+Reference image note: no external screenshot arrived in this session, so the
+app's own captures in assets/screenshots/ and docs/assets/screenshots/ were
+used as the visual reference. Findings describe opportunities in the existing
+VidMax style - not a literal copy of any reference.
+
+--------------------------------------------------------------------------------
+VERIFIED CROSS-CUTTING FACTS
+--------------------------------------------------------------------------------
+- SnackbarHost exists only in NetworkScreen.kt and OnlineMusicScreen.kt.
+  Everything else uses Toast (55 Toast.makeText calls across 12 files).
+- PullToRefreshBox exists only in HomeScreen.kt and OnlineMusicScreen.kt.
+- Modifier.animateItem() is used exactly once (OnlineMusicScreen.kt:782).
+- No SegmentedButton, no NavigationBar, no NavigationRail anywhere.
+  ListItem only in OnlineMusicScreen.kt.
+  The bottom navigation is hand-built in MainScreen.kt.
+- VidMaxTheme (ui/theme/Theme.kt:601) passes colorScheme and typography but
+  NO shapes. M3 shapes are default while the UI hardcodes ~15 different radii
+  (4dp-50dp). MaterialTheme.shapes is referenced only once in the whole app
+  (PlayerControls.kt).
+- Legacy palette constants in ui/theme/Color.kt (Background, Surface, CardBg,
+  Maroon, Gold, Overlay, theme demo colors) are still imported in
+  VideoThumbnail.kt, PlayerControls.kt, SubtitleAudioPanel.kt,
+  ModernPlayerScreen.kt, MusicPlayerScreen.kt.
+- WindowInsets handling is sparse (only ~10 files) despite enableEdgeToEdge()
+  in MainActivity.kt:40.
+- Positive baseline worth reusing: ui/components/ModernDialog.kt (badge + pill
+  buttons), ui/components/SelectionBottomBar.kt (animated M3 pill bar),
+  ui/components/SongCard.kt + ShimmerModifier.kt (shimmer skeletons),
+  ui/components/UpdateDialog.kt, ui/components/StreamLinkSection.kt, and
+  MainScreen's page transition.
+
+================================================================================
+A. SCREEN-BY-SCREEN FINDINGS
+================================================================================
+
+A1. MAIN SHELL / NAVIGATION - ui/screen/MainScreen.kt
+--------------------------------------------------------------------------------
+- MainScreen (bottom nav, 269-709). Current: custom floating pill nav with
+  per-tab animateFloatAsState weight/color/scale and AnimatedVisibility label.
+  Missing: Role.Tab/selectable semantics and focus/keyboard support; drag-to-
+  reorder (515-556) has no accessibility affordance. Suggested: keep the visual
+  design (intentional and polished) but add Modifier.selectable(selected,
+  role = Role.Tab) and content descriptions per tab. Priority: Medium.
+- MainScreen mini player bar (272-424). Current: hand-rolled pill +
+  CircularProgressIndicator, tap-to-play uses indication = null (no ripple),
+  next/favorite buttons are Box+clickable with border. Missing: IconButton/
+  FilledTonalIconButton states, Role.Button, swipe/long-press. Suggested: M3
+  icon buttons inside a Surface; keep layout. Priority: Medium.
+- MainScreen screen switching (222-264). Current: good AnimatedContent
+  fade+scale. Positive: keep. Missing: does not distinguish back vs forward.
+  Suggested: optional directional slide keyed on index. Priority: Low.
+- Settings / MusicPlayer overlays (713-741). Current: AnimatedVisibility slide
+  only, no scrim behind overlay. Missing: scrim/dim + predictive-back.
+  Suggested: add a scrim Box with animateFloatAsState. Priority: Low.
+- MainScreen BackHandler (179-193). Current: works. Missing: folder/playlist
+  close has no transition since those are if/else, not AnimatedContent
+  (211-219). Suggested: AnimatedContent between list and PlaylistScreen.
+  Priority: Low.
+
+A2. VIDEOS TAB - ui/screen/HomeScreen.kt
+--------------------------------------------------------------------------------
+- HomeScreen segment switcher (646-742) / HomeContentSegment (1670-1707).
+  Current: BoxWithConstraints + manual animated indicator + four Row.clickable
+  (Role/selected absent). Missing: M3 selection semantics. Suggested:
+  PrimaryTabRow+Tab or SingleChoiceSegmentedButtonRow+SegmentedButton (keep the
+  spring pop on the M3 indicator). Priority: Medium.
+- HomeScreen header (584-643). Current: raw Row, title 24.sp, four IconButtons
+  forced to 36.dp. Missing: TopAppBar/CenterAlignedTopAppBar, 48dp touch
+  targets, MaterialTheme.typography.headlineSmall. Priority: Medium.
+- HomeScreen loading (752-758). Current: bare centered CircularProgressIndicator
+  under Crossfade. Missing: skeleton/shimmer (already supported by
+  ShimmerModifier). Suggested: list/grid skeleton + Crossfade. Priority: Medium.
+- HomeScreen empty/permission/error (760-789). Current: plain centered Text;
+  error adds only a Button. Missing: icon + title + subtitle hierarchy and a
+  retry affordance; inconsistent with VideoRecentContent's richer empty state.
+  Suggested: shared EmptyState composable + Button. Priority: Medium.
+- PremiumVideoListCard / CustomVideoGridCard / CustomVideoLargeCard
+  (1377-1650). Current: manual shadow/clip/background/border + combinedClickable,
+  hardcoded Color.Black/DarkGray overlays, three different radii (14/12/16dp;
+  folders 16/20dp). Missing: M3 Card selected container and one shape token.
+  Suggested: Card/ElevatedCard + CardDefaults.cardColors, shapes via
+  MaterialTheme.shapes. Priority: Medium.
+- HomeScreen selection header (470-579, count at 488-492). Current:
+  selection.selectedCount, videos.size always uses full library size. Missing:
+  correct per-tab denominator (functional bug). Priority: HIGH.
+- All lists (818-910, 988-1054). Current: itemsIndexed with no animateItem().
+  Missing: insert/remove/reorder animation. Priority: Medium.
+- PullToRefreshBox (748-751). Current: exists (good) but refresh is otherwise
+  only inside SortViewOptionsSheet (434) / error branch (785). Missing:
+  discoverable refresh (top-bar action). Priority: Low.
+- ContinueWatchingPill (1286-1362). Positive: AnimatedVisibility spring +
+  marquee - use as the bar for polish on other states.
+- HomeScreen strings (e.g. "Clear Recent Play", "Now Playing", "Default Theme",
+  "Boost ON/OFF"). Missing: stringResource. Priority: Medium.
+
+A3. RECENT - ui/screen/VideoRecentContent.kt
+--------------------------------------------------------------------------------
+- VideoRecentContent clear-history button (139-150). Current: floating 60.dp
+  IconButton pinned BottomEnd, unanimated, overlaps list. Missing: FAB treatment
+  + visibility animation. Suggested: SmallFloatingActionButton/
+  ExtendedFloatingActionButton in AnimatedVisibility, or top-bar action.
+  Priority: Medium.
+- VideoRecentContent list (124-136) / empty-vs-populated (93-152). Current: no
+  animateItem, hard if/else. Missing: item + state transitions. Suggested:
+  animateItem() + AnimatedContent. Priority: Low.
+- Clear-history AlertDialog (66-91). Positive: correct badge + 28dp +
+  surfaceContainerHigh pattern; use as the reference for player dialogs.
+
+A4. FAVORITES - ui/screen/VideoFavoritesContent.kt
+--------------------------------------------------------------------------------
+- VideoFavoritesContent (56). Current: NOT referenced anywhere - dead code
+  (HomeScreen maps FAVORITES to VideoRecentContent). Missing: decision to wire
+  in or repurpose (do not delete without confirmation). Priority: Medium.
+- VideoFavoritesContent row (113-157). Current: bespoke Row + 38dp circle badge,
+  inconsistent with PremiumVideoListCard; unfavorite shows a hollow
+  FavoriteBorder even though it removes. Missing: shared card + clearer remove
+  icon + localized CD. Priority: Medium.
+- Recomputation at (62-64) is not remember'ed and silently respects the active
+  filter. Suggested: remember(allVideos, favorites). Priority: Low.
+
+A5. PLAYLISTS - ui/screen/VideoPlaylistsContent.kt
+--------------------------------------------------------------------------------
+- VideoPlaylistsContent FAB (277-290). Current: conditional compose, no
+  animation, manual bottom = 148.dp. Missing: Scaffold FAB slot +
+  AnimatedVisibility. Priority: Medium.
+- Selection banner (155-201) duplicates HomeScreen (470-579). Missing: shared
+  selection app-bar + roles. Priority: Medium.
+- PlaylistDetailContent search field (818-833). Current: conditional inline
+  OutlinedTextField; rest of app uses SearchScreen. Missing: consistent search
+  entry / M3 SearchBar. Priority: Medium.
+- PlaylistDetailContent empty/no-match (835-848). Current: bare Text (while list
+  empty at 204-227 has a 64dp icon). Missing: shared empty state + CTA.
+  Priority: Medium.
+- Reorder (593-602, 850-925, 982-1015). Current: zIndex+translationY, commits
+  on both drag-end (920) and Done (694-701); no animateItem. Missing: single
+  commit + placement animation + lift. Priority: Medium.
+- "Clear videos" (800-805). Current: destructive without confirm/error tint.
+  Suggested: AlertDialog confirm or undo Snackbar. Priority: Medium.
+- All feedback (259-263, 740-750, 1124-1127) uses Toast. Missing: SnackbarHost.
+  Priority: Medium.
+- CreateMenuRow (1018-1058), ImportM3UDialog (1061-1139), NamePromptDialog
+  (1143-1187, remember not keyed to initialText). Missing: ListItem, inline
+  progress, keyed state. Priority: Low.
+
+A6. VIDEO ACTION MENU - ui/screen/VideoActionMenu.kt
+--------------------------------------------------------------------------------
+- VideoActionSheet (447-509). Current: ModalBottomSheet with hand-rolled
+  Row.clickable actions, no dividers, no dragHandle. Missing: ListItem rows +
+  HorizontalDivider before Delete + sheet typography. Priority: Medium.
+- VideoActionMenuHost move dialog (283-350) + rename/move/share feedback
+  (93,129,181,207,220). Current: custom clickable rows, raw red error Text,
+  Toast results. Missing: ListItem, busy indicator, Snackbar with undo.
+  Priority: Medium.
+- Delete confirm (362-398). Positive: badge + danger button consistent.
+
+A7. MEDIA DETAILS - ui/screen/MediaDetails.kt
+--------------------------------------------------------------------------------
+- VideoDetailsDialog (166-216). Current: AlertDialog without shape/container/
+  badge; plain title + TextButton. Missing: app dialog conventions
+  (DialogHeaderBadge, 28dp, surfaceContainerHigh). Priority: Medium.
+- VideoDetailsDialog metadata (171-213). Current: rows hidden until loaded;
+  failures swallowed. Missing: loading/error state. Suggested: spinner/shimmer
+  rows + error text. Priority: Medium.
+- VideoDetailRow (218-233) and RenameVideoDialog (235-292). Current: hardcoded
+  sp; rename dialog is a good M3 example (badge + supportingText + disabled
+  logic). Suggested for rows: ListItem. Priority: Low.
+
+A8. MUSIC TAB - ui/screen/MusicScreen.kt
+--------------------------------------------------------------------------------
+- MusicScreen tab bar (655-746) / TabItem (961-999). Current: BoxWithConstraints
+  + manual indicator + clickable (no selected role). Missing: PrimaryTabRow/Tab.
+  Priority: Medium.
+- AudioCard (1125-1244). Current: Row+combinedClickable, colors switch
+  instantly. Missing: Card and animateColorAsState for selection/playing.
+  Priority: Medium.
+- Empty states (788-793, 818-823, 854-859, 887-900). Current: bare Text 0.5
+  alpha. Missing: shared empty state. Priority: Medium.
+- Contextual selection bar (512-595). Current: hand-built Row of IconButtons,
+  hardcoded CDs ("Close", "Add to Playlist", "Select All", "Share", "Delete").
+  Missing: contextual TopAppBar + localized CDs. Priority: Medium.
+- Create-playlist confirm (388-426). Current: always enabled, blank no-ops
+  silently. Missing: enabled = name.isNotBlank(). Priority: Medium.
+- Add-to-playlist dialog (428-501). Current: raw clickable rows, no "already
+  added" check. Suggested: ListItem + trailing Check. Priority: Low/Medium.
+- FAB (928-947). Current: manual scale-to-zero composition. Suggested:
+  AnimatedVisibility(scaleIn/scaleOut). Priority: Low.
+- Feedback (311-314, 350, 376, 415, 480) = Toast. Missing: SnackbarHost.
+  Priority: Medium.
+- Lists (795, 825, 861, 902) no animateItem(). Priority: Medium.
+- Header icon buttons (637, 640) forced 36.dp (<48dp). Priority: Low.
+- Search swap (951-957) abrupt. Suggested: AnimatedContent. Priority: Low.
+
+A9. MUSIC FULL PLAYER - ui/screen/MusicPlayerScreen.kt
+--------------------------------------------------------------------------------
+- DefaultPlayerUI seek bar (890-966) and OnlineMusicPlayerContent seek bar
+  (1557-1630). Current: two hand-rolled BoxWithConstraints + gesture bars.
+  Missing: M3 Slider (or at least progressSemantics). Priority: HIGH (a11y +
+  duplication).
+- Play/Pause (1020-1042, online 1651-1683). Current: Box+clickable, Crossfade
+  and graphicsLayer 180-degree rotation; disabled state only on online.
+  Suggested: FilledIconButton; drop rotation. Priority: Medium.
+- Main artwork (731-779) swaps instantly on track change while background uses
+  Crossfade (549). Suggested: Crossfade/AnimatedContent keyed on path.
+  Priority: Medium.
+- Queue sheet (1246-1342). Current: bare text empty state, LazyColumn without
+  keys/animateItem. Priority: Medium.
+- Sleep timer (487-518), theme menu (639-702). Current: transparent Check rows /
+  manual divider, no active-theme indicator. Suggested: RadioButton/ListItem,
+  HorizontalDivider, trailing Check. Priority: Low/Medium.
+- Toasts (397,422,426,443,447,825,1194). Missing: SnackbarHost. Priority: Medium.
+- Hardcoded strings/CDs ("Back", "Menu", "Share", "Favorite", "VidMax Player",
+  "200%"). Priority: Medium.
+
+A10. ONLINE MUSIC - ui/screen/OnlineMusicScreen.kt
+--------------------------------------------------------------------------------
+Most M3-mature screen (real PullToRefreshBox at 669, ModalBottomSheet, shimmer
+skeletons, one SnackbarHost at 425, one animateItem at 782). Remaining gaps:
+- OnlineSearchBar (1948-2008): OutlinedTextField, not SearchBar/DockedSearchBar.
+  Priority: Medium.
+- Shuffle FAB (448-474): Box.clickable(indication = null), and fabPressed is set
+  true at 459 but NEVER reset -> stays scaled 0.85 after first tap. Suggested:
+  real FloatingActionButton. Priority: Medium.
+- Header icons (532, 556): contentDescription = null. Priority: Medium.
+- Detail screens MeldPlaylistDetailScreen (1544) and MeldArtistDetailScreen
+  (1680): no PullToRefreshBox/retry. Priority: Medium.
+- Search idle state (2010-2046): blank query renders nothing. Suggested:
+  empty/idle state + recent searches. Priority: Medium.
+- MeldRecentListItem options (981): no-op onClick - dead affordance.
+  Priority: Medium.
+- animateItem only on speed-dial; missing on 849-857, 1666, 1825, 2033.
+  Priority: Medium.
+- Detail top bars (1556-1577, 1692-1713) custom, headers not collapsing ->
+  LargeTopAppBar + scrollBehavior. Priority: Medium.
+- SnackbarHost offset bottom = 170.dp (429) and mini-player 165dp (440) are
+  fragile. Priority: Low.
+
+A11. LOCAL PLAYLIST SCREEN - ui/screen/PlaylistScreen.kt
+--------------------------------------------------------------------------------
+- PlaylistScreen (28-89). Current: empty and loading conflated (66). Missing:
+  isLoading branch + skeleton. Priority: Medium.
+- Empty state (66-72) bare Text. Priority: Medium.
+- Top bar (43-64) custom Row; list (74-87) no animateItem. Priority: Low.
+
+A12. NETWORK - ui/screen/NetworkScreen.kt
+--------------------------------------------------------------------------------
+- NetworkBrowser (479-585) + floating refresh (630-643). Current: refresh is a
+  static IconButton with no loading feedback; listing can go stale. Missing:
+  PullToRefreshBox tied to isLoading; rotate/disable the icon. Priority: HIGH.
+- NetworkScreen list<->browser (101-129) if/else; loading/empty/content when
+  (530-574). Missing: AnimatedContent. Priority: Medium.
+- ConnectionsList (157-278) statuses abrupt; no refresh. Suggested: status chip
+  + animateContentSize. Priority: Medium.
+- Lists (212, 264, 562) no animateItem. Priority: Medium.
+- NetworkVideoRow (688-736) placeholder Color.DarkGray (707) instead of
+  surfaceVariant. Priority: Low.
+- NetworkFloatingBottomBar (592-646): animateDpAsState toward a constant 96.dp
+  (598) - animation is a no-op. Priority: Low.
+- SnackbarHost (148-151) can overlap the floating bar (579). Priority: Low.
+
+A13. SEARCH - ui/screen/SearchScreen.kt
+--------------------------------------------------------------------------------
+- All state branches (313-595) are sibling if/else. Missing: AnimatedContent
+  keyed on (query empty, history, result count). Priority: Medium.
+- Result lists (454-583) no animateItem. Priority: Medium.
+- History rows (372-402) custom Row.clickable, instant removal, 32dp remove
+  button. Suggested: ListItem + animate + Undo snackbar. Priority: Medium.
+- Network results icon (551-557) always MusicNote even for video. Priority: Low.
+- Search bar (259-302) is OutlinedTextField; acceptable but no expansion
+  animation. Priority: Low.
+
+A14. SETTINGS - ui/screen/SettingsScreen.kt
+--------------------------------------------------------------------------------
+- Dark/Light/System segmented control (327-377): hand-built Row.border +
+  Box.clickable + manual Check. Suggested: SingleChoiceSegmentedButtonRow+
+  SegmentedButton or animateColorAsState. Priority: Medium.
+- SettingsGroupItem (1258-1304) and SettingsGroupToggle (1219-1254): raw
+  Row.clickable; toggle row lacks Role.Switch. Suggested: ListItem +
+  Modifier.toggleable(role = Role.Switch). Priority: Medium.
+- Top bar (282-307) custom, hardcoded "Back". Suggested: TopAppBar.
+  Priority: Medium.
+- Theme preview AppThemePreviewItem (970-1063): instant border/label changes.
+  Suggested: animateDpAsState/animateColorAsState. Priority: Medium.
+- Font cards FontPreviewCard (1067-1131) / ImportFontCard (1135-1189): raw
+  Box.clickable; 22dp delete target (<48dp). Suggested: OutlinedCard +
+  IconButton. Priority: Medium.
+- All feedback = Toast (206, 230-234, 264, 267, 726-730). Missing: SnackbarHost.
+  Priority: Medium.
+- Update-check text/icon swap (778-808) no AnimatedContent. Priority: Low.
+- Section headers (1360-1373) raw 12.sp uppercase. Priority: Low.
+
+A15. PERMISSION / ONBOARDING - ui/permission/PermissionScreen.kt
+--------------------------------------------------------------------------------
+- OnboardingSetupScreen "Get Started" (266-286): always enabled even when
+  !storageReady. Suggested: enabled = storageReady with proper disabled tokens.
+  Priority: Medium.
+- Storage card flip / hint (193-242, 288-295): no AnimatedVisibility/
+  animateContentSize; layout jumps. Priority: Medium.
+- Font dialog (321-359) / theme dialog (389-473): Row.clickable + RadioButton
+  without selectableGroup/Role.RadioButton. Priority: Medium.
+- SetupCard (484-563): raw Column.clickable. Suggested: Card(onClick=).
+  Priority: Low.
+
+A16. SPLASH - ui/SplashScreen.kt
+--------------------------------------------------------------------------------
+- SplashScreen (36, 40, 59-65): textAlpha is animated but NEVER applied to the
+  title - the intended fade-in does nothing. Fix by applying
+  .alpha(textAlpha.value). Priority: HIGH (broken animation).
+- SplashScreen (41-42): abrupt removal after delay(700). Missing: exit
+  Crossfade/AnimatedVisibility handoff. Priority: Medium.
+- Hardcoded "App Logo", Color.Black/White; file declares
+  package com.vidmax.player.ui.screen while living in ui/ (mismatch).
+  Priority: Low.
+
+A17. CRASH - ui/crash/CrashActivity.kt
+--------------------------------------------------------------------------------
+- CrashActivity (47-105): wraps in default MaterialTheme { }, ignores AppTheme/
+  dark/AMOLED, hardcoded hex colors and green/red buttons. Suggested: use
+  VidMaxTheme + colorScheme.error/errorContainer. Priority: Medium.
+- Toast for copy confirmation (85-89). Suggested: snackbar or inline copied
+  state. Priority: Low.
+
+A18. TELEGRAM PROMO - ui/screen/TelegramPromo.kt
+--------------------------------------------------------------------------------
+- TelegramPromoSheet (91-173): named "Sheet" but is a Dialog+Card. Suggested:
+  ModalBottomSheet (scrim/drag handle/motion). Priority: Medium.
+- Primary button pins brand color + Color.White (150-163), pills are custom
+  Boxes (144-146, 175-188). Suggested: theme-aware button / AssistChip.
+  Priority: Low.
+
+A19. VIDEO PLAYER (ACTIVITY + SCREENS)
+--------------------------------------------------------------------------------
+- PlayerActivity (654-666, 668-683): onPlaybackStateChanged only handles
+  STATE_ENDED; no isBuffering; errors are Toast only with no retry surface.
+  Priority: HIGH.
+- PlayerScreen (186-441): root Box has no buffering or error/retry overlay;
+  panel switch (323-345) uses if/else with no transition.
+  Priority: HIGH (buffering/error) / Medium (transition).
+- PlayerControls (994-1964): MpvCircleButton (2386-2427) is the core control
+  with NO enabled parameter -> no disabled state anywhere; no buffering
+  indicator; SeekBarRow (2254-2381) lacks progress semantics; ABTextCircleButton
+  (2080-2119) duplicates it; deprecated Divider (961, 1598); DropdownMenu forces
+  background(surface) (1585, 1649); MpvSlideToUnlock (2432-2488) is dead code;
+  lock CD always "Lock" (1867, 2007); prev/next never disabled (1780, 1829).
+  Suggested: add enabled + IconButtonDefaults to MpvCircleButton,
+  progressSemantics/Slider for seek, FilledTonalIconButton, HorizontalDivider,
+  AssistChip/SegmentedButton for the engine badge (1574-1606),
+  ListItem+RadioButton for decoder/aspect/timer rows (686-789).
+  Priority: High/Medium.
+- PlayerSettingsSheet (400-423): hand-rolled bottom sheet (no scrim/drag/swipe)
+  -> ModalBottomSheet; SettingsChipRow (551-589) -> SegmentedButton;
+  SettingsSwitchRow (487-513) / SettingsNavRow (515-536) ->
+  ListItem+toggleable; decoder dialog (426-472) -> RadioButton. Priority: HIGH.
+- SubtitleAudioPanel (553-661): hand-rolled side/bottom panel ->
+  ModalBottomSheet; RailButton tabs (1087-1100) -> PrimaryTabRow/Tab;
+  PanelCard/PanelRow/PanelRadio/PanelStepper/CircleIconButton/ValueChevron
+  (1087-1250) -> Card/ListItem/RadioButton/IconButton; KebabIcon is a dead
+  affordance on every row; tab content if/else (480-512) no AnimatedContent;
+  ColorPickerDialog doesn't mark current swatch; "MPV only" disabled rows use
+  alpha only (900, 1029, 1045). Priority: High/Medium.
+- ModernPlayerScreen (333-688): all transport controls are Box+clickable (no
+  states/roles); 80dp white play circle has no loading/disabled; dialogs
+  (189-269) bypass ModernDialog; timer rows use transparent Check (246-265);
+  waveform scrubber (486-558) has no a11y progress; theme menu has a dead
+  "Modern Circle (Active)" no-op (424-426); boost toggle/delete use Toast.
+  Priority: High/Medium.
+- WavyPlayerScreen (332-774): same as Modern - custom Box+clickable 64-84dp
+  controls, plain dialogs, invisible-Check timer rows, canvas scrubber without
+  semantics, dead active-theme item, Toasts. Priority: High/Medium.
+- PlayerExtras.kt: no Compose UI (helpers only) - N/A; only note is results are
+  surfaced via Toast in PlayerControls.
+
+A20. SHARED DIALOGS / COMPONENTS
+--------------------------------------------------------------------------------
+- AddConnectionDialog (70-234): plain AlertDialog with default shape/container
+  and a raw Button, unlike the ModernDialog system. Suggested: align shape/
+  container/badge. Priority: Low/Medium.
+- AddToPlaylistDialog (66-169): good M3 example (badge, RadioButton,
+  DialogConfirmButton) but playlist rows are raw Row.clickable, not ListItem.
+  Priority: Low.
+- FolderPickerDialog (52-101): raw Row.clickable, confirmButton = {} empty.
+  Suggested: ListItem. Priority: Low.
+- LanguageSelectionDialog (40-80): Row.clickable + RadioButton without
+  selectableGroup. Priority: Low.
+- SortViewOptionsSheet (71-361): good M3 sheet (ModalBottomSheet, FilterChip)
+  but sort/layout options are raw Column.clickable; "Refresh library" is a
+  custom row. Suggested: SegmentedButton/ListItem. Priority: Low/Medium.
+- VidMaxSearchBar (39-80): BasicTextField, 12dp radius, hardcoded "Search"/
+  "Clear", 20dp clear button. Suggested: DockedSearchBar or IconButton.
+  Priority: Low.
+- MiniPlayer (47-99): hardcodes Color(0xFF2C2C2C), Color.White, 8dp radius;
+  inconsistent with the newer MainScreen floating mini bar (preferred).
+  Suggested: retire or restyle to match MainScreen's pill. Priority: Medium.
+- MetaChip (19-38): positive tonal chip; could be AssistChip for interactive
+  uses but fine as static.
+- VideoCard (26-114) and ResolutionBadge: uses combinedClickable and 10dp
+  radius; overlaps with HomeScreen's PremiumVideoListCard. Suggested:
+  consolidate. Priority: Low.
+- UpdateDialog / StreamLinkSection / ModernDialog / SelectionBottomBar /
+  SongCard: positive references; reuse.
+
+================================================================================
+B. MATERIAL 3 ISSUES (SYSTEMIC)
+================================================================================
+1. No shapes in MaterialTheme (ui/theme/Theme.kt:601) while the UI hardcodes
+   ~15 radii. Missing: a single Shapes token set. Suggested: add shapes =
+   Shapes(...) and migrate radii. Priority: HIGH.
+2. Custom Box/Row+clickable where M3 components exist for buttons, icon buttons,
+   FABs, tabs, chips, radio groups, list rows, sliders and sheets. This is the
+   dominant gap across every screen. Priority: HIGH.
+3. No SegmentedButton anywhere despite multiple hand-built segmented controls
+   (Settings dark mode, PlayerSettings chips, Home segment, Sort sheet).
+   Priority: Medium.
+4. No NavigationBar/NavigationRail; intentional custom nav is fine, but it lacks
+   Role.Tab semantics. Priority: Medium.
+5. ListItem used only in OnlineMusicScreen; nearly all settings/list rows are
+   hand-rolled. Priority: Medium.
+6. Selection controls implemented inconsistently: painterResource(ic_radio_*),
+   custom PanelRadio, transparent Check, real RadioButton - four idioms.
+   Priority: HIGH.
+7. Dialogs split into two systems: ModernDialog (badge/28dp/surfaceContainerHigh)
+   vs plain default AlertDialog. Priority: Medium.
+8. Two hand-rolled bottom sheets (PlayerSettingsSheet:400,
+   SubtitleAudioPanel:611) instead of ModalBottomSheet. Priority: HIGH.
+9. No SnackbarHost in 12+ files; 55 Toast calls. Priority: Medium.
+10. Hardcoded colors/typescale (Color.White, Color(0xFF1E1E1E),
+    Color(0xFF2C2C2C), Color.DarkGray, dozens of sp) instead of color roles/
+    MaterialTheme.typography. Priority: Medium.
+11. Legacy Color.kt palette still imported in 5 files. Suggested: remove
+    imports, use roles. Priority: Low.
+12. No SearchBar/DockedSearchBar; search is OutlinedTextField/BasicTextField in
+    three places. Priority: Medium.
+13. Missing disabled/loading states on primary actions (MpvCircleButton, music
+    play buttons, online quick-picks, create-playlist confirm, onboarding
+    get-started). Priority: Medium/High.
+14. Missing content descriptions / hardcoded English CD throughout; several
+    icon-only controls have null. Priority: Medium.
+15. Edge-to-edge insets under-handled outside the player/Search/
+    SelectionBottomBar. Priority: Medium.
+
+================================================================================
+C. MISSING ANIMATIONS
+================================================================================
+Global: animateItem() is used once; most lazy lists snap. animateContentSize and
+AnimatedContent are essentially unused; Crossfade is the only container
+transition in most places.
+
+- List enter/exit/reorder missing in HomeScreen, VideoRecentContent,
+  VideoFavoritesContent, VideoPlaylistsContent, PlaylistScreen, MusicScreen,
+  MusicPlayerScreen queue, SearchScreen, NetworkScreen, OnlineMusicScreen (most
+  lists), SettingsScreen. Suggested: Modifier.animateItem(). Priority: Medium.
+- State swaps without transition: HomeScreen loading/empty/error (752-789),
+  VideoRecentContent (93-152), NetworkScreen (101-129, 530-574), SearchScreen
+  (313-595), PlaylistScreen empty/loading (66), PlayerScreen panels (323-345),
+  SubtitleAudioPanel tabs (480-512), SettingsScreen update check (778-808),
+  PermissionScreen storage card (193-242), MusicScreen<->SearchScreen (951-957).
+  Suggested: AnimatedContent/Crossfade. Priority: Medium.
+- FAB visibility: VideoPlaylistsContent (277-290) pops; MusicScreen (928-947)
+  manual scale. Suggested: AnimatedVisibility + scaleIn/scaleOut. Priority:
+  Medium.
+- Selection state changes: AudioCard (MusicScreen 1150-1160), PlaylistCard
+  (469-566), VideoCard, player track selection, theme swatch. Suggested:
+  animateColorAsState/animateDpAsState. Priority: Medium.
+- Artwork/track change: MusicPlayerScreen main art (731-779),
+  ModernPlayerScreen/WavyPlayerScreen album art (already Crossfade for bg, not
+  for main art). Priority: Medium.
+- FAB/controls hide-show: player controls are fade-only; double-tap ripple
+  overlay has no exit (PlayerControls 1338-1361). Suggested: add slide + exit.
+  Priority: Low.
+- Broken animation: SplashScreen.textAlpha never applied. Priority: HIGH.
+- Dead animation: NetworkFloatingBottomBar animates to a constant. Priority: Low.
+- Mini player MiniPlayer.kt (47-99) has slide in/out (good) but MainScreen's
+  custom bar has no exit when playback stops (visible flag only on title).
+  Priority: Low.
+
+================================================================================
+D. MISSING REFRESH / LOADING / ERROR STATES
+================================================================================
+- Refresh missing: MusicScreen local library (no PullToRefreshBox),
+  PlaylistScreen, NetworkScreen browser (HIGH), OnlineMusicScreen playlist/artist
+  detail (1544, 1680), SearchScreen results. Home and OnlineMusic home have it.
+  Suggested: PullToRefreshBox only where data can go stale (network browser,
+  online detail, music library, playlist detail); do not blanket-add to static
+  settings. Priority: HIGH (Network), Medium (others).
+- Loading states missing/weak: HomeScreen bare spinner (752), OnlineMusicScreen
+  search spinner (2015), PlaylistScreen conflates loading+empty (66), player
+  buffering absent everywhere (HIGH), MediaDetails metadata (171),
+  SubtitleAudioPanel track loading, SettingsScreen update check. Suggested:
+  reuse ShimmerModifier/SongCardSkeleton patterns. Priority: HIGH (player),
+  Medium (rest).
+- Error states missing/Toast-only: player errors (PlayerActivity 668-683; MPV
+  idle 579-590), video action/move errors (VideoActionMenu 334),
+  VideoDetailsDialog swallows errors (173), OnlineMusicScreen partial errors
+  silent (667), generic Toast results everywhere. Suggested: inline error +
+  Retry + Snackbar. Priority: HIGH (player), Medium (rest).
+- Empty states under-designed: HomeScreen (760-789), MusicScreen (788-900),
+  PlaylistScreen (66), PlaylistDetailContent (835), OnlineMusicScreen (1592,
+  1728, 2010), NetworkScreen. Only VideoRecentContent/VideoPlaylistsContent
+  list-empty use a 64dp icon. Suggested: one shared EmptyState composable.
+  Priority: Medium.
+
+================================================================================
+E. BUTTON / COMPONENT ISSUES
+================================================================================
+- No pressed/focused/disabled states on the majority of custom controls;
+  MpvCircleButton has no enabled; Box.clickable often uses indication = null.
+  Suggested: M3 IconButton/FilledIconButton/FilledTonalIconButton or add enabled
+  + ButtonDefaults/IconButtonDefaults. Priority: HIGH.
+- Undersized touch targets: HomeScreen/MusicScreen header IconButtons forced to
+  36.dp; FontPreviewCard delete 22.dp; SearchScreen history remove 32.dp;
+  PanelStepper 26.dp; VidMaxSearchBar clear 20.dp. Suggested: 48dp minimum.
+  Priority: Medium.
+- Loading states on buttons missing: create-playlist confirm (MusicScreen:404),
+  onboarding Get Started, import M3U (ImportM3UDialog), player play (buffering),
+  online quick-pick, PlayerScreen track change. Suggested: trailing
+  CircularProgressIndicator + enabled=false. Priority: Medium.
+- Destructive actions unstyled/unconfirmed: "Clear videos"
+  (VideoPlaylistsContent:800), "Clear Recent Play" via floating icon. Suggested:
+  error/errorContainer + confirm or undo. Priority: Medium.
+- Inconsistent FAB usage: custom pills in MainScreen (intentional),
+  VideoPlaylistsContent raw FAB, OnlineMusicScreen custom shuffle FAB,
+  MusicScreen scaled FAB. Suggested: real FloatingActionButton/
+  SmallFloatingActionButton where they are true FABs. Priority: Medium.
+- Chip opportunities missed: MetaChip (static, fine), FeaturePill (TelegramPromo),
+  engine badge (PlayerControls 1574), category/mood tiles (OnlineMusic 1257),
+  grid-column chips already use FilterChip. Suggested: AssistChip/FilterChip for
+  interactive ones. Priority: Low/Medium.
+- AddConnectionDialog confirm is a raw Button while its siblings use
+  DialogConfirmButton; no disabled state when host blank (silently no-ops at
+  210). Priority: Low/Medium.
+
+================================================================================
+F. VISUAL CONSISTENCY ISSUES
+================================================================================
+- Corner radius chaos: 4, 8, 10, 12, 14, 16, 20, 22, 26, 28, 32, 50dp used
+  across sibling cards/dialogs. Suggested: MaterialTheme.shapes tokens.
+  Priority: Medium.
+- Icon size drift: 14-120dp; header icons 36dp vs 48dp targets; card icons
+  20/22/24/26/32dp. Priority: Medium.
+- Typography drift: titles 18/20/24sp, body 11/12/13/14/15sp hardcoded instead
+  of MaterialTheme.typography.*; SettingsSectionHeader invents an uppercase
+  style. Priority: Medium.
+- Dialog inconsistency: ModernDialog system vs default AlertDialog in
+  player/details/connection. Priority: Medium.
+- Two mini players: MainScreen floating pill (new/consistent) vs MiniPlayer.kt
+  hardcoded #2C2C2C 8dp card (old). Suggested: keep one. Priority: Medium.
+- Empty/loading inconsistency within a feature: VideoRecentContent rich empty vs
+  HomeScreen bare; OnlineMusicScreen shimmer skeletons vs PlaylistScreen bare
+  spinner. Priority: Medium.
+- Spacing drift: floating FAB positions hardcoded (bottom = 148.dp, 100.dp),
+  snackbar bottom = 170.dp, mini-player 165.dp - fragile. Suggested: shared
+  bottom-bar height/insets tokens. Priority: Low.
+- Legacy palette leakage: hardcoded Color.White/Black/DarkGray/#1E1E1E/#121212/
+  #2C2C2C and Color.kt demo colors in player/thumbnail files. Priority: Medium.
+- Edge-to-edge: enableEdgeToEdge() set, but many screens lack systemBars/
+  navigationBars padding (e.g., PlayerScreen audio-only Column, HomeScreen only
+  one usage). Priority: Medium.
+- Localization: numerous hardcoded English strings and content descriptions
+  across HomeScreen, Modern/WavyPlayerScreen, MusicPlayerScreen,
+  OnlineMusicScreen, MusicScreen, CrashActivity, TelegramPromo,
+  SelectionBottomBar, SearchBar, MiniPlayer. Priority: Medium.
+
+================================================================================
+G. RECOMMENDED IMPROVEMENTS (PRIORITIZED)
+================================================================================
+HIGH PRIORITY (correctness/accessibility, biggest UX impact):
+1. Add a Shapes token set to VidMaxTheme and migrate hardcoded radii; remove
+   legacy Color.kt palette imports.
+2. Player buffering + error/retry surfaces (PlayerActivity, PlayerScreen,
+   PlayerControls); stop swallowing STATE_BUFFERING and errors in Toasts.
+3. Replace hand-rolled player controls (MpvCircleButton, Modern/Wavy Box
+   controls, music play/seek) with FilledIconButton/FilledTonalIconButton/
+   IconButton + enabled; keep custom seek only where pins/A-B justify it, but
+   add progressSemantics.
+4. Replace the two hand-rolled player sheets with ModalBottomSheet.
+5. Unify selection controls on RadioButton/ListItem + selectableGroup.
+6. Add PullToRefreshBox to NetworkBrowser with a real loading indicator; keep
+   Home/OnlineMusic.
+7. Fix the video selection-count denominator (HomeScreen:488) and the dead
+   SplashScreen.textAlpha.
+
+MEDIUM PRIORITY (polish and consistency):
+8. Introduce one SnackbarHost per screen root (or a shared host) and migrate
+   Toast (55 call sites).
+9. Build a shared EmptyState composable and use it in HomeScreen, MusicScreen,
+   PlaylistScreen, PlaylistDetail, OnlineMusic detail/search, Network.
+10. Add Modifier.animateItem() to all lazy lists; AnimatedContent/Crossfade
+    between loading/empty/content and between navigation states.
+11. Introduce TopAppBar/CenterAlignedTopAppBar and PrimaryTabRow/SegmentedButton
+    for the header and tab/segment controls; add Role.Tab/selectable semantics.
+12. Add FAB visibility animations; standardize FABs.
+13. Convert settings rows to ListItem + toggleable(role = Switch); align top bar.
+14. Standardize dialogs on ModernDialog; fix VideoDetailsDialog, player dialogs,
+    AddConnectionDialog.
+15. Fix undersized touch targets to 48dp.
+16. Localize hardcoded strings/content descriptions.
+
+LOW PRIORITY (nice-to-have):
+17. animateContentSize on expanding sections, artwork Crossfade on track change,
+    theme preview border animation, undo snackbars.
+18. Clean dead code (VideoFavoritesContent, MpvSlideToUnlock,
+    NetworkFloatingBottomBar no-op, OnlineMusic no-op options) after confirming
+    intent.
+19. Consolidate ABTextCircleButton/MpvCircleButton, VideoCard/
+    PremiumVideoListCard, MiniPlayer/MainScreen mini bar.
+20. Edge-to-edge inset audit and shared bottom-bar height tokens.
+
+================================================================================
+IMPLEMENTATION CHECKLIST (GROUPED BY SCREEN)
+================================================================================
+
+NAVIGATION SHELL (MainScreen.kt, MainActivity.kt)
+[ ] Add Role.Tab/selectable + content descriptions to bottom-nav tabs
+[ ] Add scrim under Settings/MusicPlayer overlays
+[ ] AnimatedContent between local playlist list and PlaylistScreen
+[ ] Convert MainScreen mini-player buttons to M3 icon buttons
+
+VIDEOS (HomeScreen.kt)
+[ ] Fix per-tab selection count denominator (HIGH)
+[ ] SegmentedButton/PrimaryTabRow for content segments + Role.Tab
+[ ] Header -> TopAppBar, 48dp actions, typography tokens
+[ ] Shimmer skeletons for list/grid loading
+[ ] Shared EmptyState for permission/empty/error + Retry button
+[ ] Card/CardDefaults for video cards; unify radii
+[ ] animateItem() on all lists; AnimatedContent for state swaps
+[ ] Localize hardcoded strings; discoverable refresh action
+
+RECENT (VideoRecentContent.kt)
+[ ] Replace floating delete icon with animated FAB or top-bar action
+[ ] animateItem() + AnimatedContent empty<->list
+
+FAVORITES (VideoFavoritesContent.kt)
+[ ] Decide: wire in or repurpose (currently dead code)
+[ ] Reuse PremiumVideoListCard; fix remove icon/semantics; remember the filter
+
+PLAYLISTS (VideoPlaylistsContent.kt, PlaylistScreen.kt)
+[ ] FAB into Scaffold + AnimatedVisibility
+[ ] Shared selection app-bar; Role semantics
+[ ] Consistent search entry; shared EmptyState + CTA
+[ ] animateItem() on reorder/detail lists; single reorder commit
+[ ] Confirm/undo for "Clear videos"; SnackbarHost
+[ ] isLoading state + skeleton in PlaylistScreen
+
+VIDEO ACTIONS/DETAILS (VideoActionMenu.kt, MediaDetails.kt)
+[ ] ListItem rows + divider before Delete in action sheet
+[ ] ListItem + busy/error handling in move dialog; Snackbar with undo
+[ ] Align VideoDetailsDialog with ModernDialog; loading/error for metadata
+
+MUSIC (MusicScreen.kt)
+[ ] PrimaryTabRow/Tab; TabItem selected semantics
+[ ] Card + animated selection in AudioCard
+[ ] Shared EmptyState for all four tabs
+[ ] Contextual TopAppBar for selection + localized CDs
+[ ] Disable create-playlist confirm on blank; ListItem in add-to-playlist
+[ ] AnimatedVisibility FAB; animateItem() lists; SnackbarHost
+[ ] 48dp header buttons
+
+MUSIC PLAYER (MusicPlayerScreen.kt)
+[ ] Replace two custom seek bars with Slider (or add progressSemantics)
+[ ] FilledIconButton play/pause; drop 180-degree rotation; disabled states
+[ ] Crossfade for main artwork on track change
+[ ] Queue empty state + keys + animateItem()
+[ ] RadioButton/ListItem timer + HorizontalDivider + active-theme check
+[ ] SnackbarHost; localize strings
+
+ONLINE MUSIC (OnlineMusicScreen.kt)
+[ ] DockedSearchBar; idle search state
+[ ] Real FAB; fix fabPressed never reset
+[ ] Content descriptions on header icons
+[ ] PullToRefreshBox on playlist/artist detail
+[ ] Implement or remove no-op overflow action
+[ ] animateItem() on remaining lists; collapsing headers
+
+NETWORK (NetworkScreen.kt)
+[ ] PullToRefreshBox + loading feedback in browser (HIGH)
+[ ] AnimatedContent for list<->browser and loading/empty/content
+[ ] animateItem(); surfaceVariant placeholder; status chip
+[ ] Fix/remove no-op bottom-bar animation; fix snackbar overlap
+
+SEARCH (SearchScreen.kt)
+[ ] AnimatedContent across intro/history/results branches
+[ ] animateItem() + ListItem history with Undo
+[ ] Type-appropriate result icons
+
+SETTINGS (SettingsScreen.kt)
+[ ] SegmentedButton for dark mode; ListItem + toggleable(role=Switch)
+[ ] TopAppBar; animated theme preview border
+[ ] OutlinedCard + 48dp IconButton for font cards
+[ ] SnackbarHost; AnimatedContent for update check; typography tokens
+
+ONBOARDING (PermissionScreen.kt)
+[ ] Disable Get Started until storage ready
+[ ] AnimatedVisibility/animateContentSize for storage card/hint
+[ ] selectableGroup + Role.RadioButton in font/theme dialogs
+[ ] Card(onClick) for setup cards
+
+SPLASH/CRASH/PROMO (SplashScreen.kt, CrashActivity.kt, TelegramPromo.kt)
+[ ] Apply textAlpha (fix broken fade) + exit transition
+[ ] Crash screen: use app theme + error roles
+[ ] Telegram promo -> ModalBottomSheet; theme-aware brand button
+
+PLAYER (PlayerActivity.kt, PlayerScreen.kt, PlayerControls.kt,
+        PlayerSettingsSheet.kt, SubtitleAudioPanel.kt, ModernPlayerScreen.kt,
+        WavyPlayerScreen.kt)
+[ ] Buffering + error/retry states (HIGH)
+[ ] ModalBottomSheet for settings/subtitle/audio panels
+[ ] Unified RadioButton/ListItem selection; SegmentedButton for chips
+[ ] enabled/states on MpvCircleButton; progressSemantics on seek
+[ ] Disable prev/next at bounds; fix lock content description
+[ ] Replace Modern/Wavy Box controls with M3 icon buttons
+[ ] Align player dialogs with ModernDialog; theme-aware sheet colors
+[ ] Remove dead MpvSlideToUnlock; fix ABTextCircleButton duplication
+[ ] SnackbarHost; localize strings
+
+SHARED COMPONENTS
+[ ] Add Shapes to VidMaxTheme; migrate radii; drop legacy Color.kt
+[ ] One shared EmptyState, one SnackbarHost, one SelectionAppBar
+[ ] ListItem in AddConnectionDialog/FolderPickerDialog/LanguageDialog/
+    SortViewOptionsSheet
+[ ] Align VidMaxSearchBar/MiniPlayer with the M3 system; retire duplicate mini
+    player
+
+================================================================================
+END OF REPORT
+Audit complete. No files were modified.
+================================================================================

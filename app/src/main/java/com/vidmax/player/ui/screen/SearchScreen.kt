@@ -390,15 +390,15 @@ fun SearchScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f))
-                                IconButton(
+IconButton(
                                     onClick = { viewModel.removeSearchHistoryEntry(item) },
-                                    modifier = Modifier.size(32.dp)) {
-                                      Icon(
-                                          imageVector = Icons.Filled.Close,
-                                          contentDescription = "Remove search",
-                                          tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                          modifier = Modifier.size(18.dp))
-                                    }
+                                    modifier = Modifier.size(48.dp)) {
+                                  Icon(
+                                      imageVector = Icons.Filled.Close,
+                                      contentDescription = "Remove search",
+                                      tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                      modifier = Modifier.size(24.dp))
+                                  }
                               }
                         }
                       }

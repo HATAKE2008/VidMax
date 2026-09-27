@@ -634,10 +634,10 @@ fun MusicScreen(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-          IconButton(onClick = { isMusicSearchOpen = true }, modifier = Modifier.size(36.dp)) {
+          IconButton(onClick = { isMusicSearchOpen = true }, modifier = Modifier.size(48.dp)) {
             Icon(painterResource(id = R.drawable.ic_search), contentDescription = "Search", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
           }
-          IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
+          IconButton(onClick = onSettingsClick, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
           }
         }
@@ -932,7 +932,15 @@ fun MusicScreen(
           label = "fabScale"
       )
 
-      if (fabScale > 0.01f) {
+      AnimatedVisibility(
+        visible = fabScale > 0.01f,
+        enter = expandVertically(
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+        ) + fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)),
+        exit = shrinkVertically(
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+        ) + fadeOut(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+    ) {
         FloatingActionButton(
             onClick = { showCreatePlaylistDialog = true },
             containerColor = MaterialTheme.colorScheme.primary,
@@ -941,10 +949,11 @@ fun MusicScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 120.dp)
-                .scale(fabScale)) {
-          Icon(Icons.Default.Add, contentDescription = "New Playlist", modifier = Modifier.size(28.dp))
+                .scale(fabScale)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "New Playlist", modifier = Modifier.size(28.dp))
         }
-      }
+    }
     }
   }
 

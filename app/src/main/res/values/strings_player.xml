@@ -7,6 +7,7 @@
     <string name="player_engine_mpv">Switched to MPV. Reloading...</string>
     <string name="player_engine_exo">Switched to ExoPlayer. Reloading...</string>
     <string name="player_ab_set_both">Set both A and B first</string>
+    <string name="player_buffering">Buffering&hellip;</string>
 
     <!-- Zoom sheet -->
     <string name="player_zoom_title">Video Zoom</string>

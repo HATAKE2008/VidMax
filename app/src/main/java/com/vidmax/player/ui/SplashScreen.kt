@@ -62,7 +62,9 @@ fun SplashScreen(onSplashFinished: () -> Unit) {
               fontSize = 36.sp,
               fontWeight = FontWeight.ExtraBold,
               letterSpacing = 2.sp,
-              modifier = Modifier.scale(scale.value))
+              modifier = Modifier
+                  .scale(scale.value)
+                  .alpha(textAlpha.value))
         }
       }
 }

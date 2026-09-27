@@ -197,6 +197,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       MutableStateFlow(prefs.getStringSet("favorite_videos", emptySet()) ?: emptySet())
   val favoriteVideoPaths: StateFlow<Set<String>> = _favoriteVideoPaths.asStateFlow()
 
+  val recentVideosCount: Int
+    get() = _recentVideos.value.size
+
+  val videoPlaylistsCount: Int
+    get() = _videoPlaylists.value.sumOf { it.itemCount }
+
   init {
     viewModelScope.launch(Dispatchers.IO) {
       playlistRepository.observeAllPlaylists().collectLatest {

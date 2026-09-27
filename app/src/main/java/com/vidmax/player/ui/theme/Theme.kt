@@ -2,6 +2,7 @@ package com.vidmax.player.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -598,9 +599,18 @@ fun VidMaxTheme(
         else -> appTheme.getLightColorScheme()
     }
 
+    val shapes = Shapes(
+        extraSmall = RoundedCornerShape(4.dp),
+        small = RoundedCornerShape(8.dp),
+        medium = RoundedCornerShape(12.dp),
+        large = RoundedCornerShape(16.dp),
+        extraLarge = RoundedCornerShape(28.dp),
+    )
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = typographyWithFontFamily(appFontFamily),
+        shapes = shapes,
         content = content
     )
 }

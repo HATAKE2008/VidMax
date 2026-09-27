@@ -25,7 +25,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Colorize
 import androidx.compose.material.icons.outlined.CropSquare
 import androidx.compose.material.icons.outlined.Equalizer
-import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Memory
@@ -43,6 +42,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.bottomsheet.ModalBottomSheet
+import androidx.compose.material3.bottomsheet.rememberModalBottomSheetState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -67,7 +68,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.C
 import androidx.media3.common.Format
-import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.ui.CaptionStyleCompat
@@ -169,49 +169,591 @@ fun SubtitleAudioPanel(
     onStereoModeChange: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val prefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
-    val isMpv = currentEngine == PlayerEngine.MPV
-    // Templates hoisted here: the refresh helpers below run in
-    // non-composable callbacks, so they capture these pre-read values.
-    val exoTrackFallbackTemplate = stringResource(R.string.player_track_fallback)
-    val mpvSubFallbackTemplate = stringResource(R.string.player_mpv_sub_fallback)
-    val mpvAudioFallbackTemplate = stringResource(R.string.player_mpv_audio_fallback)
+    val modalBottomSheetState = rememberModalBottomSheetState(
+        confirmValueChange = { /* Auto-confirm when dragging to confirm position */ true }
+    )
 
-    var tab by remember { mutableStateOf(initialTab) }
+    ModalBottomSheet(
+        onDismissRequest = onClose,
+        modalBottomSheetState = modalBottomSheetState,
+        // Optional: customize the sheet appearance
+        // containerColor = MaterialTheme.colorScheme.surface,
+        // contentColor = MaterialTheme.colorScheme.onSurface,
+        // This makes it behave more like a bottom sheet that can be swiped up/down
+        // halfExpanded = true,
+    ) {
+        // Reuse all the existing logic from the original function
+        val context = LocalContext.current
+        val prefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
+        val isMpv = currentEngine == PlayerEngine.MPV
+        // Templates hoisted here: the refresh helpers below run in
+        // non-composable callbacks, so they capture these pre-read values.
+        val exoTrackFallbackTemplate = stringResource(R.string.player_track_fallback)
+        val mpvSubFallbackTemplate = stringResource(R.string.player_mpv_sub_fallback)
+        val mpvAudioFallbackTemplate = stringResource(R.string.player_mpv_audio_fallback)
 
-    // ---- mpv track lists ----
-    var mpvSubTracks by remember { mutableStateOf<List<MpvTrackInfo>>(emptyList()) }
-    var currentMpvSubId by remember { mutableStateOf("no") }
-    var mpvAudioTracks by remember { mutableStateOf<List<MpvTrackInfo>>(emptyList()) }
-    var currentMpvAudioId by remember { mutableStateOf("1") }
+        var tab by remember { mutableStateOf(initialTab) }
 
-    // ---- exo track lists ----
-    var exoSubTracks by remember { mutableStateOf<List<ExoTrackInfo>>(emptyList()) }
-    var exoAudioTracks by remember { mutableStateOf<List<ExoTrackInfo>>(emptyList()) }
-    var initialExoSubIndex by remember { mutableIntStateOf(-1) }
-    var initialExoAudioIndex by remember { mutableIntStateOf(-1) }
+        // ---- mpv track lists ----
+        var mpvSubTracks by remember { mutableStateOf<List<MpvTrackInfo>>(emptyList()) }
+        var currentMpvSubId by remember { mutableStateOf("no") }
+        var mpvAudioTracks by remember { mutableStateOf<List<MpvTrackInfo>>(emptyList()) }
+        var currentMpvAudioId by remember { mutableStateOf("1") }
 
-    // ---- Subtitle appearance ----
-    val subtitleSize by viewModel.subtitleSize.collectAsState()
-    var textSizePercent by remember { mutableIntStateOf((subtitleSize / 16f * 100f).roundToInt()) }
-    var subColor by remember { mutableIntStateOf(prefs.getInt("sub_color", Color.White.toArgb())) }
-    var subOutline by remember { mutableFloatStateOf(prefs.getFloat("sub_outline", 1f)) }
-    var subBgEnabled by remember { mutableStateOf(prefs.getBoolean("sub_bg_enabled", true)) }
-    var subBgColor by remember { mutableIntStateOf(prefs.getInt("sub_bg_color", Color.Transparent.toArgb())) }
-    var subMarginPercent by remember { mutableFloatStateOf(prefs.getFloat("sub_margin", 4f)) }
-    var subtitleDelaySec by remember { mutableFloatStateOf(prefs.getFloat("sub_delay", 0f)) }
+        // ---- exo track lists ----
+        var exoSubTracks by remember { mutableStateOf<List<ExoTrackInfo>>(emptyList()) }
+        var exoAudioTracks by remember { mutableStateOf<List<ExoTrackInfo>>(emptyList()) }
+        var initialExoSubIndex by remember { mutableIntStateOf(-1) }
+        var initialExoAudioIndex by remember { mutableIntStateOf(-1) }
 
-    // ---- Audio options ----
-    var swAudioDecoder by remember { mutableStateOf(prefs.getBoolean("audio_sw_decoder", true)) }
-    var stereoMode by remember { mutableStateOf(prefs.getString("audio_stereo_mode", "Normal") ?: "Normal") }
-    var avSyncSec by remember { mutableFloatStateOf(prefs.getFloat("audio_avsync", 0f)) }
-    var audioDelaySec by remember { mutableFloatStateOf(prefs.getFloat("audio_delay", 0f)) }
-    var audioOutput by remember { mutableStateOf(prefs.getString("audio_output", "Device default") ?: "Device default") }
-    var normalizeVolume by remember { mutableStateOf(prefs.getBoolean("audio_normalize", true)) }
-    var audioRenderer by remember {
-        mutableStateOf(prefs.getString("audio_renderer", "Auto (Best quality)") ?: "Auto (Best quality)")
+        // ---- Subtitle appearance ----
+        val subtitleSize by viewModel.subtitleSize.collectAsState()
+        var textSizePercent by remember { mutableIntStateOf((subtitleSize / 16f * 100f).roundToInt()) }
+        var subColor by remember { mutableIntStateOf(prefs.getInt("sub_color", Color.White.toArgb())) }
+        var subOutline by remember { mutableFloatStateOf(prefs.getFloat("sub_outline", 1f)) }
+        var subBgEnabled by remember { mutableStateOf(prefs.getBoolean("sub_bg_enabled", true)) }
+        var subBgColor by remember { mutableIntStateOf(prefs.getInt("sub_bg_color", Color.Transparent.toArgb())) }
+        var subMarginPercent by remember { mutableFloatStateOf(prefs.getFloat("sub_margin", 4f)) }
+        var subtitleDelaySec by remember { mutableFloatStateOf(prefs.getFloat("sub_delay", 0f)) }
+
+        // ---- Audio options ----
+        var swAudioDecoder by remember { mutableStateOf(prefs.getBoolean("audio_sw_decoder", true)) }
+        var stereoMode by remember { mutableStateOf(prefs.getString("audio_stereo_mode", "Normal") ?: "Normal") }
+        var avSyncSec by remember { mutableFloatStateOf(prefs.getFloat("audio_avsync", 0f)) }
+        var audioDelaySec by remember { mutableFloatStateOf(prefs.getFloat("audio_delay", 0f)) }
+        var audioOutput by remember { mutableStateOf(prefs.getString("audio_output", "Device default") ?: "Device default") }
+        var normalizeVolume by remember { mutableStateOf(prefs.getBoolean("audio_normalize", true)) }
+        var audioRenderer by remember {
+            mutableStateOf(prefs.getString("audio_renderer", "Auto (Best quality)") ?: "Auto (Best quality)")
+        }
+
+        // ---- Dialog visibility ----
+        var showTextColorDialog by remember { mutableStateOf(false) }
+        var showBgColorDialog by remember { mutableStateOf(false) }
+        var showStereoDialog by remember { mutableStateOf(false) }
+        var showAvSyncDialog by remember { mutableStateOf(false) }
+        var showAudioDelayDialog by remember { mutableStateOf(false) }
+        var showAudioOutputDialog by remember { mutableStateOf(false) }
+        var showAudioRendererDialog by remember { mutableStateOf(false) }
+
+        fun refreshSubtitleTracks() {
+            try {
+                val tracks = mutableListOf<MpvTrackInfo>()
+                val count = MPVLib.getPropertyInt("track-list/count") ?: 0
+                for (i in 0 until count) {
+                    val type = MPVLib.getPropertyString("track-list/$i/type")
+                    if (type == "sub") {
+                        val id = MPVLib.getPropertyInt("track-list/$i/id") ?: -1
+                        val title = MPVLib.getPropertyString("track-list/$i/title") ?: ""
+                        val lang = MPVLib.getPropertyString("track-list/$i/lang") ?: ""
+                        val name =
+                            if (title.isNotEmpty()) title
+                            else if (lang.isNotEmpty()) lang
+                            else String.format(mpvSubFallbackTemplate, id)
+                        if (id != -1) tracks.add(MpvTrackInfo(id, name))
+                    }
+                }
+                mpvSubTracks = tracks
+                currentMpvSubId = MPVLib.getPropertyString("sid") ?: "no"
+            } catch (e: Exception) {}
+        }
+
+        fun refreshAudioTracks() {
+            try {
+                val tracks = mutableListOf<MpvTrackInfo>()
+                val count = MPVLib.getPropertyInt("track-list/count") ?: 0
+                for (i in 0 until count) {
+                    val type = MPVLib.getPropertyString("track-list/$i/type")
+                    if (type == "audio") {
+                        val id = MPVLib.getPropertyInt("track-list/$i/id") ?: -1
+                        val title = MPVLib.getPropertyString("track-list/$i/title") ?: ""
+                        val lang = MPVLib.getPropertyString("track-list/$i/lang") ?: ""
+                        val name =
+                            if (title.isNotEmpty()) title
+                            else if (lang.isNotEmpty()) lang
+                            else String.format(mpvAudioFallbackTemplate, id)
+                        if (id != -1) tracks.add(MpvTrackInfo(id, name))
+                    }
+                }
+                mpvAudioTracks = tracks
+                currentMpvAudioId = MPVLib.getPropertyString("aid") ?: "1"
+            } catch (e: Exception) {}
+        }
+
+        fun refreshExoTracks() {
+            val player = exoPlayer ?: return
+            val tracks = try { player.currentTracks } catch (e: Exception) { return }
+            val subs = mutableListOf<ExoTrackInfo>()
+            val auds = mutableListOf<ExoTrackInfo>()
+            for (group in tracks.groups) {
+                when (group.type) {
+                    C.TRACK_TYPE_TEXT -> {
+                        for (i in 0 until group.length) {
+                            val format = group.getTrackFormat(i)
+                            subs.add(
+                                ExoTrackInfo(
+                                    group = group,
+                                    trackIndex = i,
+                                    label = exoLabel(format, i, exoTrackFallbackTemplate),
+                                    secondary = exoSecondary(format, null),
+                                    selected = group.isTrackSelected(i)
+                                )
+                            )
+                        }
+                    }
+                    C.TRACK_TYPE_AUDIO -> {
+                        for (i in 0 until group.length) {
+                            val format = group.getTrackFormat(i)
+                            auds.add(
+                                ExoTrackInfo(
+                                    group = group,
+                                    trackIndex = i,
+                                    label = exoLabel(format, i, exoTrackFallbackTemplate),
+                                    secondary = exoSecondary(format, format.channelCount),
+                                    selected = group.isTrackSelected(i)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+            exoSubTracks = subs
+            exoAudioTracks = auds
+            if (initialExoSubIndex == -1) {
+                initialExoSubIndex = subs.indexOfFirst { it.selected }
+            }
+            if (initialExoAudioIndex == -1) {
+                initialExoAudioIndex = auds.indexOfFirst { it.selected }
+            }
+        }
+
+        fun selectExoTrack(track: ExoTrackInfo, trackType: Int) {
+            val player = exoPlayer ?: return
+            player.trackSelectionParameters =
+                player.trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(trackType, false)
+                    .setOverrideForType(
+                        TrackSelectionOverride(track.group.mediaTrackGroup, listOf(track.trackIndex))
+                    )
+                    .build()
+        }
+
+        fun disableExoSubtitles() {
+            val player = exoPlayer ?: return
+            player.trackSelectionParameters =
+                player.trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                    .build()
+        }
+
+        fun disableExoAudio() {
+            val player = exoPlayer ?: return
+            player.trackSelectionParameters =
+                player.trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                    .build()
+        }
+
+        fun applyExoSubtitleView() {
+            val view = viewModel.exoSubtitleView ?: return
+            val targetBg = if (subBgEnabled) subBgColor else android.graphics.Color.TRANSPARENT
+
+            view.setApplyEmbeddedStyles(false) // Prevents hardcoded file styles from overriding user colors
+            view.setStyle(
+                CaptionStyleCompat(
+                    subColor, // foregroundColor
+                    targetBg, // backgroundColor
+                    android.graphics.Color.TRANSPARENT, // windowColor
+                    if (subOutline > 0f) CaptionStyleCompat.EDGE_TYPE_OUTLINE else CaptionStyleCompat.EDGE_TYPE_NONE,
+                    android.graphics.Color.BLACK, // edgeColor
+                    null // typeface
+                )
+            )
+            view.setFractionalTextSize(0.0533f * textSizePercent / 100f)
+            view.setBottomPaddingFraction(subMarginPercent / 100f)
+        }
+
+        LaunchedEffect(Unit) {
+            if (isMpv) {
+                refreshSubtitleTracks()
+                refreshAudioTracks()
+                subtitleDelaySec = (MPVLib.getPropertyDouble("sub-delay") ?: 0.0).toFloat()
+                audioDelaySec = (MPVLib.getPropertyDouble("audio-delay") ?: 0.0).toFloat()
+            }
+        }
+
+        DisposableEffect(exoPlayer) {
+            val player = exoPlayer ?: return@DisposableEffect onDispose {}
+            val listener =
+                object : Player.Listener {
+                    override fun onTracksChanged(tracks: Tracks) {
+                        refreshExoTracks()
+                    }
+                }
+            player.addListener(listener)
+            refreshExoTracks()
+            onDispose {
+                player.removeListener(listener)
+            }
+        }
+
+        fun applyTextSize(percent: Int) {
+            val p = percent.coerceIn(50, 200)
+            textSizePercent = p
+            prefs.edit().putInt("sub_text_size_percent", p).apply()
+            val size = p / 100f * 16f
+            viewModel.setSubtitleSize(size)
+            if (isMpv) {
+                try { MPVLib.setPropertyDouble("sub-scale", p / 100f.toDouble()) } catch (e: Exception) {}
+            } else {
+                applyExoSubtitleView()
+            }
+        }
+
+        fun applySubColor(color: Color) {
+            subColor = color.toArgb()
+            prefs.edit().putInt("sub_color", subColor).apply()
+            if (isMpv) {
+                try {
+                    MPVLib.setPropertyString("sub-ass-override", "force")
+                    MPVLib.setPropertyString("sub-color", mpvColorString(subColor))
+                } catch (e: Exception) {}
+            } else {
+                applyExoSubtitleView()
+            }
+        }
+
+        fun applySubOutline(value: Float) {
+            subOutline = value.coerceIn(0f, 4f)
+            prefs.edit().putFloat("sub_outline", subOutline).apply()
+            if (isMpv) {
+                try { MPVLib.setPropertyDouble("sub-outline", subOutline.toDouble()) } catch (e: Exception) {}
+            } else {
+                applyExoSubtitleView()
+            }
+        }
+
+        fun pushSubBg() {
+            if (!isMpv) return
+            val argb = if (subBgEnabled) subBgColor else Color.Transparent.toArgb()
+            try {
+                MPVLib.setPropertyString("sub-ass-override", "force")
+                MPVLib.setPropertyString("sub-back-color", mpvColorString(argb))
+            } catch (e: Exception) {}
+        }
+
+        fun applySubBgEnabled(enabled: Boolean) {
+            subBgEnabled = enabled
+            prefs.edit().putBoolean("sub_bg_enabled", enabled).apply()
+            if (isMpv) pushSubBg() else applyExoSubtitleView()
+        }
+
+        fun applySubBgColor(color: Color) {
+            subBgColor = color.toArgb()
+            prefs.edit().putInt("sub_bg_color", subBgColor).apply()
+            if (isMpv) pushSubBg() else applyExoSubtitleView()
+        }
+
+        fun applySubMargin(value: Float) {
+            subMarginPercent = value.coerceIn(0f, 20f)
+            prefs.edit().putFloat("sub_margin", subMarginPercent).apply()
+            if (isMpv) {
+                try { MPVLib.setPropertyString("sub-margin-y", "${subMarginPercent.roundToInt()}%") } catch (e: Exception) {}
+            } else {
+                applyExoSubtitleView()
+            }
+        }
+
+        fun applySubDelay(value: Float) {
+            subtitleDelaySec = value.coerceIn(-5f, 5f)
+            prefs.edit().putFloat("sub_delay", subtitleDelaySec).apply()
+            if (isMpv) {
+                try { MPVLib.setPropertyDouble("sub-delay", subtitleDelaySec.toDouble()) } catch (e: Exception) {}
+            }
+        }
+
+        fun applyAudioDelay(value: Float) {
+            audioDelaySec = value.coerceIn(-5f, 5f)
+            prefs.edit().putFloat("audio_delay", audioDelaySec).apply()
+            if (isMpv) {
+                try { MPVLib.setPropertyDouble("audio-delay", audioDelaySec.toDouble()) } catch (e: Exception) {}
+            }
+        }
+
+        val configuration = LocalConfiguration.current
+        val isLandscape =
+            configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
+        // Shared tab content — rendered by the landscape side panel or the
+        // portrait bottom sheet below.
+        val tabsContent: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
+            if (tab == SubtitleAudioTab.SUBTITLE) {
+                SubtitleTab(
+                    isMpv = isMpv,
+                    mpvSubTracks = mpvSubTracks,
+                    currentMpvSubId = currentMpvSubId,
+                    exoSubTracks = exoSubTracks,
+                    onPickSubtitle = onPickSubtitle,
+                    onSelectSubtitle = { id ->
+                        try { MPVLib.setPropertyInt("sid", id) } catch (e: Exception) {}
+                        currentMpvSubId = id.toString()
+                    },
+                    onOffSubtitle = {
+                        try { MPVLib.setPropertyString("sid", "no") } catch (e: Exception) {}
+                        currentMpvSubId = "no"
+                    },
+                    onSelectExoSubtitle = { track -> selectExoTrack(track, C.TRACK_TYPE_TEXT) },
+                    onOffExoSubtitle = { disableExoSubtitles() },
+                    textSizePercent = textSizePercent,
+                    subColor = subColor,
+                    subOutline = subOutline,
+                    subBgEnabled = subBgEnabled,
+                    subBgColor = subBgColor,
+                    subMarginPercent = subMarginPercent,
+                    subtitleDelaySec = subtitleDelaySec,
+                    onTextSizeChange = ::applyTextSize,
+                    onTextColorClick = { showTextColorDialog = true },
+                    onBgColorClick = { showBgColorDialog = true },
+                    onOutlineChange = ::applySubOutline,
+                    onBgEnabledChange = ::applySubBgEnabled,
+                    onMarginChange = ::applySubMargin,
+                    onSubDelayChange = ::applySubDelay
+                )
+            } else {
+                AudioTab(
+                    isMpv = isMpv,
+                    mpvAudioTracks = mpvAudioTracks,
+                    currentMpvAudioId = currentMpvAudioId,
+                    exoAudioTracks = exoAudioTracks,
+                    initialExoAudioIndex = initialExoAudioIndex,
+                    onSelectAudio = { id ->
+                        try { MPVLib.setPropertyInt("aid", id) } catch (e: Exception) {}
+                        currentMpvAudioId = id.toString()
+                    },
+                    onDisableAudio = {
+                        try { MPVLib.setPropertyString("aid", "no") } catch (e: Exception) {}
+                        currentMpvAudioId = "no"
+                    },
+                    onSelectExoAudio = { track -> selectExoTrack(track, C.TRACK_TYPE_AUDIO) },
+                    onDisableExoAudio = { disableExoAudio() },
+                    swAudioDecoder = swAudioDecoder,
+                    onSwAudioDecoderChange = {
+                        swAudioDecoder = it
+                        prefs.edit().putBoolean("audio_sw_decoder", it).apply()
+                    },
+                    stereoMode = stereoMode,
+                    avSyncSec = avSyncSec,
+                    audioDelaySec = audioDelaySec,
+                    audioOutput = audioOutput,
+                    normalizeVolume = normalizeVolume,
+                    audioRenderer = audioRenderer,
+                    onStereoClick = { showStereoDialog = true },
+                    onAvSyncClick = { showAvSyncDialog = true },
+                    onAudioDelayClick = { showAudioDelayDialog = true },
+                    onAudioOutputClick = { showAudioOutputDialog = true },
+                    onNormalizeChange = {
+                        normalizeVolume = it
+                        prefs.edit().putBoolean("audio_normalize", it).apply()
+                    },
+                    onAudioRendererClick = { showAudioRendererDialog = true }
+                )
+            }
+        }
+
+        // ==================== LANDSCAPE: right-side panel over video ====================
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                // LEFT HALF: transparent so the video stays fully visible underneath.
+                // Tapping it closes the panel.
+                Box(
+                    modifier = Modifier
+                        .weight(0.5f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onClose() }
+                )
+
+                // RIGHT HALF: the opaque panel
+                Column(
+                    modifier = Modifier
+                        .weight(0.5f)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.surface)
+                ) {
+                    Row(Modifier.fillMaxSize()) {
+                        // ==================== LEFT ICON RAIL ====================
+                        Column(
+                            modifier = Modifier
+                                .weight(0.25f) // Adjusted width for better proportions
+                                .fillMaxHeight()
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .padding(top = 60.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
+                            RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
+                            RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
+                        }
+
+                        // ==================== MAIN AREA ====================
+                        Column(Modifier.weight(0.75f).fillMaxHeight()) {
+                            PanelTopBar(
+                                title = if (tab == SubtitleAudioTab.SUBTITLE) stringResource(R.string.player_subtitle_tab) else stringResource(R.string.player_audio_tab),
+                                onClose = onClose
+                            )
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                tabsContent()
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // ==================== PORTRAIT: bottom sheet, capped height ====================
+            // The ModalBottomSheet already handles the sizing and positioning
+            // We just need to provide the content
+            Column(modifier = Modifier.fillMaxWidth()) {
+                PanelTopBar(
+                    title = if (tab == SubtitleAudioTab.SUBTITLE) stringResource(R.string.player_subtitle_tab) else stringResource(R.string.player_audio_tab),
+                    onClose = onClose
+                )
+                // ==================== HORIZONTAL ICON RAIL ====================
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    RailButton(Icons.Outlined.Settings, selected = false) { onClose(); onOpenSettings() }
+                    RailButton(Icons.Outlined.Subtitles, tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
+                    RailButton(Icons.Outlined.MusicNote, tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
+                }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = (configuration.screenHeightDp * 0.55f).dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    tabsContent()
+                }
+            }
+        }
+
+        // ==================== DIALOGS ====================
+        if (showTextColorDialog) {
+            ColorPickerDialog(
+                title = stringResource(R.string.player_text_color),
+                current = Color(subColor),
+                onPick = {
+                    applySubColor(it)
+                    showTextColorDialog = false
+                },
+                onDismiss = { showTextColorDialog = false }
+            )
+        }
+
+        if (showBgColorDialog) {
+            ColorPickerDialog(
+                title = stringResource(R.string.player_bg_color),
+                current = Color(subBgColor),
+                onPick = {
+                    applySubBgColor(it)
+                    showBgColorDialog = false
+                },
+                onDismiss = { showBgColorDialog = false }
+            )
+        }
+
+        if (showStereoDialog) {
+            OptionListDialog(
+                title = stringResource(R.string.player_stereo_mode),
+                options = listOf("Normal", "Mono", "Stereo", "Reverse"),
+                selected = stereoMode,
+                onSelect = {
+                    stereoMode = it
+                    prefs.edit().putString("audio_stereo_mode", it).apply()
+                    if (isMpv) applyMpvStereoMode(it) else onStereoModeChange(it)
+                    showStereoDialog = false
+                },
+                onDismiss = { showStereoDialog = false }
+            )
+        }
+
+        if (showAvSyncDialog) {
+            StepperDialog(
+                title = stringResource(R.string.player_avsync_title),
+                valueText = String.format(Locale.US, "%.2fs", avSyncSec),
+                onDecrease = {
+                    avSyncSec = (avSyncSec - 0.1f).coerceAtLeast(-5f)
+                    prefs.edit().putFloat("audio_avsync", avSyncSec).apply()
+                },
+                onIncrease = {
+                    avSyncSec = (avSyncSec + 0.1f).coerceAtMost(5f)
+                    prefs.edit().putFloat("audio_avsync", avSyncSec).apply()
+                },
+                onDismiss = { showAvSyncDialog = false }
+            )
+        }
+
+        if (showAudioDelayDialog) {
+            StepperDialog(
+                title = stringResource(R.string.player_panel_audio_delay),
+                valueText = String.format(Locale.US, "%.2fs", audioDelaySec),
+                onDecrease = { applyAudioDelay(audioDelaySec - 0.1f) },
+                onIncrease = { applyAudioDelay(audioDelaySec + 0.1f) },
+                onDismiss = { showAudioDelayDialog = false }
+            )
+        }
+
+        if (showAudioOutputDialog) {
+            OptionListDialog(
+                title = stringResource(R.string.player_audio_output),
+                options = listOf("Device default", "Speaker", "Bluetooth"),
+                selected = audioOutput,
+                onSelect = {
+                    audioOutput = it
+                    prefs.edit().putString("audio_output", it).apply()
+                    routeAudioOutput(context, it)
+                    showAudioOutputDialog = false
+                },
+                onDismiss = { showAudioOutputDialog = false }
+            )
+        }
+
+        if (showAudioRendererDialog) {
+            OptionListDialog(
+                title = stringResource(R.string.player_audio_renderer),
+                options = listOf("Auto (Best quality)", "Software (Compatibility)", "Hardware (Low latency)"),
+                selected = audioRenderer,
+                onSelect = {
+                    audioRenderer = it
+                    prefs.edit().putString("audio_renderer", it).apply()
+                    showAudioRendererDialog = false
+                },
+                onDismiss = { showAudioRendererDialog = false }
+            )
+        }
     }
+}
 
     // ---- Dialog visibility ----
     var showTextColorDialog by remember { mutableStateOf(false) }
@@ -1086,16 +1628,18 @@ private fun AudioTab(
 // ---------------------------------------------------------------------------
 @Composable
 private fun RailButton(icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+    IconButton(
+        onClick = onClick,
+        selected = selected,
+        colors = IconButtonDefaults.iconButtonColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+        modifier = Modifier.size(40.dp)
     ) {
-        Icon(icon, null,
-            tint = if (selected) MaterialTheme.colorScheme.onPrimary
-                   else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -1177,22 +1721,36 @@ private fun PanelStepper(
     enabled: Boolean = true
 ) {
     Row(verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        StepButton(Icons.Default.Remove, onDecrease, enabled)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        IconButton(
+            onClick = if (enabled) onDecrease else null,
+            enabled = enabled,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.38f),
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+            ),
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(24.dp))
+        }
         // FIX: Width increased to 56.dp to avoid text clipping
         Text(valueText, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, textAlign = TextAlign.Center,
             maxLines = 1, modifier = Modifier.width(56.dp))
-        StepButton(Icons.Default.Add, onIncrease, enabled)
-    }
-}
-
-@Composable
-private fun StepButton(icon: ImageVector, onClick: () -> Unit, enabled: Boolean = true) {
-    Box(modifier = Modifier.size(26.dp).clip(CircleShape)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (enabled) 1f else 0.5f), CircleShape)
-        .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
-        contentAlignment = Alignment.Center) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.5f), modifier = Modifier.size(12.dp))
+        IconButton(
+            onClick = if (enabled) onIncrease else null,
+            enabled = enabled,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.38f),
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+            ),
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(24.dp))
+        }
     }
 }
 
@@ -1240,11 +1798,15 @@ private fun Checkerboard() {
 
 @Composable
 private fun PanelRadio(selected: Boolean) {
-    Box(modifier = Modifier.size(20.dp).clip(CircleShape)
-        .border(2.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
-        contentAlignment = Alignment.Center) {
-        if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
-    }
+    RadioButton(
+        selected = selected,
+        onClick = { /* No-op: selection handled by parent */ },
+        colors = RadioButtonDefaults.colors(
+            selectedColor = MaterialTheme.colorScheme.primary,
+            unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+        modifier = Modifier.size(20.dp)
+    )
 }
 
 @Composable

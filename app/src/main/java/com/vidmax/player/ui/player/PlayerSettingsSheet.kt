@@ -15,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.bottomsheet.ModalBottomSheet
+import androidx.compose.material3.bottomsheet.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,83 +34,96 @@ import com.vidmax.player.R
 import com.vidmax.player.viewmodel.PlayerEngine
 import com.vidmax.player.viewmodel.PlayerViewModel
 import `is`.xyz.mpv.MPVLib
+import kotlinx.coroutines.launch
 
 @Composable
 fun PlayerSettingsSheet(
     viewModel: PlayerViewModel,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
-    val prefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
-    val activity = context as? Activity
-    val currentEngine by viewModel.currentEngine.collectAsState()
-    val subtitleSize by viewModel.subtitleSize.collectAsState()
-    val playerVolumeBoost by viewModel.playerVolumeBoost.collectAsState()
+    val modalBottomSheetState = rememberModalBottomSheetState(
+        confirmValueChange = { /* Auto-confirm when dragging to confirm position */ true }
+    )
 
-    val primary = MaterialTheme.colorScheme.primary
-    val isMpv = currentEngine == PlayerEngine.MPV
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modalBottomSheetState = modalBottomSheetState,
+        // Optional: customize the sheet appearance
+        // containerColor = MaterialTheme.colorScheme.surface,
+        // contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        // Sheet content will go here - we'll reuse the existing sheetContent logic
+        val context = LocalContext.current
+        val prefs = context.getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
+        val activity = context as? Activity
+        val currentEngine by viewModel.currentEngine.collectAsState()
+        val subtitleSize by viewModel.subtitleSize.collectAsState()
+        val playerVolumeBoost by viewModel.playerVolumeBoost.collectAsState()
 
-    val legacyVerticalGestures = prefs.getBoolean("gesture_vertical_enabled", true)
-    var autoHideControls by remember { mutableStateOf(prefs.getBoolean("auto_hide_controls", true)) }
-    var controlsHideDelayMs by remember { mutableIntStateOf(prefs.getInt("controls_hide_delay_ms", 3000)) }
-    var showControlsOnPlay by remember { mutableStateOf(prefs.getBoolean("show_controls_on_play", true)) }
-    var bottomControlsBelowSeekbar by remember { mutableStateOf(prefs.getBoolean("bottom_controls_below_seekbar", false)) }
-    var showDoubleTapIndicator by remember { mutableStateOf(prefs.getBoolean("show_double_tap_indicator", true)) }
-    var brightnessGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_brightness_enabled", legacyVerticalGestures)) }
-    var volumeGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_volume_enabled", legacyVerticalGestures)) }
-    var pinchZoomEnabled by remember { mutableStateOf(prefs.getBoolean("pinch_to_zoom_enabled", true)) }
-    var horizontalSeekEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_horizontal_seek_enabled", true)) }
-    var doubleTapSeekSeconds by remember { mutableIntStateOf(prefs.getInt("double_tap_seek_seconds", 10)) }
-    var reverseDoubleTap by remember { mutableStateOf(prefs.getBoolean("reverse_double_tap", false)) }
-    var seekGestureSensitivity by remember { mutableIntStateOf(prefs.getInt("seek_gesture_sensitivity", 60000)) }
-    var preventSeekbarTap by remember { mutableStateOf(prefs.getBoolean("prevent_seekbar_tap", false)) }
-    var mpvVideoSync by remember { mutableStateOf(prefs.getString("mpv_video_sync", "audio") ?: "audio") }
-    var mpvInterpolation by remember { mutableStateOf(prefs.getBoolean("mpv_interpolation", false)) }
-    var mpvAudioPitchCorrection by remember { mutableStateOf(prefs.getBoolean("mpv_audio_pitch_correction", true)) }
+        val primary = MaterialTheme.colorScheme.primary
+        val isMpv = currentEngine == PlayerEngine.MPV
 
-    var showDecoderDialog by remember { mutableStateOf(false) }
-    var currentMpvDecoder by remember { mutableStateOf("auto-copy") }
+        val legacyVerticalGestures = prefs.getBoolean("gesture_vertical_enabled", true)
+        var autoHideControls by remember { mutableStateOf(prefs.getBoolean("auto_hide_controls", true)) }
+        var controlsHideDelayMs by remember { mutableIntStateOf(prefs.getInt("controls_hide_delay_ms", 3000)) }
+        var showControlsOnPlay by remember { mutableStateOf(prefs.getBoolean("show_controls_on_play", true)) }
+        var bottomControlsBelowSeekbar by remember { mutableStateOf(prefs.getBoolean("bottom_controls_below_seekbar", false)) }
+        var showDoubleTapIndicator by remember { mutableStateOf(prefs.getBoolean("show_double_tap_indicator", true)) }
+        var brightnessGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_brightness_enabled", legacyVerticalGestures)) }
+        var volumeGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_volume_enabled", legacyVerticalGestures)) }
+        var pinchZoomEnabled by remember { mutableStateOf(prefs.getBoolean("pinch_to_zoom_enabled", true)) }
+        var horizontalSeekEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_horizontal_seek_enabled", true)) }
+        var doubleTapSeekSeconds by remember { mutableIntStateOf(prefs.getInt("double_tap_seek_seconds", 10)) }
+        var reverseDoubleTap by remember { mutableStateOf(prefs.getBoolean("reverse_double_tap", false)) }
+        var seekGestureSensitivity by remember { mutableIntStateOf(prefs.getInt("seek_gesture_sensitivity", 60000)) }
+        var preventSeekbarTap by remember { mutableStateOf(prefs.getBoolean("prevent_seekbar_tap", false)) }
+        var mpvVideoSync by remember { mutableStateOf(prefs.getString("mpv_video_sync", "audio") ?: "audio") }
+        var mpvInterpolation by remember { mutableStateOf(prefs.getBoolean("mpv_interpolation", false)) }
+        var mpvAudioPitchCorrection by remember { mutableStateOf(prefs.getBoolean("mpv_audio_pitch_correction", true)) }
 
-    val savePrefs: (String, Any) -> Unit = { key, value ->
-        prefs.edit().apply {
-            when (value) {
-                is Boolean -> putBoolean(key, value)
-                is Int -> putInt(key, value)
-                is String -> putString(key, value)
+        var showDecoderDialog by remember { mutableStateOf(false) }
+        var currentMpvDecoder by remember { mutableStateOf("auto-copy") }
+
+        val savePrefs: (String, Any) -> Unit = { key, value ->
+            prefs.edit().apply {
+                when (value) {
+                    is Boolean -> putBoolean(key, value)
+                    is Int -> putInt(key, value)
+                    is String -> putString(key, value)
+                }
+            }.apply()
+        }
+
+        // Permanent screen-on while the player is open: no toggle, the flag
+        // is always added and never cleared by a user setting.
+        LaunchedEffect(Unit) {
+            val act = activity ?: return@LaunchedEffect
+            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+
+        LaunchedEffect(currentEngine, mpvVideoSync, mpvInterpolation, mpvAudioPitchCorrection) {
+            if (currentEngine == PlayerEngine.MPV) {
+                try {
+                    MPVLib.setPropertyString("video-sync", mpvVideoSync)
+                    MPVLib.setPropertyBoolean("interpolation", mpvInterpolation)
+                    MPVLib.setPropertyBoolean("audio-pitch-correction", mpvAudioPitchCorrection)
+                } catch (e: Exception) {}
             }
-        }.apply()
-    }
-
-    // Permanent screen-on while the player is open: no toggle, the flag
-    // is always added and never cleared by a user setting.
-    LaunchedEffect(Unit) {
-        val act = activity ?: return@LaunchedEffect
-        act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    }
-
-    LaunchedEffect(currentEngine, mpvVideoSync, mpvInterpolation, mpvAudioPitchCorrection) {
-        if (currentEngine == PlayerEngine.MPV) {
-            try {
-                MPVLib.setPropertyString("video-sync", mpvVideoSync)
-                MPVLib.setPropertyBoolean("interpolation", mpvInterpolation)
-                MPVLib.setPropertyBoolean("audio-pitch-correction", mpvAudioPitchCorrection)
-            } catch (e: Exception) {}
         }
-    }
 
-    LaunchedEffect(showDecoderDialog) {
-        if (showDecoderDialog && currentEngine == PlayerEngine.MPV) {
-            try { currentMpvDecoder = MPVLib.getPropertyString("hwdec") ?: "auto-copy" } catch (e: Exception) {}
+        LaunchedEffect(showDecoderDialog) {
+            if (showDecoderDialog && currentEngine == PlayerEngine.MPV) {
+                try { currentMpvDecoder = MPVLib.getPropertyString("hwdec") ?: "auto-copy" } catch (e: Exception) {}
+            }
         }
-    }
 
-    val configuration = LocalConfiguration.current
-    val isLandscape =
-        configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val configuration = LocalConfiguration.current
+        val isLandscape =
+            configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-    // Shared sheet content — rendered by the landscape side panel or the
-    // portrait bottom sheet below.
-    val sheetContent: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
+        // Shared sheet content — rendered by the landscape side panel or the
+        // portrait bottom sheet below.
+        val sheetContent: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -417,58 +432,63 @@ fun PlayerSettingsSheet(
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 20.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
-                 ) {
-                     sheetContent()
-                 }
-             }
-         }
+                ) {
+                    sheetContent()
+                }
+            }
+        }
 
-    if (showDecoderDialog) {
-        AlertDialog(
-            onDismissRequest = { showDecoderDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            title = { Text(stringResource(R.string.player_decoder_title), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    val decoderOptions = listOf(
-                        Pair("auto-copy", stringResource(R.string.player_decoder_auto)),
-                        Pair("no", stringResource(R.string.player_decoder_sw)),
-                        Pair("mediacodec-copy", stringResource(R.string.player_decoder_hw)),
-                        Pair("mediacodec", stringResource(R.string.player_decoder_hwplus))
-                    )
-                    decoderOptions.forEach { (value, label) ->
-                        val isSelected = currentMpvDecoder == value
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                try {
-                                    MPVLib.setPropertyString("hwdec", value)
-                                    currentMpvDecoder = value
-                                } catch (e: Exception) {}
-                                showDecoderDialog = false
-                            }.padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                painter = painterResource(id = if (isSelected) R.drawable.ic_radio_checked else R.drawable.ic_radio_unchecked),
-                                contentDescription = null,
-                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(Modifier.width(16.dp))
-                            Text(
-                                label,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                fontSize = 16.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
+        // Decoder dialog (keep as AlertDialog for now, could be converted later)
+        if (showDecoderDialog) {
+            AlertDialog(
+                onDismissRequest = { showDecoderDialog = false },
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                title = { Text(stringResource(R.string.player_decoder_title), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        val decoderOptions = listOf(
+                            Pair("auto-copy", stringResource(R.string.player_decoder_auto)),
+                            Pair("no", stringResource(R.string.player_decoder_sw)),
+                            Pair("mediacodec-copy", stringResource(R.string.player_decoder_hw)),
+                            Pair("mediacodec", stringResource(R.string.player_decoder_hwplus))
+                        )
+                        decoderOptions.forEach { (value, label) ->
+                            val isSelected = currentMpvDecoder == value
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    try {
+                                        MPVLib.setPropertyString("hwdec", value)
+                                        currentMpvDecoder = value
+                                    } catch (e: Exception) {}
+                                    showDecoderDialog = false
+                                }.padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { /* handled by row */ },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = MaterialTheme.colorScheme.primary,
+                                        unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(Modifier.width(16.dp))
+                                Text(
+                                    label,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 16.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
                         }
                     }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showDecoderDialog = false }) { Text(stringResource(R.string.player_ok)) }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showDecoderDialog = false }) { Text(stringResource(R.string.player_ok)) }
-            }
-        )
+            )
+        }
     }
 }
 

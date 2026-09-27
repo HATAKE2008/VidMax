@@ -107,6 +107,12 @@ class PlayerViewModel : ViewModel() {
   private val _isPlaying: MutableStateFlow<Boolean> = MutableStateFlow(false)
   val isPlaying: StateFlow<Boolean> = _isPlaying
 
+  private val _isBuffering: MutableStateFlow<Boolean> = MutableStateFlow(false)
+  val isBuffering: StateFlow<Boolean> = _isBuffering
+
+  private val _errorMessage: MutableStateFlow<String?> = MutableStateFlow(null)
+  val errorMessage: StateFlow<String?> = _errorMessage
+
   private val _currentPosition: MutableStateFlow<Long> = MutableStateFlow(0L)
   val currentPosition: StateFlow<Long> = _currentPosition
 
@@ -280,6 +286,18 @@ class PlayerViewModel : ViewModel() {
   // --- Other Player Logic ---
   fun setPlaying(playing: Boolean) {
     _isPlaying.value = playing
+  }
+
+  fun setBuffering(buffering: Boolean) {
+    _isBuffering.value = buffering
+  }
+
+  fun setErrorMessage(message: String?) {
+    _errorMessage.value = message
+  }
+
+  fun clearError() {
+    _errorMessage.value = null
   }
 
   fun setCurrentPosition(position: Long) {

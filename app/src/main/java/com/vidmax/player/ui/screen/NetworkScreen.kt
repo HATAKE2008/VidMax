@@ -2,12 +2,12 @@ package com.vidmax.player.ui.screen
 
 import android.app.Application
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.animateItem
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -215,6 +217,7 @@ private fun ConnectionsList(
                         onClick = { onPlayLink(link) },
                         onRemove = { onRemoveLink(link) },
                     )
+                        .animateItem()
                 }
             }
 
@@ -271,6 +274,7 @@ private fun ConnectionsList(
                         onDisconnect = { onDisconnect(connection) },
                         onOpen = { onOpen(connection) },
                     )
+                        .animateItem()
                 }
             }
         }
@@ -487,91 +491,100 @@ private fun NetworkBrowser(
     onOpenFolder: (NetworkFile) -> Unit,
     onPlayFile: (NetworkFile) -> Unit,
 ) {
+    val pullToRefreshState = rememberPullToRefreshState(refreshingOffset = 80.dp)
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        PullToRefreshBox(
+            state = pullToRefreshState,
+            modifier = Modifier.fillMaxSize(),
+            onRefresh = onRefresh,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = connection.name,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = currentPath.ifBlank { "/" },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            IconButton(onClick = onSearchClick) {
-                Icon(
-                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_search),
-                    contentDescription = "Search",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-
-        when {
-            isLoading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-            files.isEmpty() -> {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
                     Icon(
-                        imageVector = Icons.Filled.Folder,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(56.dp),
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.primary,
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.net_empty_files),
+                        text = connection.name,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = currentPath.ifBlank { "/" },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                IconButton(onClick = onSearchClick) {
+                    Icon(
+                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_search),
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 130.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    items(items = files, key = { it.path }) { file ->
-                        if (file.isDirectory) {
-                            NetworkFolderRow(file = file, onClick = { onOpenFolder(file) })
-                        } else {
-                            NetworkVideoRow(
-                                file = file,
-                                onClick = { onPlayFile(file) },
-                            )
+
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+                files.isEmpty() -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Folder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(56.dp),
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.net_empty_files),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 14.sp,
+                        )
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 130.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        items(items = files, key = { it.path }) { file ->
+                            if (file.isDirectory) {
+                                NetworkFolderRow(file = file, onClick = { onOpenFolder(file) })
+                                    .animateItem()
+                            } else {
+                                NetworkVideoRow(
+                                    file = file,
+                                    onClick = { onPlayFile(file) },
+                                )
+                                    .animateItem()
+                            }
                         }
                     }
                 }
             }
-        }
+            }
         }
 
         // mpvRex-style floating pill bottom bar (FloatingBottomBar port):
@@ -595,15 +608,8 @@ private fun NetworkFloatingBottomBar(
     onUpClick: () -> Unit,
     onRefreshClick: () -> Unit,
 ) {
-    val targetBottomPadding = 96.dp
-    val animatedBottomPadding by animateDpAsState(
-        targetValue = targetBottomPadding,
-        animationSpec = tween(220),
-        label = "networkBottomBarPadding",
-    )
-
     Surface(
-        modifier = modifier.padding(bottom = animatedBottomPadding),
+        modifier = modifier.padding(bottom = 96.dp),
         shape = RoundedCornerShape(32.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 3.dp,
@@ -704,7 +710,7 @@ private fun NetworkVideoRow(file: NetworkFile, onClick: () -> Unit) {
                     .width(110.dp)
                     .height(62.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.DarkGray),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
