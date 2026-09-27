@@ -61,7 +61,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -86,7 +85,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.semantics.Role
 import com.vidmax.player.BuildConfig
 import com.vidmax.player.R
 import androidx.lifecycle.Lifecycle
@@ -324,25 +322,45 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
             ) {
 
-// ── Dark / Light / System toggle ──────────────────────────────
+                // ── Dark / Light / System toggle ──────────────────────────────
+                item { SettingsSectionHeader(title = stringResource(R.string.sett_header_appearance)) }
                 item {
-                    SingleChoiceSegmentedButtonRow(
-                        selectedSegment = darkMode.name,
-                        onSegmentSelected = { name ->
-                            viewModel.setDarkMode(DarkMode.valueOf(name))
-                        }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .height(48.dp)
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.outlineVariant,
+                                RoundedCornerShape(50)
+                            )
+                            .clip(RoundedCornerShape(50))
                     ) {
-                        listOf(DarkMode.Dark, DarkMode.Light, DarkMode.System).forEach { mode ->
-                            SegmentedButton(
-                                selected = darkMode == mode,
-                                onClick = { },
-                                modifier = Modifier.weight(1f)
+                        val options = listOf(DarkMode.Dark, DarkMode.Light, DarkMode.System)
+                        options.forEach { mode ->
+                            val isSelected = darkMode == mode
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.secondaryContainer
+                                        else Color.Transparent
+                                    )
+                                    .clickable { viewModel.setDarkMode(mode) },
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text(darkModeDisplayName(mode))
-                            }
-                        }
-                    }
-                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                    }
                                     Text(
                                         text = darkModeDisplayName(mode),
                                         color = if (isSelected)
@@ -352,14 +370,13 @@ fun SettingsScreen(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                         fontSize = 14.sp
                                     )
-}
+                                }
+                            }
+                        }
+                    }
                 }
-                }
-            }
-        }
-    }
 
-            // ── App Theme picker ──────────────────────────────────────────
+                // ── App Theme picker ──────────────────────────────────────────
                 item {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -1082,22 +1099,21 @@ private fun FontPreviewCard(
                 maxLines = 1
             )
             if (onDelete != null) {
-                IconButton(
-                    onClick = onDelete,
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(6.dp)
-                        .size(48.dp),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    )
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .clickable { onDelete() },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Remove font",
                         tint = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                 }
             }
@@ -1208,42 +1224,19 @@ private fun SettingsGroupToggle(
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    ListItem(
+    SettingsGroupItem(
+        title = title,
+        subtitle = subtitle,
         enabled = enabled,
-        onClick = { onCheckedChange(!checked) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(
-                value = checked,
-                role = Role.Switch,
-                onValueChange = onCheckedChange
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        headlineContent = {
-            Text(
-                text = title,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        },
-        supportingContent = {
-            Text(
-                text = subtitle,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        },
-        leadingContent = {
+        icon = {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(22.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
         },
-        trailingContent = {
+        trailing = {
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
@@ -1255,7 +1248,8 @@ private fun SettingsGroupToggle(
                     uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
-        }
+        },
+        onClick = { onCheckedChange(!checked) }
     )
 }
 
@@ -1269,43 +1263,44 @@ private fun SettingsGroupItem(
     trailing: @Composable () -> Unit,
     onClick: (() -> Unit)? = null
 ) {
-    ListItem(
-        enabled = enabled,
-        onClick = onClick,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (onClick != null && enabled) Modifier.clickable { onClick() } else Modifier
+            )
+            .alpha(if (enabled) 1f else 0.45f)
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        headlineContent = {
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center
+        ) {
+            icon()
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold
             )
-        },
-        supportingContent = {
             Text(
                 text = subtitle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier.padding(top = 2.dp),
+                lineHeight = 16.sp
             )
-        },
-        leadingContent = {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                contentAlignment = Alignment.Center
-            ) {
-                icon()
-            }
-        },
-        trailingContent = {
-            trailing()
         }
-    )
+        Spacer(modifier = Modifier.width(10.dp))
+        trailing()
+    }
 }
 
 // ── Social link button ────────────────────────────────────────────────────────

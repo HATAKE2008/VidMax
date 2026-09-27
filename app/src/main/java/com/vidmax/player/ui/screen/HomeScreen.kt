@@ -197,17 +197,6 @@ fun HomeScreen(
   val currentFolderPath by viewModel.currentFolderPath.collectAsState()
   val isInsideFolder = currentFolderPath.isNotEmpty()
 
-  // Active list size for selection count denominator — matches the list
-  // currently visible under the selection banner.
-  val activeListSize = remember(currentContentMode, isInsideFolder, videos, folderVideos, folders) {
-    when (currentContentMode) {
-      HomeContentMode.VIDEO -> videos.size
-      HomeContentMode.FOLDER -> if (isInsideFolder) folderVideos.size else folders.size
-      HomeContentMode.FAVORITES -> viewModel.recentVideosCount
-      HomeContentMode.PLAYLISTS -> viewModel.videoPlaylistsCount
-    }
-  }
-
   // Resolved against every visible video list (Videos tab + open folder)
   // so one selection system serves all browsing screens; paths are unique.
   val selectedVideos = remember(selection, videos, folderVideos) {
@@ -497,7 +486,7 @@ fun HomeScreen(
                       modifier = Modifier.size(24.dp))
                 }
                 Text(
-                    text = stringResource(R.string.home_selection_count, selection.selectedCount, activeListSize),
+                    text = stringResource(R.string.home_selection_count, selection.selectedCount, videos.size),
                     color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold)
@@ -588,122 +577,169 @@ fun HomeScreen(
                 }
               }
             }
-} else {
+      } else {
         // Inside a folder or playlist detail, the screen shows only its own
         // back button + title — hide the home header and category toggle.
         if (!isInsideFolder && openedVideoPlaylist == null) {
-        TopAppBar(
-            title = {
-                Text(
-                    text = when (currentContentMode) {
-                        HomeContentMode.VIDEO -> stringResource(R.string.home_title_videos)
-                        HomeContentMode.FOLDER -> stringResource(R.string.home_title_folders)
-                        HomeContentMode.FAVORITES -> stringResource(R.string.home_title_recent)
-                        HomeContentMode.PLAYLISTS -> stringResource(R.string.home_title_playlists)
-                    },
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            },
-            actions = {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+              Text(
+                  text = when (currentContentMode) {
+                      HomeContentMode.VIDEO -> stringResource(R.string.home_title_videos)
+                      HomeContentMode.FOLDER -> stringResource(R.string.home_title_folders)
+                      HomeContentMode.FAVORITES -> stringResource(R.string.home_title_recent)
+                      HomeContentMode.PLAYLISTS -> stringResource(R.string.home_title_playlists)
+                  },
+                  color = MaterialTheme.colorScheme.onBackground,
+                  fontSize = 24.sp,
+                  fontWeight = FontWeight.ExtraBold)
+
+              Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = {
-                        if (currentContentMode == HomeContentMode.PLAYLISTS) {
-                            isPlaylistSearchOpen = true
-                        } else {
-                            folderSearchPath = null
-                            isVideoSearchOpen = true
-                        }
+                      if (currentContentMode == HomeContentMode.PLAYLISTS) {
+                        isPlaylistSearchOpen = true
+                      } else {
+                        folderSearchPath = null
+                        isVideoSearchOpen = true
+                      }
                     },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_search),
-                        contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    modifier = Modifier.size(36.dp)) {
+                  Icon(
+                      painter = painterResource(id = R.drawable.ic_search),
+                      contentDescription = "Search",
+                      tint = MaterialTheme.colorScheme.onBackground,
+                      modifier = Modifier.size(24.dp))
                 }
-                IconButton(onClick = { showSortViewSheet = true }, modifier = Modifier.size(48.dp)) {
-                    Icon(
-                        imageVector = Icons.Filled.Tune,
-                        contentDescription = "Sort & View Options",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
+
+                IconButton(onClick = { showSortViewSheet = true }, modifier = Modifier.size(36.dp)) {
+                  Icon(
+                      imageVector = Icons.Filled.Tune,
+                      contentDescription = "Sort & View Options",
+                      tint = MaterialTheme.colorScheme.primary,
+                      modifier = Modifier.size(24.dp))
                 }
+
                 IconButton(
                     onClick = { showTelegramSheet = true },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_telegram),
-                        contentDescription = "Join VidMax on Telegram",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    modifier = Modifier.size(36.dp)) {
+                      Icon(
+                          painter = painterResource(id = R.drawable.ic_telegram),
+                          contentDescription = "Join VidMax on Telegram",
+                          tint = MaterialTheme.colorScheme.primary,
+                          modifier = Modifier.size(24.dp))
+                    }
+
+                IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
+                  Icon(
+                      imageVector = Icons.Filled.Settings,
+                      contentDescription = "Settings",
+                      tint = MaterialTheme.colorScheme.onBackground,
+                      modifier = Modifier.size(24.dp))
                 }
-                IconButton(onClick = onSettingsClick, modifier = Modifier.size(48.dp)) {
-                    Icon(
-                        imageVector = Icons.Filled.Settings,
-                        contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-        )
+              }
             }
         
-val segmentSelection by remember { mutableStateOf(currentContentMode) }
+        // 🔥 UPDATE: 4-Segmented Button Area
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            BoxWithConstraints(
+                modifier =
+                    Modifier.fillMaxWidth() // Made it full width to fit 4 items comfortably
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        .padding(4.dp)) {
+                  
+                  val segmentWidth = maxWidth / 4f // 4 options now
+                  val indicatorOffset by
+                      animateDpAsState(
+                          targetValue =
+                              when (currentContentMode) {
+                                  HomeContentMode.VIDEO -> 0.dp
+                                  HomeContentMode.FOLDER -> segmentWidth
+                                  HomeContentMode.FAVORITES -> segmentWidth * 2
+                                  HomeContentMode.PLAYLISTS -> segmentWidth * 3
+                              },
+                          animationSpec = spring(
+                              dampingRatio = Spring.DampingRatioMediumBouncy,
+                              stiffness = Spring.StiffnessLow
+                          ),
+                          label = "contentModeIndicator")
 
-                SingleChoiceSegmentedButtonRow(
-                    selectedSegment = segmentSelection.name,
-                    onSegmentSelected = { newMode ->
-                        val newContentMode = HomeContentMode.valueOf(newMode)
-                        if (currentContentMode != newContentMode) {
-                            currentContentMode = newContentMode
+                  Box(
+                      modifier =
+                          Modifier.offset(x = indicatorOffset)
+                              .width(segmentWidth)
+                              .fillMaxHeight()
+                              .clip(RoundedCornerShape(50))
+                              .background(MaterialTheme.colorScheme.primary))
+
+                  Row(modifier = Modifier.fillMaxSize()) {
+                    HomeContentSegment(
+                        label = stringResource(R.string.home_segment_video),
+                        isActive = currentContentMode == HomeContentMode.VIDEO,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = {
+                          if (currentContentMode != HomeContentMode.VIDEO) {
+                            currentContentMode = HomeContentMode.VIDEO
                             viewModel.closeFolder()
                             selection = selection.clear()
-                            prefs.edit().putString("home_content_mode", newContentMode.name).apply()
-                        }
+                            prefs.edit().putString("home_content_mode", HomeContentMode.VIDEO.name).apply()
+                          }
+                        }) { tint, scale ->
+                      Icon(painterResource(id = R.drawable.ic_video_library), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
                     }
-                ) {
-                    val segments = listOf(
-                        SegmentedButtonData(
-                            label = stringResource(R.string.home_segment_video),
-                            icon = { Icons.Default.VideoLibrary },
-                            segment = HomeContentMode.VIDEO.name
-                        ),
-                        SegmentedButtonData(
-                            label = stringResource(R.string.home_segment_folder),
-                            icon = { Icons.Default.Folder },
-                            segment = HomeContentMode.FOLDER.name
-                        ),
-                        SegmentedButtonData(
-                            label = stringResource(R.string.home_segment_recent),
-                            icon = { Icons.Default.History },
-                            segment = HomeContentMode.FAVORITES.name
-                        ),
-                        SegmentedButtonData(
-                            label = stringResource(R.string.home_segment_playlists),
-                            icon = { Icons.Default.PlaylistAdd },
-                            segment = HomeContentMode.PLAYLISTS.name
-                        )
-                    )
-                    segments.forEach { data ->
-                        SegmentedButton(
-                            selected = segmentSelection.name == data.segment,
-                            onClick = { },
-                            icon = { data.icon() }
-                        ) {
-                            Text(data.label)
-                        }
+                    HomeContentSegment(
+                        label = stringResource(R.string.home_segment_folder),
+                        isActive = currentContentMode == HomeContentMode.FOLDER,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = {
+                          if (currentContentMode != HomeContentMode.FOLDER) {
+                            currentContentMode = HomeContentMode.FOLDER
+                            viewModel.closeFolder()
+                            selection = selection.clear()
+                            prefs.edit().putString("home_content_mode", HomeContentMode.FOLDER.name).apply()
+                          }
+                        }) { tint, scale ->
+                      Icon(painterResource(id = R.drawable.ic_folder), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
                     }
+                    HomeContentSegment(
+                        label = stringResource(R.string.home_segment_recent),
+                        isActive = currentContentMode == HomeContentMode.FAVORITES,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = {
+                          if (currentContentMode != HomeContentMode.FAVORITES) {
+                            currentContentMode = HomeContentMode.FAVORITES
+                            viewModel.closeFolder()
+                            selection = selection.clear()
+                            prefs.edit().putString("home_content_mode", HomeContentMode.FAVORITES.name).apply()
+                          }
+                        }) { tint, scale ->
+                      Icon(Icons.Default.History, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+                    }
+                    HomeContentSegment(
+                        label = stringResource(R.string.home_segment_playlists),
+                        isActive = currentContentMode == HomeContentMode.PLAYLISTS,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        onClick = {
+                          if (currentContentMode != HomeContentMode.PLAYLISTS) {
+                            currentContentMode = HomeContentMode.PLAYLISTS
+                            viewModel.closeFolder()
+                            selection = selection.clear()
+                            prefs.edit().putString("home_content_mode", HomeContentMode.PLAYLISTS.name).apply()
+                          }
+                        }) { tint, scale ->
+                      Icon(painterResource(id = R.drawable.ic_playlist), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+                    }
+                  }
                 }
+        }
         }
       }
 
@@ -823,23 +859,9 @@ val segmentSelection by remember { mutableStateOf(currentContentMode) }
                                       verticalArrangement = Arrangement.spacedBy(12.dp),
                                       contentPadding = PaddingValues(bottom = 130.dp)) {
                                         itemsIndexed(
-                                            items = videos, key = { _, video -> video.id }) { index,
-                                            video ->
-                                          CustomVideoGridCard(
-                                              video = video,
-                                              duration = viewModel.formatDuration(video.duration),
-                                              isSelected = isSelected,
-                                              onClick = {
-                                                if (inSelectionMode) {
-                                                  selection = selection.toggle(video.path)
-                                                } else {
-                                                  onVideoClick(videos, index)
-                                                }
-                                              },
-                                              onLongClick = {
-                                                selection = selection.toggle(video.path)
-                                              })
-                                                  .animateItem()
+                                            items = videos, key = { _, video -> video.id }) {
+                                          index,
+                                          video ->
                                         val isSelected = selection.isSelected(video.path)
                                         CustomVideoGridCard(
                                             video = video,
@@ -925,7 +947,7 @@ val segmentSelection by remember { mutableStateOf(currentContentMode) }
                                       folderSearchPath = currentFolderPath
                                       isVideoSearchOpen = true
                                     },
-                                    modifier = Modifier.size(48.dp)) {
+                                    modifier = Modifier.size(36.dp)) {
                                   Icon(
                                       painter = painterResource(id = R.drawable.ic_search),
                                       contentDescription = "Search in folder",
@@ -966,26 +988,258 @@ val segmentSelection by remember { mutableStateOf(currentContentMode) }
                                     LazyColumn(
                                         verticalArrangement = Arrangement.spacedBy(10.dp),
                                         contentPadding = PaddingValues(bottom = 130.dp)) {
-itemsIndexed(
-                                           items = videos, key = { _, video -> video.id }) { index,
-                                           video ->
-                                         val isSelected = selection.isSelected(video.path)
-                                         CustomVideoLargeCard(
-                                             video = video,
-                                             duration = viewModel.formatDuration(video.duration),
-                                             size = viewModel.formatSize(video.size),
-                                             isSelected = isSelected,
-                                             onClick = {
-                                               if (inSelectionMode) {
-                                                 selection = selection.toggle(video.path)
-                                               } else {
-                                                 onVideoClick(videos, index)
-                                               }
-                                             },
-                                             onLongClick = {
-                                               selection = selection.toggle(video.path)
-                                             })
-                                                  .animateItem()
+                                          itemsIndexed(
+                                              items = folderVideos,
+                                              key = { _, video -> video.id }) { index, video ->
+                                            PremiumVideoListCard(
+                                                video = video,
+                                                duration = viewModel.formatDuration(video.duration),
+                                                size = viewModel.formatSize(video.size),
+                                                resolution = viewModel.getResolutionLabel(video.width, video.height),
+                                                isSelected = selection.isSelected(video.path),
+                                                onClick = {
+                                                  if (inSelectionMode) selection = selection.toggle(video.path)
+                                                  else onVideoClick(folderVideos, index)
+                                                },
+                                                onLongClick = { selection = selection.toggle(video.path) })
+                                          }
+                                        }
+                                  }
+                                  HomeViewStyle.GRID_MEDIUM -> {
+                                    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                                      val autoColumns =
+                                          (maxWidth / 170.dp).toInt().coerceIn(2, 12)
+                                      val gridColumns =
+                                          if (gridColumnsOverride == 0) autoColumns
+                                          else gridColumnsOverride.coerceIn(1, 12)
+                                      LazyVerticalGrid(
+                                          columns = GridCells.Fixed(gridColumns),
+                                          horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                          verticalArrangement = Arrangement.spacedBy(12.dp),
+                                          contentPadding = PaddingValues(bottom = 130.dp)) {
+                                            itemsIndexed(
+                                                items = folderVideos,
+                                                key = { _, video -> video.id }) { index, video ->
+                                              CustomVideoGridCard(
+                                                  video = video,
+                                                  duration = viewModel.formatDuration(video.duration),
+                                                  isSelected = selection.isSelected(video.path),
+                                                  onClick = {
+                                                    if (inSelectionMode) selection = selection.toggle(video.path)
+                                                    else onVideoClick(folderVideos, index)
+                                                  },
+                                                  onLongClick = { selection = selection.toggle(video.path) })
+                                            }
+                                          }
+                                    }
+                                  }
+                                  HomeViewStyle.GRID_LARGE -> {
+                                    LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                                        contentPadding = PaddingValues(bottom = 130.dp)) {
+                                          itemsIndexed(
+                                              items = folderVideos,
+                                              key = { _, video -> video.id }) { index, video ->
+                                            CustomVideoLargeCard(
+                                                video = video,
+                                                duration = viewModel.formatDuration(video.duration),
+                                                size = viewModel.formatSize(video.size),
+                                                isSelected = selection.isSelected(video.path),
+                                                onClick = {
+                                                  if (inSelectionMode) selection = selection.toggle(video.path)
+                                                  else onVideoClick(folderVideos, index)
+                                                },
+                                                onLongClick = { selection = selection.toggle(video.path) })
+                                          }
+                                        }
+                                  }
+                                }
+                              }
+                        }
+                        }
+                      } else {
+                        Crossfade(
+                            targetState = currentViewStyle,
+                            animationSpec = tween(400),
+                            label = "folderViewAnim") { style ->
+                              when (style) {
+                                HomeViewStyle.LIST -> {
+                                  LazyColumn(
+                                      verticalArrangement = Arrangement.spacedBy(10.dp),
+                                      contentPadding = PaddingValues(bottom = 130.dp)) {
+                                        itemsIndexed(
+                                            items = folders,
+                                            key = { _, folder -> folder.path }) { _, folder ->
+                                          HomeFolderListCard(
+                                              folder = folder,
+                                              onClick = { selection = selection.clear(); viewModel.openFolder(folder.path) })
+                                        }
+                                      }
+                                }
+                                HomeViewStyle.GRID_MEDIUM -> {
+                                  BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                                    val autoColumns =
+                                        (maxWidth / 170.dp).toInt().coerceIn(2, 12)
+                                    val gridColumns =
+                                        if (gridColumnsOverride == 0) autoColumns
+                                        else gridColumnsOverride.coerceIn(1, 12)
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Fixed(gridColumns),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        contentPadding = PaddingValues(bottom = 130.dp)) {
+                                          itemsIndexed(
+                                              items = folders,
+                                              key = { _, folder -> folder.path }) { _, folder ->
+                                            HomeFolderGridCard(
+                                                folder = folder,
+                                                onClick = { selection = selection.clear(); viewModel.openFolder(folder.path) })
+                                          }
+                                        }
+                                  }
+                                }
+                                HomeViewStyle.GRID_LARGE -> {
+                                  LazyColumn(
+                                      verticalArrangement = Arrangement.spacedBy(16.dp),
+                                      contentPadding = PaddingValues(bottom = 130.dp)) {
+                                        itemsIndexed(
+                                            items = folders,
+                                            key = { _, folder -> folder.path }) { _, folder ->
+                                          HomeFolderLargeCard(
+                                              folder = folder,
+                                              onClick = { selection = selection.clear(); viewModel.openFolder(folder.path) })
+                                        }
+                                      }
+                                }
+                              }
+                            }
+                      }
+                    }
+                    
+                    // Recent Play tab (REX-style): the FAVORITES destination
+                    // now shows recently played videos. Favorites data and
+                    // the heart toggle stay intact, only the destination changed.
+                    HomeContentMode.FAVORITES -> {
+                        VideoRecentContent(
+                            viewModel = viewModel,
+                            selection = selection,
+                            onSelectionChange = { selection = it },
+                            onPlayVideos = onVideoClick)
+                    }
+                    HomeContentMode.PLAYLISTS -> {
+                        VideoPlaylistsContent(
+                            viewModel = viewModel,
+                            selection = selection,
+                            onSelectionChange = { selection = it },
+                            onPlayVideos = onVideoClick,
+                            onDeleteRequest = { performDeleteRequest(it) })
+                    }
+                  }
+                }
+          }
+          }
+        }
+      }
+    }
+
+    // ── REX-style selection overlay: floating bottom action bar ──────────
+    // Pure overlay above the untouched bottom navigation; visible only in
+    // selection mode (AnimatedVisibility exit plays on clear).
+    SelectionBottomBar(
+        visible = inSelectionMode,
+        isSingleSelection = selection.isSingleSelection,
+        onCopyClick = {
+          pickerError = null
+          folderPickerMode = "copy"
+        },
+        onMoveClick = {
+          pickerError = null
+          folderPickerMode = "move"
+        },
+        onRenameClick = {
+          selectedVideos.firstOrNull()?.let {
+            renameTarget = it
+            renameError = null
+          }
+        },
+        onAddToPlaylistClick = {
+          if (selectedVideos.isNotEmpty()) showAddToPlaylistDialog = true
+        },
+        onDeleteClick = { showDeleteConfirmDialog = true },
+        modifier = Modifier.align(Alignment.BottomCenter)
+            .navigationBarsPadding()
+            .padding(bottom = 92.dp))
+  }
+
+  BackHandler(enabled = inSelectionMode) {
+    selection = selection.clear()
+  }
+
+  BackHandler(enabled = isVideoSearchOpen) {
+    isVideoSearchOpen = false
+    folderSearchPath = null
+  }
+
+  // ── Copy/Move destination picker (REX CopyPasteDialog destination role,
+  // VidMax folder-list look). Batch ops verify every file, then scan once
+  // and refresh; selection clears on success like REX onOperationComplete.
+  folderPickerMode?.let { mode ->
+    val isCopy = mode == "copy"
+    FolderPickerDialog(
+        title = if (isCopy) stringResource(R.string.home_copy_to_folder) else stringResource(R.string.home_move_to_folder),
+        folders = folders,
+        busy = pickerBusy,
+        error = pickerError,
+        emptyText = stringResource(R.string.home_no_folders),
+        onFolderClick = { folder ->
+          val targets = selectedVideos
+          if (targets.isEmpty()) {
+            folderPickerMode = null
+            selection = selection.clear()
+          } else {
+            pickerBusy = true
+            pickerError = null
+            if (isCopy) {
+              viewModel.copyVideosToFolder(targets, folder.path) { result ->
+                pickerBusy = false
+                result.onSuccess { r ->
+                  folderPickerMode = null
+                  selection = selection.clear()
+                  val skipNote = if (r.skipped > 0) context.getString(R.string.home_copied_skipped_suffix, r.skipped) else ""
+                  Toast.makeText(
+                          context,
+                          context.resources.getQuantityString(R.plurals.home_copied_count, r.newPaths.size, r.newPaths.size, skipNote),
+                          Toast.LENGTH_SHORT)
+                      .show()
+                }.onFailure {
+                  pickerError = it.message ?: context.getString(R.string.home_copy_failed)
+                }
+              }
+            } else {
+              viewModel.moveVideosToFolder(targets, folder.path) { result ->
+                pickerBusy = false
+                result.onSuccess { r ->
+                  folderPickerMode = null
+                  selection = selection.clear()
+                  val skipNote = if (r.skipped > 0) context.getString(R.string.home_moved_already_suffix, r.skipped) else ""
+                  Toast.makeText(
+                          context,
+                          context.resources.getQuantityString(R.plurals.home_moved_count, r.newPaths.size, r.newPaths.size, skipNote),
+                          Toast.LENGTH_SHORT)
+                      .show()
+                }.onFailure {
+                  pickerError = it.message ?: context.getString(R.string.home_move_failed)
+                }
+              }
+            }
+          }
+        },
+        onDismiss = {
+          if (!pickerBusy) {
+            folderPickerMode = null
+            pickerError = null
+          }
+        })
   }
 
   // REX top-bar Info action: rich details for the single selected video.
@@ -1410,6 +1664,46 @@ fun getVideoUriFromPathForMulti(context: Context, path: String): Uri? {
       ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
     } else null
   }
+}
+
+@Composable
+fun HomeContentSegment(
+    label: String,
+    isActive: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: @Composable (Color, Float) -> Unit
+) {
+  // Same animation design as MusicScreen's TabItem: animated tint plus a
+  // low-bouncy spring icon pop when the segment becomes active.
+  val contentColor by
+      animateColorAsState(
+          targetValue =
+              if (isActive) MaterialTheme.colorScheme.onPrimary
+              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+          animationSpec = tween(200),
+          label = "homeSegmentColor")
+
+  val iconScale by animateFloatAsState(
+      targetValue = if (isActive) 1.15f else 1.0f,
+      animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+      label = "homeSegmentScale")
+
+  Row(
+      modifier =
+          modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
+      horizontalArrangement = Arrangement.Center,
+      verticalAlignment = Alignment.CenterVertically) {
+        icon(contentColor, iconScale)
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = label,
+            color = contentColor,
+            fontSize = 12.sp,
+            fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
+      }
 }
 
 @Composable
