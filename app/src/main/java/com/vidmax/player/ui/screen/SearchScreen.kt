@@ -369,6 +369,7 @@ fun SearchScreen(
                       verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         itemsIndexed(
                             items = history, key = { _, item -> item }) { _, item ->
+                          Box(modifier = Modifier.animateItem()) {
                           Row(
                               modifier = Modifier.fillMaxWidth()
                                   .clip(RoundedCornerShape(12.dp))
@@ -392,7 +393,7 @@ fun SearchScreen(
                                     modifier = Modifier.weight(1f))
                                 IconButton(
                                     onClick = { viewModel.removeSearchHistoryEntry(item) },
-                                    modifier = Modifier.size(32.dp)) {
+                                    modifier = Modifier.size(48.dp)) {
                                       Icon(
                                           imageVector = Icons.Filled.Close,
                                           contentDescription = "Remove search",
@@ -400,6 +401,7 @@ fun SearchScreen(
                                           modifier = Modifier.size(18.dp))
                                     }
                               }
+                          }
                         }
                       }
                 }

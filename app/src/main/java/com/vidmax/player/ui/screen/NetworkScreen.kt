@@ -568,6 +568,8 @@ private fun NetworkBrowser(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     items(items = files, key = { it.path }) { file ->
+                        androidx.compose.foundation.layout.Box(
+                            modifier = Modifier.animateItem()) {
                         if (file.isDirectory) {
                             NetworkFolderRow(file = file, onClick = { onOpenFolder(file) })
                         } else {
@@ -575,6 +577,7 @@ private fun NetworkBrowser(
                                 file = file,
                                 onClick = { onPlayFile(file) },
                             )
+                        }
                         }
                     }
                 }

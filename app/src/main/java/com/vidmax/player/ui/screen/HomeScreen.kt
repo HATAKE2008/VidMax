@@ -864,6 +864,8 @@ fun HomeScreen(
                                           index,
                                           video ->
                                         val isSelected = selection.isSelected(video.path)
+                                        androidx.compose.foundation.layout.Box(
+                                            modifier = Modifier.animateItem()) {
                                         CustomVideoGridCard(
                                             video = video,
                                             duration = viewModel.formatDuration(video.duration),
@@ -878,6 +880,7 @@ fun HomeScreen(
                                             onLongClick = {
                                               selection = selection.toggle(video.path)
                                             })
+                                        }
                                       }
                                     }
                                 }
@@ -892,6 +895,8 @@ fun HomeScreen(
                                           index,
                                           video ->
                                         val isSelected = selection.isSelected(video.path)
+                                        androidx.compose.foundation.layout.Box(
+                                            modifier = Modifier.animateItem()) {
                                         CustomVideoLargeCard(
                                             video = video,
                                             duration = viewModel.formatDuration(video.duration),
@@ -907,6 +912,7 @@ fun HomeScreen(
                                             onLongClick = {
                                               selection = selection.toggle(video.path)
                                             })
+                                        }
                                       }
                                     }
                               }
@@ -992,6 +998,8 @@ fun HomeScreen(
                                           itemsIndexed(
                                               items = folderVideos,
                                               key = { _, video -> video.id }) { index, video ->
+                                            androidx.compose.foundation.layout.Box(
+                                                modifier = Modifier.animateItem()) {
                                             PremiumVideoListCard(
                                                 video = video,
                                                 duration = viewModel.formatDuration(video.duration),
@@ -1003,6 +1011,7 @@ fun HomeScreen(
                                                   else onVideoClick(folderVideos, index)
                                                 },
                                                 onLongClick = { selection = selection.toggle(video.path) })
+                                            }
                                           }
                                         }
                                   }
@@ -1071,9 +1080,12 @@ fun HomeScreen(
                                         itemsIndexed(
                                             items = folders,
                                             key = { _, folder -> folder.path }) { _, folder ->
+                                          androidx.compose.foundation.layout.Box(
+                                              modifier = Modifier.animateItem()) {
                                           HomeFolderListCard(
                                               folder = folder,
                                               onClick = { selection = selection.clear(); viewModel.openFolder(folder.path) })
+                                          }
                                         }
                                       }
                                 }
