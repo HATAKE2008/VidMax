@@ -170,6 +170,8 @@
     <string name="player_default_badge">Default</string>
     <string name="player_done">Done</string>
     <string name="player_cancel">Cancel</string>
+    <string name="player_dismiss">Dismiss</string>
+    <string name="player_retry">Retry</string>
     <string name="player_track_fallback">Track #%1$d</string>
     <string name="player_mpv_sub_fallback">Subtitle Track %1$d</string>
     <string name="player_mpv_audio_fallback">Audio Track %1$d</string>

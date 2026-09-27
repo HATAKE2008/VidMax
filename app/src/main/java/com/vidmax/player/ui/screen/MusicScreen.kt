@@ -634,10 +634,10 @@ fun MusicScreen(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-          IconButton(onClick = { isMusicSearchOpen = true }, modifier = Modifier.size(36.dp)) {
+          IconButton(onClick = { isMusicSearchOpen = true }, modifier = Modifier.size(48.dp)) {
             Icon(painterResource(id = R.drawable.ic_search), contentDescription = "Search", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
           }
-          IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
+          IconButton(onClick = onSettingsClick, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
           }
         }

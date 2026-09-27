@@ -476,6 +476,7 @@ private fun ConnectionCard(
 
 // ============================== File Browser ==============================
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NetworkBrowser(
     connection: NetworkConnection,
