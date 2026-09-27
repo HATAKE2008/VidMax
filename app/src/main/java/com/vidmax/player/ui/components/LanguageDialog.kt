@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vidmax.player.R
@@ -41,25 +44,26 @@ fun LanguageSelectionDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = stringResource(R.string.language_title)) },
         text = {
-            LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+            LazyColumn(modifier = Modifier.heightIn(max = 320.dp).selectableGroup()) {
                 items(com.vidmax.player.utils.AppLocale.supported) { locale ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                onSelect(locale.tag)
-                                onDismiss()
-                            }
+                            .selectable(
+                                selected = currentTag == locale.tag,
+                                role = Role.RadioButton,
+                                onClick = {
+                                    onSelect(locale.tag)
+                                    onDismiss()
+                                }
+                            )
                             .padding(horizontal = 8.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
                             selected = currentTag == locale.tag,
-                            onClick = {
-                                onSelect(locale.tag)
-                                onDismiss()
-                            },
+                            onClick = null,
                             colors = RadioButtonDefaults.colors(
                                 selectedColor = MaterialTheme.colorScheme.primary
                             )

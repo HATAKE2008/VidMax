@@ -16,6 +16,10 @@
     <string name="home_menu_share">Share</string>
     <string name="home_menu_select_all">Select all</string>
     <string name="home_menu_deselect_all">Deselect all</string>
+    <string name="home_cd_close_selection">Close selection</string>
+    <string name="home_cd_play_selected">Play selected</string>
+    <string name="home_cd_details">Details</string>
+    <string name="home_cd_more_options">More options</string>
     <string name="home_title_videos">Videos</string>
     <string name="home_title_folders">Folders</string>
     <string name="home_title_recent">Recent Play</string>

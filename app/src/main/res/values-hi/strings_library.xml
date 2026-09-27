@@ -16,6 +16,10 @@
     <string name="home_menu_share">साझा करें</string>
     <string name="home_menu_select_all">सभी चुनें</string>
     <string name="home_menu_deselect_all">सभी हटाएं</string>
+    <string name="home_cd_close_selection">चयन बंद करें</string>
+    <string name="home_cd_play_selected">चयनित चलाएं</string>
+    <string name="home_cd_details">विवरण</string>
+    <string name="home_cd_more_options">अधिक विकल्प</string>
     <string name="home_title_videos">वीडियो</string>
     <string name="home_title_folders">फ़ोल्डर</string>
     <string name="home_title_recent">हाल में चलाए गए</string>

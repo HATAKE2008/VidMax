@@ -486,7 +486,7 @@ fun HomeScreen(
                 IconButton(onClick = { selection = selection.clear() }) {
                   Icon(
                       painter = painterResource(id = R.drawable.ic_close_custom),
-                      contentDescription = "Close",
+                      contentDescription = stringResource(R.string.home_cd_close_selection),
                       tint = MaterialTheme.colorScheme.onBackground,
                       modifier = Modifier.size(24.dp))
                 }
@@ -507,7 +507,7 @@ fun HomeScreen(
                     }) {
                       Icon(
                           imageVector = Icons.Filled.PlayArrow,
-                          contentDescription = "Play selected",
+                          contentDescription = stringResource(R.string.home_cd_play_selected),
                           tint = MaterialTheme.colorScheme.primary,
                           modifier = Modifier.size(24.dp))
                     }
@@ -516,7 +516,7 @@ fun HomeScreen(
                       onClick = { detailsVideo = selectedVideos.firstOrNull() }) {
                         Icon(
                             imageVector = Icons.Filled.Info,
-                            contentDescription = "Details",
+                            contentDescription = stringResource(R.string.home_cd_details),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp))
                       }
@@ -525,7 +525,7 @@ fun HomeScreen(
                   IconButton(onClick = { topOverflowOpen = true }) {
                     Icon(
                         imageVector = Icons.Filled.MoreVert,
-                        contentDescription = "More options",
+                        contentDescription = stringResource(R.string.home_cd_more_options),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp))
                   }

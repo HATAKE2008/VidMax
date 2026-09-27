@@ -16,6 +16,10 @@
     <string name="home_menu_share">শেয়ার</string>
     <string name="home_menu_select_all">সব নির্বাচন করুন</string>
     <string name="home_menu_deselect_all">সব বাতিল করুন</string>
+    <string name="home_cd_close_selection">নির্বাচন বন্ধ করুন</string>
+    <string name="home_cd_play_selected">নির্বাচিত চালান</string>
+    <string name="home_cd_details">বিস্তারিত</string>
+    <string name="home_cd_more_options">আরও বিকল্প</string>
     <string name="home_title_videos">ভিডিও</string>
     <string name="home_title_folders">ফোল্ডার</string>
     <string name="home_title_recent">সম্প্রতি চালানো</string>
