@@ -652,23 +652,16 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playerViewModel.currentEngine.value == PlayerEngine.EXO) {
-                    when (playbackState) {
-                        Player.STATE_BUFFERING -> playerViewModel.setBuffering(true)
-                        Player.STATE_READY -> playerViewModel.setBuffering(false)
-                        Player.STATE_ENDED -> {
-                            if (exoPlayer?.repeatMode != Player.REPEAT_MODE_ONE) {
-                                playerViewModel.setPlaying(false)
-                                if (currentPlayingPath.isNotEmpty()) {
-                                    prefs.edit().putLong("resume_pos_$currentPlayingPath", 0L).apply()
-                                }
-                                handler.post { handlePlaybackCompleted() }
-                            } else {
-                                playerViewModel.setBuffering(false)
-                            }
-                        }
-                        else -> playerViewModel.setBuffering(false)
+                if (playerViewModel.currentEngine.value == PlayerEngine.EXO &&
+                    playbackState == Player.STATE_ENDED &&
+                    // Seamless loop handled by ExoPlayer itself — a manual
+                    // reload here would flash black between restarts.
+                    exoPlayer?.repeatMode != Player.REPEAT_MODE_ONE) {
+                    playerViewModel.setPlaying(false)
+                    if (currentPlayingPath.isNotEmpty()) {
+                        prefs.edit().putLong("resume_pos_$currentPlayingPath", 0L).apply()
                     }
+                    handler.post { handlePlaybackCompleted() }
                 }
             }
 
@@ -682,7 +675,11 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
                     2007 -> getString(R.string.player_err_http_blocked)
                     else -> getString(R.string.player_err_unreadable)
                 }
-                playerViewModel.setErrorMessage(getString(R.string.player_playback_error, error.errorCode, reason))
+                Toast.makeText(
+                    this@PlayerActivity,
+                    getString(R.string.player_playback_error, error.errorCode, reason),
+                    Toast.LENGTH_LONG,
+                ).show()
             }
         })
     }

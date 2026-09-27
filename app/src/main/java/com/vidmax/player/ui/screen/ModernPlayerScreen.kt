@@ -253,14 +253,12 @@ fun ModernPlayerScreen(
                           }
                           .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = currentTimerMinutes == mins,
-                        onClick = { /* handled by row */ },
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = MaterialTheme.colorScheme.primary,
-                            unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    )
+                    Icon(
+                        Icons.Default.Check,
+                        null,
+                        tint =
+                            if (currentTimerMinutes == mins) MaterialTheme.colorScheme.primary
+                            else Color.Transparent)
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(if (mins == 0) stringResource(R.string.mpscr_timer_off) else stringResource(R.string.mpscr_timer_minutes, mins), fontSize = 16.sp)
                   }
@@ -387,62 +385,52 @@ fun ModernPlayerScreen(
                                   tint = Color.White,
                                   modifier = Modifier.size(24.dp))
                             }
-DropdownMenu(
+                        DropdownMenu(
                             expanded = showMoreMenu, onDismissRequest = { showMoreMenu = false }) {
-                          DropdownMenuItem(
-                              text = { Text(stringResource(R.string.mpscr_menu_properties)) },
-                              onClick = {
-                                showMoreMenu = false
-                                showPropertiesDialog = true
-                              })
-                          DropdownMenuItem(
-                              text = { Text(stringResource(R.string.mpscr_timer_title)) },
-                              onClick = {
-                                showMoreMenu = false
-                                showTimerDialog = true
-                              })
-                          DropdownMenuItem(
-                              text = { Text(stringResource(R.string.mpscr_delete), color = MaterialTheme.colorScheme.error) },
-                              onClick = {
-                                showMoreMenu = false
-                                showDeleteConfirmDialog = true
-                              })
-                          Box(
-                              modifier =
-                                  Modifier.fillMaxWidth()
-                                      .padding(vertical = 4.dp)
-                                      .height(1.dp)
-                                      .background(
-                                          MaterialTheme.colorScheme.onSurface.copy(
-                                              alpha = 0.12f)))
-                          DropdownMenuItem(
-                              text = { Text("Default Theme") },
-                              trailingIcon = {
-                                // Show check for active theme
-                              },
-                              onClick = {
-                                showMoreMenu = false
-                                onThemeChange(PlayerTheme.DEFAULT)
-                              })
-                          DropdownMenuItem(
-                              text = { Text("Modern Circle") },
-                              trailingIcon = {
-                                // Show check for active theme
-                              },
-                              onClick = {
-                                showMoreMenu = false
-                                onThemeChange(PlayerTheme.MODERN)
-                              })
-                          DropdownMenuItem(
-                              text = { Text("Wavy Pastel") },
-                              trailingIcon = {
-                                // Show check for active theme
-                              },
-                              onClick = {
-                                showMoreMenu = false
-                                onThemeChange(PlayerTheme.WAVY)
-                              })
-                      }
+                              DropdownMenuItem(
+                                  text = { Text(stringResource(R.string.mpscr_menu_properties)) },
+                                  onClick = {
+                                    showMoreMenu = false
+                                    showPropertiesDialog = true
+                                  })
+                              DropdownMenuItem(
+                                  text = { Text(stringResource(R.string.mpscr_timer_title)) },
+                                  onClick = {
+                                    showMoreMenu = false
+                                    showTimerDialog = true
+                                  })
+                              DropdownMenuItem(
+                                  text = {
+                                    Text(stringResource(R.string.mpscr_delete), color = MaterialTheme.colorScheme.error)
+                                  },
+                                  onClick = {
+                                    showMoreMenu = false
+                                    showDeleteConfirmDialog = true
+                                  })
+                              Box(
+                                  modifier =
+                                      Modifier.fillMaxWidth()
+                                          .padding(vertical = 4.dp)
+                                          .height(1.dp)
+                                          .background(
+                                              MaterialTheme.colorScheme.onSurface.copy(
+                                                  alpha = 0.12f)))
+                              DropdownMenuItem(
+                                  text = { Text("Default Theme") },
+                                  onClick = {
+                                    showMoreMenu = false
+                                    onThemeChange(PlayerTheme.DEFAULT)
+                                  })
+                              DropdownMenuItem(
+                                  text = { Text("Modern Circle (Active)") },
+                                  onClick = { showMoreMenu = false })
+                              DropdownMenuItem(
+                                  text = { Text("Wavy Pastel") },
+                                  onClick = {
+                                    showMoreMenu = false
+                                    onThemeChange(PlayerTheme.WAVY)
+                                  })
+                            }
                       }
                     }
                   }

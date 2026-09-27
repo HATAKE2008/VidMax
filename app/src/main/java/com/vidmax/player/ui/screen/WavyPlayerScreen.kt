@@ -262,14 +262,12 @@ fun WavyPlayerScreen(
                           }
                           .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = currentTimerMinutes == mins,
-                        onClick = { /* handled by row */ },
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = MaterialTheme.colorScheme.primary,
-                            unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    )
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint =
+                            if (currentTimerMinutes == mins) MaterialTheme.colorScheme.primary
+                            else Color.Transparent)
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(text, fontSize = 16.sp)
                   }
@@ -451,24 +449,21 @@ fun WavyPlayerScreen(
                                           .background(
                                               MaterialTheme.colorScheme.onSurface.copy(
                                                   alpha = 0.12f)))
-DropdownMenuItem(
-                                   text = { Text("Default Theme") },
-                                   onClick = {
-                                     showMoreMenu = false
-                                     onThemeChange(PlayerTheme.DEFAULT)
-                                   })
-                               DropdownMenuItem(
-                                   text = { Text("Modern Circle") },
-                                   onClick = {
-                                     showMoreMenu = false
-                                     onThemeChange(PlayerTheme.MODERN)
-                                   })
-                               DropdownMenuItem(
-                                   text = { Text("Wavy Pastel") },
-                                   onClick = {
-                                     showMoreMenu = false
-                                     onThemeChange(PlayerTheme.WAVY)
-                                   })
+                              DropdownMenuItem(
+                                  text = { Text("Default Theme") },
+                                  onClick = {
+                                    showMoreMenu = false
+                                    onThemeChange(PlayerTheme.DEFAULT)
+                                  })
+                              DropdownMenuItem(
+                                  text = { Text("Modern Circle") },
+                                  onClick = {
+                                    showMoreMenu = false
+                                    onThemeChange(PlayerTheme.MODERN)
+                                  })
+                              DropdownMenuItem(
+                                  text = { Text("Wavy Pastel (Active)") },
+                                  onClick = { showMoreMenu = false })
                             }
                       }
                     }

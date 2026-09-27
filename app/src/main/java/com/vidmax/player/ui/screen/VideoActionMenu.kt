@@ -37,9 +37,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -485,29 +483,30 @@ fun VideoActionSheet(
                       Icons.Filled.Info, detailsLabel, onDetails),
                   Triple<ImageVector, String, () -> Unit>(
                       Icons.Filled.Delete, deleteLabel, onDelete))
-actions.forEach { (icon, label, action) ->
+          actions.forEach { (icon, label, action) ->
             val isDestructive = icon == Icons.Filled.Delete
-            ListItem(
-                onClick = action,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                headlineContent = {
-                    Text(
-                        text = label,
-                        color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        fontSize = 15.sp
-                    )
-                },
-                leadingContent = {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
-                    )
+            Row(
+                modifier =
+                    Modifier.fillMaxWidth()
+                        .clickable { action() }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                  Icon(
+                      imageVector = icon,
+                      contentDescription = null,
+                      tint =
+                          if (isDestructive) MaterialTheme.colorScheme.error
+                          else MaterialTheme.colorScheme.onSurface,
+                      modifier = Modifier.size(22.dp))
+                  Spacer(modifier = Modifier.width(16.dp))
+                  Text(
+                      text = label,
+                      color =
+                          if (isDestructive) MaterialTheme.colorScheme.error
+                          else MaterialTheme.colorScheme.onSurface,
+                      fontSize = 15.sp)
                 }
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        }
+          }
           Spacer(modifier = Modifier.height(8.dp))
         }
   }

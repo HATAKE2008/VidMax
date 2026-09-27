@@ -14,7 +14,6 @@ import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -182,70 +181,55 @@ fun VideoDetailsDialog(
   val w = if (m != null && m.width > 0) m.width else video.width
   val h = if (m != null && m.height > 0) m.height else video.height
   val ext = file.extension.ifEmpty { video.path.substringAfterLast('.', "") }
-val unknownLabel = stringResource(R.string.mdet_unknown)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        icon = {
-            DialogHeaderBadge(
-                icon = Icons.Rounded.Info,
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
-                contentColor = MaterialTheme.colorScheme.primary
-            )
-        },
-        title = { Text(stringResource(R.string.mdet_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            VideoDetailRow(stringResource(R.string.mdet_label_filename), video.title)
-            VideoDetailRow(stringResource(R.string.mdet_label_location), video.path)
-            if (video.size > 0) VideoDetailRow(stringResource(R.string.mdet_label_size), formatDetailSize(video.size))
-            if (modified.isNotEmpty()) VideoDetailRow(stringResource(R.string.mdet_label_modified), modified)
-            if (video.duration > 0) VideoDetailRow(stringResource(R.string.mdet_label_duration), formatDetailDuration(video.duration))
-            if (w > 0 && h > 0) {
-                VideoDetailRow(stringResource(R.string.mdet_label_resolution), stringResource(R.string.mdet_resolution_value, w, h, detailResolutionLabel(w, h)))
-                VideoDetailRow(
-                    stringResource(R.string.mdet_label_aspect_ratio),
-                    String.format(Locale.US, "%.2f:1", w.toFloat() / h.toFloat()))
-            }
-            if (m != null && m.frameRate > 0) {
-                VideoDetailRow(stringResource(R.string.mdet_label_frame_rate), String.format(Locale.US, "%.2f fps", m.frameRate))
-            }
-            if (m?.videoMime != null) VideoDetailRow(stringResource(R.string.mdet_label_video_codec), shortCodecName(m.videoMime, unknownLabel))
-            if (m != null && m.videoBitrate > 0) VideoDetailRow(stringResource(R.string.mdet_label_video_bitrate), formatBitrate(m.videoBitrate, unknownLabel))
-            if (m?.audioMime != null) VideoDetailRow(stringResource(R.string.mdet_label_audio_codec), shortCodecName(m.audioMime, unknownLabel))
-            if (m != null && m.sampleRate > 0) VideoDetailRow(stringResource(R.string.mdet_label_sample_rate), stringResource(R.string.mdet_sample_rate, m.sampleRate))
-            if (m != null && m.channels > 0) VideoDetailRow(stringResource(R.string.mdet_label_channels), m.channels.toString())
-            if (ext.isNotEmpty()) VideoDetailRow(stringResource(R.string.mdet_label_container), ext.uppercase(Locale.US))
-            if (m?.videoMime != null) VideoDetailRow(stringResource(R.string.mdet_label_mime), m.videoMime ?: unknownLabel)
+  val unknownLabel = stringResource(R.string.mdet_unknown)
+  AlertDialog(
+      onDismissRequest = onDismiss,
+      title = { Text(stringResource(R.string.mdet_title), fontWeight = FontWeight.Bold) },
+      text = {
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          VideoDetailRow(stringResource(R.string.mdet_label_filename), video.title)
+          VideoDetailRow(stringResource(R.string.mdet_label_location), video.path)
+          if (video.size > 0) VideoDetailRow(stringResource(R.string.mdet_label_size), formatDetailSize(video.size))
+          if (modified.isNotEmpty()) VideoDetailRow(stringResource(R.string.mdet_label_modified), modified)
+          if (video.duration > 0) VideoDetailRow(stringResource(R.string.mdet_label_duration), formatDetailDuration(video.duration))
+          if (w > 0 && h > 0) {
+            VideoDetailRow(stringResource(R.string.mdet_label_resolution), stringResource(R.string.mdet_resolution_value, w, h, detailResolutionLabel(w, h)))
+            VideoDetailRow(
+                stringResource(R.string.mdet_label_aspect_ratio),
+                String.format(Locale.US, "%.2f:1", w.toFloat() / h.toFloat()))
           }
-        },
-        confirmButton = { DialogCancelButton(label = stringResource(R.string.mdet_close), onClick = onDismiss) })
+          if (m != null && m.frameRate > 0) {
+            VideoDetailRow(stringResource(R.string.mdet_label_frame_rate), String.format(Locale.US, "%.2f fps", m.frameRate))
+          }
+          if (m?.videoMime != null) VideoDetailRow(stringResource(R.string.mdet_label_video_codec), shortCodecName(m.videoMime, unknownLabel))
+          if (m != null && m.videoBitrate > 0) VideoDetailRow(stringResource(R.string.mdet_label_video_bitrate), formatBitrate(m.videoBitrate, unknownLabel))
+          if (m?.audioMime != null) VideoDetailRow(stringResource(R.string.mdet_label_audio_codec), shortCodecName(m.audioMime, unknownLabel))
+          if (m != null && m.sampleRate > 0) VideoDetailRow(stringResource(R.string.mdet_label_sample_rate), stringResource(R.string.mdet_sample_rate, m.sampleRate))
+          if (m != null && m.channels > 0) VideoDetailRow(stringResource(R.string.mdet_label_channels), m.channels.toString())
+          if (ext.isNotEmpty()) VideoDetailRow(stringResource(R.string.mdet_label_container), ext.uppercase(Locale.US))
+          if (m?.videoMime != null) VideoDetailRow(stringResource(R.string.mdet_label_mime), m.videoMime ?: unknownLabel)
+        }
+      },
+      confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.mdet_close)) } })
 }
 
 @Composable
 private fun VideoDetailRow(label: String, value: String) {
-    ListItem(
-        headlineContent = {
-            Text(
-                text = value,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 14.sp,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        supportingContent = {
-            Text(
-                text = label,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-    )
+  Column {
+    Text(
+        text = label,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold)
+    Text(
+        text = value,
+        color = MaterialTheme.colorScheme.onSurface,
+        fontSize = 14.sp,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis)
+  }
 }
 
 @Composable

@@ -69,12 +69,12 @@ fun VidMaxSearchBar(
               innerTextField()
             })
         if (query.isNotEmpty()) {
-          IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(48.dp)) {
+          IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(20.dp)) {
             Icon(
                 imageVector = Icons.Filled.Close,
                 contentDescription = "Clear",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp))
+                modifier = Modifier.size(16.dp))
           }
         }
       }

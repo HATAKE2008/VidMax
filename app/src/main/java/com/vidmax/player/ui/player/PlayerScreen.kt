@@ -343,14 +343,12 @@ fun PlayerScreen(
         PanelMode.NONE -> {}
       }
     } else {
-      val isBuffering by viewModel.isBuffering.collectAsState()
       PlayerControls(
         viewModel = viewModel,
         currentPath = currentPath,
         minimalist = minimalistPlayer,
         audioBoostEnabled = audioBoostEnabled,
         currentPlaybackSpeed = currentPlaybackSpeed,
-        isBuffering = isBuffering,
         onSpeedChange = { speed ->
           currentPlaybackSpeed = speed
           prefs.edit().putFloat("player_speed", speed).apply()

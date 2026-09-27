@@ -130,8 +130,7 @@ fun PlayerControls(
     onNext: () -> Unit,
     onSeekForward: () -> Unit,
     onSeekBackward: () -> Unit,
-    onBack: () -> Unit,
-    isBuffering: Boolean = false
+    onBack: () -> Unit
 ) {
 
     val context = LocalContext.current

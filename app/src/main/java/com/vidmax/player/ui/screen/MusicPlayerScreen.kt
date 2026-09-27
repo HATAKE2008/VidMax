@@ -502,14 +502,12 @@ fun DefaultPlayerUI(
                           }
                           .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = currentTimerMinutes == mins,
-                        onClick = { /* handled by row */ },
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = MaterialTheme.colorScheme.primary,
-                            unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    )
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint =
+                            if (currentTimerMinutes == mins) MaterialTheme.colorScheme.primary
+                            else Color.Transparent)
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(text, fontSize = 16.sp)
                   }
