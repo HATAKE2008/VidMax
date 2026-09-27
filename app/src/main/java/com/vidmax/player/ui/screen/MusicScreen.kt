@@ -928,19 +928,21 @@ fun MusicScreen(
       }
 
       // FLOATING ACTION BUTTON
-      AnimatedVisibility(
-          visible = currentTab == "Playlists" && activePlaylist == null,
-          enter = scaleIn() + fadeIn(),
-          exit = scaleOut() + fadeOut(),
+      Box(
           modifier = Modifier
               .align(Alignment.BottomEnd)
               .padding(end = 16.dp, bottom = 120.dp)) {
-        FloatingActionButton(
-            onClick = { showCreatePlaylistDialog = true },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = RoundedCornerShape(16.dp)) {
-          Icon(Icons.Default.Add, contentDescription = "New Playlist", modifier = Modifier.size(28.dp))
+        AnimatedVisibility(
+            visible = currentTab == "Playlists" && activePlaylist == null,
+            enter = scaleIn() + fadeIn(),
+            exit = scaleOut() + fadeOut()) {
+          FloatingActionButton(
+              onClick = { showCreatePlaylistDialog = true },
+              containerColor = MaterialTheme.colorScheme.primary,
+              contentColor = MaterialTheme.colorScheme.onPrimary,
+              shape = RoundedCornerShape(16.dp)) {
+            Icon(Icons.Default.Add, contentDescription = "New Playlist", modifier = Modifier.size(28.dp))
+          }
         }
       }
     }
@@ -1145,8 +1147,12 @@ fun AudioCard(
     }
   }
 
-  val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent
-  val borderColor = if (isSelected || isPlayingNow) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else Color.Transparent
+  val backgroundColor by animateColorAsState(
+      targetValue = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
+      label = "audioCardBg")
+  val borderColor by animateColorAsState(
+      targetValue = if (isSelected || isPlayingNow) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else Color.Transparent,
+      label = "audioCardBorder")
 
   Row(
       modifier = Modifier

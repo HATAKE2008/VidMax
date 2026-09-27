@@ -742,6 +742,8 @@ fun DefaultPlayerUI(
                       .background(MaterialTheme.colorScheme.surfaceVariant),
               contentAlignment = Alignment.Center) {
                 
+                // Crossfade main art on track change (bg already crossfades).
+                Crossfade(targetState = currentPath, label = "albumArt") {
                 // 🔥 GLIDE: Main Album Art
                 if (isOnlineMode && onlineThumbnailUrl != null) {
                     ArtworkImage(
@@ -775,6 +777,7 @@ fun DefaultPlayerUI(
                             modifier = Modifier.size(100.dp)
                         )
                     }
+                }
                 }
               }
 
