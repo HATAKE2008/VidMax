@@ -439,36 +439,20 @@ fun OnlineMusicScreen(
                 .align(Alignment.BottomEnd)
                 .padding(bottom = 165.dp, end = 20.dp)
         ) {
-            var fabPressed by remember { mutableStateOf(false) }
-            val fabScale by animateFloatAsState(
-                targetValue = if (fabPressed) 0.85f else 1f,
-                animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
-                label = "fabScale"
-            )
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .scale(fabScale)
-                    .shadow(12.dp, CircleShape, spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        fabPressed = true
-                        val pool = homeState.categories.flatMap { it.songs } + homeState.recentlyPlayed
-                        val distinct = pool.distinctBy { it.videoId }
-                        if (distinct.isNotEmpty()) {
-                            handleSongClick(distinct.random())
-                        }
-                    },
-                contentAlignment = Alignment.Center
+            FloatingActionButton(
+                onClick = {
+                    val pool = homeState.categories.flatMap { it.songs } + homeState.recentlyPlayed
+                    val distinct = pool.distinctBy { it.videoId }
+                    if (distinct.isNotEmpty()) {
+                        handleSongClick(distinct.random())
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(
                     painter = androidx.compose.ui.res.painterResource(R.drawable.ic_shuffle),
                     contentDescription = "Shuffle",
-                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(26.dp)
                 )
             }
