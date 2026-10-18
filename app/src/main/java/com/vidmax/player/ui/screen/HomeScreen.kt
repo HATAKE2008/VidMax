@@ -825,6 +825,7 @@ fun HomeScreen(
                               HomeViewStyle.LIST -> {
                                 LazyColumn(
                                     state = videoListState,
+                                    modifier = Modifier.clip(RoundedCornerShape(24.dp)),
                                     verticalArrangement = Arrangement.spacedBy(10.dp),
                                     contentPadding = PaddingValues(bottom = 130.dp)) {
                                       itemsIndexed(
@@ -833,7 +834,9 @@ fun HomeScreen(
                                           video ->
                                         val isSelected = selection.isSelected(video.path)
                                         androidx.compose.foundation.layout.Box(
-                                            modifier = Modifier.animateItem()) {
+                                            modifier =
+                                                Modifier.animateItem()
+                                                    .clip(RoundedCornerShape(24.dp))) {
                                         PremiumVideoListCard(
                                             video = video,
                                             duration = viewModel.formatDuration(video.duration),
@@ -1356,11 +1359,13 @@ private fun ContinueWatchingPill(
     Box(
         modifier =
             Modifier.fillMaxWidth()
+                .heightIn(min = 104.dp)
                 .scale(pressScale)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(24.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .clickable(
-                    interactionSource = interaction, indication = null, onClick = onResume)) {
+                    interactionSource = interaction, indication = null, onClick = onResume),
+        contentAlignment = Alignment.Center) {
           // 1. Last-played thumbnail, blurred + darkened. Missing/failed frames
           //    simply fall through to the surfaceVariant background above.
           GlideImage(
@@ -1383,80 +1388,76 @@ private fun ContinueWatchingPill(
 
           // 3. Content
           Row(
-              modifier =
-                  Modifier.fillMaxWidth()
-                      .padding(start = 12.dp, end = 14.dp, top = 12.dp, bottom = 18.dp),
+              modifier = Modifier.fillMaxWidth().padding(16.dp),
               verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(68.dp), contentAlignment = Alignment.Center) {
                   CircularProgressIndicator(
                       progress = { progress },
                       modifier = Modifier.fillMaxSize(),
                       color = MaterialTheme.colorScheme.primary,
                       trackColor = Color.White.copy(alpha = 0.25f),
-                      strokeWidth = 3.dp,
+                      strokeWidth = 4.dp,
                       strokeCap = StrokeCap.Round)
                   Icon(
                       imageVector = Icons.Rounded.PlayArrow,
                       contentDescription = null,
                       tint = Color.White,
-                      modifier = Modifier.size(22.dp))
+                      modifier = Modifier.size(26.dp))
                 }
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                  Text(
-                      text = stringResource(R.string.home_continue_watching),
-                      color = Color.White.copy(alpha = 0.85f),
-                      fontSize = 11.sp,
-                      fontWeight = FontWeight.Medium)
-                  Text(
-                      text = "${formatClock(watchedMs)} / ${formatClock(safeDuration)}",
-                      color = Color.White.copy(alpha = 0.7f),
-                      fontSize = 12.sp,
-                      fontWeight = FontWeight.Medium,
-                      modifier = Modifier.padding(top = 2.dp))
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.home_continue_watching),
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "${formatClock(watchedMs)} / ${formatClock(safeDuration)}",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium)
+                  }
+                  Spacer(modifier = Modifier.height(4.dp))
                   Text(
                       text = cleanVideoTitle(video.title),
                       color = Color.White,
-                      fontSize = 14.sp,
+                      fontSize = 15.sp,
                       fontWeight = FontWeight.SemiBold,
                       maxLines = 1,
-                      overflow = TextOverflow.Ellipsis,
-                      modifier = Modifier.padding(top = 2.dp))
+                      overflow = TextOverflow.Ellipsis)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Button(
                     onClick = onResume,
                     shape = RoundedCornerShape(50),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    modifier = Modifier.height(44.dp),
+                    contentPadding = PaddingValues(horizontal = 18.dp),
                     colors =
                         ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
                       Text(
                           text = stringResource(R.string.home_resume),
-                          fontSize = 12.sp,
+                          fontSize = 13.sp,
                           fontWeight = FontWeight.Bold)
                       Spacer(modifier = Modifier.width(2.dp))
                       Icon(
                           imageVector = Icons.Rounded.ChevronRight,
                           contentDescription = null,
-                          modifier = Modifier.size(16.dp))
+                          modifier = Modifier.size(18.dp))
                     }
               }
 
-          // 5. Thin linear progress bar on the bottom edge.
-          Box(
-              modifier =
-                  Modifier.align(Alignment.BottomStart)
-                      .fillMaxWidth()
-                      .height(3.dp)
-                      .background(Color.White.copy(alpha = 0.18f))) {
-                Box(
-                    modifier =
-                        Modifier.fillMaxWidth(progress)
-                            .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.primary))
-              }
+          // 5. Full-width progress bar pinned to the bottom edge. The parent Box
+          //    is clipped to the card shape, so the bar's bottom corners follow it.
+          LinearProgressIndicator(
+              progress = { progress },
+              modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(4.dp),
+              color = MaterialTheme.colorScheme.primary,
+              trackColor = MaterialTheme.colorScheme.surfaceVariant,
+              strokeCap = StrokeCap.Square)
         }
   }
 }
