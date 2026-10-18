@@ -53,7 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -182,7 +182,7 @@ fun OnboardingSetupScreen(
 
                 // ── Language ──────────────────────────────────────────
                 SetupCard(
-                    icon = imageVectorResource(R.drawable.ic_tabler_language),
+                    icon = vectorResource(R.drawable.ic_tabler_language),
                     title = stringResource(R.string.language_title),
                     subtitle = AppLocale.displayNameFor(appLocale),
                     actionLabel = stringResource(R.string.action_change),
@@ -193,7 +193,7 @@ fun OnboardingSetupScreen(
                 // ── Storage Access (real state, inline action) ────────
                 if (storageReady) {
                     SetupCard(
-                        icon = imageVectorResource(R.drawable.ic_tabler_circle_check),
+                        icon = vectorResource(R.drawable.ic_tabler_circle_check),
                         title = stringResource(R.string.storage_granted_title),
                         subtitle = stringResource(R.string.storage_granted_desc),
                         iconTint = MaterialTheme.colorScheme.primary,
@@ -221,7 +221,7 @@ fun OnboardingSetupScreen(
                             .padding(16.dp)
                     ) {
                         SetupCardHeader(
-                            icon = imageVectorResource(R.drawable.ic_tabler_folder_open),
+                            icon = vectorResource(R.drawable.ic_tabler_folder_open),
                             title = stringResource(R.string.storage_title),
                             subtitle = subtitle
                         )
@@ -245,7 +245,7 @@ fun OnboardingSetupScreen(
 
                 // ── Font (only real, resolvable fonts) ────────────────
                 SetupCard(
-                    icon = imageVectorResource(R.drawable.ic_tabler_typography),
+                    icon = vectorResource(R.drawable.ic_tabler_typography),
                     title = stringResource(R.string.font_title),
                     subtitle = fontDisplayName(currentFontId),
                     actionLabel = stringResource(R.string.action_change),
@@ -255,7 +255,7 @@ fun OnboardingSetupScreen(
 
                 // ── Theme (existing VidMax themes) ────────────────────
                 SetupCard(
-                    icon = imageVectorResource(R.drawable.ic_tabler_palette),
+                    icon = vectorResource(R.drawable.ic_tabler_palette),
                     title = stringResource(R.string.theme_title),
                     subtitle = themeSubtitle,
                     actionLabel = stringResource(R.string.action_change),
@@ -274,7 +274,7 @@ fun OnboardingSetupScreen(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(
-                        imageVector = imageVectorResource(R.drawable.ic_tabler_check),
+                        imageVector = vectorResource(R.drawable.ic_tabler_check),
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
@@ -465,7 +465,7 @@ fun OnboardingSetupScreen(
                             )
                             if (currentTheme == theme) {
                                 Icon(
-                                    imageVector = imageVectorResource(R.drawable.ic_tabler_check),
+                                    imageVector = vectorResource(R.drawable.ic_tabler_check),
                                     contentDescription = "Selected",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp)

@@ -66,7 +66,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -245,7 +245,7 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
           DialogHeaderBadge(
-              icon = imageVectorResource(R.drawable.ic_tabler_trash),
+              icon = vectorResource(R.drawable.ic_tabler_trash),
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
@@ -526,7 +526,7 @@ fun HomeScreen(
                   IconButton(
                       onClick = { detailsVideo = selectedVideos.firstOrNull() }) {
                         Icon(
-                            imageVector = imageVectorResource(R.drawable.ic_tabler_info_circle),
+                            imageVector = vectorResource(R.drawable.ic_tabler_info_circle),
                             contentDescription = stringResource(R.string.home_cd_details),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp))
@@ -535,7 +535,7 @@ fun HomeScreen(
                 Box {
                   IconButton(onClick = { topOverflowOpen = true }) {
                     Icon(
-                        imageVector = imageVectorResource(R.drawable.ic_tabler_dots_vertical),
+                        imageVector = vectorResource(R.drawable.ic_tabler_dots_vertical),
                         contentDescription = stringResource(R.string.home_cd_more_options),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp))
@@ -632,7 +632,7 @@ fun HomeScreen(
 
                 IconButton(onClick = { showSortViewSheet = true }, modifier = Modifier.size(48.dp)) {
                   Icon(
-                      imageVector = imageVectorResource(R.drawable.ic_tabler_adjustments),
+                      imageVector = vectorResource(R.drawable.ic_tabler_adjustments),
                       contentDescription = "Sort & View Options",
                       tint = MaterialTheme.colorScheme.primary,
                       modifier = Modifier.size(24.dp))
@@ -650,7 +650,7 @@ fun HomeScreen(
 
                 IconButton(onClick = onSettingsClick, modifier = Modifier.size(48.dp)) {
                   Icon(
-                      imageVector = imageVectorResource(R.drawable.ic_tabler_settings),
+                      imageVector = vectorResource(R.drawable.ic_tabler_settings),
                       contentDescription = "Settings",
                       tint = MaterialTheme.colorScheme.onBackground,
                       modifier = Modifier.size(24.dp))
@@ -737,7 +737,7 @@ fun HomeScreen(
                             prefs.edit().putString("home_content_mode", HomeContentMode.FAVORITES.name).apply()
                           }
                         }) { tint, scale ->
-                      Icon(imageVectorResource(R.drawable.ic_tabler_history), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+                      Icon(vectorResource(R.drawable.ic_tabler_history), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
                     }
                     HomeContentSegment(
                         label = stringResource(R.string.home_segment_playlists),
@@ -786,7 +786,7 @@ fun HomeScreen(
           videos.isEmpty() && !(currentContentMode == HomeContentMode.FOLDER && folders.isNotEmpty()) -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
               EmptyState(
-                  icon = imageVectorResource(R.drawable.ic_tabler_folder),
+                  icon = vectorResource(R.drawable.ic_tabler_folder),
                   title =
                       if (libraryError != null) libraryError!!
                       else if (searchQuery.isNotEmpty()) stringResource(R.string.home_no_videos_match, searchQuery)
@@ -946,7 +946,7 @@ fun HomeScreen(
                               verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(onClick = { selection = selection.clear(); viewModel.closeFolder() }) {
                                   Icon(
-                                      imageVector = imageVectorResource(R.drawable.ic_tabler_arrow_left),
+                                      imageVector = vectorResource(R.drawable.ic_tabler_arrow_left),
                                       contentDescription = "Back",
                                       tint = MaterialTheme.colorScheme.primary)
                                 }
@@ -1452,7 +1452,7 @@ private fun ContinueWatchingPill(
                           fontWeight = FontWeight.Bold)
                       Spacer(modifier = Modifier.width(2.dp))
                       Icon(
-                          imageVector = imageVectorResource(R.drawable.ic_tabler_chevron_right),
+                          imageVector = vectorResource(R.drawable.ic_tabler_chevron_right),
                           contentDescription = null,
                           modifier = Modifier.size(16.dp))
                     }
@@ -1584,7 +1584,7 @@ fun PremiumVideoListCard(
 
         if (isSelected) {
           Icon(
-              imageVector = imageVectorResource(R.drawable.ic_tabler_check),
+              imageVector = vectorResource(R.drawable.ic_tabler_check),
               contentDescription = "Selected",
               tint = MaterialTheme.colorScheme.primary,
               modifier = Modifier.padding(end = 4.dp).size(20.dp))
@@ -1646,7 +1646,7 @@ fun CustomVideoGridCard(
                       Modifier.fillMaxSize()
                           .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)))
               Icon(
-                  imageVector = imageVectorResource(R.drawable.ic_tabler_check),
+                  imageVector = vectorResource(R.drawable.ic_tabler_check),
                   contentDescription = "Selected",
                   tint = MaterialTheme.colorScheme.onPrimary,
                   modifier =
@@ -1716,7 +1716,7 @@ fun CustomVideoLargeCard(
                       Modifier.fillMaxSize()
                           .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)))
               Icon(
-                  imageVector = imageVectorResource(R.drawable.ic_tabler_check),
+                  imageVector = vectorResource(R.drawable.ic_tabler_check),
                   contentDescription = "Selected",
                   tint = MaterialTheme.colorScheme.onPrimary,
                   modifier =
@@ -1854,7 +1854,7 @@ fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
                           MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
               contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = imageVectorResource(R.drawable.ic_tabler_folder),
+                    imageVector = vectorResource(R.drawable.ic_tabler_folder),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp))
@@ -1890,7 +1890,7 @@ fun HomeFolderListCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
           Spacer(modifier = Modifier.width(8.dp))
 
           Icon(
-              imageVector = imageVectorResource(R.drawable.ic_tabler_chevron_right),
+              imageVector = vectorResource(R.drawable.ic_tabler_chevron_right),
               contentDescription = "Open folder",
               tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
               modifier = Modifier.size(22.dp))
@@ -1953,7 +1953,7 @@ fun HomeFolderGridCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
                                   MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                       contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = imageVectorResource(R.drawable.ic_tabler_folder),
+                            imageVector = vectorResource(R.drawable.ic_tabler_folder),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(28.dp))
@@ -1968,7 +1968,7 @@ fun HomeFolderGridCard(folder: FolderItem, onClick: () -> Unit, modifier: Modifi
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                       Icon(
-                          imageVector = imageVectorResource(R.drawable.ic_tabler_folder),
+                          imageVector = vectorResource(R.drawable.ic_tabler_folder),
                           contentDescription = null,
                           tint = Color.White,
                           modifier = Modifier.size(14.dp))
@@ -2051,7 +2051,7 @@ fun HomeFolderLargeCard(folder: FolderItem, onClick: () -> Unit, modifier: Modif
                                   MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                       contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = imageVectorResource(R.drawable.ic_tabler_folders),
+                            imageVector = vectorResource(R.drawable.ic_tabler_folders),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(34.dp))

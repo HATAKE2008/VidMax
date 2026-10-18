@@ -115,7 +115,7 @@ fun SelectionBottomBar(
             shape = buttonShape,
             colors = tonalColors) {
           Icon(
-              androidx.compose.ui.res.imageVectorResource(R.drawable.ic_tabler_copy),
+              androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_copy),
               contentDescription = "Copy",
               modifier = Modifier.size(20.dp))
         }
@@ -129,7 +129,7 @@ fun SelectionBottomBar(
             shape = buttonShape,
             colors = tonalColors) {
           Icon(
-              androidx.compose.ui.res.imageVectorResource(R.drawable.ic_tabler_folder_symlink),
+              androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_folder_symlink),
               contentDescription = "Move",
               modifier = Modifier.size(20.dp))
         }
@@ -144,7 +144,7 @@ fun SelectionBottomBar(
               shape = buttonShape,
               colors = tonalColors) {
             Icon(
-                androidx.compose.ui.res.imageVectorResource(R.drawable.ic_tabler_pencil),
+                androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_pencil),
                 contentDescription = "Rename",
                 modifier = Modifier.size(20.dp))
           }
@@ -159,7 +159,7 @@ fun SelectionBottomBar(
             shape = buttonShape,
             colors = tonalColors) {
           Icon(
-              androidx.compose.ui.res.imageVectorResource(R.drawable.ic_tabler_playlist_add),
+              androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_playlist_add),
               contentDescription = "Add to Playlist",
               modifier = Modifier.size(20.dp))
         }
@@ -175,7 +175,7 @@ fun SelectionBottomBar(
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer)) {
           Icon(
-              androidx.compose.ui.res.imageVectorResource(R.drawable.ic_tabler_trash),
+              androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_trash),
               contentDescription = "Delete",
               modifier = Modifier.size(20.dp))
         }

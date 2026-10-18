@@ -89,7 +89,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -264,7 +264,7 @@ fun WavyPlayerScreen(
                           .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = imageVectorResource(R.drawable.ic_tabler_check),
+                        imageVector = vectorResource(R.drawable.ic_tabler_check),
                         contentDescription = null,
                         tint =
                             if (currentTimerMinutes == mins) MaterialTheme.colorScheme.primary
@@ -332,7 +332,7 @@ fun WavyPlayerScreen(
                   verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) {
                       Icon(
-                          imageVectorResource(R.drawable.ic_tabler_chevron_down),
+                          vectorResource(R.drawable.ic_tabler_chevron_down),
                           "Back",
                           tint = MaterialTheme.colorScheme.onSurface,
                           modifier = Modifier.size(32.dp))
@@ -382,7 +382,7 @@ fun WavyPlayerScreen(
                             }
                           }) {
                             Icon(
-                                imageVectorResource(R.drawable.ic_tabler_share),
+                                vectorResource(R.drawable.ic_tabler_share),
                                 contentDescription = "Share",
                                 tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(24.dp))
@@ -392,7 +392,7 @@ fun WavyPlayerScreen(
                       Box {
                         IconButton(onClick = { showMoreMenu = true }) {
                           Icon(
-                              imageVectorResource(R.drawable.ic_tabler_dots_vertical),
+                              vectorResource(R.drawable.ic_tabler_dots_vertical),
                               "Menu",
                               tint = MaterialTheme.colorScheme.onSurface,
                               modifier = Modifier.size(24.dp))
@@ -405,7 +405,7 @@ fun WavyPlayerScreen(
                                   },
                                   leadingIcon = {
                                     Icon(
-                                        imageVectorResource(R.drawable.ic_tabler_info_circle),
+                                        vectorResource(R.drawable.ic_tabler_info_circle),
                                         null,
                                         tint = MaterialTheme.colorScheme.primary)
                                   },
@@ -434,7 +434,7 @@ fun WavyPlayerScreen(
                                   },
                                   leadingIcon = {
                                     Icon(
-                                        imageVectorResource(R.drawable.ic_tabler_trash),
+                                        vectorResource(R.drawable.ic_tabler_trash),
                                         null,
                                         tint = MaterialTheme.colorScheme.error)
                                   },
@@ -748,7 +748,7 @@ fun WavyPlayerScreen(
                                 .clickable { showQueueSheet = true },
                         contentAlignment = Alignment.Center) {
                           Icon(
-                              imageVectorResource(R.drawable.ic_tabler_menu_2),
+                              vectorResource(R.drawable.ic_tabler_menu_2),
                               "Queue",
                               tint = MaterialTheme.colorScheme.onSurface,
                               modifier = Modifier.size(26.dp))
@@ -765,8 +765,8 @@ fun WavyPlayerScreen(
                           Crossfade(targetState = isFavorite, label = "fav") { fav ->
                             Icon(
                                 imageVector =
-                                    if (fav) imageVectorResource(R.drawable.ic_tabler_heart_filled)
-                                    else imageVectorResource(R.drawable.ic_tabler_heart),
+                                    if (fav) vectorResource(R.drawable.ic_tabler_heart_filled)
+                                    else vectorResource(R.drawable.ic_tabler_heart),
                                 contentDescription = "Favorite",
                                 tint = if (fav) Color.Red else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(26.dp))

@@ -84,7 +84,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -255,7 +255,7 @@ fun ModernPlayerScreen(
                           .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVectorResource(R.drawable.ic_tabler_check),
+                        vectorResource(R.drawable.ic_tabler_check),
                         null,
                         tint =
                             if (currentTimerMinutes == mins) MaterialTheme.colorScheme.primary
@@ -339,7 +339,7 @@ fun ModernPlayerScreen(
                                 .clickable { onBack() },
                         contentAlignment = Alignment.Center) {
                           Icon(
-                              imageVectorResource(R.drawable.ic_tabler_chevron_left),
+                              vectorResource(R.drawable.ic_tabler_chevron_left),
                               "Back",
                               tint = Color.White,
                               modifier = Modifier.size(32.dp))
@@ -362,7 +362,7 @@ fun ModernPlayerScreen(
                           contentAlignment = Alignment.Center) {
                             Crossfade(targetState = isFavorite, label = "fav") { fav ->
                               Icon(
-                                  if (fav) imageVectorResource(R.drawable.ic_tabler_heart_filled) else imageVectorResource(R.drawable.ic_tabler_heart),
+                                  if (fav) vectorResource(R.drawable.ic_tabler_heart_filled) else vectorResource(R.drawable.ic_tabler_heart),
                                   null,
                                   tint = if (fav) Color.Red else Color.White,
                                   modifier = Modifier.size(24.dp))
@@ -381,7 +381,7 @@ fun ModernPlayerScreen(
                                     .clickable { showMoreMenu = true },
                             contentAlignment = Alignment.Center) {
                               Icon(
-                                  imageVectorResource(R.drawable.ic_tabler_dots_vertical),
+                                  vectorResource(R.drawable.ic_tabler_dots_vertical),
                                   "Menu",
                                   tint = Color.White,
                                   modifier = Modifier.size(24.dp))
@@ -670,7 +670,7 @@ fun ModernPlayerScreen(
                                   else Color.White.copy(alpha = 0.6f))
                         }
                     IconButton(onClick = { showQueueSheet = true }) {
-                      Icon(imageVectorResource(R.drawable.ic_tabler_menu_2), null, tint = Color.White.copy(alpha = 0.6f))
+                      Icon(vectorResource(R.drawable.ic_tabler_menu_2), null, tint = Color.White.copy(alpha = 0.6f))
                     }
                     IconButton(
                         onClick = {
@@ -685,7 +685,7 @@ fun ModernPlayerScreen(
                                     "Share Audio"))
                           }
                         }) {
-                          Icon(imageVectorResource(R.drawable.ic_tabler_share), null, tint = Color.White.copy(alpha = 0.6f))
+                          Icon(vectorResource(R.drawable.ic_tabler_share), null, tint = Color.White.copy(alpha = 0.6f))
                         }
                   }
               Spacer(modifier = Modifier.height(16.dp))

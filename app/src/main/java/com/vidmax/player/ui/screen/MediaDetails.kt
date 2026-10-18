@@ -26,7 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -247,7 +247,7 @@ fun RenameVideoDialog(
       onDismissRequest = { if (!busy) onDismiss() },
       shape = RoundedCornerShape(28.dp),
       containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-      icon = { DialogHeaderBadge(icon = imageVectorResource(R.drawable.ic_tabler_pencil)) },
+      icon = { DialogHeaderBadge(icon = vectorResource(R.drawable.ic_tabler_pencil)) },
       title = { Text(stringResource(R.string.mdet_rename_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -267,7 +267,7 @@ fun RenameVideoDialog(
                 if (text.isNotEmpty() && !busy) {
                   IconButton(onClick = { text = "" }) {
                     Icon(
-                        imageVector = imageVectorResource(R.drawable.ic_tabler_x),
+                        imageVector = vectorResource(R.drawable.ic_tabler_x),
                         contentDescription = "Clear name",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                   }

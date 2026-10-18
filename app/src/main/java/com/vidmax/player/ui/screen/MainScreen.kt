@@ -28,7 +28,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -417,7 +417,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = if (isFavorite) imageVectorResource(R.drawable.ic_tabler_heart_filled) else imageVectorResource(R.drawable.ic_tabler_heart),
+                                    imageVector = if (isFavorite) vectorResource(R.drawable.ic_tabler_heart_filled) else vectorResource(R.drawable.ic_tabler_heart),
                                     contentDescription = "Favorite",
                                     tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(20.dp)

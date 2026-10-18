@@ -105,7 +105,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -504,7 +504,7 @@ fun DefaultPlayerUI(
                           .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = imageVectorResource(R.drawable.ic_tabler_check),
+                        imageVector = vectorResource(R.drawable.ic_tabler_check),
                         contentDescription = null,
                         tint =
                             if (currentTimerMinutes == mins) MaterialTheme.colorScheme.primary
@@ -591,7 +591,7 @@ fun DefaultPlayerUI(
               verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                   Icon(
-                      imageVectorResource(R.drawable.ic_tabler_chevron_down),
+                      vectorResource(R.drawable.ic_tabler_chevron_down),
                       "Back",
                       tint = MaterialTheme.colorScheme.onSurface,
                       modifier = Modifier.size(32.dp))
@@ -632,7 +632,7 @@ fun DefaultPlayerUI(
                 Box {
                   IconButton(onClick = { showMoreMenu = true }, modifier = Modifier.size(48.dp)) {
                     Icon(
-                        imageVectorResource(R.drawable.ic_tabler_dots_vertical),
+                        vectorResource(R.drawable.ic_tabler_dots_vertical),
                         "Menu",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(24.dp))
@@ -647,7 +647,7 @@ fun DefaultPlayerUI(
                             },
                             leadingIcon = {
                               Icon(
-                                  imageVectorResource(R.drawable.ic_tabler_info_circle),
+                                  vectorResource(R.drawable.ic_tabler_info_circle),
                                   null,
                                   tint = MaterialTheme.colorScheme.primary)
                             },
@@ -660,7 +660,7 @@ fun DefaultPlayerUI(
                             text = { Text(stringResource(R.string.mps_menu_delete), color = MaterialTheme.colorScheme.error) },
                             leadingIcon = {
                               Icon(
-                                  imageVectorResource(R.drawable.ic_tabler_trash),
+                                  vectorResource(R.drawable.ic_tabler_trash),
                                   null,
                                   tint = MaterialTheme.colorScheme.error)
                             },
@@ -831,7 +831,7 @@ fun DefaultPlayerUI(
                           },
                           modifier = Modifier.size(36.dp)) {
                             Icon(
-                                imageVectorResource(R.drawable.ic_tabler_share),
+                                vectorResource(R.drawable.ic_tabler_share),
                                 "Share",
                                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                 modifier = Modifier.size(20.dp))
@@ -844,8 +844,8 @@ fun DefaultPlayerUI(
                             Crossfade(targetState = isFavorite, label = "fav") { fav ->
                               Icon(
                                   imageVector =
-                                      if (fav) imageVectorResource(R.drawable.ic_tabler_heart_filled)
-                                      else imageVectorResource(R.drawable.ic_tabler_heart),
+                                      if (fav) vectorResource(R.drawable.ic_tabler_heart_filled)
+                                      else vectorResource(R.drawable.ic_tabler_heart),
                                   contentDescription = "Favorite",
                                   tint =
                                       if (fav) Color.Red
@@ -1129,7 +1129,7 @@ fun DefaultPlayerUI(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center) {
                       Icon(
-                          imageVector = imageVectorResource(R.drawable.ic_tabler_menu_2),
+                          imageVector = vectorResource(R.drawable.ic_tabler_menu_2),
                           contentDescription = "Queue",
                           tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                           modifier = Modifier.size(18.dp))
@@ -1461,7 +1461,7 @@ fun OnlineMusicPlayerContent(
             ) {
                 IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
                     Icon(
-                        imageVector = imageVectorResource(R.drawable.ic_tabler_chevron_down),
+                        imageVector = vectorResource(R.drawable.ic_tabler_chevron_down),
                         contentDescription = "Close",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(32.dp)

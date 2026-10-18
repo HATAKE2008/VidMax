@@ -59,7 +59,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -584,9 +584,9 @@ fun SubtitleAudioPanel(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            RailButton(imageVectorResource(R.drawable.ic_tabler_settings), selected = false) { onClose(); onOpenSettings() }
-                            RailButton(imageVectorResource(R.drawable.ic_tabler_subtitles), tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
-                            RailButton(imageVectorResource(R.drawable.ic_tabler_music), tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
+                            RailButton(vectorResource(R.drawable.ic_tabler_settings), selected = false) { onClose(); onOpenSettings() }
+                            RailButton(vectorResource(R.drawable.ic_tabler_subtitles), tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
+                            RailButton(vectorResource(R.drawable.ic_tabler_music), tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
                         }
 
                         // ==================== MAIN AREA ====================
@@ -640,9 +640,9 @@ fun SubtitleAudioPanel(
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        RailButton(imageVectorResource(R.drawable.ic_tabler_settings), selected = false) { onClose(); onOpenSettings() }
-                        RailButton(imageVectorResource(R.drawable.ic_tabler_subtitles), tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
-                        RailButton(imageVectorResource(R.drawable.ic_tabler_music), tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
+                        RailButton(vectorResource(R.drawable.ic_tabler_settings), selected = false) { onClose(); onOpenSettings() }
+                        RailButton(vectorResource(R.drawable.ic_tabler_subtitles), tab == SubtitleAudioTab.SUBTITLE) { tab = SubtitleAudioTab.SUBTITLE }
+                        RailButton(vectorResource(R.drawable.ic_tabler_music), tab == SubtitleAudioTab.AUDIO) { tab = SubtitleAudioTab.AUDIO }
                     }
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
@@ -788,7 +788,7 @@ private fun SubtitleTab(
 ) {
     PanelCard(stringResource(R.string.player_subtitle_files)) {
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_folder_open)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_folder_open)) },
             label = stringResource(R.string.player_open_subtitle),
             secondary = stringResource(R.string.player_open_subtitle_sub),
             onClick = onPickSubtitle
@@ -834,7 +834,7 @@ private fun SubtitleTab(
     } else if (!isMpv) {
         PanelCard(stringResource(R.string.player_subtitle_tracks)) {
             PanelRow(
-                leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_subtitles)) },
+                leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_subtitles)) },
                 label = stringResource(R.string.player_no_subs),
                 secondary = stringResource(R.string.player_no_subs_sub)
             )
@@ -843,7 +843,7 @@ private fun SubtitleTab(
 
     PanelCard(stringResource(R.string.player_appearance)) {
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_typography)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_typography)) },
             label = stringResource(R.string.player_text_size),
             trailing = {
                 PanelStepper(
@@ -855,13 +855,13 @@ private fun SubtitleTab(
         )
         CardDivider()
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_palette)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_palette)) },
             label = stringResource(R.string.player_text_color),
             trailing = { ColorCircle(Color(subColor), onTextColorClick) }
         )
         CardDivider()
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_typography)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_typography)) },
             label = stringResource(R.string.player_outline),
             trailing = {
                 PanelStepper(
@@ -873,19 +873,19 @@ private fun SubtitleTab(
         )
         CardDivider()
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_crop)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_crop)) },
             label = stringResource(R.string.player_background),
             trailing = { PanelSwitch(subBgEnabled, onBgEnabledChange) }
         )
         CardDivider()
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_color_picker)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_color_picker)) },
             label = stringResource(R.string.player_bg_color),
             trailing = { ColorCircle(Color(subBgColor), onBgColorClick) }
         )
         CardDivider()
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_align_box_bottom)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_align_box_bottom)) },
             label = stringResource(R.string.player_bottom_margin),
             trailing = {
                 PanelStepper(
@@ -900,7 +900,7 @@ private fun SubtitleTab(
     PanelCard(stringResource(R.string.player_synchronization)) {
         Box(if (isMpv) Modifier else Modifier.alpha(0.4f)) {
             PanelRow(
-                leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_clock)) },
+                leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_clock)) },
                 label = stringResource(R.string.player_panel_sub_delay),
                 secondary = if (isMpv) null else stringResource(R.string.player_mpv_only),
                 trailing = {
@@ -1006,7 +1006,7 @@ private fun AudioTab(
             )
         } else {
             PanelRow(
-                leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_music)) },
+                leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_music)) },
                 label = stringResource(R.string.player_no_audio),
                 secondary = stringResource(R.string.player_no_audio_sub)
             )
@@ -1015,21 +1015,21 @@ private fun AudioTab(
 
     PanelCard(stringResource(R.string.player_audio_options)) {
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_cpu)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_cpu)) },
             label = stringResource(R.string.player_sw_decoder),
             secondary = stringResource(R.string.player_sw_decoder_sub),
             trailing = { PanelSwitch(swAudioDecoder, onSwAudioDecoderChange) }
         )
         CardDivider()
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_chart_bar)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_chart_bar)) },
             label = stringResource(R.string.player_stereo_mode),
             trailing = { ValueChevron(stereoMode, accent = stereoMode != "Normal", onStereoClick) }
         )
         CardDivider()
         Box(if (isMpv) Modifier else Modifier.alpha(0.4f)) {
             PanelRow(
-                leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_refresh)) },
+                leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_refresh)) },
                 label = stringResource(R.string.player_avsync_title),
                 secondary = if (isMpv) null else stringResource(R.string.player_mpv_only),
                 trailing = {
@@ -1045,7 +1045,7 @@ private fun AudioTab(
         CardDivider()
         Box(if (isMpv) Modifier else Modifier.alpha(0.4f)) {
             PanelRow(
-                leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_clock)) },
+                leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_clock)) },
                 label = stringResource(R.string.player_panel_audio_delay),
                 secondary = if (isMpv) null else stringResource(R.string.player_mpv_only),
                 trailing = {
@@ -1060,20 +1060,20 @@ private fun AudioTab(
         }
         CardDivider()
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_volume)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_volume)) },
             label = stringResource(R.string.player_audio_output),
             trailing = { ValueChevron(audioOutput, accent = audioOutput != "Device default", onAudioOutputClick) }
         )
         CardDivider()
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_adjustments)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_adjustments)) },
             label = stringResource(R.string.player_normalize),
             secondary = stringResource(R.string.player_normalize_sub),
             trailing = { PanelSwitch(normalizeVolume, onNormalizeChange) }
         )
         CardDivider()
         PanelRow(
-            leading = { LeadingIcon(imageVectorResource(R.drawable.ic_tabler_music)) },
+            leading = { LeadingIcon(vectorResource(R.drawable.ic_tabler_music)) },
             label = stringResource(R.string.player_audio_renderer),
             trailing = {
                 ValueChevron(audioRenderer, accent = audioRenderer != "Auto (Best quality)", onAudioRendererClick)
@@ -1109,7 +1109,7 @@ private fun PanelTopBar(title: String, onClose: () -> Unit) {
         Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp, fontWeight = FontWeight.Bold,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f))
-        CircleIconButton(imageVectorResource(R.drawable.ic_tabler_x), "Close", onClose)
+        CircleIconButton(vectorResource(R.drawable.ic_tabler_x), "Close", onClose)
     }
 }
 
@@ -1179,11 +1179,11 @@ private fun PanelStepper(
 ) {
     Row(verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        StepButton(imageVectorResource(R.drawable.ic_tabler_minus), onDecrease, enabled)
+        StepButton(vectorResource(R.drawable.ic_tabler_minus), onDecrease, enabled)
         // FIX: Width increased to 56.dp to avoid text clipping
         Text(valueText, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, textAlign = TextAlign.Center,
             maxLines = 1, modifier = Modifier.width(56.dp))
-        StepButton(imageVectorResource(R.drawable.ic_tabler_plus), onIncrease, enabled)
+        StepButton(vectorResource(R.drawable.ic_tabler_plus), onIncrease, enabled)
     }
 }
 
@@ -1261,7 +1261,7 @@ private fun ValueChevron(
         Text(value, color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.widthIn(max = 110.dp))
-        Icon(imageVectorResource(R.drawable.ic_tabler_chevron_right), null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        Icon(vectorResource(R.drawable.ic_tabler_chevron_right), null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp))
     }
 }
@@ -1277,7 +1277,7 @@ private fun DefaultBadge() {
 
 @Composable
 private fun KebabIcon() {
-    Icon(imageVectorResource(R.drawable.ic_tabler_dots_vertical), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+    Icon(vectorResource(R.drawable.ic_tabler_dots_vertical), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
 }
 
 // ---------------------------------------------------------------------------

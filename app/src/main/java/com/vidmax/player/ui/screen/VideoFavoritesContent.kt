@@ -37,7 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,7 +85,7 @@ fun VideoFavoritesContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
           Icon(
-              imageVector = imageVectorResource(R.drawable.ic_tabler_heart_filled),
+              imageVector = vectorResource(R.drawable.ic_tabler_heart_filled),
               contentDescription = null,
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.size(64.dp))
@@ -128,7 +128,7 @@ fun VideoFavoritesContent(
                               .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                       contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = imageVectorResource(R.drawable.ic_tabler_heart_filled),
+                            imageVector = vectorResource(R.drawable.ic_tabler_heart_filled),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp))
@@ -150,7 +150,7 @@ fun VideoFavoritesContent(
                   }
                   IconButton(onClick = { viewModel.toggleVideoFavorite(video.path) }) {
                     Icon(
-                        imageVector = imageVectorResource(R.drawable.ic_tabler_heart),
+                        imageVector = vectorResource(R.drawable.ic_tabler_heart),
                         contentDescription = "Remove favorite",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp))

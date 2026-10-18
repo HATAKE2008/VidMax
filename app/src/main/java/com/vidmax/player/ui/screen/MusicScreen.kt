@@ -99,7 +99,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -445,7 +445,7 @@ fun MusicScreen(
                       .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVectorResource(R.drawable.ic_tabler_circle_plus),
+                    vectorResource(R.drawable.ic_tabler_circle_plus),
                     contentDescription = "New",
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(28.dp)
@@ -541,7 +541,7 @@ fun MusicScreen(
         Row {
           IconButton(onClick = { showAddToPlaylistDialog = true }) {
             Icon(
-                imageVectorResource(R.drawable.ic_tabler_plus),
+                vectorResource(R.drawable.ic_tabler_plus),
                 contentDescription = "Add to Playlist",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(26.dp)
@@ -606,15 +606,15 @@ fun MusicScreen(
         Row(verticalAlignment = Alignment.CenterVertically) {
           if (currentTab == "Playlists" && activePlaylist != null) {
             IconButton(onClick = { activePlaylist = null }) {
-              Icon(imageVectorResource(R.drawable.ic_tabler_arrow_left), contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+              Icon(vectorResource(R.drawable.ic_tabler_arrow_left), contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
             }
           } else if (currentTab == "Albums" && activeAlbumName != null) {
             IconButton(onClick = { activeAlbumName = null }) {
-              Icon(imageVectorResource(R.drawable.ic_tabler_arrow_left), contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+              Icon(vectorResource(R.drawable.ic_tabler_arrow_left), contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
             }
           } else if (currentTab == "Folders" && activeFolderName != null) {
             IconButton(onClick = { activeFolderName = null }) {
-              Icon(imageVectorResource(R.drawable.ic_tabler_arrow_left), contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
+              Icon(vectorResource(R.drawable.ic_tabler_arrow_left), contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
             }
           }
 
@@ -641,7 +641,7 @@ fun MusicScreen(
             Icon(painterResource(id = R.drawable.ic_tabler_search), contentDescription = "Search", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
           }
           IconButton(onClick = onSettingsClick, modifier = Modifier.size(48.dp)) {
-            Icon(imageVectorResource(R.drawable.ic_tabler_settings), contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
+            Icon(vectorResource(R.drawable.ic_tabler_settings), contentDescription = "Settings", tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
           }
         }
       }
@@ -741,7 +741,7 @@ fun MusicScreen(
                   activeAlbumName = null
                   activeFolderName = null
                 }) { tint, scale ->
-              Icon(imageVectorResource(R.drawable.ic_tabler_heart), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+              Icon(vectorResource(R.drawable.ic_tabler_heart), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
             }
           }
         }
@@ -880,7 +880,7 @@ fun MusicScreen(
                 }
 
                 IconButton(onClick = { playlistToDelete = playlist }) {
-                  Icon(imageVectorResource(R.drawable.ic_tabler_trash), contentDescription = "Delete Playlist", tint = MaterialTheme.colorScheme.error)
+                  Icon(vectorResource(R.drawable.ic_tabler_trash), contentDescription = "Delete Playlist", tint = MaterialTheme.colorScheme.error)
                 }
               }
             }
@@ -945,7 +945,7 @@ fun MusicScreen(
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 120.dp)
                 .scale(fabScale)) {
-          Icon(imageVectorResource(R.drawable.ic_tabler_plus), contentDescription = "New Playlist", modifier = Modifier.size(28.dp))
+          Icon(vectorResource(R.drawable.ic_tabler_plus), contentDescription = "New Playlist", modifier = Modifier.size(28.dp))
         }
       }
     }
@@ -1230,7 +1230,7 @@ fun AudioCard(
     }
 
     if (isSelected) {
-      Icon(imageVector = imageVectorResource(R.drawable.ic_tabler_check), contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 4.dp).size(24.dp))
+      Icon(imageVector = vectorResource(R.drawable.ic_tabler_check), contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 4.dp).size(24.dp))
     } else if (isPlayingNow) {
       Box(
           modifier = Modifier

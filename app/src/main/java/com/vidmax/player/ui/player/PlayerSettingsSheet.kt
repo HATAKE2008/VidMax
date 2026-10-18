@@ -23,7 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -127,16 +127,16 @@ fun PlayerSettingsSheet(
                         .clickable(onClick = onDismiss),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(imageVectorResource(R.drawable.ic_tabler_x), "Close", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
+                    Icon(vectorResource(R.drawable.ic_tabler_x), "Close", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
                 }
             }
 
             // ---------------- Controls ----------------
-            SettingsSectionHeader(stringResource(R.string.player_section_controls), imageVectorResource(R.drawable.ic_tabler_adjustments))
+            SettingsSectionHeader(stringResource(R.string.player_section_controls), vectorResource(R.drawable.ic_tabler_adjustments))
             SettingsSwitchRow(
                 title = stringResource(R.string.player_autohide),
                 subtitle = stringResource(R.string.player_autohide_sub),
-                icon = imageVectorResource(R.drawable.ic_tabler_dots_vertical),
+                icon = vectorResource(R.drawable.ic_tabler_dots_vertical),
                 checked = autoHideControls,
                 onCheckedChange = {
                     autoHideControls = it
@@ -145,7 +145,7 @@ fun PlayerSettingsSheet(
             )
             SettingsChipRow(
                 title = stringResource(R.string.player_autohide_delay),
-                icon = imageVectorResource(R.drawable.ic_tabler_clock),
+                icon = vectorResource(R.drawable.ic_tabler_clock),
                 options = listOf("2s", "3s", "5s", stringResource(R.string.player_delay_never)),
                 selectedIndex = when (controlsHideDelayMs) {
                     2000 -> 0
@@ -170,14 +170,14 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_volume_booster),
                 subtitle = stringResource(R.string.player_volume_booster_sub),
-                icon = imageVectorResource(R.drawable.ic_tabler_volume),
+                icon = vectorResource(R.drawable.ic_tabler_volume),
                 checked = playerVolumeBoost == true,
                 onCheckedChange = { viewModel.setPlayerVolumeBoost(it) }
             )
             SettingsSwitchRow(
                 title = stringResource(R.string.player_controls_below),
                 subtitle = stringResource(R.string.player_controls_below_sub),
-                icon = imageVectorResource(R.drawable.ic_tabler_arrows_maximize),
+                icon = vectorResource(R.drawable.ic_tabler_arrows_maximize),
                 checked = bottomControlsBelowSeekbar,
                 onCheckedChange = {
                     bottomControlsBelowSeekbar = it
@@ -188,11 +188,11 @@ fun PlayerSettingsSheet(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // ---------------- Aesthetics ----------------
-            SettingsSectionHeader(stringResource(R.string.player_section_aesthetics), imageVectorResource(R.drawable.ic_tabler_settings))
+            SettingsSectionHeader(stringResource(R.string.player_section_aesthetics), vectorResource(R.drawable.ic_tabler_settings))
             SettingsSwitchRow(
                 title = stringResource(R.string.player_dtap_indicator),
                 subtitle = stringResource(R.string.player_dtap_indicator_sub),
-                icon = imageVectorResource(R.drawable.ic_tabler_aspect_ratio),
+                icon = vectorResource(R.drawable.ic_tabler_aspect_ratio),
                 checked = showDoubleTapIndicator,
                 onCheckedChange = {
                     showDoubleTapIndicator = it
@@ -203,11 +203,11 @@ fun PlayerSettingsSheet(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // ---------------- Gestures ----------------
-            SettingsSectionHeader(stringResource(R.string.player_section_gestures), imageVectorResource(R.drawable.ic_tabler_hand_click))
+            SettingsSectionHeader(stringResource(R.string.player_section_gestures), vectorResource(R.drawable.ic_tabler_hand_click))
             SettingsSwitchRow(
                 title = stringResource(R.string.player_gesture_brightness),
                 subtitle = stringResource(R.string.player_gesture_brightness_sub),
-                icon = imageVectorResource(R.drawable.ic_tabler_brightness),
+                icon = vectorResource(R.drawable.ic_tabler_brightness),
                 checked = brightnessGestureEnabled,
                 onCheckedChange = {
                     brightnessGestureEnabled = it
@@ -217,7 +217,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_gesture_volume),
                 subtitle = stringResource(R.string.player_gesture_volume_sub),
-                icon = imageVectorResource(R.drawable.ic_tabler_volume),
+                icon = vectorResource(R.drawable.ic_tabler_volume),
                 checked = volumeGestureEnabled,
                 onCheckedChange = {
                     volumeGestureEnabled = it
@@ -227,7 +227,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_pinch_zoom),
                 subtitle = stringResource(R.string.player_pinch_zoom_sub),
-                icon = imageVectorResource(R.drawable.ic_tabler_zoom_in),
+                icon = vectorResource(R.drawable.ic_tabler_zoom_in),
                 checked = pinchZoomEnabled,
                 onCheckedChange = {
                     pinchZoomEnabled = it
@@ -246,7 +246,7 @@ fun PlayerSettingsSheet(
             )
             SettingsChipRow(
                 title = stringResource(R.string.player_dtap_seek),
-                icon = imageVectorResource(R.drawable.ic_tabler_hand_click),
+                icon = vectorResource(R.drawable.ic_tabler_hand_click),
                 options = listOf("10s", "30s", "60s"),
                 selectedIndex = when (doubleTapSeekSeconds) {
                     30 -> 1
@@ -260,7 +260,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_reverse_dtap),
                 subtitle = stringResource(R.string.player_reverse_dtap_sub),
-                icon = imageVectorResource(R.drawable.ic_tabler_arrows_exchange),
+                icon = vectorResource(R.drawable.ic_tabler_arrows_exchange),
                 checked = reverseDoubleTap,
                 onCheckedChange = {
                     reverseDoubleTap = it
@@ -269,7 +269,7 @@ fun PlayerSettingsSheet(
             )
             SettingsChipRow(
                 title = stringResource(R.string.player_seek_sensitivity),
-                icon = imageVectorResource(R.drawable.ic_tabler_gauge),
+                icon = vectorResource(R.drawable.ic_tabler_gauge),
                 options = listOf(
                     stringResource(R.string.player_sensitivity_low),
                     stringResource(R.string.player_sensitivity_medium),
@@ -286,7 +286,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_prevent_seek_tap),
                 subtitle = stringResource(R.string.player_prevent_seek_tap_sub),
-                icon = imageVectorResource(R.drawable.ic_tabler_lock),
+                icon = vectorResource(R.drawable.ic_tabler_lock),
                 checked = preventSeekbarTap,
                 onCheckedChange = {
                     preventSeekbarTap = it
@@ -297,7 +297,7 @@ fun PlayerSettingsSheet(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // ---------------- Settings / Advanced ----------------
-            SettingsSectionHeader(stringResource(R.string.player_section_advanced), imageVectorResource(R.drawable.ic_tabler_settings))
+            SettingsSectionHeader(stringResource(R.string.player_section_advanced), vectorResource(R.drawable.ic_tabler_settings))
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Text(stringResource(R.string.player_subtitle_size), color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Slider(
@@ -321,13 +321,13 @@ fun PlayerSettingsSheet(
             SettingsNavRow(
                 title = stringResource(R.string.player_decoder_title),
                 subtitle = stringResource(R.string.player_decoder_modes),
-                icon = imageVectorResource(R.drawable.ic_tabler_cpu),
+                icon = vectorResource(R.drawable.ic_tabler_cpu),
                 onClick = { showDecoderDialog = true }
             )
             if (isMpv) {
                 SettingsChipRow(
                     title = stringResource(R.string.player_video_sync),
-                    icon = imageVectorResource(R.drawable.ic_tabler_repeat),
+                    icon = vectorResource(R.drawable.ic_tabler_repeat),
                     options = listOf(
                         stringResource(R.string.player_sync_audio),
                         stringResource(R.string.player_sync_display)),
@@ -339,7 +339,7 @@ fun PlayerSettingsSheet(
                 SettingsSwitchRow(
                     title = stringResource(R.string.player_interpolation),
                     subtitle = stringResource(R.string.player_interpolation_sub),
-                    icon = imageVectorResource(R.drawable.ic_tabler_movie),
+                    icon = vectorResource(R.drawable.ic_tabler_movie),
                     checked = mpvInterpolation,
                     onCheckedChange = {
                         mpvInterpolation = it
@@ -349,7 +349,7 @@ fun PlayerSettingsSheet(
                 SettingsSwitchRow(
                     title = stringResource(R.string.player_pitch_correction),
                     subtitle = stringResource(R.string.player_pitch_correction_sub),
-                    icon = imageVectorResource(R.drawable.ic_tabler_music),
+                    icon = vectorResource(R.drawable.ic_tabler_music),
                     checked = mpvAudioPitchCorrection,
                     onCheckedChange = {
                         mpvAudioPitchCorrection = it
@@ -532,7 +532,7 @@ private fun SettingsNavRow(
                 Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
         }
-        Icon(imageVectorResource(R.drawable.ic_tabler_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Icon(vectorResource(R.drawable.ic_tabler_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -543,7 +543,7 @@ private fun SettingsInfoRow(title: String, value: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(imageVectorResource(R.drawable.ic_tabler_info_circle), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+        Icon(vectorResource(R.drawable.ic_tabler_info_circle), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
         Text(value, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }

@@ -10,7 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.imageVectorResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -46,7 +46,7 @@ fun PlaylistScreen(
             verticalAlignment = Alignment.CenterVertically) {
               IconButton(onClick = onBack) {
                 Icon(
-                    imageVector = imageVectorResource(R.drawable.ic_tabler_arrow_left),
+                    imageVector = vectorResource(R.drawable.ic_tabler_arrow_left),
                     contentDescription = "Back",
                     tint = MaterialTheme.colorScheme.onBackground)
               }

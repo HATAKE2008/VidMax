@@ -61,7 +61,7 @@ fun VideoCard(
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
                     contentAlignment = Alignment.Center) {
                       Icon(
-                          imageVector = androidx.compose.ui.res.imageVectorResource(R.drawable.ic_tabler_check),
+                          imageVector = androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_check),
                           contentDescription = "Selected",
                           tint = Color.White,
                           modifier = Modifier.size(32.dp))
