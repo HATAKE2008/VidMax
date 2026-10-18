@@ -105,6 +105,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -503,7 +504,7 @@ fun DefaultPlayerUI(
                           .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Check,
+                        imageVector = imageVectorResource(R.drawable.ic_tabler_check),
                         contentDescription = null,
                         tint =
                             if (currentTimerMinutes == mins) MaterialTheme.colorScheme.primary
@@ -590,7 +591,7 @@ fun DefaultPlayerUI(
               verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                   Icon(
-                      Icons.Default.KeyboardArrowDown,
+                      imageVectorResource(R.drawable.ic_tabler_chevron_down),
                       "Back",
                       tint = MaterialTheme.colorScheme.onSurface,
                       modifier = Modifier.size(32.dp))
@@ -631,7 +632,7 @@ fun DefaultPlayerUI(
                 Box {
                   IconButton(onClick = { showMoreMenu = true }, modifier = Modifier.size(48.dp)) {
                     Icon(
-                        Icons.Default.MoreVert,
+                        imageVectorResource(R.drawable.ic_tabler_dots_vertical),
                         "Menu",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(24.dp))
@@ -646,7 +647,7 @@ fun DefaultPlayerUI(
                             },
                             leadingIcon = {
                               Icon(
-                                  Icons.Default.Info,
+                                  imageVectorResource(R.drawable.ic_tabler_info_circle),
                                   null,
                                   tint = MaterialTheme.colorScheme.primary)
                             },
@@ -659,7 +660,7 @@ fun DefaultPlayerUI(
                             text = { Text(stringResource(R.string.mps_menu_delete), color = MaterialTheme.colorScheme.error) },
                             leadingIcon = {
                               Icon(
-                                  Icons.Default.Delete,
+                                  imageVectorResource(R.drawable.ic_tabler_trash),
                                   null,
                                   tint = MaterialTheme.colorScheme.error)
                             },
@@ -771,7 +772,7 @@ fun DefaultPlayerUI(
                 } else if (isArtLoaded) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
-                            painter = painterResource(id = R.drawable.ic_music_note),
+                            painter = painterResource(id = R.drawable.ic_tabler_music),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier.size(100.dp)
@@ -830,7 +831,7 @@ fun DefaultPlayerUI(
                           },
                           modifier = Modifier.size(36.dp)) {
                             Icon(
-                                Icons.Default.Share,
+                                imageVectorResource(R.drawable.ic_tabler_share),
                                 "Share",
                                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                                 modifier = Modifier.size(20.dp))
@@ -843,8 +844,8 @@ fun DefaultPlayerUI(
                             Crossfade(targetState = isFavorite, label = "fav") { fav ->
                               Icon(
                                   imageVector =
-                                      if (fav) Icons.Default.Favorite
-                                      else Icons.Default.FavoriteBorder,
+                                      if (fav) imageVectorResource(R.drawable.ic_tabler_heart_filled)
+                                      else imageVectorResource(R.drawable.ic_tabler_heart),
                                   contentDescription = "Favorite",
                                   tint =
                                       if (fav) Color.Red
@@ -994,7 +995,7 @@ fun DefaultPlayerUI(
                 IconButton(
                     onClick = { onToggleShuffle() }, modifier = Modifier.size(48.dp)) {
                       Icon(
-                          painter = painterResource(id = R.drawable.ic_shuffle),
+                          painter = painterResource(id = R.drawable.ic_tabler_arrows_shuffle),
                           contentDescription = "Shuffle",
                           tint =
                               if (isShuffleEnabled) MaterialTheme.colorScheme.primary
@@ -1004,7 +1005,7 @@ fun DefaultPlayerUI(
                 IconButton(
                     onClick = { onPrevious() }, modifier = Modifier.size(48.dp)) {
                       Icon(
-                          painter = painterResource(id = R.drawable.ic_skip_previous),
+                          painter = painterResource(id = R.drawable.ic_tabler_player_skip_back),
                           contentDescription = "Previous",
                           tint = MaterialTheme.colorScheme.onSurface,
                           modifier = Modifier.size(28.dp))
@@ -1047,7 +1048,7 @@ fun DefaultPlayerUI(
                 IconButton(
                     onClick = { onNext() }, modifier = Modifier.size(48.dp)) {
                       Icon(
-                          painter = painterResource(id = R.drawable.ic_skip_next),
+                          painter = painterResource(id = R.drawable.ic_tabler_player_skip_forward),
                           contentDescription = "Next",
                           tint = MaterialTheme.colorScheme.onSurface,
                           modifier = Modifier.size(28.dp))
@@ -1056,8 +1057,8 @@ fun DefaultPlayerUI(
                     onClick = { onToggleRepeat() }, modifier = Modifier.size(48.dp)) {
                       val iconRes =
                           when (repeatMode) {
-                            LoopMode.ONE -> R.drawable.ic_repeat_one
-                            else -> R.drawable.ic_repeat
+                            LoopMode.ONE -> R.drawable.ic_tabler_repeat_once
+                            else -> R.drawable.ic_tabler_repeat
                           }
                       val iconTint =
                           if (repeatMode == LoopMode.NONE)
@@ -1128,7 +1129,7 @@ fun DefaultPlayerUI(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center) {
                       Icon(
-                          imageVector = Icons.Default.Menu,
+                          imageVector = imageVectorResource(R.drawable.ic_tabler_menu_2),
                           contentDescription = "Queue",
                           tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                           modifier = Modifier.size(18.dp))
@@ -1160,7 +1161,7 @@ fun DefaultPlayerUI(
                                 },
                     contentAlignment = Alignment.Center) {
                       Icon(
-                          painter = painterResource(id = R.drawable.ic_timer),
+                          painter = painterResource(id = R.drawable.ic_tabler_clock),
                           contentDescription = "Timer",
                           tint =
                               if (currentTimerMinutes > 0) MaterialTheme.colorScheme.onPrimary
@@ -1200,7 +1201,7 @@ fun DefaultPlayerUI(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center) {
                       Icon(
-                          painterResource(id = R.drawable.ic_volume_up),
+                          painterResource(id = R.drawable.ic_tabler_volume),
                           null,
                           tint =
                               if (isAudioBoosted) MaterialTheme.colorScheme.onPrimary
@@ -1384,7 +1385,7 @@ fun QueueItemThumbnail(path: String, isCurrentlyPlaying: Boolean) {
         } else if (isArtLoaded) {
             Icon(
                 painter = painterResource(
-                    id = if (isCurrentlyPlaying) R.drawable.ic_pause else R.drawable.ic_music_note
+                    id = if (isCurrentlyPlaying) R.drawable.ic_pause else R.drawable.ic_tabler_music
                 ),
                 contentDescription = null,
                 tint = if (isCurrentlyPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
@@ -1460,7 +1461,7 @@ fun OnlineMusicPlayerContent(
             ) {
                 IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
+                        imageVector = imageVectorResource(R.drawable.ic_tabler_chevron_down),
                         contentDescription = "Close",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(32.dp)

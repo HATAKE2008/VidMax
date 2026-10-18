@@ -89,6 +89,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -263,7 +264,7 @@ fun WavyPlayerScreen(
                           .padding(vertical = 12.dp),
                   verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Check,
+                        imageVector = imageVectorResource(R.drawable.ic_tabler_check),
                         contentDescription = null,
                         tint =
                             if (currentTimerMinutes == mins) MaterialTheme.colorScheme.primary
@@ -331,7 +332,7 @@ fun WavyPlayerScreen(
                   verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) {
                       Icon(
-                          Icons.Default.KeyboardArrowDown,
+                          imageVectorResource(R.drawable.ic_tabler_chevron_down),
                           "Back",
                           tint = MaterialTheme.colorScheme.onSurface,
                           modifier = Modifier.size(32.dp))
@@ -352,7 +353,7 @@ fun WavyPlayerScreen(
                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                           }) {
                             Icon(
-                                painter = painterResource(id = R.drawable.ic_volume_up),
+                                painter = painterResource(id = R.drawable.ic_tabler_volume),
                                 contentDescription = "Boost",
                                 tint =
                                     if (isAudioBoosted) MaterialTheme.colorScheme.primary
@@ -381,7 +382,7 @@ fun WavyPlayerScreen(
                             }
                           }) {
                             Icon(
-                                Icons.Default.Share,
+                                imageVectorResource(R.drawable.ic_tabler_share),
                                 contentDescription = "Share",
                                 tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(24.dp))
@@ -391,7 +392,7 @@ fun WavyPlayerScreen(
                       Box {
                         IconButton(onClick = { showMoreMenu = true }) {
                           Icon(
-                              Icons.Default.MoreVert,
+                              imageVectorResource(R.drawable.ic_tabler_dots_vertical),
                               "Menu",
                               tint = MaterialTheme.colorScheme.onSurface,
                               modifier = Modifier.size(24.dp))
@@ -404,7 +405,7 @@ fun WavyPlayerScreen(
                                   },
                                   leadingIcon = {
                                     Icon(
-                                        Icons.Default.Info,
+                                        imageVectorResource(R.drawable.ic_tabler_info_circle),
                                         null,
                                         tint = MaterialTheme.colorScheme.primary)
                                   },
@@ -418,7 +419,7 @@ fun WavyPlayerScreen(
                                   },
                                   leadingIcon = {
                                     Icon(
-                                        painterResource(id = R.drawable.ic_timer),
+                                        painterResource(id = R.drawable.ic_tabler_clock),
                                         null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp))
@@ -433,7 +434,7 @@ fun WavyPlayerScreen(
                                   },
                                   leadingIcon = {
                                     Icon(
-                                        Icons.Default.Delete,
+                                        imageVectorResource(R.drawable.ic_tabler_trash),
                                         null,
                                         tint = MaterialTheme.colorScheme.error)
                                   },
@@ -489,7 +490,7 @@ fun WavyPlayerScreen(
                             modifier = Modifier.fillMaxSize())
                       } else {
                         Icon(
-                            painter = painterResource(id = R.drawable.ic_music_note),
+                            painter = painterResource(id = R.drawable.ic_tabler_music),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                             modifier = Modifier.size(100.dp))
@@ -651,7 +652,7 @@ fun WavyPlayerScreen(
                                 .clickable { viewModel.playPreviousAudio() },
                         contentAlignment = Alignment.Center) {
                           Icon(
-                              painterResource(id = R.drawable.ic_skip_previous),
+                              painterResource(id = R.drawable.ic_tabler_player_skip_back),
                               "Previous",
                               tint = MaterialTheme.colorScheme.onSurface,
                               modifier = Modifier.size(28.dp))
@@ -684,7 +685,7 @@ fun WavyPlayerScreen(
                                 .clickable { viewModel.playNextAudio() },
                         contentAlignment = Alignment.Center) {
                           Icon(
-                              painterResource(id = R.drawable.ic_skip_next),
+                              painterResource(id = R.drawable.ic_tabler_player_skip_forward),
                               "Next",
                               tint = MaterialTheme.colorScheme.onSurface,
                               modifier = Modifier.size(28.dp))
@@ -707,7 +708,7 @@ fun WavyPlayerScreen(
                                 .clickable { viewModel.toggleShuffle() },
                         contentAlignment = Alignment.Center) {
                           Icon(
-                              painterResource(id = R.drawable.ic_shuffle),
+                              painterResource(id = R.drawable.ic_tabler_arrows_shuffle),
                               "Shuffle",
                               tint =
                                   if (isShuffleEnabled) MaterialTheme.colorScheme.primary
@@ -725,8 +726,8 @@ fun WavyPlayerScreen(
                         contentAlignment = Alignment.Center) {
                           val iconRes =
                               when (repeatMode) {
-                                LoopMode.ONE -> R.drawable.ic_repeat_one
-                                else -> R.drawable.ic_repeat
+                                LoopMode.ONE -> R.drawable.ic_tabler_repeat_once
+                                else -> R.drawable.ic_tabler_repeat
                               }
                           val iconTint =
                               if (repeatMode == LoopMode.NONE) MaterialTheme.colorScheme.onSurface
@@ -747,7 +748,7 @@ fun WavyPlayerScreen(
                                 .clickable { showQueueSheet = true },
                         contentAlignment = Alignment.Center) {
                           Icon(
-                              Icons.Default.Menu,
+                              imageVectorResource(R.drawable.ic_tabler_menu_2),
                               "Queue",
                               tint = MaterialTheme.colorScheme.onSurface,
                               modifier = Modifier.size(26.dp))
@@ -764,8 +765,8 @@ fun WavyPlayerScreen(
                           Crossfade(targetState = isFavorite, label = "fav") { fav ->
                             Icon(
                                 imageVector =
-                                    if (fav) Icons.Default.Favorite
-                                    else Icons.Default.FavoriteBorder,
+                                    if (fav) imageVectorResource(R.drawable.ic_tabler_heart_filled)
+                                    else imageVectorResource(R.drawable.ic_tabler_heart),
                                 contentDescription = "Favorite",
                                 tint = if (fav) Color.Red else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(26.dp))

@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -155,7 +156,7 @@ private fun SortByCard(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
-                    imageVector = if (sortAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                    imageVector = if (sortAscending) imageVectorResource(R.drawable.ic_tabler_arrow_up) else imageVectorResource(R.drawable.ic_tabler_arrow_down),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.size(16.dp)
@@ -164,10 +165,10 @@ private fun SortByCard(
         }
 
         val options: List<Triple<SortOrder, String, ImageVector>> = listOf(
-            Triple(SortOrder.NAME, stringResource(R.string.comp_sort_title_opt), Icons.Filled.SortByAlpha),
-            Triple(SortOrder.DURATION, stringResource(R.string.comp_sort_duration), Icons.Filled.Schedule),
-            Triple(SortOrder.DATE, stringResource(R.string.comp_sort_date), Icons.Filled.CalendarToday),
-            Triple(SortOrder.SIZE, stringResource(R.string.comp_sort_size), Icons.Filled.SwapVert)
+            Triple(SortOrder.NAME, stringResource(R.string.comp_sort_title_opt), imageVectorResource(R.drawable.ic_tabler_sort_ascending_letters)),
+            Triple(SortOrder.DURATION, stringResource(R.string.comp_sort_duration), imageVectorResource(R.drawable.ic_tabler_clock)),
+            Triple(SortOrder.DATE, stringResource(R.string.comp_sort_date), imageVectorResource(R.drawable.ic_tabler_calendar)),
+            Triple(SortOrder.SIZE, stringResource(R.string.comp_sort_size), imageVectorResource(R.drawable.ic_tabler_arrows_sort))
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -237,21 +238,21 @@ private fun LayoutCard(
         ) {
             LayoutOption(
                 label = stringResource(R.string.comp_layout_list),
-                icon = Icons.Filled.ViewList,
+                icon = imageVectorResource(R.drawable.ic_tabler_list),
                 selected = viewStyle == HomeViewStyle.LIST,
                 onClick = { onViewStyle(HomeViewStyle.LIST) },
                 modifier = Modifier.weight(1f)
             )
             LayoutOption(
                 label = stringResource(R.string.comp_layout_grid),
-                icon = Icons.Filled.GridView,
+                icon = imageVectorResource(R.drawable.ic_tabler_layout_grid),
                 selected = viewStyle == HomeViewStyle.GRID_MEDIUM,
                 onClick = { onViewStyle(HomeViewStyle.GRID_MEDIUM) },
                 modifier = Modifier.weight(1f)
             )
             LayoutOption(
                 label = stringResource(R.string.comp_layout_large),
-                icon = Icons.Filled.ViewAgenda,
+                icon = imageVectorResource(R.drawable.ic_tabler_layout_rows),
                 selected = viewStyle == HomeViewStyle.GRID_LARGE,
                 onClick = { onViewStyle(HomeViewStyle.GRID_LARGE) },
                 modifier = Modifier.weight(1f)
@@ -282,7 +283,7 @@ private fun LayoutCard(
                     leadingIcon = if (gridColumns == cols) {
                         {
                             Icon(
-                                imageVector = Icons.Filled.Check,
+                                imageVector = imageVectorResource(R.drawable.ic_tabler_check),
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -307,7 +308,7 @@ private fun LayoutCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Filled.Refresh,
+                imageVector = imageVectorResource(R.drawable.ic_tabler_refresh),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)

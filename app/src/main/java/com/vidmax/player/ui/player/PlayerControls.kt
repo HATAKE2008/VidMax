@@ -71,6 +71,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -618,7 +619,7 @@ fun PlayerControls(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     MpvCircleButton(
-                        icon = Icons.Outlined.ZoomOut,
+                        icon = imageVectorResource(R.drawable.ic_tabler_zoom_out),
                         contentDescription = "Zoom out",
                         onClick = {
                             val newZoom = (videoScale - 0.1f).coerceAtLeast(1f)
@@ -650,7 +651,7 @@ fun PlayerControls(
                     )
 
                     MpvCircleButton(
-                        icon = Icons.Outlined.ZoomIn,
+                        icon = imageVectorResource(R.drawable.ic_tabler_zoom_in),
                         contentDescription = "Zoom in",
                         onClick = {
                             val newZoom = (videoScale + 0.1f).coerceAtMost(4f)
@@ -690,8 +691,8 @@ fun PlayerControls(
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.player_aspect_title), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 listOf(
-                    Triple(AspectRatioMode.FIT, stringResource(R.string.player_aspect_fit), Icons.Outlined.FitScreen),
-                    Triple(AspectRatioMode.FILL, stringResource(R.string.player_aspect_fill), Icons.Outlined.AspectRatio),
+                    Triple(AspectRatioMode.FIT, stringResource(R.string.player_aspect_fit), imageVectorResource(R.drawable.ic_tabler_arrows_maximize)),
+                    Triple(AspectRatioMode.FILL, stringResource(R.string.player_aspect_fill), imageVectorResource(R.drawable.ic_tabler_aspect_ratio)),
                     Triple(AspectRatioMode.STRETCH, stringResource(R.string.player_aspect_stretch), Icons.Outlined.Fullscreen)
                 ).forEach { (mode, label, icon) ->
                     val isSelected = aspect == mode
@@ -714,7 +715,7 @@ fun PlayerControls(
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(label, color = Color.White, fontSize = 16.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                         Spacer(modifier = Modifier.weight(1f))
-                        if (isSelected) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        if (isSelected) Icon(imageVectorResource(R.drawable.ic_tabler_check), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     }
                 }
                 Spacer(modifier = Modifier.height(24.dp))
@@ -745,7 +746,7 @@ fun PlayerControls(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            painter = painterResource(id = if (isSelected) R.drawable.ic_radio_checked else R.drawable.ic_radio_unchecked),
+                            painter = painterResource(id = if (isSelected) R.drawable.ic_tabler_circle_dot else R.drawable.ic_tabler_circle),
                             contentDescription = null,
                             tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
                             modifier = Modifier.size(24.dp)
@@ -775,7 +776,7 @@ fun PlayerControls(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Check,
+                                imageVector = imageVectorResource(R.drawable.ic_tabler_check),
                                 contentDescription = null,
                                 tint = if (sleepTimerMinutes == mins) MaterialTheme.colorScheme.primary else Color.Transparent
                             )
@@ -838,7 +839,7 @@ fun PlayerControls(
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold)
                             IconButton(onClick = { showBookmarkDialog = false }) {
-                                Icon(Icons.Default.Close, contentDescription = "Cancel bookmark")
+                                Icon(imageVectorResource(R.drawable.ic_tabler_x), contentDescription = "Cancel bookmark")
                             }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -867,7 +868,7 @@ fun PlayerControls(
                             Text(pluralStringResource(R.plurals.player_bookmarks_count, bookmarkList.size, bookmarkList.size), modifier = Modifier.weight(1f),
                                 fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                             IconButton(onClick = { showBookmarkList = false }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close bookmarks")
+                                Icon(imageVectorResource(R.drawable.ic_tabler_x), contentDescription = "Close bookmarks")
                             }
                         }
                         if (bookmarkList.isEmpty()) {
@@ -904,7 +905,7 @@ fun PlayerControls(
                                             saveBookmarks(settingsPrefs, currentPath, bookmarkList.toList())
                                         }) {
                                             Icon(
-                                                imageVector = Icons.Filled.Delete,
+                                                imageVector = imageVectorResource(R.drawable.ic_tabler_trash),
                                                 contentDescription = "Remove bookmark",
                                                 tint = MaterialTheme.colorScheme.error)
                                         }
@@ -1441,7 +1442,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxHeight()) {
-                    Icon(imageVector = Icons.Outlined.BrightnessHigh, contentDescription = "Brightness", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                    Icon(imageVector = imageVectorResource(R.drawable.ic_tabler_brightness), contentDescription = "Brightness", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                     Box(modifier = Modifier.weight(1f).padding(vertical = 8.dp).width(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)), contentAlignment = Alignment.BottomCenter) {
                         Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(progress).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
                     }
@@ -1464,7 +1465,7 @@ fun PlayerControls(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxHeight()) {
-                    Icon(imageVector = Icons.Outlined.VolumeUp, contentDescription = "Volume", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                    Icon(imageVector = imageVectorResource(R.drawable.ic_tabler_volume), contentDescription = "Volume", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                     Box(modifier = Modifier.weight(1f).padding(vertical = 8.dp).width(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)), contentAlignment = Alignment.BottomCenter) {
                         Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(progress).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
                     }
@@ -1520,7 +1521,7 @@ fun PlayerControls(
                     // slide-to-unlock could never complete because the video
                     // surface claims horizontal drags for seeking.
                     MpvCircleButton(
-                        icon = Icons.Default.LockOpen,
+                        icon = imageVectorResource(R.drawable.ic_tabler_lock_open),
                         contentDescription = "Unlock",
                         onClick = {
                             viewModel.toggleLock()
@@ -1544,7 +1545,7 @@ fun PlayerControls(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         MpvCircleButton(
-                            icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                            icon = imageVectorResource(R.drawable.ic_tabler_arrow_left),
                             contentDescription = "Back",
                             onClick = onBack,
                             size = 42.dp
@@ -1599,7 +1600,7 @@ fun PlayerControls(
                                     Divider(modifier = Modifier.padding(vertical = 4.dp), color = Color.White.copy(alpha = 0.1f))
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.player_menu_mpv_decoder), color = MaterialTheme.colorScheme.onSurface) },
-                                        leadingIcon = { Icon(Icons.Outlined.Memory, null, tint = MaterialTheme.colorScheme.primary) },
+                                        leadingIcon = { Icon(imageVectorResource(R.drawable.ic_tabler_cpu), null, tint = MaterialTheme.colorScheme.primary) },
                                         onClick = { viewModel.setShowEngineMenu(false); viewModel.setShowDecoderMenu(true) }
                                     )
                                 }
@@ -1607,7 +1608,7 @@ fun PlayerControls(
                         }
 
                         MpvCircleButton(
-                            icon = Icons.Outlined.Audiotrack,
+                            icon = imageVectorResource(R.drawable.ic_tabler_music),
                             contentDescription = "Audio tracks",
                             onClick = {
                                 viewModel.setSubtitleAudioTab(SubtitleAudioTab.AUDIO)
@@ -1617,7 +1618,7 @@ fun PlayerControls(
                         )
 
                         MpvCircleButton(
-                            icon = Icons.Outlined.Subtitles,
+                            icon = imageVectorResource(R.drawable.ic_tabler_subtitles),
                             contentDescription = "Subtitles",
                             onClick = {
                                 viewModel.setSubtitleAudioTab(SubtitleAudioTab.SUBTITLE)
@@ -1628,7 +1629,7 @@ fun PlayerControls(
 
                         // Settings
                         MpvCircleButton(
-                            icon = Icons.Outlined.Settings,
+                            icon = imageVectorResource(R.drawable.ic_tabler_settings),
                             contentDescription = "Settings",
                             onClick = { viewModel.setPanelMode(PanelMode.SETTINGS) },
                             size = 42.dp
@@ -1639,7 +1640,7 @@ fun PlayerControls(
                         // More menu (always visible, incl. portrait collapsed items)
                         Box {
                             MpvCircleButton(
-                                icon = Icons.Outlined.MoreVert,
+                                icon = imageVectorResource(R.drawable.ic_tabler_dots_vertical),
                                 contentDescription = "More",
                                 onClick = { showMoreMenu = true },
                                 size = 42.dp
@@ -1651,7 +1652,7 @@ fun PlayerControls(
                             ) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.player_speed_sync_title), color = MaterialTheme.colorScheme.onSurface) },
-                                    leadingIcon = { Icon(Icons.Outlined.Speed, null, tint = MaterialTheme.colorScheme.primary) },
+                                    leadingIcon = { Icon(imageVectorResource(R.drawable.ic_tabler_gauge), null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { showMoreMenu = false; viewModel.setShowSyncSheet(true) }
                                 )
                                 // Portrait-collapsed top-bar actions (landscape
@@ -1674,7 +1675,7 @@ fun PlayerControls(
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.player_menu_audio_tracks), color = MaterialTheme.colorScheme.onSurface) },
-                                        leadingIcon = { Icon(Icons.Outlined.Audiotrack, null, tint = MaterialTheme.colorScheme.primary) },
+                                        leadingIcon = { Icon(imageVectorResource(R.drawable.ic_tabler_music), null, tint = MaterialTheme.colorScheme.primary) },
                                         onClick = {
                                             showMoreMenu = false
                                             viewModel.setSubtitleAudioTab(SubtitleAudioTab.AUDIO)
@@ -1683,7 +1684,7 @@ fun PlayerControls(
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.player_menu_subtitles), color = MaterialTheme.colorScheme.onSurface) },
-                                        leadingIcon = { Icon(Icons.Outlined.Subtitles, null, tint = MaterialTheme.colorScheme.primary) },
+                                        leadingIcon = { Icon(imageVectorResource(R.drawable.ic_tabler_subtitles), null, tint = MaterialTheme.colorScheme.primary) },
                                         onClick = {
                                             showMoreMenu = false
                                             viewModel.setSubtitleAudioTab(SubtitleAudioTab.SUBTITLE)
@@ -1692,13 +1693,13 @@ fun PlayerControls(
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.player_menu_settings), color = MaterialTheme.colorScheme.onSurface) },
-                                        leadingIcon = { Icon(Icons.Outlined.Settings, null, tint = MaterialTheme.colorScheme.primary) },
+                                        leadingIcon = { Icon(imageVectorResource(R.drawable.ic_tabler_settings), null, tint = MaterialTheme.colorScheme.primary) },
                                         onClick = { showMoreMenu = false; viewModel.setPanelMode(PanelMode.SETTINGS) }
                                     )
                                 }
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.player_menu_add_bookmark), color = MaterialTheme.colorScheme.onSurface) },
-                                    leadingIcon = { Icon(Icons.Filled.BookmarkAdd, null, tint = MaterialTheme.colorScheme.primary) },
+                                    leadingIcon = { Icon(imageVectorResource(R.drawable.ic_tabler_bookmark_plus), null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
                                         showMoreMenu = false
                                         bookmarkLabel = ""
@@ -1709,7 +1710,7 @@ fun PlayerControls(
                                 )
                                 DropdownMenuItem(
                                     text = { Text(pluralStringResource(R.plurals.player_bookmarks_count, bookmarkList.size, bookmarkList.size), color = MaterialTheme.colorScheme.onSurface) },
-                                    leadingIcon = { Icon(Icons.Filled.Bookmarks, null, tint = MaterialTheme.colorScheme.primary) },
+                                    leadingIcon = { Icon(imageVectorResource(R.drawable.ic_tabler_bookmarks), null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
                                         showMoreMenu = false
                                         showBookmarkDialog = false
@@ -1718,7 +1719,7 @@ fun PlayerControls(
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.player_menu_share), color = MaterialTheme.colorScheme.onSurface) },
-                                    leadingIcon = { Icon(Icons.Default.Share, null, tint = MaterialTheme.colorScheme.primary) },
+                                    leadingIcon = { Icon(imageVectorResource(R.drawable.ic_tabler_share), null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = {
                                         showMoreMenu = false
                                         val uri = getMediaUriFromPath(context, currentPath)
@@ -1734,7 +1735,7 @@ fun PlayerControls(
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.player_menu_details), color = MaterialTheme.colorScheme.onSurface) },
-                                    leadingIcon = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
+                                    leadingIcon = { Icon(imageVectorResource(R.drawable.ic_tabler_info_circle), null, tint = MaterialTheme.colorScheme.primary) },
                                     onClick = { showMoreMenu = false; showDetailsDialog = true }
                                 )
                             }
@@ -1756,7 +1757,7 @@ fun PlayerControls(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         MpvCircleButton(
-                            icon = Icons.Filled.PhotoCamera,
+                            icon = imageVectorResource(R.drawable.ic_tabler_camera),
                             contentDescription = "Screenshot",
                             onClick = { takeScreenshot() },
                             size = 42.dp
@@ -1779,7 +1780,7 @@ fun PlayerControls(
                     ) {
                         if (!minimalist) {
                             MpvCircleButton(
-                                icon = Icons.Default.SkipPrevious,
+                                icon = imageVectorResource(R.drawable.ic_tabler_player_skip_back),
                                 contentDescription = "Previous",
                                 onClick = onPrevious,
                                 size = 48.dp
@@ -1829,7 +1830,7 @@ fun PlayerControls(
 
                         if (!minimalist) {
                             MpvCircleButton(
-                                icon = Icons.Default.SkipNext,
+                                icon = imageVectorResource(R.drawable.ic_tabler_player_skip_forward),
                                 contentDescription = "Next",
                                 onClick = onNext,
                                 size = 48.dp
@@ -1864,7 +1865,7 @@ fun PlayerControls(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 MpvCircleButton(
-                                    icon = if (isLocked) Icons.Default.Lock else Icons.Outlined.LockOpen,
+                                    icon = if (isLocked) imageVectorResource(R.drawable.ic_tabler_lock) else imageVectorResource(R.drawable.ic_tabler_lock_open),
                                     contentDescription = "Lock",
                                     onClick = { viewModel.toggleLock() },
                                     size = 42.dp,
@@ -1872,7 +1873,7 @@ fun PlayerControls(
                                     hideBackground = false
                                 )
                                 MpvCircleButton(
-                                    icon = Icons.Outlined.ScreenRotation,
+                                    icon = imageVectorResource(R.drawable.ic_tabler_rotate),
                                     contentDescription = "Rotate",
                                     onClick = toggleScreenRotation,
                                     size = 42.dp,
@@ -2004,7 +2005,7 @@ private fun BottomControlsScrollRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         MpvCircleButton(
-            icon = if (isLocked) Icons.Default.Lock else Icons.Outlined.LockOpen,
+            icon = if (isLocked) imageVectorResource(R.drawable.ic_tabler_lock) else imageVectorResource(R.drawable.ic_tabler_lock_open),
             contentDescription = "Lock",
             onClick = onToggleLock,
             size = 42.dp,
@@ -2013,7 +2014,7 @@ private fun BottomControlsScrollRow(
         )
         if (showExtraButtons) {
             MpvCircleButton(
-                icon = if (bgPlayEnabled) Icons.Outlined.HeadsetOff else Icons.Outlined.Headset,
+                icon = if (bgPlayEnabled) imageVectorResource(R.drawable.ic_tabler_headphones_off) else imageVectorResource(R.drawable.ic_tabler_headphones),
                 contentDescription = "Background playback",
                 onClick = onToggleBgPlay,
                 size = 42.dp,
@@ -2022,7 +2023,7 @@ private fun BottomControlsScrollRow(
             )
         }
         MpvCircleButton(
-            icon = Icons.Outlined.ScreenRotation,
+            icon = imageVectorResource(R.drawable.ic_tabler_rotate),
             contentDescription = "Rotate",
             onClick = onRotate,
             size = 42.dp,
@@ -2030,7 +2031,7 @@ private fun BottomControlsScrollRow(
         )
         if (showZoomButtons) {
             MpvCircleButton(
-                icon = Icons.Outlined.AspectRatio,
+                icon = imageVectorResource(R.drawable.ic_tabler_aspect_ratio),
                 contentDescription = "Aspect ratio",
                 onClick = onAspect,
                 size = 42.dp,
@@ -2039,7 +2040,7 @@ private fun BottomControlsScrollRow(
         }
         if (showSpeedButton) {
             MpvCircleButton(
-                icon = Icons.Outlined.Speed,
+                icon = imageVectorResource(R.drawable.ic_tabler_gauge),
                 contentDescription = "Playback speed",
                 onClick = onSpeed,
                 size = 42.dp,
@@ -2049,7 +2050,7 @@ private fun BottomControlsScrollRow(
         }
         if (showLoopButton) {
             MpvCircleButton(
-                icon = if (loopMode == LoopMode.ONE) Icons.Default.RepeatOne else Icons.Outlined.Repeat,
+                icon = if (loopMode == LoopMode.ONE) imageVectorResource(R.drawable.ic_tabler_repeat_once) else imageVectorResource(R.drawable.ic_tabler_repeat),
                 contentDescription = "Repeat",
                 onClick = onRepeat,
                 size = 42.dp,
@@ -2059,7 +2060,7 @@ private fun BottomControlsScrollRow(
         }
         if (showExtraButtons) {
             MpvCircleButton(
-                icon = Icons.Outlined.Timer,
+                icon = imageVectorResource(R.drawable.ic_tabler_clock),
                 contentDescription = "Sleep timer",
                 onClick = onTimer,
                 size = 42.dp,
@@ -2170,7 +2171,7 @@ private fun ABLoopPanel(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Default.Close,
+                        imageVector = imageVectorResource(R.drawable.ic_tabler_x),
                         contentDescription = "Clear A-B repeat",
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(16.dp))
@@ -2196,7 +2197,7 @@ private fun ABLoopPanel(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Outlined.Repeat,
+                        imageVector = imageVectorResource(R.drawable.ic_tabler_repeat),
                         contentDescription = "Enable or disable A-B loop",
                         tint = if (looping) MaterialTheme.colorScheme.onPrimaryContainer
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
@@ -2477,7 +2478,7 @@ private fun MpvSlideToUnlock(onUnlock: () -> Unit, modifier: Modifier = Modifier
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = if (unlocked) Icons.Default.LockOpen else Icons.Default.Lock,
+                imageVector = if (unlocked) imageVectorResource(R.drawable.ic_tabler_lock_open) else imageVectorResource(R.drawable.ic_tabler_lock),
                 contentDescription = "Slide to unlock",
                 tint = if (unlocked) MaterialTheme.colorScheme.onPrimary else Color.White,
                 modifier = Modifier.size(24.dp)
@@ -2502,7 +2503,7 @@ fun CombiningChevronsAnimation(isRight: Boolean, trigger: Int, modifier: Modifie
     Row(modifier = modifier) {
         Box {
             Icon(
-                imageVector = if (isRight) Icons.Default.KeyboardArrowRight else Icons.Default.KeyboardArrowLeft,
+                imageVector = if (isRight) imageVectorResource(R.drawable.ic_tabler_chevron_right) else imageVectorResource(R.drawable.ic_tabler_chevron_left),
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(48.dp)
@@ -2526,7 +2527,7 @@ fun MovingChevron(isRight: Boolean, onFinished: () -> Unit) {
     val currentOffset = startOffset * (1f - progress.value)
     val alpha = 1f - progress.value
     Icon(
-        imageVector = if (isRight) Icons.Default.KeyboardArrowRight else Icons.Default.KeyboardArrowLeft,
+        imageVector = if (isRight) imageVectorResource(R.drawable.ic_tabler_chevron_right) else imageVectorResource(R.drawable.ic_tabler_chevron_left),
         contentDescription = null,
         tint = Color.White,
         modifier = Modifier.size(48.dp).alpha(alpha).layout { measurable, constraints ->

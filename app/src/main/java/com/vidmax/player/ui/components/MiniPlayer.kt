@@ -83,7 +83,7 @@ fun MiniPlayer(
                     // Next Button
                     IconButton(onClick = { viewModel.playNextAudio() }) {
                       Icon(
-                          painter = painterResource(id = R.drawable.ic_skip_next),
+                          painter = painterResource(id = R.drawable.ic_tabler_player_skip_forward),
                           contentDescription = "Next",
                           tint = Color.White)
                     }

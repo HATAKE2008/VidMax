@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -126,16 +127,16 @@ fun PlayerSettingsSheet(
                         .clickable(onClick = onDismiss),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Outlined.Close, "Close", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
+                    Icon(imageVectorResource(R.drawable.ic_tabler_x), "Close", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
                 }
             }
 
             // ---------------- Controls ----------------
-            SettingsSectionHeader(stringResource(R.string.player_section_controls), Icons.Outlined.Tune)
+            SettingsSectionHeader(stringResource(R.string.player_section_controls), imageVectorResource(R.drawable.ic_tabler_adjustments))
             SettingsSwitchRow(
                 title = stringResource(R.string.player_autohide),
                 subtitle = stringResource(R.string.player_autohide_sub),
-                icon = Icons.Outlined.MoreVert,
+                icon = imageVectorResource(R.drawable.ic_tabler_dots_vertical),
                 checked = autoHideControls,
                 onCheckedChange = {
                     autoHideControls = it
@@ -144,7 +145,7 @@ fun PlayerSettingsSheet(
             )
             SettingsChipRow(
                 title = stringResource(R.string.player_autohide_delay),
-                icon = Icons.Outlined.Timer,
+                icon = imageVectorResource(R.drawable.ic_tabler_clock),
                 options = listOf("2s", "3s", "5s", stringResource(R.string.player_delay_never)),
                 selectedIndex = when (controlsHideDelayMs) {
                     2000 -> 0
@@ -169,14 +170,14 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_volume_booster),
                 subtitle = stringResource(R.string.player_volume_booster_sub),
-                icon = Icons.Outlined.VolumeUp,
+                icon = imageVectorResource(R.drawable.ic_tabler_volume),
                 checked = playerVolumeBoost == true,
                 onCheckedChange = { viewModel.setPlayerVolumeBoost(it) }
             )
             SettingsSwitchRow(
                 title = stringResource(R.string.player_controls_below),
                 subtitle = stringResource(R.string.player_controls_below_sub),
-                icon = Icons.Outlined.FitScreen,
+                icon = imageVectorResource(R.drawable.ic_tabler_arrows_maximize),
                 checked = bottomControlsBelowSeekbar,
                 onCheckedChange = {
                     bottomControlsBelowSeekbar = it
@@ -187,11 +188,11 @@ fun PlayerSettingsSheet(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // ---------------- Aesthetics ----------------
-            SettingsSectionHeader(stringResource(R.string.player_section_aesthetics), Icons.Default.Settings)
+            SettingsSectionHeader(stringResource(R.string.player_section_aesthetics), imageVectorResource(R.drawable.ic_tabler_settings))
             SettingsSwitchRow(
                 title = stringResource(R.string.player_dtap_indicator),
                 subtitle = stringResource(R.string.player_dtap_indicator_sub),
-                icon = Icons.Outlined.AspectRatio,
+                icon = imageVectorResource(R.drawable.ic_tabler_aspect_ratio),
                 checked = showDoubleTapIndicator,
                 onCheckedChange = {
                     showDoubleTapIndicator = it
@@ -202,11 +203,11 @@ fun PlayerSettingsSheet(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // ---------------- Gestures ----------------
-            SettingsSectionHeader(stringResource(R.string.player_section_gestures), Icons.Default.TouchApp)
+            SettingsSectionHeader(stringResource(R.string.player_section_gestures), imageVectorResource(R.drawable.ic_tabler_hand_click))
             SettingsSwitchRow(
                 title = stringResource(R.string.player_gesture_brightness),
                 subtitle = stringResource(R.string.player_gesture_brightness_sub),
-                icon = Icons.Outlined.BrightnessHigh,
+                icon = imageVectorResource(R.drawable.ic_tabler_brightness),
                 checked = brightnessGestureEnabled,
                 onCheckedChange = {
                     brightnessGestureEnabled = it
@@ -216,7 +217,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_gesture_volume),
                 subtitle = stringResource(R.string.player_gesture_volume_sub),
-                icon = Icons.Outlined.VolumeUp,
+                icon = imageVectorResource(R.drawable.ic_tabler_volume),
                 checked = volumeGestureEnabled,
                 onCheckedChange = {
                     volumeGestureEnabled = it
@@ -226,7 +227,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_pinch_zoom),
                 subtitle = stringResource(R.string.player_pinch_zoom_sub),
-                icon = Icons.Outlined.ZoomIn,
+                icon = imageVectorResource(R.drawable.ic_tabler_zoom_in),
                 checked = pinchZoomEnabled,
                 onCheckedChange = {
                     pinchZoomEnabled = it
@@ -245,7 +246,7 @@ fun PlayerSettingsSheet(
             )
             SettingsChipRow(
                 title = stringResource(R.string.player_dtap_seek),
-                icon = Icons.Default.TouchApp,
+                icon = imageVectorResource(R.drawable.ic_tabler_hand_click),
                 options = listOf("10s", "30s", "60s"),
                 selectedIndex = when (doubleTapSeekSeconds) {
                     30 -> 1
@@ -259,7 +260,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_reverse_dtap),
                 subtitle = stringResource(R.string.player_reverse_dtap_sub),
-                icon = Icons.Outlined.SwapHoriz,
+                icon = imageVectorResource(R.drawable.ic_tabler_arrows_exchange),
                 checked = reverseDoubleTap,
                 onCheckedChange = {
                     reverseDoubleTap = it
@@ -268,7 +269,7 @@ fun PlayerSettingsSheet(
             )
             SettingsChipRow(
                 title = stringResource(R.string.player_seek_sensitivity),
-                icon = Icons.Outlined.Speed,
+                icon = imageVectorResource(R.drawable.ic_tabler_gauge),
                 options = listOf(
                     stringResource(R.string.player_sensitivity_low),
                     stringResource(R.string.player_sensitivity_medium),
@@ -285,7 +286,7 @@ fun PlayerSettingsSheet(
             SettingsSwitchRow(
                 title = stringResource(R.string.player_prevent_seek_tap),
                 subtitle = stringResource(R.string.player_prevent_seek_tap_sub),
-                icon = Icons.Default.Lock,
+                icon = imageVectorResource(R.drawable.ic_tabler_lock),
                 checked = preventSeekbarTap,
                 onCheckedChange = {
                     preventSeekbarTap = it
@@ -296,7 +297,7 @@ fun PlayerSettingsSheet(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
             // ---------------- Settings / Advanced ----------------
-            SettingsSectionHeader(stringResource(R.string.player_section_advanced), Icons.Default.Settings)
+            SettingsSectionHeader(stringResource(R.string.player_section_advanced), imageVectorResource(R.drawable.ic_tabler_settings))
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 Text(stringResource(R.string.player_subtitle_size), color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Slider(
@@ -320,13 +321,13 @@ fun PlayerSettingsSheet(
             SettingsNavRow(
                 title = stringResource(R.string.player_decoder_title),
                 subtitle = stringResource(R.string.player_decoder_modes),
-                icon = Icons.Outlined.Memory,
+                icon = imageVectorResource(R.drawable.ic_tabler_cpu),
                 onClick = { showDecoderDialog = true }
             )
             if (isMpv) {
                 SettingsChipRow(
                     title = stringResource(R.string.player_video_sync),
-                    icon = Icons.Outlined.Repeat,
+                    icon = imageVectorResource(R.drawable.ic_tabler_repeat),
                     options = listOf(
                         stringResource(R.string.player_sync_audio),
                         stringResource(R.string.player_sync_display)),
@@ -338,7 +339,7 @@ fun PlayerSettingsSheet(
                 SettingsSwitchRow(
                     title = stringResource(R.string.player_interpolation),
                     subtitle = stringResource(R.string.player_interpolation_sub),
-                    icon = Icons.Outlined.Movie,
+                    icon = imageVectorResource(R.drawable.ic_tabler_movie),
                     checked = mpvInterpolation,
                     onCheckedChange = {
                         mpvInterpolation = it
@@ -348,7 +349,7 @@ fun PlayerSettingsSheet(
                 SettingsSwitchRow(
                     title = stringResource(R.string.player_pitch_correction),
                     subtitle = stringResource(R.string.player_pitch_correction_sub),
-                    icon = Icons.Outlined.Audiotrack,
+                    icon = imageVectorResource(R.drawable.ic_tabler_music),
                     checked = mpvAudioPitchCorrection,
                     onCheckedChange = {
                         mpvAudioPitchCorrection = it
@@ -449,7 +450,7 @@ fun PlayerSettingsSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                painter = painterResource(id = if (isSelected) R.drawable.ic_radio_checked else R.drawable.ic_radio_unchecked),
+                                painter = painterResource(id = if (isSelected) R.drawable.ic_tabler_circle_dot else R.drawable.ic_tabler_circle),
                                 contentDescription = null,
                                 tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(24.dp)
@@ -531,7 +532,7 @@ private fun SettingsNavRow(
                 Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             }
         }
-        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Icon(imageVectorResource(R.drawable.ic_tabler_chevron_right), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -542,7 +543,7 @@ private fun SettingsInfoRow(title: String, value: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+        Icon(imageVectorResource(R.drawable.ic_tabler_info_circle), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
         Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
         Text(value, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }

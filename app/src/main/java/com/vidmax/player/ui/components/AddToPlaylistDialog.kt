@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,7 +68,7 @@ fun AddToPlaylistDialog(
       onDismissRequest = onDismiss,
       shape = RoundedCornerShape(28.dp),
       containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-      icon = { DialogHeaderBadge(icon = Icons.Rounded.PlaylistAdd) },
+      icon = { DialogHeaderBadge(icon = imageVectorResource(R.drawable.ic_tabler_playlist_add)) },
       title = {
         Text(stringResource(R.string.comp_playlist_title), fontWeight = FontWeight.Bold, fontSize = 20.sp)
       },
@@ -100,7 +101,7 @@ fun AddToPlaylistDialog(
                                   else MaterialTheme.colorScheme.surfaceVariant),
                           contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = Icons.Rounded.PlaylistAdd,
+                                imageVector = imageVectorResource(R.drawable.ic_tabler_playlist_add),
                                 contentDescription = null,
                                 tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -133,13 +134,13 @@ fun AddToPlaylistDialog(
               },
               label = { Text(stringResource(R.string.comp_playlist_new_hint)) },
               leadingIcon = {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = null)
+                Icon(imageVector = imageVectorResource(R.drawable.ic_tabler_plus), contentDescription = null)
               },
               trailingIcon = {
                 if (newName.isNotEmpty()) {
                   IconButton(onClick = { newName = "" }) {
                     Icon(
-                        imageVector = Icons.Rounded.Clear,
+                        imageVector = imageVectorResource(R.drawable.ic_tabler_x),
                         contentDescription = "Clear name",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                   }

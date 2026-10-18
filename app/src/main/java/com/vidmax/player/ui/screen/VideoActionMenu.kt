@@ -24,17 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DriveFileMove
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -55,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -313,7 +304,7 @@ fun VideoActionMenuHost(
                           .padding(vertical = 10.dp),
                       verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Filled.Folder,
+                            imageVector = imageVectorResource(R.drawable.ic_tabler_folder),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp))
@@ -372,7 +363,7 @@ fun VideoActionMenuHost(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
           DialogHeaderBadge(
-              icon = Icons.Rounded.DeleteOutline,
+              icon = imageVectorResource(R.drawable.ic_tabler_trash),
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
@@ -467,27 +458,30 @@ fun VideoActionSheet(
           val moveLabel = stringResource(R.string.vam_menu_move)
           val detailsLabel = stringResource(R.string.vam_menu_details)
           val deleteLabel = stringResource(R.string.vam_menu_delete)
+          val trashIcon = imageVectorResource(R.drawable.ic_tabler_trash)
           val actions =
               listOf(
                   Triple<ImageVector, String, () -> Unit>(
                       Icons.Filled.PlayArrow, playLabel, onPlay),
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.Edit, renameLabel, onRename),
-                  Triple<ImageVector, String, () -> Unit>(Icons.Filled.Share, shareLabel, onShare),
+                      imageVectorResource(R.drawable.ic_tabler_pencil), renameLabel, onRename),
                   Triple<ImageVector, String, () -> Unit>(
-                      if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                      imageVectorResource(R.drawable.ic_tabler_share), shareLabel, onShare),
+                  Triple<ImageVector, String, () -> Unit>(
+                      if (isFavorite) imageVectorResource(R.drawable.ic_tabler_heart_filled)
+                      else imageVectorResource(R.drawable.ic_tabler_heart),
                       favLabel,
                       onToggleFavorite),
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.PlaylistAdd, addPlaylistLabel, onAddToPlaylist),
+                      imageVectorResource(R.drawable.ic_tabler_playlist_add), addPlaylistLabel, onAddToPlaylist),
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.DriveFileMove, moveLabel, onMove),
+                      imageVectorResource(R.drawable.ic_tabler_folder_symlink), moveLabel, onMove),
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.Info, detailsLabel, onDetails),
+                      imageVectorResource(R.drawable.ic_tabler_info_circle), detailsLabel, onDetails),
                   Triple<ImageVector, String, () -> Unit>(
-                      Icons.Filled.Delete, deleteLabel, onDelete))
+                      trashIcon, deleteLabel, onDelete))
           actions.forEach { (icon, label, action) ->
-            val isDestructive = icon == Icons.Filled.Delete
+            val isDestructive = icon == trashIcon
             if (isDestructive) {
               HorizontalDivider(
                   color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),

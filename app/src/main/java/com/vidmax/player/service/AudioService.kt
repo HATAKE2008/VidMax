@@ -216,7 +216,7 @@ class AudioService : Service() {
             val builder = Notification.Builder(this, channelId)
                 .setContentTitle(title)
                 .setContentText(artist)
-                .setSmallIcon(R.drawable.ic_music_note)
+                .setSmallIcon(R.drawable.ic_tabler_music)
                 .setContentIntent(openAppIntent)
                 .addAction(
                     Notification.Action.Builder(
@@ -262,7 +262,7 @@ class AudioService : Service() {
             val builder = Notification.Builder(this)
                 .setContentTitle(title)
                 .setContentText(artist)
-                .setSmallIcon(R.drawable.ic_music_note)
+                .setSmallIcon(R.drawable.ic_tabler_music)
                 .setContentIntent(openAppIntent)
                 .setOngoing(isPlaying)
 

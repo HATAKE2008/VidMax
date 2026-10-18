@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -99,7 +100,7 @@ fun StreamLinkSection(
                     placeholder = { Text("https://example.com/video.m3u8") },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Filled.Link,
+                            imageVector = imageVectorResource(R.drawable.ic_tabler_link),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -139,7 +140,7 @@ fun StreamLinkSection(
                         ),
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.ContentPaste,
+                            imageVector = imageVectorResource(R.drawable.ic_tabler_clipboard),
                             contentDescription = null,
                             modifier = Modifier.padding(end = 8.dp),
                         )
@@ -214,7 +215,7 @@ fun RecentStreamLinkRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Link,
+                    imageVector = imageVectorResource(R.drawable.ic_tabler_link),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
@@ -233,7 +234,7 @@ fun RecentStreamLinkRow(
                 modifier = Modifier.size(24.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Close,
+                    imageVector = imageVectorResource(R.drawable.ic_tabler_x),
                     contentDescription = "Remove link",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),

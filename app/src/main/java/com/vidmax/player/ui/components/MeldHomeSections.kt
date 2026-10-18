@@ -302,7 +302,7 @@ private fun RandomizeTile(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
-                painter = painterResource(R.drawable.ic_shuffle),
+                painter = painterResource(R.drawable.ic_tabler_arrows_shuffle),
                 contentDescription = "Shuffle",
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(28.dp),

@@ -28,6 +28,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -337,7 +338,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     )
                                 } else {
                                     Icon(
-                                        painter = painterResource(id = R.drawable.ic_music_note),
+                                        painter = painterResource(id = R.drawable.ic_tabler_music),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp)
@@ -400,7 +401,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.ic_skip_next),
+                                    painter = painterResource(id = R.drawable.ic_tabler_player_skip_forward),
                                     contentDescription = "Next Track",
                                     tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(20.dp)
@@ -416,7 +417,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    imageVector = if (isFavorite) imageVectorResource(R.drawable.ic_tabler_heart_filled) else imageVectorResource(R.drawable.ic_tabler_heart),
                                     contentDescription = "Favorite",
                                     tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(20.dp)
@@ -592,8 +593,8 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     ) {
                                         val iconRes = when (item.label) {
                                             "Videos" -> R.drawable.ic_video_library
-                                            "Music" -> R.drawable.ic_music_note
-                                            "Network" -> R.drawable.ic_network
+                                            "Music" -> R.drawable.ic_tabler_music
+                                            "Network" -> R.drawable.ic_tabler_server
                                             else -> R.drawable.ic_video_library
                                         }
                                         Icon(
@@ -704,7 +705,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                     )
 
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_search),
+                        painter = painterResource(id = R.drawable.ic_tabler_search),
                         contentDescription = "Online",
                         tint = searchIconColor,
                         modifier = Modifier

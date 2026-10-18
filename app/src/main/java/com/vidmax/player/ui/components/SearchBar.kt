@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -45,7 +46,7 @@ fun VidMaxSearchBar(
               .padding(horizontal = 12.dp, vertical = 10.dp),
       verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            painter = painterResource(id = R.drawable.ic_search),
+            painter = painterResource(id = R.drawable.ic_tabler_search),
             contentDescription = "Search",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp))
@@ -71,7 +72,7 @@ fun VidMaxSearchBar(
         if (query.isNotEmpty()) {
           IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(20.dp)) {
             Icon(
-                imageVector = Icons.Filled.Close,
+                imageVector = imageVectorResource(R.drawable.ic_tabler_x),
                 contentDescription = "Clear",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp))

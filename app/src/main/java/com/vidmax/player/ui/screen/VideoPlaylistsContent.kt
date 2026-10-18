@@ -95,6 +95,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -170,7 +171,7 @@ fun VideoPlaylistsContent(
               Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { selectedIds = emptySet() }) {
                   Icon(
-                      imageVector = Icons.Filled.Close,
+                      imageVector = imageVectorResource(R.drawable.ic_tabler_x),
                       contentDescription = "Clear selection",
                       tint = MaterialTheme.colorScheme.onBackground,
                       modifier = Modifier.size(24.dp))
@@ -189,7 +190,7 @@ fun VideoPlaylistsContent(
                             ?.let { renameListTarget = it }
                       }) {
                         Icon(
-                            imageVector = Icons.Filled.Edit,
+                            imageVector = imageVectorResource(R.drawable.ic_tabler_pencil),
                             contentDescription = "Rename playlist",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp))
@@ -197,7 +198,7 @@ fun VideoPlaylistsContent(
                 }
                 IconButton(onClick = { showListDeleteConfirm = true }) {
                   Icon(
-                      imageVector = Icons.Filled.Delete,
+                      imageVector = imageVectorResource(R.drawable.ic_tabler_trash),
                       contentDescription = "Delete playlists",
                       tint = MaterialTheme.colorScheme.error,
                       modifier = Modifier.size(24.dp))
@@ -212,7 +213,7 @@ fun VideoPlaylistsContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center) {
               Icon(
-                  imageVector = Icons.Filled.QueueMusic,
+                  imageVector = imageVectorResource(R.drawable.ic_tabler_playlist),
                   contentDescription = null,
                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                   modifier = Modifier.size(64.dp))
@@ -290,7 +291,7 @@ fun VideoPlaylistsContent(
                     .navigationBarsPadding()
                     .padding(end = 20.dp, bottom = 148.dp)
                     .size(56.dp)) {
-              Icon(imageVector = Icons.Filled.Add, contentDescription = "Create playlist")
+              Icon(imageVector = imageVectorResource(R.drawable.ic_tabler_plus), contentDescription = "Create playlist")
             }
       }
     }
@@ -316,12 +317,12 @@ fun VideoPlaylistsContent(
         onDismissRequest = { showCreateMenu = false },
         shape = RoundedCornerShape(28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        icon = { DialogHeaderBadge(icon = Icons.Filled.Add) },
+        icon = { DialogHeaderBadge(icon = imageVectorResource(R.drawable.ic_tabler_plus)) },
         title = { Text(stringResource(R.string.vpl_create_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
         text = {
           Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             CreateMenuRow(
-                icon = Icons.Filled.Add,
+                icon = imageVectorResource(R.drawable.ic_tabler_plus),
                 title = stringResource(R.string.vpl_create_new_title),
                 subtitle = stringResource(R.string.vpl_create_new_subtitle),
                 onClick = {
@@ -329,7 +330,7 @@ fun VideoPlaylistsContent(
                   showCreateDialog = true
                 })
             CreateMenuRow(
-                icon = Icons.Filled.Link,
+                icon = imageVectorResource(R.drawable.ic_tabler_link),
                 title = stringResource(R.string.vpl_import_m3u_title),
                 subtitle = stringResource(R.string.vpl_import_m3u_subtitle),
                 onClick = {
@@ -367,7 +368,7 @@ fun VideoPlaylistsContent(
         title = stringResource(R.string.vpl_rename_title),
         confirmLabel = stringResource(R.string.vpl_rename_confirm),
         initialText = current.name,
-        icon = Icons.Rounded.DriveFileRenameOutline,
+        icon = imageVectorResource(R.drawable.ic_tabler_pencil),
         onDismiss = {
           showRenameDialog = false
           viewModel.closeVideoPlaylist()
@@ -385,7 +386,7 @@ fun VideoPlaylistsContent(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
           DialogHeaderBadge(
-              icon = Icons.Rounded.DeleteOutline,
+              icon = imageVectorResource(R.drawable.ic_tabler_trash),
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
@@ -410,7 +411,7 @@ fun VideoPlaylistsContent(
         title = stringResource(R.string.vpl_rename_title),
         confirmLabel = stringResource(R.string.vpl_rename_confirm),
         initialText = target.playlist.name,
-        icon = Icons.Rounded.DriveFileRenameOutline,
+        icon = imageVectorResource(R.drawable.ic_tabler_pencil),
         onDismiss = { renameListTarget = null },
         onConfirm = { name ->
           viewModel.renameVideoPlaylist(target.playlist.id, name)
@@ -426,7 +427,7 @@ fun VideoPlaylistsContent(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
           DialogHeaderBadge(
-              icon = Icons.Rounded.DeleteOutline,
+              icon = imageVectorResource(R.drawable.ic_tabler_trash),
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
@@ -494,7 +495,7 @@ fun PlaylistCard(
                       .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)),
               contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                    imageVector = imageVectorResource(R.drawable.ic_tabler_playlist),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
                     modifier = Modifier.size(30.dp))
@@ -529,7 +530,7 @@ fun PlaylistCard(
           Box {
             IconButton(onClick = { overflowOpen = true }) {
               Icon(
-                  imageVector = Icons.Filled.MoreVert,
+                  imageVector = imageVectorResource(R.drawable.ic_tabler_dots_vertical),
                   contentDescription = "Playlist options",
                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                   modifier = Modifier.size(22.dp))
@@ -547,7 +548,7 @@ fun PlaylistCard(
               DropdownMenuItem(
                   text = { Text(stringResource(R.string.vpl_menu_rename)) },
                   leadingIcon = {
-                    Icon(imageVector = Icons.Filled.Edit, contentDescription = null)
+                    Icon(imageVector = imageVectorResource(R.drawable.ic_tabler_pencil), contentDescription = null)
                   },
                   onClick = {
                     overflowOpen = false
@@ -557,7 +558,7 @@ fun PlaylistCard(
                   text = { Text(stringResource(R.string.vpl_menu_delete), color = MaterialTheme.colorScheme.error) },
                   leadingIcon = {
                     Icon(
-                        imageVector = Icons.Filled.Delete,
+                        imageVector = imageVectorResource(R.drawable.ic_tabler_trash),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error)
                   },
@@ -663,7 +664,7 @@ private fun PlaylistDetailContent(
           verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
               Icon(
-                  imageVector = Icons.Filled.ArrowBack,
+                  imageVector = imageVectorResource(R.drawable.ic_tabler_arrow_left),
                   contentDescription = "Back",
                   tint = MaterialTheme.colorScheme.primary)
             }
@@ -674,7 +675,7 @@ private fun PlaylistDetailContent(
                         .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center) {
                   Icon(
-                      imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
+                      imageVector = imageVectorResource(R.drawable.ic_tabler_playlist),
                       contentDescription = null,
                       tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
                       modifier = Modifier.size(26.dp))
@@ -718,7 +719,7 @@ private fun PlaylistDetailContent(
             Box {
               IconButton(onClick = { menuOpen = true }) {
                 Icon(
-                    imageVector = Icons.Filled.MoreVert,
+                    imageVector = imageVectorResource(R.drawable.ic_tabler_dots_vertical),
                     contentDescription = "More",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
               }
@@ -734,7 +735,7 @@ private fun PlaylistDetailContent(
                       text = { Text(stringResource(R.string.vpl_refresh_from_url)) },
                       leadingIcon = {
                         Icon(
-                            imageVector = Icons.Filled.Refresh,
+                            imageVector = imageVectorResource(R.drawable.ic_tabler_refresh),
                             contentDescription = null)
                       },
                       onClick = {
@@ -761,7 +762,7 @@ private fun PlaylistDetailContent(
                       text = { Text(stringResource(R.string.vpl_reorder)) },
                       leadingIcon = {
                         Icon(
-                            imageVector = Icons.Outlined.SwapVert,
+                            imageVector = imageVectorResource(R.drawable.ic_tabler_arrows_sort),
                             contentDescription = null)
                       },
                       onClick = {
@@ -773,7 +774,7 @@ private fun PlaylistDetailContent(
                     text = { Text(stringResource(R.string.vpl_shuffle)) },
                     leadingIcon = {
                       Icon(
-                          imageVector = Icons.Filled.Shuffle,
+                          imageVector = imageVectorResource(R.drawable.ic_tabler_arrows_shuffle),
                           contentDescription = null)
                     },
                     onClick = {
@@ -790,7 +791,7 @@ private fun PlaylistDetailContent(
                       },
                       leadingIcon = {
                         Icon(
-                            imageVector = Icons.Filled.Delete,
+                            imageVector = imageVectorResource(R.drawable.ic_tabler_trash),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error)
                       },
@@ -825,11 +826,11 @@ private fun PlaylistDetailContent(
           value = itemQuery,
           onValueChange = { itemQuery = it },
           label = { Text(stringResource(R.string.vpl_search_in_playlist)) },
-          leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_search), contentDescription = null) },
+          leadingIcon = { Icon(painter = painterResource(id = R.drawable.ic_tabler_search), contentDescription = null) },
           trailingIcon = {
             if (itemQuery.isNotEmpty()) {
               IconButton(onClick = { itemQuery = "" }) {
-                Icon(imageVector = Icons.Filled.Close, contentDescription = "Clear")
+                Icon(imageVector = imageVectorResource(R.drawable.ic_tabler_x), contentDescription = "Clear")
               }
             }
           },
@@ -957,14 +958,14 @@ private fun PlaylistDetailContent(
                           modifier = Modifier.weight(1f))
                       if (isReorderMode) {
                         Icon(
-                            imageVector = Icons.Filled.DragHandle,
+                            imageVector = imageVectorResource(R.drawable.ic_tabler_grip_vertical),
                             contentDescription = "Drag to reorder",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(24.dp))
                       } else {
                         IconButton(onClick = { viewModel.removeVideoFromPlaylist(item) }) {
                           Icon(
-                              imageVector = Icons.Filled.Delete,
+                              imageVector = imageVectorResource(R.drawable.ic_tabler_trash),
                               contentDescription = "Remove",
                               tint = Color(0xFFB3544F),
                               modifier = Modifier.size(20.dp))
@@ -1077,7 +1078,7 @@ private fun ImportM3UDialog(
       onDismissRequest = { if (!busy) onDismiss() },
       shape = RoundedCornerShape(28.dp),
       containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-      icon = { DialogHeaderBadge(icon = Icons.Filled.Link) },
+      icon = { DialogHeaderBadge(icon = imageVectorResource(R.drawable.ic_tabler_link)) },
       title = { Text(stringResource(R.string.vpl_import_title), fontWeight = FontWeight.Bold, fontSize = 20.sp) },
       text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1100,7 +1101,7 @@ private fun ImportM3UDialog(
                 if (url.isNotEmpty() && !busy) {
                   IconButton(onClick = { url = "" }) {
                     Icon(
-                        imageVector = Icons.Rounded.Clear,
+                        imageVector = imageVectorResource(R.drawable.ic_tabler_x),
                         contentDescription = "Clear URL",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                   }
@@ -1149,7 +1150,7 @@ fun NamePromptDialog(
   title: String,
   confirmLabel: String,
   initialText: String = "",
-  icon: ImageVector = Icons.Rounded.AddCircleOutline,
+  icon: ImageVector = imageVectorResource(R.drawable.ic_tabler_circle_plus),
   onDismiss: () -> Unit,
   onConfirm: (String) -> Unit,
 ) {
@@ -1174,7 +1175,7 @@ fun NamePromptDialog(
               if (text.isNotEmpty()) {
                 IconButton(onClick = { text = "" }) {
                   Icon(
-                      imageVector = Icons.Rounded.Clear,
+                      imageVector = imageVectorResource(R.drawable.ic_tabler_x),
                       contentDescription = "Clear name",
                       tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

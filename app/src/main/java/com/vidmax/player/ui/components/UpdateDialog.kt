@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -70,7 +71,7 @@ fun UpdateResultDialog(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Filled.Download,
+                                    imageVector = imageVectorResource(R.drawable.ic_tabler_download),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(26.dp))
@@ -99,7 +100,7 @@ fun UpdateResultDialog(
                                     modifier = Modifier.weight(1f)
                                 )
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    imageVector = imageVectorResource(R.drawable.ic_tabler_arrow_right),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
@@ -155,7 +156,7 @@ fun UpdateResultDialog(
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Download,
+                                imageVector = imageVectorResource(R.drawable.ic_tabler_download),
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))

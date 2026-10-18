@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.imageVectorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -70,7 +71,7 @@ fun VideoRecentContent(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
           DialogHeaderBadge(
-              icon = Icons.Rounded.DeleteOutline,
+              icon = imageVectorResource(R.drawable.ic_tabler_trash),
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
@@ -96,7 +97,7 @@ fun VideoRecentContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
           Icon(
-              imageVector = Icons.Filled.History,
+              imageVector = imageVectorResource(R.drawable.ic_tabler_history),
               contentDescription = null,
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.size(64.dp))
@@ -143,7 +144,7 @@ fun VideoRecentContent(
               .padding(end = 12.dp, bottom = 100.dp)
               .size(60.dp)) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_delete_custom),
+                painter = painterResource(id = R.drawable.ic_tabler_trash),
                 contentDescription = "Clear Recent Play",
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(32.dp))

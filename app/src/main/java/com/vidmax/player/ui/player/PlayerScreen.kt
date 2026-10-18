@@ -309,7 +309,7 @@ fun PlayerScreen(
                         .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
                 contentAlignment = Alignment.Center) {
                   Icon(
-                      painter = painterResource(id = R.drawable.ic_headphones),
+                      painter = painterResource(id = R.drawable.ic_tabler_headphones),
                       contentDescription = "Audio Mode",
                       tint = MaterialTheme.colorScheme.primary,
                       modifier = Modifier.size(60.dp))
