@@ -1873,7 +1873,7 @@ fun PlayerControls(
                                     hideBackground = false
                                 )
                                 MpvCircleButton(
-                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_rotate),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_device_mobile_rotated),
                                     contentDescription = "Rotate",
                                     onClick = toggleScreenRotation,
                                     size = 42.dp,
@@ -2023,7 +2023,7 @@ private fun BottomControlsScrollRow(
             )
         }
         MpvCircleButton(
-            icon = ImageVector.vectorResource(R.drawable.ic_tabler_rotate),
+            icon = ImageVector.vectorResource(R.drawable.ic_tabler_device_mobile_rotated),
             contentDescription = "Rotate",
             onClick = onRotate,
             size = 42.dp,

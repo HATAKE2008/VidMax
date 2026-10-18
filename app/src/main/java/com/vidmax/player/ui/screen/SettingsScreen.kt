@@ -581,7 +581,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_autorotate_title),
                             subtitle = stringResource(R.string.sett_autorotate_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_rotate),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_device_mobile_rotated),
                             checked = autoRotate,
                             onCheckedChange = { viewModel.setAutoRotate(it) }
                         )
