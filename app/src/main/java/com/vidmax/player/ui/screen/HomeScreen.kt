@@ -1362,7 +1362,7 @@ private fun ContinueWatchingPill(
     Box(
         modifier =
             Modifier.fillMaxWidth()
-                .heightIn(min = 104.dp)
+                .height(96.dp)
                 .scale(pressScale)
                 .clip(RoundedCornerShape(24.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
@@ -1375,14 +1375,14 @@ private fun ContinueWatchingPill(
               model = File(video.path),
               contentDescription = null,
               contentScale = ContentScale.Crop,
-              modifier = Modifier.matchParentSize().blur(18.dp)) { requestBuilder ->
+              modifier = Modifier.fillMaxSize().blur(18.dp)) { requestBuilder ->
                 requestBuilder.diskCacheStrategy(DiskCacheStrategy.ALL).override(600)
               }
 
           // 2. Dark gradient scrim so the text stays readable.
           Box(
               modifier =
-                  Modifier.matchParentSize()
+                  Modifier.fillMaxSize()
                       .background(
                           Brush.verticalGradient(
                               listOf(
@@ -1391,65 +1391,69 @@ private fun ContinueWatchingPill(
 
           // 3. Content
           Row(
-              modifier = Modifier.fillMaxWidth().padding(16.dp),
+              modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
               verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(68.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
                   CircularProgressIndicator(
                       progress = { progress },
                       modifier = Modifier.fillMaxSize(),
                       color = MaterialTheme.colorScheme.primary,
                       trackColor = Color.White.copy(alpha = 0.25f),
-                      strokeWidth = 4.dp,
+                      strokeWidth = 3.dp,
                       strokeCap = StrokeCap.Round)
                   Icon(
                       imageVector = Icons.Rounded.PlayArrow,
                       contentDescription = null,
                       tint = Color.White,
-                      modifier = Modifier.size(26.dp))
+                      modifier = Modifier.size(22.dp))
                 }
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                   Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = stringResource(R.string.home_continue_watching),
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.width(8.dp))
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "${formatTime(watchedMs)} / ${formatTime(safeDuration)}",
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium)
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1)
                   }
-                  Spacer(modifier = Modifier.height(4.dp))
+                  Spacer(modifier = Modifier.height(3.dp))
                   Text(
                       text = cleanVideoTitle(video.title),
                       color = Color.White,
-                      fontSize = 15.sp,
+                      fontSize = 14.sp,
                       fontWeight = FontWeight.SemiBold,
                       maxLines = 1,
                       overflow = TextOverflow.Ellipsis)
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Button(
                     onClick = onResume,
                     shape = RoundedCornerShape(50),
-                    modifier = Modifier.height(44.dp),
-                    contentPadding = PaddingValues(horizontal = 18.dp),
+                    modifier = Modifier.height(38.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp),
                     colors =
                         ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
                       Text(
                           text = stringResource(R.string.home_resume),
-                          fontSize = 13.sp,
+                          fontSize = 12.sp,
                           fontWeight = FontWeight.Bold)
                       Spacer(modifier = Modifier.width(2.dp))
                       Icon(
                           imageVector = Icons.Rounded.ChevronRight,
                           contentDescription = null,
-                          modifier = Modifier.size(18.dp))
+                          modifier = Modifier.size(16.dp))
                     }
               }
 
