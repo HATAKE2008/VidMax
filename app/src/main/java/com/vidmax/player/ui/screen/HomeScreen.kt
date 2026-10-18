@@ -80,6 +80,7 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vidmax.player.R
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
+import com.vidmax.player.data.repository.formatDuration
 import com.vidmax.player.ui.components.AddToPlaylistDialog
 import com.vidmax.player.ui.components.EmptyState
 import com.vidmax.player.ui.components.SortViewOptionsSheet
@@ -1414,7 +1415,7 @@ private fun ContinueWatchingPill(
                         fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "${formatClock(watchedMs)} / ${formatClock(safeDuration)}",
+                        text = "${formatDuration(watchedMs)} / ${formatDuration(safeDuration)}",
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium)
@@ -1460,16 +1461,6 @@ private fun ContinueWatchingPill(
               strokeCap = StrokeCap.Square)
         }
   }
-}
-
-/** Formats milliseconds as mm:ss, or h:mm:ss when the video runs past an hour. */
-private fun formatClock(ms: Long): String {
-  val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
-  val hours = totalSeconds / 3600L
-  val minutes = (totalSeconds % 3600L) / 60L
-  val seconds = totalSeconds % 60L
-  return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds)
-  else "%02d:%02d".format(minutes, seconds)
 }
 
 /** Strips the file extension and common release/size suffixes for display. */
