@@ -80,7 +80,6 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vidmax.player.R
 import com.vidmax.player.data.model.FolderItem
 import com.vidmax.player.data.model.VideoItem
-import com.vidmax.player.data.repository.formatDuration
 import com.vidmax.player.ui.components.AddToPlaylistDialog
 import com.vidmax.player.ui.components.EmptyState
 import com.vidmax.player.ui.components.SortViewOptionsSheet
@@ -813,6 +812,7 @@ fun HomeScreen(
                         if (lastVideo != null) {
                           ContinueWatchingPill(
                               video = lastVideo,
+                              formatTime = viewModel::formatDuration,
                               visible = lastPlayedVideoIndex >= 0 && videoListAtTop,
                               onResume = { resumeLastVideo() },
                               modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
@@ -985,6 +985,7 @@ fun HomeScreen(
                             val lastVideo = folderVideos[lastPlayedIndex]
                             ContinueWatchingPill(
                                 video = lastVideo,
+                                formatTime = viewModel::formatDuration,
                                 visible = true,
                                 onResume = { onVideoClick(folderVideos, lastPlayedIndex) },
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
@@ -1321,6 +1322,7 @@ fun HomeScreen(
 @Composable
 private fun ContinueWatchingPill(
     video: VideoItem,
+    formatTime: (Long) -> String,
     visible: Boolean,
     onResume: () -> Unit,
     modifier: Modifier = Modifier
@@ -1415,7 +1417,7 @@ private fun ContinueWatchingPill(
                         fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "${formatDuration(watchedMs)} / ${formatDuration(safeDuration)}",
+                        text = "${formatTime(watchedMs)} / ${formatTime(safeDuration)}",
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium)
