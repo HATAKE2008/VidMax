@@ -283,38 +283,32 @@ fun SettingsScreen(
         ) {
 
             // ── Top Bar ──────────────────────────────────────────────────────────
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .padding(start = 4.dp, end = 16.dp, top = 6.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 // Clean Back Button without circle background
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.align(Alignment.CenterStart)
-                ) {
+                IconButton(onClick = onBack) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_arrow_back),
                         contentDescription = "Back",
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(30.dp)
                     )
                 }
+
+                Spacer(modifier = Modifier.width(4.dp))
 
                 Text(
                     text = stringResource(R.string.sett_title),
                     color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 20.sp,
+                    fontSize = 34.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.Center)
+                    letterSpacing = (-0.5).sp
                 )
             }
-
-            // Subtle separator under top bar
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                thickness = 0.5.dp
-            )
 
             // ── Content ──────────────────────────────────────────────────────────
             LazyColumn(
