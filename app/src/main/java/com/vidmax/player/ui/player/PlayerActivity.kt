@@ -89,6 +89,10 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
     private var isTrackChanging: Boolean = false
     private val resetTrackChangeRunnable = Runnable { isTrackChanging = false }
 
+    // User exit (back/finish) এর সময় MPV stop → END_FILE fire করে; তখন
+    // resume position 0 করে দেওয়া এবং auto-advance আটকানোর ফ্ল্যাগ।
+    private var isExiting: Boolean = false
+
     // 🔥 FIX: MPV এখন lazy initialize হবে — শুধুমাত্র MPV engine ব্যবহারের সময়
     private var mpvInitialized: Boolean = false
 
@@ -605,7 +609,7 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
             }
 
             MPVLib.MpvEvent.MPV_EVENT_END_FILE -> {
-                if (isTrackChanging) return
+                if (isTrackChanging || isExiting) return
                 if (playerViewModel.loopMode.value == LoopMode.ONE) return
                 playerViewModel.setPlaying(false)
                 if (currentPlayingPath.isNotEmpty()) {
@@ -662,6 +666,7 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
                 }
                 if (playerViewModel.currentEngine.value == PlayerEngine.EXO &&
                     playbackState == Player.STATE_ENDED &&
+                    !isExiting &&
                     // Seamless loop handled by ExoPlayer itself — a manual
                     // reload here would flash black between restarts.
                     exoPlayer?.repeatMode != Player.REPEAT_MODE_ONE) {
@@ -748,6 +753,7 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
     override fun onStop() {
         super.onStop()
         if (isFinishing) {
+            isExiting = true
             saveCurrentPlaybackPosition()
             if (mpvInitialized) {
                 try { MPVLib.setPropertyBoolean("pause", true) } catch (e: Exception) {}
@@ -765,6 +771,7 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
 
     override fun onDestroy() {
         saveCurrentPlaybackPosition()
+        isExiting = true
         handler.removeCallbacksAndMessages(null)
         try {
             subtitlePfd?.close()
