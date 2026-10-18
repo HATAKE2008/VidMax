@@ -688,13 +688,21 @@ class PlayerActivity : AppCompatActivity(), MPVLib.EventObserver {
                     2007 -> getString(R.string.player_err_http_blocked)
                     else -> getString(R.string.player_err_unreadable)
                 }
+                // Surface the underlying cause so codec/audio failures can be
+                // diagnosed from the on-screen message (and logcat).
+                val causeChain =
+                    generateSequence(error.cause) { it.cause }
+                        .take(4)
+                        .joinToString(" <- ") { c ->
+                            val m = c.message?.replace('\n', ' ')?.trim()?.take(200)
+                            c.javaClass.simpleName + if (!m.isNullOrBlank()) "($m)" else ""
+                        }
+                val detail =
+                    getString(R.string.player_playback_error, error.errorCode, reason) +
+                        if (causeChain.isNotEmpty()) " · $causeChain" else ""
                 playerViewModel.setBuffering(false)
-                playerViewModel.setError(getString(R.string.player_playback_error, error.errorCode, reason))
-                Toast.makeText(
-                    this@PlayerActivity,
-                    getString(R.string.player_playback_error, error.errorCode, reason),
-                    Toast.LENGTH_LONG,
-                ).show()
+                playerViewModel.setError(detail)
+                Toast.makeText(this@PlayerActivity, detail, Toast.LENGTH_LONG).show()
             }
         })
     }
@@ -798,9 +806,15 @@ private class MonoMixAudioProcessor : BaseAudioProcessor() {
         val supportedEncoding =
             inputAudioFormat.encoding == C.ENCODING_PCM_16BIT ||
                 inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
-        return if ((inputAudioFormat.channelCount == 1 || inputAudioFormat.channelCount == 2) &&
+        // Only engage when a stereo mode is actually requested and the input is
+        // stereo. In the default "Normal" mode (or for mono / non-PCM audio)
+        // return NOT_SET so the sink bypasses this processor entirely and the
+        // stock ExoPlayer audio pipeline is used unchanged.
+        val wantsStereoMode = currentMode == "Mono" || currentMode == "Reverse"
+        return if (wantsStereoMode &&
+            inputAudioFormat.channelCount == 2 &&
             supportedEncoding) {
-            AudioFormat(inputAudioFormat.sampleRate, inputAudioFormat.channelCount, inputAudioFormat.encoding)
+            AudioFormat(inputAudioFormat.sampleRate, 2, inputAudioFormat.encoding)
         } else {
             AudioFormat.NOT_SET
         }
