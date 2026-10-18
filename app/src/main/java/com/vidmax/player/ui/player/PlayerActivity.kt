@@ -811,12 +811,22 @@ private class MonoMixAudioProcessor : BaseAudioProcessor() {
         val channels = inputAudioFormat.channelCount
         val position = inputBuffer.position()
         val limit = inputBuffer.limit()
+        // Stereo-only modes (Mono/Reverse) do not apply to mono audio such as
+        // screen recordings; reading a second channel that isn't there used to
+        // overflow the buffer and abort playback. Pass non-stereo PCM through
+        // untouched instead.
+        if (channels != 2) {
+            val passthrough = replaceOutputBuffer(limit - position)
+            passthrough.put(inputBuffer)
+            passthrough.flip()
+            return
+        }
         val bytesPerFrame = inputAudioFormat.bytesPerFrame
         val frameCount = (limit - position) / bytesPerFrame
         val output = replaceOutputBuffer(frameCount * bytesPerFrame)
         val floating = inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
-        val monoMix = mode == "Mono" && channels == 2
-        val swapChannels = mode == "Reverse" && channels == 2
+        val monoMix = mode == "Mono"
+        val swapChannels = mode == "Reverse"
         var readAt = position
         repeat(frameCount) {
             if (floating) {
