@@ -11,6 +11,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,7 +63,7 @@ fun VideoCard(
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
                     contentAlignment = Alignment.Center) {
                       Icon(
-                          imageVector = androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_check),
+                          imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_check),
                           contentDescription = "Selected",
                           tint = Color.White,
                           modifier = Modifier.size(32.dp))

@@ -30,6 +30,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -116,7 +117,7 @@ fun SelectionBottomBar(
             shape = buttonShape,
             colors = tonalColors) {
           Icon(
-              androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_copy),
+              ImageVector.vectorResource(R.drawable.ic_tabler_copy),
               contentDescription = "Copy",
               modifier = Modifier.size(20.dp))
         }
@@ -130,7 +131,7 @@ fun SelectionBottomBar(
             shape = buttonShape,
             colors = tonalColors) {
           Icon(
-              androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_folder_symlink),
+              ImageVector.vectorResource(R.drawable.ic_tabler_folder_symlink),
               contentDescription = "Move",
               modifier = Modifier.size(20.dp))
         }
@@ -145,7 +146,7 @@ fun SelectionBottomBar(
               shape = buttonShape,
               colors = tonalColors) {
             Icon(
-                androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_pencil),
+                ImageVector.vectorResource(R.drawable.ic_tabler_pencil),
                 contentDescription = "Rename",
                 modifier = Modifier.size(20.dp))
           }
@@ -160,7 +161,7 @@ fun SelectionBottomBar(
             shape = buttonShape,
             colors = tonalColors) {
           Icon(
-              androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_playlist_add),
+              ImageVector.vectorResource(R.drawable.ic_tabler_playlist_add),
               contentDescription = "Add to Playlist",
               modifier = Modifier.size(20.dp))
         }
@@ -176,7 +177,7 @@ fun SelectionBottomBar(
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer)) {
           Icon(
-              androidx.compose.ui.res.vectorResource(R.drawable.ic_tabler_trash),
+              ImageVector.vectorResource(R.drawable.ic_tabler_trash),
               contentDescription = "Delete",
               modifier = Modifier.size(20.dp))
         }
