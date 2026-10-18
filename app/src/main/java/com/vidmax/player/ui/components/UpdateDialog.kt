@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.vectorResource
@@ -71,7 +72,7 @@ fun UpdateResultDialog(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = vectorResource(R.drawable.ic_tabler_download),
+                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_download),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(26.dp))
@@ -100,7 +101,7 @@ fun UpdateResultDialog(
                                     modifier = Modifier.weight(1f)
                                 )
                                 Icon(
-                                    imageVector = vectorResource(R.drawable.ic_tabler_arrow_right),
+                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_arrow_right),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp)
@@ -156,7 +157,7 @@ fun UpdateResultDialog(
                             }
                         ) {
                             Icon(
-                                imageVector = vectorResource(R.drawable.ic_tabler_download),
+                                imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_download),
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))

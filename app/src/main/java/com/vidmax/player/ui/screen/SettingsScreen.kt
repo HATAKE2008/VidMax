@@ -357,7 +357,7 @@ fun SettingsScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (isSelected) {
                                         Icon(
-                                            imageVector = vectorResource(R.drawable.ic_tabler_check),
+                                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_check),
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp),
                                             tint = MaterialTheme.colorScheme.onSecondaryContainer
@@ -406,7 +406,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_amoled_title),
                             subtitle = stringResource(R.string.sett_amoled_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_moon),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_moon),
                             checked = amoledMode,
                             enabled = isCurrentlyDark,
                             onCheckedChange = { viewModel.setAmoledMode(it) }
@@ -423,7 +423,7 @@ fun SettingsScreen(
                             subtitle = AppLocale.displayNameFor(appLocale),
                             icon = {
                                 Icon(
-                                    imageVector = vectorResource(R.drawable.ic_tabler_language),
+                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_language),
                                     contentDescription = null,
                                     modifier = Modifier.size(22.dp),
                                     tint = MaterialTheme.colorScheme.primary
@@ -431,7 +431,7 @@ fun SettingsScreen(
                             },
                             trailing = {
                                 Icon(
-                                    imageVector = vectorResource(R.drawable.ic_tabler_chevron_right),
+                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -499,7 +499,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_volume_boost_title),
                             subtitle = stringResource(R.string.sett_volume_boost_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_volume),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_volume),
                             checked = audioBoost,
                             onCheckedChange = { viewModel.setAudioBoost(it) }
                         )
@@ -573,7 +573,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_resume_title),
                             subtitle = stringResource(R.string.sett_resume_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_history),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_history),
                             checked = resumePlayback,
                             onCheckedChange = { viewModel.setResumePlayback(it) }
                         )
@@ -581,7 +581,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_autorotate_title),
                             subtitle = stringResource(R.string.sett_autorotate_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_rotate),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_rotate),
                             checked = autoRotate,
                             onCheckedChange = { viewModel.setAutoRotate(it) }
                         )
@@ -589,7 +589,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_intro_title),
                             subtitle = stringResource(R.string.sett_intro_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_rocket),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_rocket),
                             checked = showIntro,
                             onCheckedChange = { on ->
                                 showIntro = on
@@ -600,7 +600,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_minimalist_title),
                             subtitle = stringResource(R.string.sett_minimalist_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_minimize),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_minimize),
                             checked = minimalistPlayer,
                             onCheckedChange = { viewModel.setMinimalistPlayer(it) }
                         )
@@ -617,7 +617,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_speed_title),
                             subtitle = stringResource(R.string.sett_speed_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_gauge),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_gauge),
                             checked = showSpeedButton,
                             onCheckedChange = { on ->
                                 showSpeedButton = on
@@ -628,7 +628,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_loop_title),
                             subtitle = stringResource(R.string.sett_loop_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_repeat),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_repeat),
                             checked = showLoopButton,
                             onCheckedChange = { on ->
                                 showLoopButton = on
@@ -639,7 +639,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_zoom_title),
                             subtitle = stringResource(R.string.sett_zoom_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_aspect_ratio),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_aspect_ratio),
                             checked = showZoomButtons,
                             onCheckedChange = { on ->
                                 showZoomButtons = on
@@ -650,7 +650,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_extra_title),
                             subtitle = stringResource(R.string.sett_extra_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_apps),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_apps),
                             checked = showExtraButtons,
                             onCheckedChange = { on ->
                                 showExtraButtons = on
@@ -670,7 +670,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_music_title),
                             subtitle = stringResource(R.string.sett_music_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_music),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_music),
                             checked = musicPlayerEnabled,
                             onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
                         )
@@ -678,7 +678,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_local_title),
                             subtitle = stringResource(R.string.sett_local_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_folder),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_folder),
                             checked = localMode,
                             onCheckedChange = { viewModel.setLocalMode(it) }
                         )
@@ -709,13 +709,13 @@ fun SettingsScreen(
                             trailing = {
                                 if (hasFullAccess) {
                                     Icon(
-                                        imageVector = vectorResource(R.drawable.ic_tabler_check),
+                                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_check),
                                         contentDescription = "Enabled",
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = vectorResource(R.drawable.ic_tabler_chevron_right),
+                                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -749,7 +749,7 @@ fun SettingsScreen(
                                 },
                                 trailing = {
                                     Icon(
-                                        imageVector = vectorResource(R.drawable.ic_tabler_chevron_right),
+                                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -770,7 +770,7 @@ fun SettingsScreen(
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_update_notif_title),
                             subtitle = stringResource(R.string.sett_update_notif_sub),
-                            icon = vectorResource(R.drawable.ic_tabler_bell),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_bell),
                             checked = updateNotifications,
                             onCheckedChange = { on ->
                                 updateNotifications = on
@@ -801,7 +801,7 @@ fun SettingsScreen(
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = vectorResource(R.drawable.ic_tabler_chevron_right),
+                                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -832,7 +832,7 @@ fun SettingsScreen(
                             },
                             trailing = {
                                 Icon(
-                                    imageVector = vectorResource(R.drawable.ic_tabler_chevron_right),
+                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -854,7 +854,7 @@ fun SettingsScreen(
                             },
                             trailing = {
                                 Icon(
-                                    imageVector = vectorResource(R.drawable.ic_tabler_chevron_right),
+                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1113,7 +1113,7 @@ private fun FontPreviewCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = vectorResource(R.drawable.ic_tabler_x),
+                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_x),
                         contentDescription = "Remove font",
                         tint = MaterialTheme.colorScheme.onErrorContainer,
                         modifier = Modifier.size(13.dp)
@@ -1164,7 +1164,7 @@ private fun ImportFontCard(
             } else {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = vectorResource(R.drawable.ic_tabler_plus),
+                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_plus),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp) // Standardized Size

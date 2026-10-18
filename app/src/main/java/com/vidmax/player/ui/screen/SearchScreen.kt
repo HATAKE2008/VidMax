@@ -57,6 +57,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -252,7 +253,7 @@ fun SearchScreen(
                         onClick = onBack,
                         modifier = Modifier.size(40.dp)) {
                       Icon(
-                          imageVector = vectorResource(R.drawable.ic_tabler_arrow_left),
+                          imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_arrow_left),
                           contentDescription = "Back",
                           tint = MaterialTheme.colorScheme.onBackground)
                     }
@@ -279,7 +280,7 @@ fun SearchScreen(
                                 onClick = { query = ""; visibleQuery = "" },
                                 modifier = Modifier.size(32.dp)) {
                               Icon(
-                                  imageVector = vectorResource(R.drawable.ic_tabler_x),
+                                  imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_x),
                                   contentDescription = "Clear search",
                                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                   modifier = Modifier.size(18.dp))
@@ -325,7 +326,7 @@ fun SearchScreen(
                                     MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center) {
                               Icon(
-                                  imageVector = vectorResource(R.drawable.ic_tabler_search),
+                                  imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_search),
                                   contentDescription = null,
                                   tint = MaterialTheme.colorScheme.primary,
                                   modifier = Modifier.size(32.dp))
@@ -396,7 +397,7 @@ fun SearchScreen(
                                     onClick = { viewModel.removeSearchHistoryEntry(item) },
                                     modifier = Modifier.size(48.dp)) {
                                       Icon(
-                                          imageVector = vectorResource(R.drawable.ic_tabler_x),
+                                          imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_x),
                                           contentDescription = "Remove search",
                                           tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                           modifier = Modifier.size(18.dp))
@@ -553,8 +554,8 @@ fun SearchScreen(
                                 verticalAlignment = Alignment.CenterVertically) {
                                   Icon(
                                       imageVector =
-                                          if (file.isDirectory) vectorResource(R.drawable.ic_tabler_folder)
-                                          else vectorResource(R.drawable.ic_tabler_music),
+                                          if (file.isDirectory) ImageVector.vectorResource(R.drawable.ic_tabler_folder)
+                                          else ImageVector.vectorResource(R.drawable.ic_tabler_music),
                                       contentDescription = null,
                                       tint = MaterialTheme.colorScheme.primary,
                                       modifier = Modifier.size(22.dp))

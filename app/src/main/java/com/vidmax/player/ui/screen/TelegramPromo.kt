@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -116,7 +117,7 @@ fun TelegramPromoSheet(
                     .background(telegramAccent.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center) {
                   Icon(
-                      imageVector = vectorResource(R.drawable.ic_tabler_send),
+                      imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_send),
                       contentDescription = null,
                       tint = telegramAccent,
                       modifier = Modifier.size(20.dp))
@@ -156,7 +157,7 @@ fun TelegramPromoSheet(
                     contentColor = Color.White),
                 modifier = Modifier.fillMaxWidth().height(44.dp)) {
                   Icon(
-                      imageVector = vectorResource(R.drawable.ic_tabler_send),
+                      imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_send),
                       contentDescription = null,
                       modifier = Modifier.size(16.dp))
                   Spacer(modifier = Modifier.width(6.dp))

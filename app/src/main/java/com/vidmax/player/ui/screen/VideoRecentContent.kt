@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.painterResource
@@ -71,7 +72,7 @@ fun VideoRecentContent(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
           DialogHeaderBadge(
-              icon = vectorResource(R.drawable.ic_tabler_trash),
+              icon = ImageVector.vectorResource(R.drawable.ic_tabler_trash),
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
@@ -97,7 +98,7 @@ fun VideoRecentContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
           Icon(
-              imageVector = vectorResource(R.drawable.ic_tabler_history),
+              imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_history),
               contentDescription = null,
               tint = MaterialTheme.colorScheme.onSurfaceVariant,
               modifier = Modifier.size(64.dp))

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.pluralStringResource
@@ -46,7 +47,7 @@ fun PlaylistScreen(
             verticalAlignment = Alignment.CenterVertically) {
               IconButton(onClick = onBack) {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_arrow_left),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_arrow_left),
                     contentDescription = "Back",
                     tint = MaterialTheme.colorScheme.onBackground)
               }

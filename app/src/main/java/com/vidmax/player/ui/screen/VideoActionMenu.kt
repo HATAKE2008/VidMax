@@ -304,7 +304,7 @@ fun VideoActionMenuHost(
                           .padding(vertical = 10.dp),
                       verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = vectorResource(R.drawable.ic_tabler_folder),
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_folder),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp))
@@ -363,7 +363,7 @@ fun VideoActionMenuHost(
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
           DialogHeaderBadge(
-              icon = vectorResource(R.drawable.ic_tabler_trash),
+              icon = ImageVector.vectorResource(R.drawable.ic_tabler_trash),
               containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
               contentColor = MaterialTheme.colorScheme.error)
         },
@@ -458,26 +458,26 @@ fun VideoActionSheet(
           val moveLabel = stringResource(R.string.vam_menu_move)
           val detailsLabel = stringResource(R.string.vam_menu_details)
           val deleteLabel = stringResource(R.string.vam_menu_delete)
-          val trashIcon = vectorResource(R.drawable.ic_tabler_trash)
+          val trashIcon = ImageVector.vectorResource(R.drawable.ic_tabler_trash)
           val actions =
               listOf(
                   Triple<ImageVector, String, () -> Unit>(
                       Icons.Filled.PlayArrow, playLabel, onPlay),
                   Triple<ImageVector, String, () -> Unit>(
-                      vectorResource(R.drawable.ic_tabler_pencil), renameLabel, onRename),
+                      ImageVector.vectorResource(R.drawable.ic_tabler_pencil), renameLabel, onRename),
                   Triple<ImageVector, String, () -> Unit>(
-                      vectorResource(R.drawable.ic_tabler_share), shareLabel, onShare),
+                      ImageVector.vectorResource(R.drawable.ic_tabler_share), shareLabel, onShare),
                   Triple<ImageVector, String, () -> Unit>(
-                      if (isFavorite) vectorResource(R.drawable.ic_tabler_heart_filled)
-                      else vectorResource(R.drawable.ic_tabler_heart),
+                      if (isFavorite) ImageVector.vectorResource(R.drawable.ic_tabler_heart_filled)
+                      else ImageVector.vectorResource(R.drawable.ic_tabler_heart),
                       favLabel,
                       onToggleFavorite),
                   Triple<ImageVector, String, () -> Unit>(
-                      vectorResource(R.drawable.ic_tabler_playlist_add), addPlaylistLabel, onAddToPlaylist),
+                      ImageVector.vectorResource(R.drawable.ic_tabler_playlist_add), addPlaylistLabel, onAddToPlaylist),
                   Triple<ImageVector, String, () -> Unit>(
-                      vectorResource(R.drawable.ic_tabler_folder_symlink), moveLabel, onMove),
+                      ImageVector.vectorResource(R.drawable.ic_tabler_folder_symlink), moveLabel, onMove),
                   Triple<ImageVector, String, () -> Unit>(
-                      vectorResource(R.drawable.ic_tabler_info_circle), detailsLabel, onDetails),
+                      ImageVector.vectorResource(R.drawable.ic_tabler_info_circle), detailsLabel, onDetails),
                   Triple<ImageVector, String, () -> Unit>(
                       trashIcon, deleteLabel, onDelete))
           actions.forEach { (icon, label, action) ->

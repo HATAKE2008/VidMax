@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
@@ -72,7 +73,7 @@ fun VidMaxSearchBar(
         if (query.isNotEmpty()) {
           IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(20.dp)) {
             Icon(
-                imageVector = vectorResource(R.drawable.ic_tabler_x),
+                imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_x),
                 contentDescription = "Clear",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp))

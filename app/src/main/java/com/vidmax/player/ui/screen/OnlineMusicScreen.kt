@@ -42,6 +42,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -519,7 +520,7 @@ private fun OnlineHeader(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HeaderIconButton(icon = vectorResource(R.drawable.ic_tabler_user_circle), onClick = onProfileClick)
+            HeaderIconButton(icon = ImageVector.vectorResource(R.drawable.ic_tabler_user_circle), onClick = onProfileClick)
             Box(
                 modifier = Modifier
                     .size(42.dp)
@@ -535,7 +536,7 @@ private fun OnlineHeader(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            HeaderIconButton(icon = vectorResource(R.drawable.ic_tabler_settings), onClick = onSettingsClick)
+            HeaderIconButton(icon = ImageVector.vectorResource(R.drawable.ic_tabler_settings), onClick = onSettingsClick)
         }
     }
 }
@@ -581,7 +582,7 @@ private fun ProfileSheet(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
-                imageVector = vectorResource(R.drawable.ic_tabler_user_circle),
+                imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_user_circle),
                 contentDescription = null,
                 modifier = Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.primary
@@ -981,7 +982,7 @@ fun MeldRecentListItem(
         }
         IconButton(onClick = { /* Handle options menu */ }) {
             Icon(
-                imageVector = vectorResource(R.drawable.ic_tabler_dots_vertical),
+                imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_dots_vertical),
                 contentDescription = "Options",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1367,7 +1368,7 @@ fun ArtistCard(
                 )
             } else {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_user_circle),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_user_circle),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(48.dp)
@@ -1562,7 +1563,7 @@ fun MeldPlaylistDetailScreen(
         ) {
             IconButton(onClick = onBack) {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_arrow_left),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_arrow_left),
                     contentDescription = "Back",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
@@ -1698,7 +1699,7 @@ fun MeldArtistDetailScreen(
         ) {
             IconButton(onClick = onBack) {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_arrow_left),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_arrow_left),
                     contentDescription = "Back",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
@@ -1770,7 +1771,7 @@ fun MeldArtistDetailScreen(
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = vectorResource(R.drawable.ic_tabler_user_circle),
+                                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_user_circle),
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(48.dp)
@@ -1967,7 +1968,7 @@ fun OnlineSearchBar(
             if (onBackClick != null) {
                 IconButton(onClick = onBackClick) {
                     Icon(
-                        imageVector = vectorResource(R.drawable.ic_tabler_arrow_left),
+                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_arrow_left),
                         contentDescription = "Close search",
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.onSurface
@@ -1986,7 +1987,7 @@ fun OnlineSearchBar(
             if (query.isNotEmpty()) {
                 IconButton(onClick = onClearClick) {
                     Icon(
-                        vectorResource(R.drawable.ic_tabler_x), 
+                        ImageVector.vectorResource(R.drawable.ic_tabler_x), 
                         contentDescription = "Clear", 
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.onSurface
@@ -2234,7 +2235,7 @@ fun OnlineMiniPlayer(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (isFavorite) vectorResource(R.drawable.ic_tabler_heart_filled) else vectorResource(R.drawable.ic_tabler_heart),
+                        imageVector = if (isFavorite) ImageVector.vectorResource(R.drawable.ic_tabler_heart_filled) else ImageVector.vectorResource(R.drawable.ic_tabler_heart),
                         contentDescription = "Favorite",
                         tint = if (isFavorite) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(24.dp)

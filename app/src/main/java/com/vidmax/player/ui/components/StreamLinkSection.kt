@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
@@ -100,7 +101,7 @@ fun StreamLinkSection(
                     placeholder = { Text("https://example.com/video.m3u8") },
                     leadingIcon = {
                         Icon(
-                            imageVector = vectorResource(R.drawable.ic_tabler_link),
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_link),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -140,7 +141,7 @@ fun StreamLinkSection(
                         ),
                     ) {
                         Icon(
-                            imageVector = vectorResource(R.drawable.ic_tabler_clipboard),
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_clipboard),
                             contentDescription = null,
                             modifier = Modifier.padding(end = 8.dp),
                         )
@@ -215,7 +216,7 @@ fun RecentStreamLinkRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_link),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_link),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
@@ -234,7 +235,7 @@ fun RecentStreamLinkRow(
                 modifier = Modifier.size(24.dp),
             ) {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_x),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_x),
                     contentDescription = "Remove link",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),

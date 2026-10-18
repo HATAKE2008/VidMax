@@ -28,6 +28,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -189,7 +190,7 @@ private fun ConnectionsList(
             )
             FilledTonalIconButton(onClick = onAdd) {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_plus),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_plus),
                     contentDescription = "Add Connection",
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -233,7 +234,7 @@ private fun ConnectionsList(
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Icon(
-                            imageVector = vectorResource(R.drawable.ic_tabler_server),
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_server),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(64.dp),
@@ -328,7 +329,7 @@ private fun ConnectionCard(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = vectorResource(R.drawable.ic_tabler_server),
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_server),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
                             modifier = Modifier.size(26.dp),
@@ -357,14 +358,14 @@ private fun ConnectionCard(
                 Row {
                     IconButton(onClick = onEdit) {
                         Icon(
-                            vectorResource(R.drawable.ic_tabler_pencil),
+                            ImageVector.vectorResource(R.drawable.ic_tabler_pencil),
                             contentDescription = "Edit connection",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     IconButton(onClick = onDelete) {
                         Icon(
-                            vectorResource(R.drawable.ic_tabler_trash),
+                            ImageVector.vectorResource(R.drawable.ic_tabler_trash),
                             contentDescription = "Delete connection",
                             tint = MaterialTheme.colorScheme.error,
                         )
@@ -436,7 +437,7 @@ private fun ConnectionCard(
                                 ),
                             ) {
                                 Icon(
-                                    vectorResource(R.drawable.ic_tabler_folder_open),
+                                    ImageVector.vectorResource(R.drawable.ic_tabler_folder_open),
                                     contentDescription = null,
                                     modifier = Modifier.padding(end = 8.dp),
                                 )
@@ -450,7 +451,7 @@ private fun ConnectionCard(
                                 ),
                             ) {
                                 Icon(
-                                    vectorResource(R.drawable.ic_tabler_link_off),
+                                    ImageVector.vectorResource(R.drawable.ic_tabler_link_off),
                                     contentDescription = null,
                                     modifier = Modifier.padding(end = 8.dp),
                                 )
@@ -467,7 +468,7 @@ private fun ConnectionCard(
                             ),
                         ) {
                             Icon(
-                                vectorResource(R.drawable.ic_tabler_link),
+                                ImageVector.vectorResource(R.drawable.ic_tabler_link),
                                 contentDescription = null,
                                 modifier = Modifier.padding(end = 8.dp),
                             )
@@ -503,7 +504,7 @@ private fun NetworkBrowser(
         ) {
             IconButton(onClick = onBack) {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_arrow_left),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_arrow_left),
                     contentDescription = "Back",
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -554,7 +555,7 @@ private fun NetworkBrowser(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Icon(
-                        imageVector = vectorResource(R.drawable.ic_tabler_folder),
+                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_folder),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(56.dp),
@@ -642,7 +643,7 @@ private fun NetworkFloatingBottomBar(
                 ),
             ) {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_arrow_left),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_arrow_left),
                     contentDescription = "Up",
                     modifier = Modifier.size(20.dp),
                 )
@@ -663,7 +664,7 @@ private fun NetworkFloatingBottomBar(
                     )
                 } else {
                     Icon(
-                        imageVector = vectorResource(R.drawable.ic_tabler_refresh),
+                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_refresh),
                         contentDescription = "Refresh",
                         modifier = Modifier.size(20.dp),
                     )
@@ -693,7 +694,7 @@ private fun NetworkFolderRow(file: NetworkFile, onClick: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = vectorResource(R.drawable.ic_tabler_folder),
+                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_folder),
                     contentDescription = "Folder",
                     tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f),
                     modifier = Modifier.size(26.dp),
