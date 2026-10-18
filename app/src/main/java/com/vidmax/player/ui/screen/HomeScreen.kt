@@ -28,10 +28,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -57,10 +58,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -808,7 +811,7 @@ fun HomeScreen(
                         val lastVideo = videos.getOrNull(lastPlayedVideoIndex)
                         if (lastVideo != null) {
                           ContinueWatchingPill(
-                              title = lastVideo.title,
+                              video = lastVideo,
                               visible = lastPlayedVideoIndex >= 0 && videoListAtTop,
                               onResume = { resumeLastVideo() },
                               modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
@@ -977,7 +980,7 @@ fun HomeScreen(
                           if (lastPlayedIndex >= 0) {
                             val lastVideo = folderVideos[lastPlayedIndex]
                             ContinueWatchingPill(
-                                title = lastVideo.title,
+                                video = lastVideo,
                                 visible = true,
                                 onResume = { onVideoClick(folderVideos, lastPlayedIndex) },
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
@@ -1305,17 +1308,40 @@ fun HomeScreen(
 // ... [PremiumVideoListCard, CustomVideoGridCard, CustomVideoLargeCard, getVideoUriFromPathForMulti - same as before] ...
 
 /**
- * Modern Material 3 "Continue Watching" pill replacing the old Last Played
- * banner. Spring expand/shrink + fade keeps scroll show/hide fluid instead
- * of snapping.
+ * Modern "Continue Watching" card. The last-played video's frame is used as a
+ * blurred, darkened background, the left side shows a circular watched-progress
+ * ring, and a thin 3dp progress bar sits on the bottom edge. Spring show/hide +
+ * press scale keep it fluid.
  */
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun ContinueWatchingPill(
-    title: String,
+    video: VideoItem,
     visible: Boolean,
     onResume: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+  val context = LocalContext.current
+  val watchedMs =
+      context
+          .getSharedPreferences("vidmax_settings", Context.MODE_PRIVATE)
+          .getLong("resume_pos_${video.path}", 0L)
+  val safeDuration = video.duration.coerceAtLeast(0L)
+  val progress =
+      if (safeDuration > 0L) (watchedMs.toFloat() / safeDuration.toFloat()).coerceIn(0f, 1f)
+      else 0f
+
+  val interaction = remember { MutableInteractionSource() }
+  val pressed by interaction.collectIsPressedAsState()
+  val pressScale by
+      animateFloatAsState(
+          targetValue = if (pressed) 0.97f else 1f,
+          animationSpec =
+              spring(
+                  dampingRatio = Spring.DampingRatioMediumBouncy,
+                  stiffness = Spring.StiffnessMedium),
+          label = "cwPressScale")
+
   AnimatedVisibility(
       visible = visible,
       enter = fadeIn(animationSpec = tween(300)) + expandVertically(
@@ -1327,64 +1353,139 @@ private fun ContinueWatchingPill(
               dampingRatio = Spring.DampingRatioNoBouncy,
               stiffness = Spring.StiffnessMediumLow)),
       modifier = modifier) {
-    Surface(
-        onClick = onResume,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        border = BorderStroke(
-            1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))) {
-      Row(
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-          verticalAlignment = Alignment.CenterVertically) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp)) {
-              Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(18.dp))
+    Box(
+        modifier =
+            Modifier.fillMaxWidth()
+                .scale(pressScale)
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable(
+                    interactionSource = interaction, indication = null, onClick = onResume)) {
+          // 1. Last-played thumbnail, blurred + darkened. Missing/failed frames
+          //    simply fall through to the surfaceVariant background above.
+          GlideImage(
+              model = File(video.path),
+              contentDescription = null,
+              contentScale = ContentScale.Crop,
+              modifier = Modifier.matchParentSize().blur(18.dp)) { requestBuilder ->
+                requestBuilder.diskCacheStrategy(DiskCacheStrategy.ALL).override(600)
               }
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-              Text(
-                  text = stringResource(R.string.home_continue_watching),
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  fontSize = 11.sp,
-                  fontWeight = FontWeight.Medium)
-              Text(
-                  text = title,
-                  color = MaterialTheme.colorScheme.onSurface,
-                  fontSize = 14.sp,
-                  fontWeight = FontWeight.SemiBold,
-                  maxLines = 1,
-                  modifier = Modifier.basicMarquee())
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer) {
-              Row(
-                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                  verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.home_resume),
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold)
-                Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.size(16.dp))
+
+          // 2. Dark gradient scrim so the text stays readable.
+          Box(
+              modifier =
+                  Modifier.matchParentSize()
+                      .background(
+                          Brush.verticalGradient(
+                              listOf(
+                                  Color.Black.copy(alpha = 0.35f),
+                                  Color.Black.copy(alpha = 0.8f)))))
+
+          // 3. Content
+          Row(
+              modifier =
+                  Modifier.fillMaxWidth()
+                      .padding(start = 12.dp, end = 14.dp, top = 12.dp, bottom = 18.dp),
+              verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                  CircularProgressIndicator(
+                      progress = { progress },
+                      modifier = Modifier.fillMaxSize(),
+                      color = MaterialTheme.colorScheme.primary,
+                      trackColor = Color.White.copy(alpha = 0.25f),
+                      strokeWidth = 3.dp,
+                      strokeCap = StrokeCap.Round)
+                  Icon(
+                      imageVector = Icons.Rounded.PlayArrow,
+                      contentDescription = null,
+                      tint = Color.White,
+                      modifier = Modifier.size(22.dp))
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                  Text(
+                      text = stringResource(R.string.home_continue_watching),
+                      color = Color.White.copy(alpha = 0.85f),
+                      fontSize = 11.sp,
+                      fontWeight = FontWeight.Medium)
+                  Text(
+                      text = "${formatClock(watchedMs)} / ${formatClock(safeDuration)}",
+                      color = Color.White.copy(alpha = 0.7f),
+                      fontSize = 12.sp,
+                      fontWeight = FontWeight.Medium,
+                      modifier = Modifier.padding(top = 2.dp))
+                  Text(
+                      text = cleanVideoTitle(video.title),
+                      color = Color.White,
+                      fontSize = 14.sp,
+                      fontWeight = FontWeight.SemiBold,
+                      maxLines = 1,
+                      overflow = TextOverflow.Ellipsis,
+                      modifier = Modifier.padding(top = 2.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Button(
+                    onClick = onResume,
+                    shape = RoundedCornerShape(50),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
+                      Text(
+                          text = stringResource(R.string.home_resume),
+                          fontSize = 12.sp,
+                          fontWeight = FontWeight.Bold)
+                      Spacer(modifier = Modifier.width(2.dp))
+                      Icon(
+                          imageVector = Icons.Rounded.ChevronRight,
+                          contentDescription = null,
+                          modifier = Modifier.size(16.dp))
+                    }
               }
-            }
-          }
-    }
+
+          // 5. Thin linear progress bar on the bottom edge.
+          Box(
+              modifier =
+                  Modifier.align(Alignment.BottomStart)
+                      .fillMaxWidth()
+                      .height(3.dp)
+                      .background(Color.White.copy(alpha = 0.18f))) {
+                Box(
+                    modifier =
+                        Modifier.fillMaxWidth(progress)
+                            .fillMaxHeight()
+                            .background(MaterialTheme.colorScheme.primary))
+              }
+        }
   }
+}
+
+/** Formats milliseconds as mm:ss, or h:mm:ss when the video runs past an hour. */
+private fun formatClock(ms: Long): String {
+  val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
+  val hours = totalSeconds / 3600L
+  val minutes = (totalSeconds % 3600L) / 60L
+  val seconds = totalSeconds % 60L
+  return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds)
+  else "%02d:%02d".format(minutes, seconds)
+}
+
+/** Strips the file extension and common release/size suffixes for display. */
+private fun cleanVideoTitle(raw: String): String {
+  var cleaned = raw
+  cleaned = cleaned.replace(Regex("\\.[A-Za-z0-9]{2,5}$"), "") // .mp4 / .mkv
+  cleaned = cleaned.replace(Regex("\\[[^\\]]*\\]"), " ") // [1080p]
+  cleaned = cleaned.replace(Regex("\\([^)]*\\)"), " ") // (HD)
+  cleaned = cleaned.replace(Regex("(?i)[ _.-]v\\d+\\b"), " ") // _v2
+  cleaned =
+      cleaned.replace(
+          Regex(
+              "(?i)\\b(1080p|720p|480p|360p|2160p|4k|hdr|h264|x264|x265|hevc|aac|bluray|webrip|web-dl)\\b"),
+          " ")
+  cleaned = cleaned.replace(Regex("[ _.-]{2,}"), " ")
+  cleaned = cleaned.replace(Regex("^[ _.-]+|[ _.-]+$"), "")
+  return cleaned.ifBlank { raw }
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalGlideComposeApi::class)
