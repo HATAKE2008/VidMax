@@ -336,7 +336,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     viewModelScope.launch(Dispatchers.IO) {
       val result = runCatching {
         val text =
-            application.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+            getApplication<Application>().contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
               val builder = StringBuilder()
               var total = 0
               while (true) {
