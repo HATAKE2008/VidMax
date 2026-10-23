@@ -667,15 +667,17 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 12.dp)
+                .height(56.dp)
                 .clip(RoundedCornerShape(50))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(5.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
             HomeContentSegment(
                 label = stringResource(R.string.home_segment_video),
                 isActive = currentContentMode == HomeContentMode.VIDEO,
+                modifier = if (currentContentMode == HomeContentMode.VIDEO) Modifier else Modifier.weight(1f),
                 onClick = {
                   if (currentContentMode != HomeContentMode.VIDEO) {
                     currentContentMode = HomeContentMode.VIDEO
@@ -693,6 +695,7 @@ fun HomeScreen(
             HomeContentSegment(
                 label = stringResource(R.string.home_segment_folder),
                 isActive = currentContentMode == HomeContentMode.FOLDER,
+                modifier = if (currentContentMode == HomeContentMode.FOLDER) Modifier else Modifier.weight(1f),
                 onClick = {
                   if (currentContentMode != HomeContentMode.FOLDER) {
                     currentContentMode = HomeContentMode.FOLDER
@@ -710,6 +713,7 @@ fun HomeScreen(
             HomeContentSegment(
                 label = stringResource(R.string.home_segment_recent),
                 isActive = currentContentMode == HomeContentMode.FAVORITES,
+                modifier = if (currentContentMode == HomeContentMode.FAVORITES) Modifier else Modifier.weight(1f),
                 onClick = {
                   if (currentContentMode != HomeContentMode.FAVORITES) {
                     currentContentMode = HomeContentMode.FAVORITES
@@ -727,6 +731,7 @@ fun HomeScreen(
             HomeContentSegment(
                 label = stringResource(R.string.home_segment_playlists),
                 isActive = currentContentMode == HomeContentMode.PLAYLISTS,
+                modifier = if (currentContentMode == HomeContentMode.PLAYLISTS) Modifier else Modifier.weight(1f),
                 onClick = {
                   if (currentContentMode != HomeContentMode.PLAYLISTS) {
                     currentContentMode = HomeContentMode.PLAYLISTS
@@ -1790,7 +1795,7 @@ fun HomeContentSegment(
       animateColorAsState(
           targetValue =
               if (isActive) MaterialTheme.colorScheme.onPrimary
-              else MaterialTheme.colorScheme.onSurfaceVariant,
+              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
           animationSpec = tween(250),
           label = "homeSegmentColor")
 
@@ -1807,25 +1812,20 @@ fun HomeContentSegment(
           animationSpec = tween(250),
           label = "homeSegmentHorizontalPadding")
 
-  val verticalPadding by
-      animateDpAsState(
-          targetValue = if (isActive) 9.dp else 0.dp,
-          animationSpec = tween(250),
-          label = "homeSegmentVerticalPadding")
-
   Box(
       modifier =
           modifier
-              .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+              .fillMaxHeight()
+              .defaultMinSize(minWidth = 48.dp)
               .clip(RoundedCornerShape(50))
               .clickable(onClick = onClick),
       contentAlignment = Alignment.Center) {
         Row(
             modifier =
-                Modifier
+                Modifier.fillMaxHeight()
                     .clip(RoundedCornerShape(50))
                     .background(pillColor)
-                    .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+                    .padding(horizontal = horizontalPadding),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically) {
               icon(contentColor, if (isActive) 20.dp else 22.dp)
@@ -1842,7 +1842,8 @@ fun HomeContentSegment(
                       Text(
                           text = label,
                           color = contentColor,
-                          style = MaterialTheme.typography.labelLarge,
+                          fontSize = 12.sp,
+                          fontWeight = FontWeight.ExtraBold,
                           maxLines = 1,
                           overflow = TextOverflow.Ellipsis)
                     }
