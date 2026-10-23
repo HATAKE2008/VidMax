@@ -143,6 +143,81 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 - 🎛 **Player**: AB repeat with markers, bookmark panel, subtitle styling engine, audio output routing, drift-tolerant hold-to-2x, stereo-mode channel mixing
 - 🔧 **Fixes**: player lock state, scoped-storage rename, MediaStore move without duplicates, stuck refresh indicator, SMB in release builds
 
+## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.1.5
+
+> **Library UX update — smarter browsing, unified views, powerful search, one-click screenshot, Telegram community and Settings Backup & Restore.**
+
+<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.5">View Full Changelog →</a>
+
+### <img src="https://cdn-icons-png.flaticon.com/512/3059/3059446.png" width="20"/> Video Library
+
+- Long-press any video for actions: Play, Rename, Share, Favorite, Add to Playlist, Details, Delete
+- Same long-press menu across Videos, Search, Folders, Favorites and Playlists
+- In-place rename with MediaStore update — playlists and bookmarks follow the new name
+- Safe delete through the system media dialog
+- Pull-to-refresh with clean settle — no extra tap needed after refresh
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/1827/1827951.png" width="20"/> Sorting & Grid Views
+
+- 6 sort orders for large libraries: Newest first, Oldest first, Name A-Z, Name Z-A, Largest first, Longest first
+- Sort choice is remembered between sessions
+- Refresh action at the bottom of the sort menu
+- Unified Grid/List control — one top-bar icon toggles the current view
+- Grid Auto adapts column count to screen width (minimum 2), manual override stays in the sort menu
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/741/741407.png" width="20"/> Dedicated Search
+
+- Proper search screen for Videos, Music and Network files with autofocus and keyboard search
+- Search history that is saved, de-duplicated and reusable
+- New search icons in every top bar
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/2991/2991108.png" width="20"/> Player Upgrades
+
+- One-click Screenshot from the player 3-dot menu, saved to gallery
+- Video Bookmarks — mark moments, jump back from the bookmark list
+- Loop mode, aspect ratio and playback speed are remembered across sessions
+- Minimalist player option
+- Large queue fix — opening the player from huge lists no longer crashes
+- Rich video Details dialog (codec, bitrate and more)
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/2111/2111644.png" width="20"/> Telegram Community
+
+- Telegram icon in the top bar opens the VidMax community (`vidmax_opensource`)
+- First-run welcome sheet with Join Telegram / Not now — dismiss is remembered
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="20"/> Settings Backup & Restore
+
+- Export settings to JSON (UTF-8) and import them back
+- System file picker — no storage permission needed
+- Strict format validation with clear success/error feedback
+- Session, media, favorites and recent data stay untouched
+
+---
+
+### <img src="https://cdn-icons-png.flaticon.com/512/685/685655.png" width="20"/> App Shell & Stability
+
+- Startup intro screen can be turned off in Settings
+- Safer video launching with empty-path guards
+- Rotation, theme and font-scale changes no longer restart screens abruptly
+- Network tab hides in local mode, Music tab hides when the music player is off
+- Reorderable bottom tabs with hidden tabs kept in place
+- Crash guards around media library queries
+- Refreshed Settings layout with clearer sections
+
+<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.5">View Full Changelog →</a>
+
+---
+
 ## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.1.4
 
 > **Major update — Network Streaming, rebuilt player, improved music experience and extensive UI polish.**
@@ -517,6 +592,7 @@ When a new release is available, the application can notify the user.
 | Version | Date | Size |
 |---|---|---|
 | v1.1.6 | 2026-09-12 | 22.3 MB |
+| v1.1.5 | 2026-09-04 | See release page |
 | v1.1.4 | 2026-08-29 | 22.7 MB |
 | v1.1.3 | 2026-08-12 | 33.2 MB |
 | v1.1.1 | 2026-08-07 | 32.4 MB |
