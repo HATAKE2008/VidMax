@@ -1,17 +1,17 @@
 buildscript {
     ext {
         // 🔥 একদম লেটেস্ট স্ট্যাবল Kotlin ভার্সন
-        kotlin_version = '2.0.21'
+        kotlin_version = '2.3.0'
         // 🔥 Hilt এবং KSP এর ভার্সন
-        hilt_version = '2.51.1'
-        ksp_version = '2.0.21-1.0.25'
+        hilt_version = '2.59.2'
+        ksp_version = '2.3.6'
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.6.0'
+        classpath 'com.android.tools.build:gradle:9.1.1'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         // 🔥 Kotlin 2.0 এর নতুন Compose Compiler প্লাগিন
         classpath "org.jetbrains.kotlin:compose-compiler-gradle-plugin:$kotlin_version"
