@@ -111,6 +111,27 @@ class VideoPlaylistRepository(private val videoPlaylistDao: VideoPlaylistDao) {
     videoPlaylistDao.deletePlaylistItemById(itemId)
   }
 
+  /** Re-inserts a removed item near its previous position (Undo). */
+  suspend fun restoreItem(item: VidMaxVideoPlaylistItem, targetIndex: Int) {
+    if (videoPlaylistDao.getPlaylistItemByPath(item.playlistId, item.filePath) != null) return
+    val current = videoPlaylistDao.getPlaylistItems(item.playlistId)
+    val insertAt = targetIndex.coerceIn(0, current.size)
+    videoPlaylistDao.insertPlaylistItem(
+      item.copy(
+        id = 0,
+        position = insertAt,
+        addedAt = System.currentTimeMillis(),
+      ),
+    )
+    val restored =
+      videoPlaylistDao.getPlaylistItemByPath(item.playlistId, item.filePath) ?: return
+    val order = current.filterNot { it.id == restored.id }.toMutableList().apply {
+      add(insertAt.coerceIn(0, size), restored)
+    }
+    videoPlaylistDao.reorderPlaylistItems(item.playlistId, order.map { it.id })
+    getPlaylistById(item.playlistId)?.let { playlist -> updatePlaylist(playlist) }
+  }
+
   suspend fun updatePathReferences(oldPath: String, newPath: String, newName: String) {
     videoPlaylistDao.updateItemPath(oldPath, newPath, newName)
   }

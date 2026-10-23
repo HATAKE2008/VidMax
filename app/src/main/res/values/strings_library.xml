@@ -69,7 +69,7 @@
     <!-- VideoPlaylistsContent (vpl_) -->
     <string name="vpl_selected_count">%1$d Selected</string>
     <string name="vpl_empty_title">No playlists yet</string>
-    <string name="vpl_empty_hint">Long-press a video and choose Add to Playlist</string>
+    <string name="vpl_empty_hint">Create a playlist or import an M3U source to get started</string>
     <string name="vpl_play_failed">Could not play playlist</string>
     <string name="vpl_create_title">Create Playlist</string>
     <string name="vpl_create_new_title">New playlist</string>
@@ -94,6 +94,7 @@
     <string name="vpl_play_all">Play all</string>
     <string name="vpl_refresh_from_url">Refresh from URL</string>
     <string name="vpl_refreshed">Refreshed (%1$d videos)</string>
+    <string name="vpl_refreshed_channels">Refreshed (%1$d channels)</string>
     <string name="vpl_refresh_failed">Refresh failed</string>
     <string name="vpl_reorder">Reorder</string>
     <string name="vpl_shuffle">Shuffle play</string>
@@ -102,6 +103,7 @@
     <string name="vpl_delete_playlist">Delete playlist</string>
     <string name="vpl_search_in_playlist">Search in playlist</string>
     <string name="vpl_empty_playlist">This playlist is empty.\nLong-press videos to add them here.</string>
+    <string name="vpl_empty_channels">This M3U playlist has no channels.</string>
     <string name="vpl_no_match">No videos match \"%1$s\"</string>
     <string name="vpl_import_title">Import M3U Playlist</string>
     <string name="vpl_import_url_label">Playlist URL (.m3u / .m3u8)</string>
@@ -109,6 +111,7 @@
     <string name="vpl_importing">Importing…</string>
     <string name="vpl_import_confirm">Import</string>
     <string name="vpl_imported">Imported \"%1$s\" (%2$d videos)</string>
+    <string name="vpl_imported_channels">Imported \"%1$s\" (%2$d channels)</string>
     <string name="vpl_import_failed">Import failed</string>
     <string name="vpl_name_label">Playlist name</string>
     <string name="vpl_type_local">Local</string>
@@ -116,6 +119,20 @@
         <item quantity="one">%1$d video</item>
         <item quantity="other">%1$d videos</item>
     </plurals>
+    <plurals name="vpl_channels_count">
+        <item quantity="one">%1$d channel</item>
+        <item quantity="other">%1$d channels</item>
+    </plurals>
+    <string name="vpl_no_channels_found">No channels found</string>
+    <string name="vpl_removed">Removed from playlist</string>
+    <string name="vpl_undo">Undo</string>
+    <string name="vpl_remove_from_playlist">Remove from playlist</string>
+    <string name="vpl_all_groups">All</string>
+    <string name="vpl_import_file">Import M3U file</string>
+    <string name="vpl_add_from_url">Add from URL</string>
+    <string name="vpl_clear_channels">Clear channels</string>
+    <string name="vpl_import_file_failed">Could not read the M3U file</string>
+    <string name="vpl_imported_file_name">Imported playlist</string>
 
     <!-- SearchScreen (search_) -->
     <string name="search_hint_videos">Search videos…</string>

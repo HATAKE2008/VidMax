@@ -94,6 +94,7 @@
     <string name="vpl_play_all">सभी चलाएं</string>
     <string name="vpl_refresh_from_url">लिंक से रीफ्रेश करें</string>
     <string name="vpl_refreshed">रीफ्रेश हुआ (%1$d वीडियो)</string>
+    <string name="vpl_refreshed_channels">रीफ्रेश हुआ (%1$d चैनल)</string>
     <string name="vpl_refresh_failed">रीफ्रेश विफल रहा</string>
     <string name="vpl_reorder">क्रम बदलें</string>
     <string name="vpl_shuffle">शफल चलाएं</string>
@@ -101,7 +102,8 @@
     <string name="vpl_clear_videos">वीडियो साफ़ करें</string>
     <string name="vpl_delete_playlist">प्लेलिस्ट हटाएं</string>
     <string name="vpl_search_in_playlist">प्लेलिस्ट में खोजें</string>
-    <string name="vpl_empty_playlist">यह प्लेलिस्ट खाली है।\nयहाँ जोड़ने के लिए वीडियो को देर तक दबाएं।</string>
+    <string name="vpl_empty_playlist">यह प्लेलिस्ट खाली है।\nशुरू करने के लिए प्लेलिस्ट बनाएं या M3U स्रोत आयात करें।</string>
+    <string name="vpl_empty_channels">इस M3U प्लेलिस्ट में कोई चैनल नहीं है।</string>
     <string name="vpl_no_match">\"%1$s\" से कोई वीडियो नहीं मिला</string>
     <string name="vpl_import_title">M3U प्लेलिस्ट आयात करें</string>
     <string name="vpl_import_url_label">प्लेलिस्ट लिंक (.m3u / .m3u8)</string>
@@ -109,6 +111,7 @@
     <string name="vpl_importing">आयात हो रहा है…</string>
     <string name="vpl_import_confirm">आयात करें</string>
     <string name="vpl_imported">\"%1$s\" आयात हुआ (%2$d वीडियो)</string>
+    <string name="vpl_imported_channels">\"%1$s\" आयात हुआ (%2$d चैनल)</string>
     <string name="vpl_import_failed">आयात विफल रहा</string>
     <string name="vpl_name_label">प्लेलिस्ट का नाम</string>
     <string name="vpl_type_local">स्थानीय</string>
@@ -116,6 +119,20 @@
         <item quantity="one">%1$d वीडियो</item>
         <item quantity="other">%1$d वीडियो</item>
     </plurals>
+    <plurals name="vpl_channels_count">
+        <item quantity="one">%1$d चैनल</item>
+        <item quantity="other">%1$d चैनल</item>
+    </plurals>
+    <string name="vpl_no_channels_found">कोई चैनल नहीं मिला</string>
+    <string name="vpl_removed">प्लेलिस्ट से हटाया गया</string>
+    <string name="vpl_undo">वापस लाएँ</string>
+    <string name="vpl_remove_from_playlist">प्लेलिस्ट से हटाएँ</string>
+    <string name="vpl_all_groups">सभी</string>
+    <string name="vpl_import_file">M3U फ़ाइल आयात करें</string>
+    <string name="vpl_add_from_url">URL से जोड़ें</string>
+    <string name="vpl_clear_channels">चैनल साफ़ करें</string>
+    <string name="vpl_import_file_failed">M3U फ़ाइल पढ़ी नहीं जा सकी</string>
+    <string name="vpl_imported_file_name">आयातित प्लेलिस्ट</string>
 
     <!-- SearchScreen (search_) -->
     <string name="search_hint_videos">वीडियो खोजें…</string>

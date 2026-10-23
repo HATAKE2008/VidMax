@@ -49,4 +49,8 @@ object M3uSourceStore {
   fun allIds(prefs: SharedPreferences): Set<Int> {
     return readAll(prefs).keys
   }
+
+  fun allUrls(prefs: SharedPreferences): Map<Int, String> {
+    return readAll(prefs)
+  }
 }

@@ -31,6 +31,8 @@ import com.vidmax.player.data.local.video.VidMaxVideoPlaylist
 import com.vidmax.player.data.local.video.VidMaxVideoPlaylistItem
 import com.vidmax.player.data.repository.AudioRepository
 import com.vidmax.player.data.repository.VideoPlaylistRepository
+import com.vidmax.player.data.repository.M3uChannelMeta
+import com.vidmax.player.data.repository.M3uMetadataStore
 import com.vidmax.player.data.repository.M3uSourceStore
 import com.vidmax.player.data.repository.RecentPlayStore
 import com.vidmax.player.data.repository.VideoRepository
@@ -190,6 +192,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   val openedVideoPlaylistItems: StateFlow<List<VidMaxVideoPlaylistItem>> =
       _openedVideoPlaylistItems.asStateFlow()
 
+  private val _openedM3uChannelMeta: MutableStateFlow<Map<String, M3uChannelMeta>> =
+      MutableStateFlow(emptyMap())
+  val openedM3uChannelMeta: StateFlow<Map<String, M3uChannelMeta>> =
+      _openedM3uChannelMeta.asStateFlow()
+
   private var openedVideoPlaylistJob: Job? = null
 
   // Video favorites — persisted the same way as audio favorites.
@@ -235,7 +242,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         playlistRepository.deletePlaylist(playlist)
       }
       M3uSourceStore.removeId(prefs, playlistId)
+      M3uMetadataStore.removeId(prefs, playlistId)
       _m3uSourceIds.value = M3uSourceStore.allIds(prefs)
+      _m3uSourceUrls.value = M3uSourceStore.allUrls(prefs)
       if (_openedVideoPlaylist.value?.id == playlistId) closeVideoPlaylist()
     }
   }
@@ -263,9 +272,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
   }
 
-  fun removeVideoFromPlaylist(item: VidMaxVideoPlaylistItem) {
+  fun removeVideoFromPlaylist(item: VidMaxVideoPlaylistItem, onRemoved: (() -> Unit)? = null) {
     viewModelScope.launch(Dispatchers.IO) {
       playlistRepository.removeItemFromPlaylist(item)
+      withContext(Dispatchers.Main) { onRemoved?.invoke() }
     }
   }
 
@@ -312,7 +322,49 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val playlistId = playlistRepository.createPlaylist(name).toInt()
         playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
         M3uSourceStore.setUrl(prefs, playlistId, url)
+        M3uMetadataStore.setFromText(prefs, playlistId, text)
         _m3uSourceIds.value = M3uSourceStore.allIds(prefs)
+        _m3uSourceUrls.value = M3uSourceStore.allUrls(prefs)
+        name to entries.size
+      }
+      withContext(Dispatchers.Main) { onResult(result) }
+    }
+  }
+
+  /** Imports a local .m3u/.m3u8 document selected through the system picker. */
+  fun importM3UFile(uri: Uri, onResult: (Result<Pair<String, Int>>) -> Unit) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val result = runCatching {
+        val text =
+            application.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+              val builder = StringBuilder()
+              var total = 0
+              while (true) {
+                val line = reader.readLine() ?: break
+                total += line.length
+                if (total > 2_000_000) {
+                  throw IllegalStateException(resString(R.string.vm_m3u_playlist_too_large))
+                }
+                builder.appendLine(line)
+              }
+              builder.toString()
+            } ?: throw IllegalStateException(resString(R.string.vpl_import_file_failed))
+        val entries = parseM3UEntries(text)
+        require(entries.isNotEmpty()) { resString(R.string.vm_m3u_no_entries) }
+        val fallback = resString(R.string.vpl_imported_file_name)
+        val name =
+            uri.lastPathSegment
+                ?.substringAfterLast('/')
+                ?.substringBeforeLast('.')
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.take(80) ?: fallback
+        val playlistId = playlistRepository.createPlaylist(name).toInt()
+        playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
+        M3uSourceStore.setUrl(prefs, playlistId, "file:$uri")
+        M3uMetadataStore.setFromText(prefs, playlistId, text)
+        _m3uSourceIds.value = M3uSourceStore.allIds(prefs)
+        _m3uSourceUrls.value = M3uSourceStore.allUrls(prefs)
         name to entries.size
       }
       withContext(Dispatchers.Main) { onResult(result) }
@@ -388,6 +440,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
       MutableStateFlow(M3uSourceStore.allIds(prefs))
   val m3uSourceIds: StateFlow<Set<Int>> = _m3uSourceIds.asStateFlow()
 
+  private val _m3uSourceUrls: MutableStateFlow<Map<Int, String>> =
+      MutableStateFlow(M3uSourceStore.allUrls(prefs))
+  val m3uSourceUrls: StateFlow<Map<Int, String>> = _m3uSourceUrls.asStateFlow()
+
   /**
    * Loads a playlist's items as playable [VideoItem]s in saved order for
    * card-level Play actions.
@@ -428,6 +484,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         require(entries.isNotEmpty()) { resString(R.string.vm_m3u_no_entries) }
         playlistRepository.clearPlaylist(playlistId)
         playlistRepository.addItemsToPlaylist(playlistId, entries.map { it.first to it.second })
+        M3uMetadataStore.setFromText(prefs, playlistId, text)
         entries.size
       }
       withContext(Dispatchers.Main) { onResult(result) }
@@ -435,8 +492,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
   }
   /** Opens a playlist and reactively observes its items until closed. */
   fun openVideoPlaylist(playlistId: Int) {
+    _openedVideoPlaylistItems.value = emptyList()
+    _openedM3uChannelMeta.value = emptyMap()
     viewModelScope.launch(Dispatchers.IO) {
       _openedVideoPlaylist.value = playlistRepository.getPlaylistById(playlistId)
+      _openedM3uChannelMeta.value = M3uMetadataStore.getAll(prefs, playlistId)
     }
     openedVideoPlaylistJob?.cancel()
     openedVideoPlaylistJob = viewModelScope.launch(Dispatchers.IO) {
@@ -451,6 +511,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     openedVideoPlaylistJob = null
     _openedVideoPlaylist.value = null
     _openedVideoPlaylistItems.value = emptyList()
+    _openedM3uChannelMeta.value = emptyMap()
+  }
+
+  /** Re-adds a removed playlist item at (or near) its previous index for Undo. */
+  fun restoreVideoToPlaylist(item: VidMaxVideoPlaylistItem, targetIndex: Int) {
+    viewModelScope.launch(Dispatchers.IO) {
+      playlistRepository.restoreItem(item, targetIndex)
+    }
   }
 
   /** Records play history for a video played from a playlist (mpvRex parity). */

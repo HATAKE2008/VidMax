@@ -94,6 +94,7 @@
     <string name="vpl_play_all">সব চালান</string>
     <string name="vpl_refresh_from_url">লিংক থেকে রিফ্রেশ করুন</string>
     <string name="vpl_refreshed">রিফ্রেশ হয়েছে (%1$dটি ভিডিও)</string>
+    <string name="vpl_refreshed_channels">রিফ্রেশ হয়েছে (%1$dটি চ্যানেল)</string>
     <string name="vpl_refresh_failed">রিফ্রেশ ব্যর্থ হয়েছে</string>
     <string name="vpl_reorder">ক্রম বদলান</string>
     <string name="vpl_shuffle">এলোমেলো চালান</string>
@@ -101,7 +102,8 @@
     <string name="vpl_clear_videos">ভিডিও খালি করুন</string>
     <string name="vpl_delete_playlist">প্লেলিস্ট মুছুন</string>
     <string name="vpl_search_in_playlist">প্লেলিস্টে খুঁজুন</string>
-    <string name="vpl_empty_playlist">এই প্লেলিস্ট খালি।\nএখানে যোগ করতে ভিডিও দীর্ঘক্ষণ চাপ দিন।</string>
+    <string name="vpl_empty_playlist">এই প্লেলিস্ট খালি।\nশুরু করতে একটি প্লেলিস্ট তৈরি করুন বা M3U সোর্স আমদানি করুন।</string>
+    <string name="vpl_empty_channels">এই M3U প্লেলিস্টে কোনো চ্যানেল নেই।</string>
     <string name="vpl_no_match">\"%1$s\" এর সাথে কোনো ভিডিও মেলেনি</string>
     <string name="vpl_import_title">M3U প্লেলিস্ট আমদানি করুন</string>
     <string name="vpl_import_url_label">প্লেলিস্টের লিংক (.m3u / .m3u8)</string>
@@ -109,6 +111,7 @@
     <string name="vpl_importing">আমদানি হচ্ছে…</string>
     <string name="vpl_import_confirm">আমদানি করুন</string>
     <string name="vpl_imported">\"%1$s\" আমদানি হয়েছে (%2$dটি ভিডিও)</string>
+    <string name="vpl_imported_channels">\"%1$s\" আমদানি হয়েছে (%2$dটি চ্যানেল)</string>
     <string name="vpl_import_failed">আমদানি ব্যর্থ হয়েছে</string>
     <string name="vpl_name_label">প্লেলিস্টের নাম</string>
     <string name="vpl_type_local">লোকাল</string>
@@ -116,6 +119,20 @@
         <item quantity="one">%1$dটি ভিডিও</item>
         <item quantity="other">%1$dটি ভিডিও</item>
     </plurals>
+    <plurals name="vpl_channels_count">
+        <item quantity="one">%1$dটি চ্যানেল</item>
+        <item quantity="other">%1$dটি চ্যানেল</item>
+    </plurals>
+    <string name="vpl_no_channels_found">কোনো চ্যানেল পাওয়া যায়নি</string>
+    <string name="vpl_removed">প্লেলিস্ট থেকে সরানো হয়েছে</string>
+    <string name="vpl_undo">ফিরিয়ে আনুন</string>
+    <string name="vpl_remove_from_playlist">প্লেলিস্ট থেকে সরান</string>
+    <string name="vpl_all_groups">সব</string>
+    <string name="vpl_import_file">M3U ফাইল আমদানি করুন</string>
+    <string name="vpl_add_from_url">URL থেকে যোগ করুন</string>
+    <string name="vpl_clear_channels">চ্যানেল মুছুন</string>
+    <string name="vpl_import_file_failed">M3U ফাইল পড়া যায়নি</string>
+    <string name="vpl_imported_file_name">আমদানি করা প্লেলিস্ট</string>
 
     <!-- SearchScreen (search_) -->
     <string name="search_hint_videos">ভিডিও খুঁজুন…</string>
