@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 package com.vidmax.player.ui.screen
 
 import androidx.activity.compose.BackHandler
@@ -39,6 +40,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -650,6 +653,7 @@ fun MeldOnlineHomeContent(
     onRandomize: () -> Unit,
     onRefresh: () -> Unit
 ) {
+    val pullToRefreshState = rememberPullToRefreshState()
     val quickPicks = remember(homeState.categories, homeState.quickPicks) {
         val forYou = homeState.categories.firstOrNull { it.title == "For You" }
             ?: homeState.categories.firstOrNull { it.songs.isNotEmpty() }
@@ -671,6 +675,13 @@ fun MeldOnlineHomeContent(
     PullToRefreshBox(
         isRefreshing = homeState.isLoading,
         onRefresh = onRefresh,
+        state = pullToRefreshState,
+        indicator = {
+            PullToRefreshDefaults.LoadingIndicator(
+                state = pullToRefreshState,
+                isRefreshing = homeState.isLoading,
+                modifier = Modifier.align(Alignment.TopCenter))
+        },
         modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
@@ -2016,7 +2027,9 @@ fun OnlineSearchContent(
 ) {
     if (searchState.isSearching) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            LoadingIndicator(
+                modifier = Modifier.size(48.dp),
+                color = MaterialTheme.colorScheme.primary)
         }
     } else if (searchState.searchResults.isNotEmpty()) {
         LazyColumn(

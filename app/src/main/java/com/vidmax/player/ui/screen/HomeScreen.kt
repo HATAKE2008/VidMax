@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 package com.vidmax.player.ui.screen
 
 import android.app.Activity
@@ -52,6 +53,8 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -340,6 +343,7 @@ fun HomeScreen(
   val sortOrder by viewModel.sortOrder.collectAsState()
   val sortAscending by viewModel.sortAscending.collectAsState()
   val isRefreshing by viewModel.isRefreshing.collectAsState()
+  val pullToRefreshState = rememberPullToRefreshState()
   var showSortViewSheet by remember { mutableStateOf(false) }
   var renameTarget by remember { mutableStateOf<VideoItem?>(null) }
   var renameError by remember { mutableStateOf<String?>(null) }
@@ -765,13 +769,22 @@ fun HomeScreen(
       PullToRefreshBox(
           isRefreshing = isRefreshing,
           onRefresh = { viewModel.refreshVideos() },
+          state = pullToRefreshState,
+          indicator = {
+            PullToRefreshDefaults.LoadingIndicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter))
+          },
           modifier = Modifier.fillMaxWidth().weight(1f)) {
         Crossfade(targetState = isLoading, animationSpec = tween(400), label = "loadingAnim") {
             loading ->
         when {
           loading -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-              CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+              LoadingIndicator(
+                  modifier = Modifier.size(48.dp),
+                  color = MaterialTheme.colorScheme.primary)
             }
           }
           !hasPermission -> {

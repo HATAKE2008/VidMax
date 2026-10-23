@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 package com.vidmax.player.ui.screen
 
 import android.app.Application
@@ -25,6 +26,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -496,6 +499,7 @@ private fun NetworkBrowser(
     onOpenFolder: (NetworkFile) -> Unit,
     onPlayFile: (NetworkFile) -> Unit,
 ) {
+    val pullToRefreshState = rememberPullToRefreshState()
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -541,11 +545,18 @@ private fun NetworkBrowser(
         PullToRefreshBox(
             isRefreshing = isLoading,
             onRefresh = onRefresh,
+            state = pullToRefreshState,
+            indicator = {
+                PullToRefreshDefaults.LoadingIndicator(
+                    state = pullToRefreshState,
+                    isRefreshing = isLoading,
+                    modifier = Modifier.align(Alignment.TopCenter))
+            },
             modifier = Modifier.fillMaxSize().weight(1f)) {
         when {
             isLoading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    LoadingIndicator(modifier = Modifier.size(48.dp))
                 }
             }
             files.isEmpty() -> {
