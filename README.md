@@ -37,7 +37,7 @@
 
 <br/><br/>
 
-<strong>Latest Release: <a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.6">VidMax v1.1.6</a> · 22.3 MB</strong>
+<strong>Latest Release: <a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.7">VidMax v1.1.7</a> · Material 3 Expressive UI</strong>
 
 </div>
 
@@ -129,6 +129,20 @@ VidMax uses **Jetpack Media3 (ExoPlayer)** as its primary playback engine with *
 | <img src="https://cdn-icons-png.flaticon.com/512/2913/2913133.png" width="18"/> Privacy | No unnecessary tracking |
 
 ---
+
+## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.1.7
+
+> **A polished Material 3 Expressive refresh — smoother loading, refreshed icons, redesigned playlists and a cleaner player experience.**
+
+<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.7">View Full Changelog →</a>
+
+- ✨ **Expressive loading**: full-screen loaders, pull-to-refresh, button spinners and player buffering now use Material 3 Expressive morphing indicators
+- 🎨 **Fresh icon system**: new circular Music icon, redesigned Video icon, custom Playlists icon and consistent Tabler action icons across navigation, cards and lists
+- 🎬 **Playlist redesign**: animated home tabs, refreshed playlist cards and detail layouts, search, reorder, M3U channel metadata and undo support
+- 📺 **Continue Watching**: redesigned artwork-backed card with compact 96dp layout, progress ring and resume action
+- 🎛 **Player polish**: buffering and error overlays, AB repeat markers, selection mode, bookmark panel, reliable resume and mono/stereo audio routing
+- ⚙️ **Settings**: grouped Material 3 cards, large left-aligned header, selectable language dialog and smoother transitions
+- 🚀 **Modern foundation**: Material 3 1.5 Expressive, Compose 1.12, AGP 9.1 and Kotlin 2.3
 
 ## <img src="https://cdn-icons-png.flaticon.com/512/992/992651.png" width="22"/> What's New in v1.1.6
 
@@ -572,8 +586,8 @@ When a new release is available, the application can notify the user.
 
 <div align="center">
 
-<h3>VidMax v1.1.6</h3>
-<strong>22.3 MB</strong>
+<h3>VidMax v1.1.7</h3>
+<strong>Material 3 Expressive UI update</strong>
 
 <br/><br/>
 
@@ -583,7 +597,7 @@ When a new release is available, the application can notify the user.
 
 <br/><br/>
 
-<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.6">View Release Notes</a>
+<a href="https://github.com/HATAKE2008/VidMax/releases/tag/v1.1.7">View Release Notes</a>
 
 </div>
 
@@ -591,6 +605,7 @@ When a new release is available, the application can notify the user.
 
 | Version | Date | Size |
 |---|---|---|
+| v1.1.7 | 2026-10-23 | See release page |
 | v1.1.6 | 2026-09-12 | 22.3 MB |
 | v1.1.5 | 2026-09-04 | See release page |
 | v1.1.4 | 2026-08-29 | 22.7 MB |
