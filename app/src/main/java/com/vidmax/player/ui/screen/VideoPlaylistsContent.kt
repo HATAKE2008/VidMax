@@ -286,7 +286,7 @@ fun VideoPlaylistsContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center) {
               Icon(
-                  imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_playlist),
+                  painter = painterResource(R.drawable.ic_playlists_tab),
                   contentDescription = null,
                   tint = MaterialTheme.colorScheme.onSurfaceVariant,
                   modifier = Modifier.size(64.dp))
@@ -600,7 +600,7 @@ fun PlaylistCard(
                       .background(MaterialTheme.colorScheme.primaryContainer),
               contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_playlist),
+                    painter = painterResource(R.drawable.ic_playlists_tab),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(28.dp))
@@ -665,22 +665,6 @@ fun PlaylistCard(
                   onClick = {
                     overflowOpen = false
                     onRename()
-                  })
-              DropdownMenuItem(
-                  text = {
-                    Text(
-                        stringResource(R.string.vpl_menu_delete),
-                        color = MaterialTheme.colorScheme.error)
-                  },
-                  leadingIcon = {
-                    Icon(
-                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_trash),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error)
-                  },
-                  onClick = {
-                    overflowOpen = false
-                    onDelete()
                   })
             }
           }
