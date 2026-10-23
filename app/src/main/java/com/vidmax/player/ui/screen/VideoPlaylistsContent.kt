@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -234,7 +235,7 @@ fun VideoPlaylistsContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(vertical = 8.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                 .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -331,7 +332,7 @@ fun VideoPlaylistsContent(
         LazyColumn(
             // P4c: cap line length on tablets, same 1100dp pattern as Home.
             modifier = Modifier.align(Alignment.TopCenter).fillMaxSize().widthIn(max = 1100.dp),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 130.dp),
+            contentPadding = PaddingValues(bottom = 130.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
               items(items = visiblePlaylists, key = { it.playlist.id }) { entry ->
                 PlaylistCard(
@@ -561,7 +562,7 @@ fun VideoPlaylistsContent(
  * Playlist row: tonal artwork badge, title, metadata chips, quick play and
  * overflow menu. Callbacks unchanged.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun PlaylistCard(
     name: String,
@@ -614,14 +615,18 @@ fun PlaylistCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
             Spacer(modifier = Modifier.height(5.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-              MetaChip(
-                  text =
-                      if (isM3u) pluralStringResource(R.plurals.vpl_channels_count, count, count)
-                      else pluralStringResource(R.plurals.vpl_videos_count, count, count),
-                  highlighted = true)
-              MetaChip(text = if (isM3u) "M3U" else stringResource(R.string.vpl_type_local))
-            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  MetaChip(
+                      text =
+                          if (isM3u) pluralStringResource(R.plurals.vpl_channels_count, count, count)
+                          else pluralStringResource(R.plurals.vpl_videos_count, count, count),
+                      highlighted = true)
+                  MetaChip(
+                      text = if (isM3u) "M3U" else stringResource(R.string.vpl_type_local),
+                      modifier = Modifier.widthIn(min = 40.dp))
+                }
           }
           FilledTonalIconButton(onClick = onPlay, modifier = Modifier.size(40.dp)) {
             Icon(
@@ -820,12 +825,12 @@ private fun PlaylistDetailContent(
 
   Column(modifier = Modifier.fillMaxSize()) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
       Row(
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+          modifier = Modifier.fillMaxWidth().height(64.dp),
           verticalAlignment = Alignment.CenterVertically) {
             IconButton(
                 onClick = { if (searchOpen) closeSearch() else onBack() },
@@ -1005,19 +1010,26 @@ private fun PlaylistDetailContent(
 
     if (!searchOpen && !isReorderMode && items.isNotEmpty()) {
       Row(
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-          horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+          modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+          horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = { onPlayVideos(toVideoItems(filteredItems), 0) },
                 enabled = filteredItems.isNotEmpty(),
                 shape = CircleShape,
+                contentPadding = PaddingValues(horizontal = 12.dp),
                 modifier = Modifier.weight(1f).height(46.dp)) {
-                  Icon(
-                      imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_player_play),
-                      contentDescription = null,
-                      modifier = Modifier.size(18.dp))
-                  Spacer(modifier = Modifier.width(6.dp))
-                  Text(stringResource(R.string.vpl_play_all), maxLines = 1)
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.Center,
+                      verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector =
+                                ImageVector.vectorResource(R.drawable.ic_tabler_player_play),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.vpl_play_all), maxLines = 1)
+                      }
                 }
             FilledTonalButton(
                 onClick = {
@@ -1026,13 +1038,20 @@ private fun PlaylistDetailContent(
                 },
                 enabled = filteredItems.isNotEmpty(),
                 shape = CircleShape,
+                contentPadding = PaddingValues(horizontal = 12.dp),
                 modifier = Modifier.weight(1f).height(46.dp)) {
-                  Icon(
-                      imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_arrows_shuffle),
-                      contentDescription = null,
-                      modifier = Modifier.size(18.dp))
-                  Spacer(modifier = Modifier.width(6.dp))
-                  Text(stringResource(R.string.vpl_shuffle), maxLines = 1)
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      horizontalArrangement = Arrangement.Center,
+                      verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector =
+                                ImageVector.vectorResource(R.drawable.ic_tabler_arrows_shuffle),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.vpl_shuffle), maxLines = 1)
+                      }
                 }
           }
     }
@@ -1040,7 +1059,7 @@ private fun PlaylistDetailContent(
     if (!searchOpen && !isReorderMode && groups.isNotEmpty()) {
       LazyRow(
           modifier = Modifier.fillMaxWidth(),
-          contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+          contentPadding = PaddingValues(vertical = 4.dp),
           horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item(key = "__all__") {
               FilterChip(
@@ -1090,7 +1109,7 @@ private fun PlaylistDetailContent(
           // P4c: cap line length on tablets, same 1100dp pattern as Home.
           state = listState,
           modifier = Modifier.align(Alignment.CenterHorizontally).fillMaxSize().widthIn(max = 1100.dp),
-          contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 130.dp),
+          contentPadding = PaddingValues(bottom = 130.dp),
           verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(items = filteredItems, key = { _, item -> item.id }) { index, item ->
               val undoIndex = items.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
@@ -1167,6 +1186,8 @@ private fun PlaylistChannelRow(
     modifier: Modifier = Modifier,
 ) {
   var menuOpen by remember(item.id) { mutableStateOf(false) }
+  val markers = channelMarkers(item.fileName)
+  val group = meta?.group.orEmpty()
   Card(
       modifier = modifier
           .fillMaxWidth()
@@ -1183,40 +1204,47 @@ private fun PlaylistChannelRow(
           else MaterialTheme.colorScheme.surfaceContainer)) {
         Row(
             modifier = Modifier.fillMaxWidth()
+                .heightIn(min = 72.dp)
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                .padding(10.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically) {
               ChannelArtwork(item = item, meta = meta)
-              Spacer(modifier = Modifier.width(10.dp))
-              Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = channelDisplayTitle(item.fileName),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis)
-                Spacer(modifier = Modifier.height(3.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                      Text(
-                          text = meta?.group.orEmpty(),
-                          style = MaterialTheme.typography.bodySmall,
-                          color = MaterialTheme.colorScheme.onSurfaceVariant,
-                          maxLines = 1,
-                          overflow = TextOverflow.Ellipsis,
-                          modifier = Modifier.weight(1f))
-                      qualityTag(item.fileName)?.let { MetaChip(text = it) }
-                      channelMarkers(item.fileName).forEach { MetaChip(text = it) }
-                    }
-              }
+              Spacer(modifier = Modifier.width(12.dp))
+              Column(
+                  modifier = Modifier.weight(1f),
+                  verticalArrangement = Arrangement.Center) {
+                    Text(
+                        text = channelDisplayTitle(item.fileName),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().height(24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                          markers.forEach { marker -> MetaChip(text = marker) }
+                          if (group.isNotBlank()) {
+                            Text(
+                                text = group,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f))
+                          }
+                        }
+                  }
               if (isReorderMode) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_grip_vertical),
-                    contentDescription = "Drag to reorder",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp))
+                Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                  Icon(
+                      imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_grip_vertical),
+                      contentDescription = "Drag to reorder",
+                      tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                      modifier = Modifier.size(24.dp))
+                }
               } else {
                 Box {
                   IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(40.dp)) {
