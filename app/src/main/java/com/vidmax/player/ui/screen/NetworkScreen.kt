@@ -4,6 +4,9 @@ package com.vidmax.player.ui.screen
 import android.app.Application
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -418,9 +421,8 @@ private fun ConnectionCard(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
+                                LoadingIndicator(
+                                    modifier = Modifier.size(20.dp),
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                                 )
                                 Text(
@@ -668,17 +670,23 @@ private fun NetworkFloatingBottomBar(
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 ),
             ) {
-                if (isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    Icon(
-                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_refresh),
-                        contentDescription = "Refresh",
-                        modifier = Modifier.size(20.dp),
-                    )
+                AnimatedContent(
+                    targetState = isRefreshing,
+                    transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+                    label = "networkRefresh",
+                ) { refreshing ->
+                    if (refreshing) {
+                        LoadingIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_refresh),
+                            contentDescription = "Refresh",
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
         }

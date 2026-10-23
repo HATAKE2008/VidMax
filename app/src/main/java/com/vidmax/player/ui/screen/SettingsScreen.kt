@@ -53,10 +53,10 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
@@ -795,9 +795,8 @@ fun SettingsScreen(
                             },
                             trailing = {
                                 if (isCheckingUpdate) {
-                                    CircularProgressIndicator(
+                                    LoadingIndicator(
                                         modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                 } else {
@@ -1157,9 +1156,8 @@ private fun ImportFontCard(
             contentAlignment = Alignment.Center
         ) {
             if (isBusy) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    strokeWidth = 2.dp,
+                LoadingIndicator(
+                    modifier = Modifier.size(24.dp),
                     color = MaterialTheme.colorScheme.primary
                 )
             } else {

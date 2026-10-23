@@ -2184,9 +2184,8 @@ fun OnlineMiniPlayer(
                         contentAlignment = Alignment.Center
                     ) {
                         if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
+                            LoadingIndicator(
+                                modifier = Modifier.size(20.dp),
                                 color = Color.White
                             )
                         } else {
