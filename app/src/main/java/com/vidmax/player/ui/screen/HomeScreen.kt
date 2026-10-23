@@ -752,7 +752,7 @@ fun HomeScreen(
                             prefs.edit().putString("home_content_mode", HomeContentMode.PLAYLISTS.name).apply()
                           }
                         }) { tint, scale ->
-                      Icon(painterResource(id = R.drawable.ic_tabler_playlist), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
+                      Icon(painterResource(id = R.drawable.ic_playlists_tab), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
                     }
                   }
                 }
