@@ -15,9 +15,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Spring
@@ -661,7 +663,7 @@ fun HomeScreen(
         
         // 🔥 UPDATE: 4-Segmented Button Area
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.Center
         ) {
             BoxWithConstraints(
@@ -1822,14 +1824,21 @@ fun HomeContentSegment(
       horizontalArrangement = Arrangement.Center,
       verticalAlignment = Alignment.CenterVertically) {
         icon(contentColor, iconScale)
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = label,
-            color = contentColor,
-            fontSize = 12.sp,
-            fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis)
+        AnimatedVisibility(
+            visible = isActive,
+            enter = expandHorizontally(animationSpec = tween(250)) + fadeIn(animationSpec = tween(250)),
+            exit = shrinkHorizontally(animationSpec = tween(250)) + fadeOut(animationSpec = tween(250))) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = label,
+                    color = contentColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+              }
+            }
       }
 }
 
