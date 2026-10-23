@@ -594,7 +594,7 @@ fun MainScreen(viewModel: LibraryViewModel, onVideoClick: (List<VideoItem>, Int)
                                     ) {
                                         val iconRes = when (item.label) {
                                             "Videos" -> R.drawable.ic_video_library
-                                            "Music" -> R.drawable.ic_tabler_headphones
+                                            "Music" -> R.drawable.ic_music_ring
                                             "Network" -> R.drawable.ic_tabler_server
                                             else -> R.drawable.ic_video_library
                                         }
