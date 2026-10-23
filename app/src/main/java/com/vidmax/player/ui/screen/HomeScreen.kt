@@ -15,9 +15,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Spring
@@ -74,6 +76,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
@@ -659,102 +662,84 @@ fun HomeScreen(
               }
             }
         
-        // 🔥 UPDATE: 4-Segmented Button Area
+        // 🔥 Compact segmented tab bar: selected tab shows icon + label.
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.Center
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+                .clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(5.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            BoxWithConstraints(
-                modifier =
-                    Modifier.fillMaxWidth() // Made it full width to fit 4 items comfortably
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                        .padding(4.dp)) {
-                  
-                  val segmentWidth = maxWidth / 4f // 4 options now
-                  val indicatorOffset by
-                      animateDpAsState(
-                          targetValue =
-                              when (currentContentMode) {
-                                  HomeContentMode.VIDEO -> 0.dp
-                                  HomeContentMode.FOLDER -> segmentWidth
-                                  HomeContentMode.FAVORITES -> segmentWidth * 2
-                                  HomeContentMode.PLAYLISTS -> segmentWidth * 3
-                              },
-                          animationSpec = spring(
-                              dampingRatio = Spring.DampingRatioMediumBouncy,
-                              stiffness = Spring.StiffnessLow
-                          ),
-                          label = "contentModeIndicator")
-
-                  Box(
-                      modifier =
-                          Modifier.offset(x = indicatorOffset)
-                              .width(segmentWidth)
-                              .fillMaxHeight()
-                              .clip(RoundedCornerShape(50))
-                              .background(MaterialTheme.colorScheme.primary))
-
-                  Row(modifier = Modifier.fillMaxSize()) {
-                    HomeContentSegment(
-                        label = stringResource(R.string.home_segment_video),
-                        isActive = currentContentMode == HomeContentMode.VIDEO,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        onClick = {
-                          if (currentContentMode != HomeContentMode.VIDEO) {
-                            currentContentMode = HomeContentMode.VIDEO
-                            viewModel.closeFolder()
-                            selection = selection.clear()
-                            prefs.edit().putString("home_content_mode", HomeContentMode.VIDEO.name).apply()
-                          }
-                        }) { tint, scale ->
-                      Icon(painterResource(id = R.drawable.ic_video_library), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
-                    }
-                    HomeContentSegment(
-                        label = stringResource(R.string.home_segment_folder),
-                        isActive = currentContentMode == HomeContentMode.FOLDER,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        onClick = {
-                          if (currentContentMode != HomeContentMode.FOLDER) {
-                            currentContentMode = HomeContentMode.FOLDER
-                            viewModel.closeFolder()
-                            selection = selection.clear()
-                            prefs.edit().putString("home_content_mode", HomeContentMode.FOLDER.name).apply()
-                          }
-                        }) { tint, scale ->
-                      Icon(painterResource(id = R.drawable.ic_tabler_folder), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
-                    }
-                    HomeContentSegment(
-                        label = stringResource(R.string.home_segment_recent),
-                        isActive = currentContentMode == HomeContentMode.FAVORITES,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        onClick = {
-                          if (currentContentMode != HomeContentMode.FAVORITES) {
-                            currentContentMode = HomeContentMode.FAVORITES
-                            viewModel.closeFolder()
-                            selection = selection.clear()
-                            prefs.edit().putString("home_content_mode", HomeContentMode.FAVORITES.name).apply()
-                          }
-                        }) { tint, scale ->
-                      Icon(ImageVector.vectorResource(R.drawable.ic_tabler_history), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
-                    }
-                    HomeContentSegment(
-                        label = stringResource(R.string.home_segment_playlists),
-                        isActive = currentContentMode == HomeContentMode.PLAYLISTS,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                        onClick = {
-                          if (currentContentMode != HomeContentMode.PLAYLISTS) {
-                            currentContentMode = HomeContentMode.PLAYLISTS
-                            viewModel.closeFolder()
-                            selection = selection.clear()
-                            prefs.edit().putString("home_content_mode", HomeContentMode.PLAYLISTS.name).apply()
-                          }
-                        }) { tint, scale ->
-                      Icon(painterResource(id = R.drawable.ic_tabler_playlist), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp).scale(scale))
-                    }
+            HomeContentSegment(
+                label = stringResource(R.string.home_segment_video),
+                isActive = currentContentMode == HomeContentMode.VIDEO,
+                onClick = {
+                  if (currentContentMode != HomeContentMode.VIDEO) {
+                    currentContentMode = HomeContentMode.VIDEO
+                    viewModel.closeFolder()
+                    selection = selection.clear()
+                    prefs.edit().putString("home_content_mode", HomeContentMode.VIDEO.name).apply()
                   }
+                }) { tint, iconSize ->
+                  Icon(
+                      painterResource(id = R.drawable.ic_video_library),
+                      contentDescription = stringResource(R.string.home_segment_video),
+                      tint = tint,
+                      modifier = Modifier.size(iconSize))
+                }
+            HomeContentSegment(
+                label = stringResource(R.string.home_segment_folder),
+                isActive = currentContentMode == HomeContentMode.FOLDER,
+                onClick = {
+                  if (currentContentMode != HomeContentMode.FOLDER) {
+                    currentContentMode = HomeContentMode.FOLDER
+                    viewModel.closeFolder()
+                    selection = selection.clear()
+                    prefs.edit().putString("home_content_mode", HomeContentMode.FOLDER.name).apply()
+                  }
+                }) { tint, iconSize ->
+                  Icon(
+                      painterResource(id = R.drawable.ic_tabler_folder),
+                      contentDescription = stringResource(R.string.home_segment_folder),
+                      tint = tint,
+                      modifier = Modifier.size(iconSize))
+                }
+            HomeContentSegment(
+                label = stringResource(R.string.home_segment_recent),
+                isActive = currentContentMode == HomeContentMode.FAVORITES,
+                onClick = {
+                  if (currentContentMode != HomeContentMode.FAVORITES) {
+                    currentContentMode = HomeContentMode.FAVORITES
+                    viewModel.closeFolder()
+                    selection = selection.clear()
+                    prefs.edit().putString("home_content_mode", HomeContentMode.FAVORITES.name).apply()
+                  }
+                }) { tint, iconSize ->
+                  Icon(
+                      ImageVector.vectorResource(R.drawable.ic_tabler_history),
+                      contentDescription = stringResource(R.string.home_segment_recent),
+                      tint = tint,
+                      modifier = Modifier.size(iconSize))
+                }
+            HomeContentSegment(
+                label = stringResource(R.string.home_segment_playlists),
+                isActive = currentContentMode == HomeContentMode.PLAYLISTS,
+                onClick = {
+                  if (currentContentMode != HomeContentMode.PLAYLISTS) {
+                    currentContentMode = HomeContentMode.PLAYLISTS
+                    viewModel.closeFolder()
+                    selection = selection.clear()
+                    prefs.edit().putString("home_content_mode", HomeContentMode.PLAYLISTS.name).apply()
+                  }
+                }) { tint, iconSize ->
+                  Icon(
+                      painterResource(id = R.drawable.ic_playlists_tab),
+                      contentDescription = stringResource(R.string.home_segment_playlists),
+                      tint = tint,
+                      modifier = Modifier.size(iconSize))
                 }
         }
         }
@@ -1799,37 +1784,70 @@ fun HomeContentSegment(
     isActive: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    icon: @Composable (Color, Float) -> Unit
+    icon: @Composable (Color, Dp) -> Unit
 ) {
-  // Same animation design as MusicScreen's TabItem: animated tint plus a
-  // low-bouncy spring icon pop when the segment becomes active.
   val contentColor by
       animateColorAsState(
           targetValue =
               if (isActive) MaterialTheme.colorScheme.onPrimary
-              else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-          animationSpec = tween(200),
+              else MaterialTheme.colorScheme.onSurfaceVariant,
+          animationSpec = tween(250),
           label = "homeSegmentColor")
 
-  val iconScale by animateFloatAsState(
-      targetValue = if (isActive) 1.15f else 1.0f,
-      animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
-      label = "homeSegmentScale")
+  val pillColor by
+      animateColorAsState(
+          targetValue =
+              if (isActive) MaterialTheme.colorScheme.primary else Color.Transparent,
+          animationSpec = tween(250),
+          label = "homeSegmentPill")
 
-  Row(
+  val horizontalPadding by
+      animateDpAsState(
+          targetValue = if (isActive) 16.dp else 0.dp,
+          animationSpec = tween(250),
+          label = "homeSegmentHorizontalPadding")
+
+  val verticalPadding by
+      animateDpAsState(
+          targetValue = if (isActive) 9.dp else 0.dp,
+          animationSpec = tween(250),
+          label = "homeSegmentVerticalPadding")
+
+  Box(
       modifier =
-          modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
-      horizontalArrangement = Arrangement.Center,
-      verticalAlignment = Alignment.CenterVertically) {
-        icon(contentColor, iconScale)
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = label,
-            color = contentColor,
-            fontSize = 12.sp,
-            fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis)
+          modifier
+              .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+              .clip(RoundedCornerShape(50))
+              .clickable(onClick = onClick),
+      contentAlignment = Alignment.Center) {
+        Row(
+            modifier =
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(pillColor)
+                    .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically) {
+              icon(contentColor, if (isActive) 20.dp else 22.dp)
+              AnimatedVisibility(
+                  visible = isActive,
+                  enter =
+                      expandHorizontally(animationSpec = tween(250)) +
+                          fadeIn(animationSpec = tween(250)),
+                  exit =
+                      shrinkHorizontally(animationSpec = tween(250)) +
+                          fadeOut(animationSpec = tween(250))) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                      Spacer(modifier = Modifier.width(6.dp))
+                      Text(
+                          text = label,
+                          color = contentColor,
+                          style = MaterialTheme.typography.labelLarge,
+                          maxLines = 1,
+                          overflow = TextOverflow.Ellipsis)
+                    }
+                  }
+            }
       }
 }
 
