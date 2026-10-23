@@ -169,7 +169,6 @@ fun SearchScreen(
     } else emptyList()
   }
   val allPlaylists by viewModel.videoPlaylists.collectAsState()
-  val m3uSourceIds by viewModel.m3uSourceIds.collectAsState()
   val playlistResults = remember(trimmed, allPlaylists, scope) {
     if (scope == SearchScope.PLAYLISTS && trimmed.isNotEmpty()) {
       allPlaylists.filter { it.playlist.name.contains(trimmed, ignoreCase = true) }
@@ -591,7 +590,6 @@ fun SearchScreen(
                             PlaylistCard(
                                 name = entry.playlist.name,
                                 count = entry.itemCount,
-                                isM3u = m3uSourceIds.contains(entry.playlist.id),
                                 onClick = { onOpenPlaylist(entry) },
                                 onLongClick = { onOpenPlaylist(entry) })
                           }

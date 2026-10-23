@@ -1821,6 +1821,7 @@ fun HomeContentSegment(
           modifier.clip(RoundedCornerShape(50)).clickable(onClick = onClick),
       horizontalArrangement = Arrangement.Center,
       verticalAlignment = Alignment.CenterVertically) {
+        icon(contentColor, iconScale)
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = label,
