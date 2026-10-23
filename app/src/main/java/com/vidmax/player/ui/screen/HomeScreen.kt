@@ -666,11 +666,10 @@ fun HomeScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp)
-                .height(56.dp)
+                .height(52.dp)
                 .clip(RoundedCornerShape(50))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                .padding(4.dp),
+                .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1808,21 +1807,20 @@ fun HomeContentSegment(
 
   val horizontalPadding by
       animateDpAsState(
-          targetValue = if (isActive) 16.dp else 0.dp,
+          targetValue = if (isActive) 14.dp else 0.dp,
           animationSpec = tween(250),
           label = "homeSegmentHorizontalPadding")
 
   Box(
       modifier =
           modifier
-              .fillMaxHeight()
-              .defaultMinSize(minWidth = 48.dp)
+              .height(44.dp)
               .clip(RoundedCornerShape(50))
               .clickable(onClick = onClick),
       contentAlignment = Alignment.Center) {
         Row(
             modifier =
-                Modifier.fillMaxHeight()
+                Modifier.height(44.dp)
                     .clip(RoundedCornerShape(50))
                     .background(pillColor)
                     .padding(horizontal = horizontalPadding),
@@ -1842,7 +1840,7 @@ fun HomeContentSegment(
                       Text(
                           text = label,
                           color = contentColor,
-                          fontSize = 12.sp,
+                          fontSize = 14.sp,
                           fontWeight = FontWeight.ExtraBold,
                           maxLines = 1,
                           overflow = TextOverflow.Ellipsis)
