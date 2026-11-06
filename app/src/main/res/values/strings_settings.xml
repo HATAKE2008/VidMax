@@ -92,6 +92,22 @@
     <string name="sett_skipsilence_sub">Skip silent parts during music and audio playback</string>
     <string name="sett_new_badge">NEW</string>
 
+    <!-- Flow-style separate pages (Nov 2026): Home nav rows + sub-screens -->
+    <string name="sett_page_storage_backup">Storage &amp; Backup</string>
+    <string name="sett_page_about">About</string>
+    <string name="sett_nav_group_look">Look &amp; Feel</string>
+    <string name="sett_nav_group_player">Player</string>
+    <string name="sett_nav_group_data">Library &amp; Data</string>
+    <string name="sett_nav_group_app">App</string>
+    <string name="sett_nav_appearance_sub">Theme, dark mode, language, fonts</string>
+    <string name="sett_nav_playback_sub">Resume, engine, player buttons</string>
+    <string name="sett_nav_gestures_sub">Swipe, pinch, double-tap</string>
+    <string name="sett_nav_audio_sub">Volume boost, skip silence</string>
+    <string name="sett_nav_library_sub">Music player, local mode</string>
+    <string name="sett_nav_storage_sub">All files access, backup &amp; restore</string>
+    <string name="sett_nav_updates_sub">Check for new versions</string>
+    <string name="sett_nav_about_sub">Version, links, licence</string>
+
     <!-- Shared components -->
     <string name="comp_conn_add_title">Add Connection</string>
     <string name="comp_conn_edit_title">Edit Connection</string>

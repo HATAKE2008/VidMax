@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -115,10 +116,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// Flow-inspired modern Settings (Nov 2026): grouped Material3 cards,
-// in-screen search, NEW badges, and gesture/audio rows the player
-// already reads. Flow's code was not copied — only its layout ideas
-// (search under the title, grouped pages, per-section headers).
+// Flow-inspired modern Settings (Nov 2026): a Settings Home with
+// search + grouped nav rows, and one separate Material3 sub-screen
+// per category (Appearance / Playback / Gestures / Audio / Library /
+// Storage & Backup / Updates / About), like Flow's SettingsHome +
+// SettingsDetail. Flow's code was not copied — only its layout ideas
+// (search under the title, grouped pages, per-page headers, chevron
+// nav rows). All rows below are prefs the player already reads.
+private data class SettingsSearchHit(
+    val page: String,
+    val title: String,
+    val subtitle: String,
+    val keywords: String
+)
+
 @Composable
 fun SettingsScreen(
     viewModel: LibraryViewModel,
@@ -413,26 +424,47 @@ fun SettingsScreen(
         stringResource(R.string.sett_about_license),
         "telegram github about HATAKE2008 VidMax open source"
     ).joinToString(" ")
-    fun sectionMatches(blob: String): Boolean {
-        val words = searchQuery.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
-        if (words.isEmpty()) return true
-        val haystack = blob.lowercase()
-        return words.all { haystack.contains(it) }
+    // ── Flow-style settings search ───────────────────────────────────────
+    // Home search matches every word against a page's titles, subtitles
+    // and keywords; tapping a result opens that page (like Flow's
+    // SettingsSearch -> DestinationIndex).
+    val searchHits = listOf(
+        SettingsSearchHit("appearance", stringResource(R.string.sett_header_appearance), stringResource(R.string.sett_nav_appearance_sub), appearanceBlob),
+        SettingsSearchHit("playback", stringResource(R.string.sett_header_playback), stringResource(R.string.sett_nav_playback_sub), playbackBlob + " " + engineBlob + " " + overlayBlob),
+        SettingsSearchHit("gestures", stringResource(R.string.sett_header_gestures), stringResource(R.string.sett_nav_gestures_sub), gesturesBlob),
+        SettingsSearchHit("audio", stringResource(R.string.sett_header_audio), stringResource(R.string.sett_nav_audio_sub), audioBlob),
+        SettingsSearchHit("library", stringResource(R.string.sett_header_library), stringResource(R.string.sett_nav_library_sub), libraryBlob),
+        SettingsSearchHit("storage", stringResource(R.string.sett_page_storage_backup), stringResource(R.string.sett_nav_storage_sub), storageBlob + " " + backupBlob),
+        SettingsSearchHit("updates", stringResource(R.string.sett_header_updates), stringResource(R.string.sett_nav_updates_sub), updatesBlob),
+        SettingsSearchHit("about", stringResource(R.string.sett_page_about), stringResource(R.string.sett_nav_about_sub), aboutBlob)
+    )
+    val searchWords = searchQuery.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    val matchedHits = if (searchWords.isEmpty()) emptyList() else searchHits.filter { hit ->
+        val haystack = (hit.title + " " + hit.subtitle + " " + hit.keywords).lowercase()
+        searchWords.all { haystack.contains(it) }
     }
-    val appearanceVisible = sectionMatches(appearanceBlob)
-    val audioVisible = sectionMatches(audioBlob)
-    val engineVisible = sectionMatches(engineBlob)
-    val playbackVisible = sectionMatches(playbackBlob)
-    val overlayVisible = sectionMatches(overlayBlob)
-    val gesturesVisible = sectionMatches(gesturesBlob)
-    val libraryVisible = sectionMatches(libraryBlob)
-    val storageVisible = sectionMatches(storageBlob)
-    val updatesVisible = sectionMatches(updatesBlob)
-    val backupVisible = sectionMatches(backupBlob)
-    val aboutVisible = sectionMatches(aboutBlob)
-    val anySectionVisible = appearanceVisible || audioVisible || engineVisible ||
-        playbackVisible || overlayVisible || gesturesVisible || libraryVisible ||
-        storageVisible || updatesVisible || backupVisible || aboutVisible
+
+    // ── Flow-style page navigation (state-based, no new dependency) ────
+    // Home is the index; every other value is one separate sub-screen.
+    // Back from a sub-screen returns to Home; back from Home exits.
+    var currentPage by rememberSaveable { mutableStateOf("home") }
+    // Unknown saved value (e.g. after an update) falls back to Home.
+    val safePage = if (currentPage in setOf("home", "appearance", "playback", "gestures", "audio", "library", "storage", "updates", "about")) currentPage else "home"
+    val pageTitle = when (safePage) {
+        "appearance" -> stringResource(R.string.sett_header_appearance)
+        "playback" -> stringResource(R.string.sett_header_playback)
+        "gestures" -> stringResource(R.string.sett_header_gestures)
+        "audio" -> stringResource(R.string.sett_header_audio)
+        "library" -> stringResource(R.string.sett_header_library)
+        "storage" -> stringResource(R.string.sett_page_storage_backup)
+        "updates" -> stringResource(R.string.sett_header_updates)
+        "about" -> stringResource(R.string.sett_page_about)
+        else -> stringResource(R.string.sett_title)
+    }
+    BackHandler {
+        if (currentPage != "home") currentPage = "home" else onBack()
+    }
+
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -442,15 +474,16 @@ fun SettingsScreen(
                 .systemBarsPadding()
         ) {
 
-            // ── Top Bar ──────────────────────────────────────────────────────────
+            // ── Top Bar: Home shows "Settings" + version; a sub-screen
+            // shows its own title and back goes to Home (Flow's detail
+            // pages have a back arrow + title, not the big home header).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 4.dp, end = 16.dp, top = 6.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Clean Back Button without circle background
-                IconButton(onClick = onBack) {
+                IconButton(onClick = { if (safePage == "home") onBack() else currentPage = "home" }) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_tabler_arrow_left),
                         contentDescription = "Back",
@@ -463,774 +496,934 @@ fun SettingsScreen(
 
                 Column {
                     Text(
-                        text = stringResource(R.string.sett_title),
+                        text = pageTitle,
                         color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 34.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.5).sp
                     )
-                    Text(
-                        text = "VidMax v${BuildConfig.VERSION_NAME}",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(start = 4.dp, top = 2.dp)
-                    )
+                    if (safePage == "home") {
+                        Text(
+                            text = "VidMax v${BuildConfig.VERSION_NAME}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                        )
+                    }
                 }
             }
 
-            // ── Content ──────────────────────────────────────────────────────────
-            LazyColumn(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .fillMaxSize()
-                    .widthIn(max = 1100.dp)
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
-            ) {
-                // ── Search field (Flow-style: under the title) ─────────────
-                item {
-                    VidMaxSearchBar(
-                        query = searchQuery,
-                        onQueryChange = { searchQuery = it },
-                        placeholder = stringResource(R.string.sett_search_hint),
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                }
-                if (searchQuery.isNotBlank() && !anySectionVisible) {
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = stringResource(R.string.sett_search_no_results),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
+            // ── Content: Home index or one separate sub-screen ─────────
+            when (safePage) {
+                "home" -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .fillMaxSize()
+                            .widthIn(max = 1100.dp)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+                    ) {
+                        // ── Search field (Flow-style: under the title) ─────────────
+                        item {
+                            VidMaxSearchBar(
+                                query = searchQuery,
+                                onQueryChange = { searchQuery = it },
+                                placeholder = stringResource(R.string.sett_search_hint),
+                                modifier = Modifier.padding(bottom = 4.dp)
                             )
-                            Text(
-                                text = stringResource(R.string.sett_search_no_results_sub),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(top = 6.dp)
-                            )
+                        }
+                        if (searchQuery.isBlank()) {
+                            // ── Grouped nav rows (Flow's Home: one row per page) ──
+                            item { SettingsSectionHeader(title = stringResource(R.string.sett_nav_group_look)) }
+                            item {
+                                SettingsGroupCard {
+                                    SettingsNavRow(
+                                        title = stringResource(R.string.sett_header_appearance),
+                                        subtitle = stringResource(R.string.sett_nav_appearance_sub),
+                                        icon = ImageVector.vectorResource(R.drawable.ic_tabler_palette),
+                                        onClick = { currentPage = "appearance" }
+                                    )
+                                }
+                            }
+                            item { Spacer(modifier = Modifier.height(8.dp)) }
+                            item { SettingsSectionHeader(title = stringResource(R.string.sett_nav_group_player)) }
+                            item {
+                                SettingsGroupCard {
+                                    SettingsNavRow(
+                                        title = stringResource(R.string.sett_header_playback),
+                                        subtitle = stringResource(R.string.sett_nav_playback_sub),
+                                        icon = ImageVector.vectorResource(R.drawable.ic_tabler_player_play),
+                                        isNew = true,
+                                        onClick = { currentPage = "playback" }
+                                    )
+                                    SettingsGroupDivider()
+                                    SettingsNavRow(
+                                        title = stringResource(R.string.sett_header_gestures),
+                                        subtitle = stringResource(R.string.sett_nav_gestures_sub),
+                                        icon = ImageVector.vectorResource(R.drawable.ic_tabler_hand_click),
+                                        isNew = true,
+                                        onClick = { currentPage = "gestures" }
+                                    )
+                                    SettingsGroupDivider()
+                                    SettingsNavRow(
+                                        title = stringResource(R.string.sett_header_audio),
+                                        subtitle = stringResource(R.string.sett_nav_audio_sub),
+                                        icon = ImageVector.vectorResource(R.drawable.ic_tabler_volume),
+                                        isNew = true,
+                                        onClick = { currentPage = "audio" }
+                                    )
+                                }
+                            }
+                            item { Spacer(modifier = Modifier.height(8.dp)) }
+                            item { SettingsSectionHeader(title = stringResource(R.string.sett_nav_group_data)) }
+                            item {
+                                SettingsGroupCard {
+                                    SettingsNavRow(
+                                        title = stringResource(R.string.sett_header_library),
+                                        subtitle = stringResource(R.string.sett_nav_library_sub),
+                                        icon = ImageVector.vectorResource(R.drawable.ic_tabler_folder),
+                                        onClick = { currentPage = "library" }
+                                    )
+                                    SettingsGroupDivider()
+                                    SettingsNavRow(
+                                        title = stringResource(R.string.sett_page_storage_backup),
+                                        subtitle = stringResource(R.string.sett_nav_storage_sub),
+                                        icon = ImageVector.vectorResource(R.drawable.ic_tabler_server),
+                                        onClick = { currentPage = "storage" }
+                                    )
+                                }
+                            }
+                            item { Spacer(modifier = Modifier.height(8.dp)) }
+                            item { SettingsSectionHeader(title = stringResource(R.string.sett_nav_group_app)) }
+                            item {
+                                SettingsGroupCard {
+                                    SettingsNavRow(
+                                        title = stringResource(R.string.sett_header_updates),
+                                        subtitle = stringResource(R.string.sett_nav_updates_sub),
+                                        icon = ImageVector.vectorResource(R.drawable.ic_tabler_refresh),
+                                        onClick = { currentPage = "updates" }
+                                    )
+                                    SettingsGroupDivider()
+                                    SettingsNavRow(
+                                        title = stringResource(R.string.sett_page_about),
+                                        subtitle = stringResource(R.string.sett_nav_about_sub),
+                                        icon = ImageVector.vectorResource(R.drawable.ic_tabler_info_circle),
+                                        onClick = { currentPage = "about" }
+                                    )
+                                }
+                            }
+                        } else if (matchedHits.isEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.sett_search_no_results),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.sett_search_no_results_sub),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.padding(top = 6.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            items(matchedHits) { hit ->
+                                SettingsGroupCard {
+                                    SettingsNavRow(
+                                        title = hit.title,
+                                        subtitle = hit.subtitle,
+                                        icon = when (hit.page) {
+                                            "appearance" -> ImageVector.vectorResource(R.drawable.ic_tabler_palette)
+                                            "playback" -> ImageVector.vectorResource(R.drawable.ic_tabler_player_play)
+                                            "gestures" -> ImageVector.vectorResource(R.drawable.ic_tabler_hand_click)
+                                            "audio" -> ImageVector.vectorResource(R.drawable.ic_tabler_volume)
+                                            "library" -> ImageVector.vectorResource(R.drawable.ic_tabler_folder)
+                                            "storage" -> ImageVector.vectorResource(R.drawable.ic_tabler_server)
+                                            "updates" -> ImageVector.vectorResource(R.drawable.ic_tabler_refresh)
+                                            else -> ImageVector.vectorResource(R.drawable.ic_tabler_info_circle)
+                                        },
+                                        onClick = {
+                                            searchQuery = ""
+                                            currentPage = hit.page
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-
-                // ── Dark / Light / System toggle ──────────────────────────────
-                if (appearanceVisible) item { SettingsSectionHeader(title = stringResource(R.string.sett_header_appearance)) }
-                if (appearanceVisible) item {
-                    Row(
+                "appearance" -> {
+                    LazyColumn(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .height(48.dp)
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.outlineVariant,
-                                RoundedCornerShape(50)
-                            )
-                            .clip(RoundedCornerShape(50))
+                            .align(Alignment.CenterHorizontally)
+                            .fillMaxSize()
+                            .widthIn(max = 1100.dp)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
                     ) {
-                        val options = listOf(DarkMode.Dark, DarkMode.Light, DarkMode.System)
-                        options.forEach { mode ->
-                            val isSelected = darkMode == mode
+        // ── Dark / Light / System toggle ──────────────────────────────
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                                    .height(48.dp)
+                                    .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outlineVariant,
+                                        RoundedCornerShape(50)
+                                    )
+                                    .clip(RoundedCornerShape(50))
+                            ) {
+                                val options = listOf(DarkMode.Dark, DarkMode.Light, DarkMode.System)
+                                options.forEach { mode ->
+                                    val isSelected = darkMode == mode
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.secondaryContainer
+                                                else Color.Transparent
+                                            )
+                                            .clickable { viewModel.setDarkMode(mode) }
+                                            .semantics {
+                                                role = Role.RadioButton
+                                                selected = isSelected
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_check),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                            }
+                                            Text(
+                                                text = darkModeDisplayName(mode),
+                                                color = if (isSelected)
+                                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                                else
+                                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                fontSize = 14.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── App Theme picker ──────────────────────────────────────────
+                        item {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                contentPadding = PaddingValues(vertical = 8.dp, horizontal = 2.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(AppTheme.values()) { theme ->
+                                    if (theme.isDynamic && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return@items
+                                    AppThemePreviewItem(
+                                        theme = theme,
+                                        isSelected = currentTheme == theme,
+                                        isDark = isCurrentlyDark,
+                                        isAmoled = amoledMode,
+                                        onClick = { viewModel.setAppTheme(theme) }
+                                    )
+                                }
+                            }
+                        }
+
+                        // ── AMOLED toggle (Appearance group) ──────────────────────────
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_amoled_title),
+                                    subtitle = stringResource(R.string.sett_amoled_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_moon),
+                                    checked = amoledMode,
+                                    enabled = isCurrentlyDark,
+                                    onCheckedChange = { viewModel.setAmoledMode(it) }
+                                )
+                            }
+                        }
+
+                        // ── Language (same pref + dialog as onboarding) ───────────────
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupItem(
+                                    title = stringResource(R.string.language_title),
+                                    subtitle = AppLocale.displayNameFor(appLocale),
+                                    icon = {
+                                        Icon(
+                                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_language),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(22.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    trailing = {
+                                        Icon(
+                                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    onClick = { showLanguageDialog = true }
+                                )
+                            }
+                        }
+
+                        // ── App Font (font changer + importer) ────────────────────────
+                        item {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                contentPadding = PaddingValues(vertical = 8.dp, horizontal = 2.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                item {
+                                    FontPreviewCard(
+                                        sampleText = "Aa Bb",
+                                        displayName = fontDisplayName(AppFonts.SYSTEM_DEFAULT),
+                                        fontFamily = FontFamily.Default,
+                                        isSelected = currentFontId == AppFonts.SYSTEM_DEFAULT,
+                                        onClick = { viewModel.setAppFont(AppFonts.SYSTEM_DEFAULT) }
+                                    )
+                                }
+                                items(AppFonts.builtInFonts) { font ->
+                                    FontPreviewCard(
+                                        sampleText = "VidMax Aa",
+                                        displayName = font.displayName,
+                                        fontFamily = AppFonts.resolveFontFamily(context, font.id),
+                                        isSelected = currentFontId == font.id,
+                                        onClick = { viewModel.setAppFont(font.id) }
+                                    )
+                                }
+                                items(importedFonts, key = { it }) { fontId ->
+                                    FontPreviewCard(
+                                        sampleText = "VidMax Aa",
+                                        displayName = AppFonts.displayNameFor(fontId),
+                                        fontFamily = AppFonts.resolveFontFamily(context, fontId),
+                                        isSelected = currentFontId == fontId,
+                                        onClick = { viewModel.setAppFont(fontId) },
+                                        onDelete = { pendingDeleteFont = fontId }
+                                    )
+                                }
+                                item {
+                                    ImportFontCard(
+                                        isBusy = isImportingFont,
+                                        onClick = {
+                                            fontPickerLauncher.launch(
+                                                arrayOf("font/ttf", "font/otf", "application/x-font-ttf", "application/x-font-otf", "application/octet-stream")
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                "playback" -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .fillMaxSize()
+                            .widthIn(max = 1100.dp)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+                    ) {
+        // ── Playback ──────────────────────────────────────────────────
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_resume_title),
+                                    subtitle = stringResource(R.string.sett_resume_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_history),
+                                    checked = resumePlayback,
+                                    onCheckedChange = { viewModel.setResumePlayback(it) }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_autorotate_title),
+                                    subtitle = stringResource(R.string.sett_autorotate_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_device_mobile_rotated),
+                                    checked = autoRotate,
+                                    onCheckedChange = { viewModel.setAutoRotate(it) }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_intro_title),
+                                    subtitle = stringResource(R.string.sett_intro_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_rocket),
+                                    checked = showIntro,
+                                    onCheckedChange = { on ->
+                                        showIntro = on
+                                        vidmaxPrefs.edit().putBoolean("show_startup_intro", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_minimalist_title),
+                                    subtitle = stringResource(R.string.sett_minimalist_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_minimize),
+                                    checked = minimalistPlayer,
+                                    onCheckedChange = { viewModel.setMinimalistPlayer(it) }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_bgplay_title),
+                                    subtitle = stringResource(R.string.sett_bgplay_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_player_play),
+                                    checked = bgPlayEnabled,
+                                    isNew = true,
+                                    onCheckedChange = { on ->
+                                        bgPlayEnabled = on
+                                        vidmaxPrefs.edit().putBoolean("bg_play_enabled", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_autohide_title),
+                                    subtitle = stringResource(R.string.sett_autohide_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_dots_vertical),
+                                    checked = autoHideControls,
+                                    isNew = true,
+                                    onCheckedChange = { on ->
+                                        autoHideControls = on
+                                        vidmaxPrefs.edit().putBoolean("auto_hide_controls", on).apply()
+                                    }
+                                )
+                            }
+                        }
+                        item {
+                            SettingsSectionHeader(title = stringResource(R.string.sett_header_engine), paddingTop = 4.dp)
+                        }
+        // ── Player engine ─────────────────────────────────────────────
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupItem(
+                                    title = stringResource(R.string.sett_engine_exo_title),
+                                    subtitle = stringResource(R.string.sett_engine_exo_sub),
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_tabler_settings),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(22.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    trailing = {
+                                        RadioButton(
+                                            selected = currentEngine == PlayerEngine.EXO,
+                                            onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) },
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = MaterialTheme.colorScheme.primary,
+                                                unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        )
+                                    },
+                                    onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupItem(
+                                    title = stringResource(R.string.sett_engine_mpv_title),
+                                    subtitle = stringResource(R.string.sett_engine_mpv_sub),
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_tabler_settings),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(22.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    trailing = {
+                                        RadioButton(
+                                            selected = currentEngine == PlayerEngine.MPV,
+                                            onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) },
+                                            colors = RadioButtonDefaults.colors(
+                                                selectedColor = MaterialTheme.colorScheme.primary,
+                                                unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        )
+                                    },
+                                    onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) }
+                                )
+                            }
+                        }
+                        item {
+                            SettingsSectionHeader(title = stringResource(R.string.sett_header_overlay), paddingTop = 4.dp)
+                        }
+        // ── Player Buttons ────────────────────────────────────────────
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_speed_title),
+                                    subtitle = stringResource(R.string.sett_speed_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_gauge),
+                                    checked = showSpeedButton,
+                                    onCheckedChange = { on ->
+                                        showSpeedButton = on
+                                        vidmaxPrefs.edit().putBoolean("show_speed_button", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_loop_title),
+                                    subtitle = stringResource(R.string.sett_loop_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_repeat),
+                                    checked = showLoopButton,
+                                    onCheckedChange = { on ->
+                                        showLoopButton = on
+                                        vidmaxPrefs.edit().putBoolean("show_loop_button", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_zoom_title),
+                                    subtitle = stringResource(R.string.sett_zoom_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_aspect_ratio),
+                                    checked = showZoomButtons,
+                                    onCheckedChange = { on ->
+                                        showZoomButtons = on
+                                        vidmaxPrefs.edit().putBoolean("show_zoom_buttons", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_extra_title),
+                                    subtitle = stringResource(R.string.sett_extra_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_apps),
+                                    checked = showExtraButtons,
+                                    onCheckedChange = { on ->
+                                        showExtraButtons = on
+                                        vidmaxPrefs.edit().putBoolean("show_extra_buttons", on).apply()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                "gestures" -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .fillMaxSize()
+                            .widthIn(max = 1100.dp)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+                    ) {
+        // ── Gestures & Controls (new: rows the player already reads) ──
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_gesture_brightness_title),
+                                    subtitle = stringResource(R.string.sett_gesture_brightness_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_brightness),
+                                    checked = brightnessGesture,
+                                    isNew = true,
+                                    onCheckedChange = { on ->
+                                        brightnessGesture = on
+                                        vidmaxPrefs.edit().putBoolean("gesture_brightness_enabled", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_gesture_volume_title),
+                                    subtitle = stringResource(R.string.sett_gesture_volume_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_volume),
+                                    checked = volumeGesture,
+                                    isNew = true,
+                                    onCheckedChange = { on ->
+                                        volumeGesture = on
+                                        vidmaxPrefs.edit().putBoolean("gesture_volume_enabled", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_pinch_title),
+                                    subtitle = stringResource(R.string.sett_pinch_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_zoom_in),
+                                    checked = pinchZoomEnabled,
+                                    isNew = true,
+                                    onCheckedChange = { on ->
+                                        pinchZoomEnabled = on
+                                        vidmaxPrefs.edit().putBoolean("pinch_zoom_enabled", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_hseek_title),
+                                    subtitle = stringResource(R.string.sett_hseek_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_player_skip_forward),
+                                    checked = horizontalSeekGesture,
+                                    isNew = true,
+                                    onCheckedChange = { on ->
+                                        horizontalSeekGesture = on
+                                        vidmaxPrefs.edit().putBoolean("gesture_horizontal_seek_enabled", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_dtap_indicator_title),
+                                    subtitle = stringResource(R.string.sett_dtap_indicator_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_aspect_ratio),
+                                    checked = showDoubleTapIndicator,
+                                    isNew = true,
+                                    onCheckedChange = { on ->
+                                        showDoubleTapIndicator = on
+                                        vidmaxPrefs.edit().putBoolean("show_double_tap_indicator", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupSegmented(
+                                    title = stringResource(R.string.sett_dtap_seek_title),
+                                    subtitle = stringResource(R.string.sett_dtap_seek_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_hand_click),
+                                    options = listOf("10s", "30s", "60s"),
+                                    selectedIndex = when (doubleTapSeekSeconds) {
+                                        30 -> 1
+                                        60 -> 2
+                                        else -> 0
+                                    },
+                                    isNew = true,
+                                    onSelect = { index ->
+                                        doubleTapSeekSeconds = listOf(10, 30, 60)[index]
+                                        vidmaxPrefs.edit().putInt("double_tap_seek_seconds", doubleTapSeekSeconds).apply()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                "audio" -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .fillMaxSize()
+                            .widthIn(max = 1100.dp)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+                    ) {
+        // ── Advanced player ───────────────────────────────────────────
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_volume_boost_title),
+                                    subtitle = stringResource(R.string.sett_volume_boost_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_volume),
+                                    checked = audioBoost,
+                                    onCheckedChange = { viewModel.setAudioBoost(it) }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_skipsilence_title),
+                                    subtitle = stringResource(R.string.sett_skipsilence_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_music),
+                                    checked = skipSilence,
+                                    isNew = true,
+                                    onCheckedChange = { viewModel.setSkipSilence(it) }
+                                )
+                            }
+                        }
+                    }
+                }
+                "library" -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .fillMaxSize()
+                            .widthIn(max = 1100.dp)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+                    ) {
+        // ── Library / Content ─────────────────────────────────────────
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_music_title),
+                                    subtitle = stringResource(R.string.sett_music_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_music),
+                                    checked = musicPlayerEnabled,
+                                    onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_local_title),
+                                    subtitle = stringResource(R.string.sett_local_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_folder),
+                                    checked = localMode,
+                                    onCheckedChange = { viewModel.setLocalMode(it) }
+                                )
+                            }
+                        }
+                    }
+                }
+                "storage" -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .fillMaxSize()
+                            .widthIn(max = 1100.dp)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+                    ) {
+        // ── Storage Access (All files access) ─────────────────────────
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupItem(
+                                    title = stringResource(R.string.sett_storage_all_title),
+                                    subtitle = if (hasFullAccess)
+                                        stringResource(R.string.sett_storage_enabled_sub)
+                                    else
+                                        stringResource(R.string.sett_storage_perm_sub),
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_tabler_folder_open),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(22.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    trailing = {
+                                        if (hasFullAccess) {
+                                            Icon(
+                                                imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_check),
+                                                contentDescription = "Enabled",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        if (!hasFullAccess) {
+                                            StorageAccess.openAllFilesAccessSettings(context)
+                                        } else {
+                                            fullAccessTick++
+                                            Toast.makeText(
+                                                context,
+                                                StorageAccess.statusText(context),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                )
+                                if (!hasFullAccess) {
+                                    SettingsGroupDivider()
+                                    SettingsGroupItem(
+                                        title = stringResource(R.string.sett_storage_allow_title),
+                                        subtitle = stringResource(R.string.sett_storage_allow_sub),
+                                        icon = {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_tabler_folder),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(22.dp),
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        },
+                                        trailing = {
+                                            Icon(
+                                                imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        },
+                                        onClick = { StorageAccess.openAllFilesAccessSettings(context) }
+                                    )
+                                }
+                            }
+                        }
+                        item {
+                            SettingsSectionHeader(title = stringResource(R.string.sett_header_backup), paddingTop = 4.dp)
+                        }
+        // ── Backup & Restore (P4b) ────────────────────────────────────
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupItem(
+                                    title = stringResource(R.string.sett_export_title),
+                                    subtitle = stringResource(R.string.sett_export_sub),
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_tabler_share),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(22.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    trailing = {
+                                        Icon(
+                                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    enabled = !isBackingUp,
+                                    onClick = { exportLauncher.launch("VidMax-settings-backup.json") }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupItem(
+                                    title = stringResource(R.string.sett_import_title),
+                                    subtitle = stringResource(R.string.sett_import_sub),
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_tabler_folder_open),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(22.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    trailing = {
+                                        Icon(
+                                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    onClick = { importLauncher.launch(arrayOf("application/json")) }
+                                )
+                            }
+                        }
+                    }
+                }
+                "updates" -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .fillMaxSize()
+                            .widthIn(max = 1100.dp)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+                    ) {
+        // ── Updates ───────────────────────────────────────────────────
+                        item {
+                            SettingsGroupCard {
+                                SettingsGroupToggle(
+                                    title = stringResource(R.string.sett_update_notif_title),
+                                    subtitle = stringResource(R.string.sett_update_notif_sub),
+                                    icon = ImageVector.vectorResource(R.drawable.ic_tabler_bell),
+                                    checked = updateNotifications,
+                                    onCheckedChange = { on ->
+                                        updateNotifications = on
+                                        appPrefs.edit().putBoolean("update_notifications", on).apply()
+                                    }
+                                )
+                                SettingsGroupDivider()
+                                SettingsGroupItem(
+                                    title = stringResource(R.string.sett_check_updates_title),
+                                    subtitle = if (isCheckingUpdate)
+                                        stringResource(R.string.sett_checking_updates)
+                                    else
+                                        "VidMax v${BuildConfig.VERSION_NAME} · Latest release",
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_tabler_brand_github),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(22.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    },
+                                    trailing = {
+                                        if (isCheckingUpdate) {
+                                            LoadingIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    onClick = checkForUpdates
+                                )
+                            }
+                        }
+                    }
+                }
+                "about" -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .fillMaxSize()
+                            .widthIn(max = 1100.dp)
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
+                    ) {
+        // ── About / Links ─────────────────────────────────────────────
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SocialLinkButton(
+                                    iconId = R.drawable.ic_tabler_brand_telegram,
+                                    label = "@Hatake2008",
+                                    isTinted = false,
+                                    url = "https://t.me/Hatake2008",
+                                    context = context
+                                )
+                                SocialLinkButton(
+                                    iconId = R.drawable.ic_tabler_brand_github,
+                                    label = "HATAKE2008",
+                                    isTinted = true,
+                                    url = "https://github.com/HATAKE2008/vidamx",
+                                    context = context
+                                )
+                            }
+                        }
+
+                        // Version chip at the very bottom
+                        item {
                             Box(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .background(
-                                        if (isSelected) MaterialTheme.colorScheme.secondaryContainer
-                                        else Color.Transparent
-                                    )
-                                    .clickable { viewModel.setDarkMode(mode) }
-                                    .semantics {
-                                        role = Role.RadioButton
-                                        selected = isSelected
-                                    },
+                                    .fillMaxWidth()
+                                    .padding(top = 16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_check),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp),
-                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                    }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                ) {
                                     Text(
-                                        text = darkModeDisplayName(mode),
-                                        color = if (isSelected)
-                                            MaterialTheme.colorScheme.onSecondaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        fontSize = 14.sp
+                                        text = stringResource(R.string.sett_about_license),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
                                     )
                                 }
                             }
                         }
                     }
                 }
-
-                // ── App Theme picker ──────────────────────────────────────────
-                if (appearanceVisible) item {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp, horizontal = 2.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(AppTheme.values()) { theme ->
-                            if (theme.isDynamic && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return@items
-                            AppThemePreviewItem(
-                                theme = theme,
-                                isSelected = currentTheme == theme,
-                                isDark = isCurrentlyDark,
-                                isAmoled = amoledMode,
-                                onClick = { viewModel.setAppTheme(theme) }
-                            )
-                        }
-                    }
-                }
-
-                // ── AMOLED toggle (Appearance group) ──────────────────────────
-                if (appearanceVisible) item { Spacer(modifier = Modifier.height(8.dp)) }
-                if (appearanceVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_amoled_title),
-                            subtitle = stringResource(R.string.sett_amoled_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_moon),
-                            checked = amoledMode,
-                            enabled = isCurrentlyDark,
-                            onCheckedChange = { viewModel.setAmoledMode(it) }
-                        )
-                    }
-                }
-
-                // ── Language (same pref + dialog as onboarding) ───────────────
-                if (appearanceVisible) item { Spacer(modifier = Modifier.height(8.dp)) }
-                if (appearanceVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupItem(
-                            title = stringResource(R.string.language_title),
-                            subtitle = AppLocale.displayNameFor(appLocale),
-                            icon = {
-                                Icon(
-                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_language),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailing = {
-                                Icon(
-                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            onClick = { showLanguageDialog = true }
-                        )
-                    }
-                }
-
-                // ── App Font (font changer + importer) ────────────────────────
-                if (appearanceVisible) item {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp, horizontal = 2.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        item {
-                            FontPreviewCard(
-                                sampleText = "Aa Bb",
-                                displayName = fontDisplayName(AppFonts.SYSTEM_DEFAULT),
-                                fontFamily = FontFamily.Default,
-                                isSelected = currentFontId == AppFonts.SYSTEM_DEFAULT,
-                                onClick = { viewModel.setAppFont(AppFonts.SYSTEM_DEFAULT) }
-                            )
-                        }
-                        items(AppFonts.builtInFonts) { font ->
-                            FontPreviewCard(
-                                sampleText = "VidMax Aa",
-                                displayName = font.displayName,
-                                fontFamily = AppFonts.resolveFontFamily(context, font.id),
-                                isSelected = currentFontId == font.id,
-                                onClick = { viewModel.setAppFont(font.id) }
-                            )
-                        }
-                        items(importedFonts, key = { it }) { fontId ->
-                            FontPreviewCard(
-                                sampleText = "VidMax Aa",
-                                displayName = AppFonts.displayNameFor(fontId),
-                                fontFamily = AppFonts.resolveFontFamily(context, fontId),
-                                isSelected = currentFontId == fontId,
-                                onClick = { viewModel.setAppFont(fontId) },
-                                onDelete = { pendingDeleteFont = fontId }
-                            )
-                        }
-                        item {
-                            ImportFontCard(
-                                isBusy = isImportingFont,
-                                onClick = {
-                                    fontPickerLauncher.launch(
-                                        arrayOf("font/ttf", "font/otf", "application/x-font-ttf", "application/x-font-otf", "application/octet-stream")
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // ── Advanced player ───────────────────────────────────────────
-                if (audioVisible) item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_audio), paddingTop = 4.dp)
-                }
-                if (audioVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_volume_boost_title),
-                            subtitle = stringResource(R.string.sett_volume_boost_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_volume),
-                            checked = audioBoost,
-                            onCheckedChange = { viewModel.setAudioBoost(it) }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_skipsilence_title),
-                            subtitle = stringResource(R.string.sett_skipsilence_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_music),
-                            checked = skipSilence,
-                            isNew = true,
-                            onCheckedChange = { viewModel.setSkipSilence(it) }
-                        )
-                    }
-                }
-
-                // ── Player engine ─────────────────────────────────────────────
-                if (engineVisible) item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_engine), paddingTop = 4.dp)
-                }
-                if (engineVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupItem(
-                            title = stringResource(R.string.sett_engine_exo_title),
-                            subtitle = stringResource(R.string.sett_engine_exo_sub),
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_tabler_settings),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailing = {
-                                RadioButton(
-                                    selected = currentEngine == PlayerEngine.EXO,
-                                    onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) },
-                                    colors = RadioButtonDefaults.colors(
-                                        selectedColor = MaterialTheme.colorScheme.primary,
-                                        unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            },
-                            onClick = { viewModel.setPlayerEngine(PlayerEngine.EXO) }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupItem(
-                            title = stringResource(R.string.sett_engine_mpv_title),
-                            subtitle = stringResource(R.string.sett_engine_mpv_sub),
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_tabler_settings),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailing = {
-                                RadioButton(
-                                    selected = currentEngine == PlayerEngine.MPV,
-                                    onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) },
-                                    colors = RadioButtonDefaults.colors(
-                                        selectedColor = MaterialTheme.colorScheme.primary,
-                                        unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            },
-                            onClick = { viewModel.setPlayerEngine(PlayerEngine.MPV) }
-                        )
-                    }
-                }
-
-                // ── Playback ──────────────────────────────────────────────────
-                if (playbackVisible) item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_playback), paddingTop = 4.dp)
-                }
-                if (playbackVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_resume_title),
-                            subtitle = stringResource(R.string.sett_resume_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_history),
-                            checked = resumePlayback,
-                            onCheckedChange = { viewModel.setResumePlayback(it) }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_autorotate_title),
-                            subtitle = stringResource(R.string.sett_autorotate_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_device_mobile_rotated),
-                            checked = autoRotate,
-                            onCheckedChange = { viewModel.setAutoRotate(it) }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_intro_title),
-                            subtitle = stringResource(R.string.sett_intro_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_rocket),
-                            checked = showIntro,
-                            onCheckedChange = { on ->
-                                showIntro = on
-                                vidmaxPrefs.edit().putBoolean("show_startup_intro", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_minimalist_title),
-                            subtitle = stringResource(R.string.sett_minimalist_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_minimize),
-                            checked = minimalistPlayer,
-                            onCheckedChange = { viewModel.setMinimalistPlayer(it) }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_bgplay_title),
-                            subtitle = stringResource(R.string.sett_bgplay_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_player_play),
-                            checked = bgPlayEnabled,
-                            isNew = true,
-                            onCheckedChange = { on ->
-                                bgPlayEnabled = on
-                                vidmaxPrefs.edit().putBoolean("bg_play_enabled", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_autohide_title),
-                            subtitle = stringResource(R.string.sett_autohide_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_dots_vertical),
-                            checked = autoHideControls,
-                            isNew = true,
-                            onCheckedChange = { on ->
-                                autoHideControls = on
-                                vidmaxPrefs.edit().putBoolean("auto_hide_controls", on).apply()
-                            }
-                        )
-                    }
-                }
-
-                // ── Player Buttons ────────────────────────────────────────────
-                if (overlayVisible) item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_overlay), paddingTop = 4.dp)
-                }
-                if (overlayVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_speed_title),
-                            subtitle = stringResource(R.string.sett_speed_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_gauge),
-                            checked = showSpeedButton,
-                            onCheckedChange = { on ->
-                                showSpeedButton = on
-                                vidmaxPrefs.edit().putBoolean("show_speed_button", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_loop_title),
-                            subtitle = stringResource(R.string.sett_loop_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_repeat),
-                            checked = showLoopButton,
-                            onCheckedChange = { on ->
-                                showLoopButton = on
-                                vidmaxPrefs.edit().putBoolean("show_loop_button", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_zoom_title),
-                            subtitle = stringResource(R.string.sett_zoom_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_aspect_ratio),
-                            checked = showZoomButtons,
-                            onCheckedChange = { on ->
-                                showZoomButtons = on
-                                vidmaxPrefs.edit().putBoolean("show_zoom_buttons", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_extra_title),
-                            subtitle = stringResource(R.string.sett_extra_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_apps),
-                            checked = showExtraButtons,
-                            onCheckedChange = { on ->
-                                showExtraButtons = on
-                                vidmaxPrefs.edit().putBoolean("show_extra_buttons", on).apply()
-                            }
-                        )
-                    }
-                }
-
-                // ── Gestures & Controls (new: rows the player already reads) ──
-                if (gesturesVisible) item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_gestures), paddingTop = 4.dp)
-                }
-                if (gesturesVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_gesture_brightness_title),
-                            subtitle = stringResource(R.string.sett_gesture_brightness_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_brightness),
-                            checked = brightnessGesture,
-                            isNew = true,
-                            onCheckedChange = { on ->
-                                brightnessGesture = on
-                                vidmaxPrefs.edit().putBoolean("gesture_brightness_enabled", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_gesture_volume_title),
-                            subtitle = stringResource(R.string.sett_gesture_volume_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_volume),
-                            checked = volumeGesture,
-                            isNew = true,
-                            onCheckedChange = { on ->
-                                volumeGesture = on
-                                vidmaxPrefs.edit().putBoolean("gesture_volume_enabled", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_pinch_title),
-                            subtitle = stringResource(R.string.sett_pinch_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_zoom_in),
-                            checked = pinchZoomEnabled,
-                            isNew = true,
-                            onCheckedChange = { on ->
-                                pinchZoomEnabled = on
-                                vidmaxPrefs.edit().putBoolean("pinch_zoom_enabled", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_hseek_title),
-                            subtitle = stringResource(R.string.sett_hseek_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_player_skip_forward),
-                            checked = horizontalSeekGesture,
-                            isNew = true,
-                            onCheckedChange = { on ->
-                                horizontalSeekGesture = on
-                                vidmaxPrefs.edit().putBoolean("gesture_horizontal_seek_enabled", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_dtap_indicator_title),
-                            subtitle = stringResource(R.string.sett_dtap_indicator_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_aspect_ratio),
-                            checked = showDoubleTapIndicator,
-                            isNew = true,
-                            onCheckedChange = { on ->
-                                showDoubleTapIndicator = on
-                                vidmaxPrefs.edit().putBoolean("show_double_tap_indicator", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupSegmented(
-                            title = stringResource(R.string.sett_dtap_seek_title),
-                            subtitle = stringResource(R.string.sett_dtap_seek_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_hand_click),
-                            options = listOf("10s", "30s", "60s"),
-                            selectedIndex = when (doubleTapSeekSeconds) {
-                                30 -> 1
-                                60 -> 2
-                                else -> 0
-                            },
-                            isNew = true,
-                            onSelect = { index ->
-                                doubleTapSeekSeconds = listOf(10, 30, 60)[index]
-                                vidmaxPrefs.edit().putInt("double_tap_seek_seconds", doubleTapSeekSeconds).apply()
-                            }
-                        )
-                    }
-                }
-
-                // ── Library / Content ─────────────────────────────────────────
-                if (libraryVisible) item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_library), paddingTop = 4.dp)
-                }
-                if (libraryVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_music_title),
-                            subtitle = stringResource(R.string.sett_music_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_music),
-                            checked = musicPlayerEnabled,
-                            onCheckedChange = { viewModel.setMusicPlayerEnabled(it) }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_local_title),
-                            subtitle = stringResource(R.string.sett_local_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_folder),
-                            checked = localMode,
-                            onCheckedChange = { viewModel.setLocalMode(it) }
-                        )
-                    }
-                }
-
-                // ── Storage Access (All files access) ─────────────────────────
-                if (storageVisible) item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_storage), paddingTop = 4.dp)
-                }
-                if (storageVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupItem(
-                            title = stringResource(R.string.sett_storage_all_title),
-                            subtitle = if (hasFullAccess)
-                                stringResource(R.string.sett_storage_enabled_sub)
-                            else
-                                stringResource(R.string.sett_storage_perm_sub),
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_tabler_folder_open),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailing = {
-                                if (hasFullAccess) {
-                                    Icon(
-                                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_check),
-                                        contentDescription = "Enabled",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            },
-                            onClick = {
-                                if (!hasFullAccess) {
-                                    StorageAccess.openAllFilesAccessSettings(context)
-                                } else {
-                                    fullAccessTick++
-                                    Toast.makeText(
-                                        context,
-                                        StorageAccess.statusText(context),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        )
-                        if (!hasFullAccess) {
-                            SettingsGroupDivider()
-                            SettingsGroupItem(
-                                title = stringResource(R.string.sett_storage_allow_title),
-                                subtitle = stringResource(R.string.sett_storage_allow_sub),
-                                icon = {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_tabler_folder),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(22.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                trailing = {
-                                    Icon(
-                                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                },
-                                onClick = { StorageAccess.openAllFilesAccessSettings(context) }
-                            )
-                        }
-                    }
-                }
-
-                // ── Updates ───────────────────────────────────────────────────
-                if (updatesVisible) item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_updates), paddingTop = 4.dp)
-                }
-                if (updatesVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupToggle(
-                            title = stringResource(R.string.sett_update_notif_title),
-                            subtitle = stringResource(R.string.sett_update_notif_sub),
-                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_bell),
-                            checked = updateNotifications,
-                            onCheckedChange = { on ->
-                                updateNotifications = on
-                                appPrefs.edit().putBoolean("update_notifications", on).apply()
-                            }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupItem(
-                            title = stringResource(R.string.sett_check_updates_title),
-                            subtitle = if (isCheckingUpdate)
-                                stringResource(R.string.sett_checking_updates)
-                            else
-                                "VidMax v${BuildConfig.VERSION_NAME} · Latest release",
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_tabler_brand_github),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailing = {
-                                if (isCheckingUpdate) {
-                                    LoadingIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            },
-                            onClick = checkForUpdates
-                        )
-                    }
-                }
-
-                // ── Backup & Restore (P4b) ────────────────────────────────────
-                if (backupVisible) item {
-                    SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_backup), paddingTop = 4.dp)
-                }
-                if (backupVisible) item {
-                    SettingsGroupCard {
-                        SettingsGroupItem(
-                            title = stringResource(R.string.sett_export_title),
-                            subtitle = stringResource(R.string.sett_export_sub),
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_tabler_share),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailing = {
-                                Icon(
-                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            enabled = !isBackingUp,
-                            onClick = { exportLauncher.launch("VidMax-settings-backup.json") }
-                        )
-                        SettingsGroupDivider()
-                        SettingsGroupItem(
-                            title = stringResource(R.string.sett_import_title),
-                            subtitle = stringResource(R.string.sett_import_sub),
-                            icon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_tabler_folder_open),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            trailing = {
-                                Icon(
-                                    imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            onClick = { importLauncher.launch(arrayOf("application/json")) }
-                        )
-                    }
-                }
-
-                // ── About / Links ─────────────────────────────────────────────
-                if (aboutVisible) item { SettingsDivider() }
-                if (aboutVisible) item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        SocialLinkButton(
-                            iconId = R.drawable.ic_tabler_brand_telegram,
-                            label = "@Hatake2008",
-                            isTinted = false,
-                            url = "https://t.me/Hatake2008",
-                            context = context
-                        )
-                        SocialLinkButton(
-                            iconId = R.drawable.ic_tabler_brand_github,
-                            label = "HATAKE2008",
-                            isTinted = true,
-                            url = "https://github.com/HATAKE2008/vidamx",
-                            context = context
-                        )
-                    }
-                }
-
-                // Version chip at the very bottom
-                if (aboutVisible) item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.sett_about_license),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
+                else -> {
+                    // Unreachable: safePage is always a known page.
                 }
             }
 
@@ -1508,6 +1701,39 @@ private fun ImportFontCard(
     }
 }
 
+
+// ── Chevron nav row for the Settings Home (Flow's home rows: icon +
+// title + subtitle + chevron, tap opens the sub-screen).
+@Composable
+private fun SettingsNavRow(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    isNew: Boolean = false,
+    onClick: () -> Unit
+) {
+    SettingsGroupItem(
+        title = title,
+        subtitle = subtitle,
+        isNew = isNew,
+        icon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        trailing = {
+            Icon(
+                imageVector = ImageVector.vectorResource(R.drawable.ic_tabler_chevron_right),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        onClick = onClick
+    )
+}
 
 // ── Grouped category card (M3 standard): one unified rounded container
 // per category with subtle in-group dividers instead of isolated pills.

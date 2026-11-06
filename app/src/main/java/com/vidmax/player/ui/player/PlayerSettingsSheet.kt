@@ -57,7 +57,7 @@ fun PlayerSettingsSheet(
     var showDoubleTapIndicator by remember { mutableStateOf(prefs.getBoolean("show_double_tap_indicator", true)) }
     var brightnessGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_brightness_enabled", legacyVerticalGestures)) }
     var volumeGestureEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_volume_enabled", legacyVerticalGestures)) }
-    var pinchZoomEnabled by remember { mutableStateOf(prefs.getBoolean("pinch_to_zoom_enabled", true)) }
+    var pinchZoomEnabled by remember { mutableStateOf(prefs.getBoolean("pinch_zoom_enabled", true)) }
     var horizontalSeekEnabled by remember { mutableStateOf(prefs.getBoolean("gesture_horizontal_seek_enabled", true)) }
     var doubleTapSeekSeconds by remember { mutableIntStateOf(prefs.getInt("double_tap_seek_seconds", 10)) }
     var reverseDoubleTap by remember { mutableStateOf(prefs.getBoolean("reverse_double_tap", false)) }
@@ -231,7 +231,7 @@ fun PlayerSettingsSheet(
                 checked = pinchZoomEnabled,
                 onCheckedChange = {
                     pinchZoomEnabled = it
-                    savePrefs("pinch_to_zoom_enabled", it)
+                    savePrefs("pinch_zoom_enabled", it)
                 }
             )
             SettingsSwitchRow(
