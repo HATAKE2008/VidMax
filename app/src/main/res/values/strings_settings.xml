@@ -66,6 +66,32 @@
     <string name="sett_import_ok">Settings imported successfully</string>
     <string name="sett_import_invalid">Invalid or unsupported settings backup</string>
 
+    <!-- Flow-style redesign (Nov 2026): search + gestures + audio -->
+    <string name="sett_search_hint">Search settings…</string>
+    <string name="sett_search_no_results">No settings found</string>
+    <string name="sett_search_no_results_sub">Try another word, like theme or gestures.</string>
+    <string name="sett_header_audio">Audio</string>
+    <string name="sett_header_gestures">Gestures &amp; Controls</string>
+    <string name="sett_bgplay_title">Background Play</string>
+    <string name="sett_bgplay_sub">Keep audio playing when you leave the app</string>
+    <string name="sett_autohide_title">Auto-hide Player Controls</string>
+    <string name="sett_autohide_sub">Hide controls after a few seconds of inactivity</string>
+    <string name="sett_gesture_brightness_title">Brightness Gesture</string>
+    <string name="sett_gesture_brightness_sub">Swipe up or down on the left side to change brightness</string>
+    <string name="sett_gesture_volume_title">Volume Gesture</string>
+    <string name="sett_gesture_volume_sub">Swipe up or down on the right side to change volume</string>
+    <string name="sett_pinch_title">Pinch to Zoom</string>
+    <string name="sett_pinch_sub">Pinch to zoom the video</string>
+    <string name="sett_hseek_title">Swipe to Seek</string>
+    <string name="sett_hseek_sub">Swipe left or right to seek through the video</string>
+    <string name="sett_dtap_indicator_title">Double-tap Indicator</string>
+    <string name="sett_dtap_indicator_sub">Show the seek indicator when double-tapping</string>
+    <string name="sett_dtap_seek_title">Double-tap Seek</string>
+    <string name="sett_dtap_seek_sub">Seconds to skip on double-tap</string>
+    <string name="sett_skipsilence_title">Skip Silence</string>
+    <string name="sett_skipsilence_sub">Skip silent parts during music and audio playback</string>
+    <string name="sett_new_badge">NEW</string>
+
     <!-- Shared components -->
     <string name="comp_conn_add_title">Add Connection</string>
     <string name="comp_conn_edit_title">Edit Connection</string>
@@ -148,3 +174,4 @@
     <string name="comp_miniplayer_fallback_title">VidMax Music</string>
 
 </resources>
+

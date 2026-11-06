@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -71,6 +72,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,6 +101,7 @@ import com.vidmax.player.data.repository.SettingsBackup
 import com.vidmax.player.utils.StorageAccess
 import com.vidmax.player.ui.components.LanguageSelectionDialog
 import com.vidmax.player.ui.components.UpdateResultDialog
+import com.vidmax.player.ui.components.VidMaxSearchBar
 import com.vidmax.player.ui.components.darkModeDisplayName
 import com.vidmax.player.ui.components.fontDisplayName
 import com.vidmax.player.utils.AppLocale
@@ -112,6 +115,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// Flow-inspired modern Settings (Nov 2026): grouped Material3 cards,
+// in-screen search, NEW badges, and gesture/audio rows the player
+// already reads. Flow's code was not copied — only its layout ideas
+// (search under the title, grouped pages, per-section headers).
 @Composable
 fun SettingsScreen(
     viewModel: LibraryViewModel,
@@ -161,6 +168,24 @@ fun SettingsScreen(
     var updateNotifications by remember {
         mutableStateOf(appPrefs.getBoolean("update_notifications", true))
     }
+    val skipSilence by viewModel.skipSilence.collectAsState()
+
+    // ── New in this redesign: prefs the player already reads, but which
+    // had no row on this screen (they only lived in the in-player sheet).
+    // Every key below is read by PlayerControls / PlayerScreen /
+    // PlayerActivity on the next player open; nothing here is a dead toggle.
+    var bgPlayEnabled by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("bg_play_enabled", false)) }
+    var autoHideControls by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("auto_hide_controls", true)) }
+    var brightnessGesture by remember(backupTick) {
+        mutableStateOf(vidmaxPrefs.getBoolean("gesture_brightness_enabled", vidmaxPrefs.getBoolean("gesture_vertical_enabled", true)))
+    }
+    var volumeGesture by remember(backupTick) {
+        mutableStateOf(vidmaxPrefs.getBoolean("gesture_volume_enabled", vidmaxPrefs.getBoolean("gesture_vertical_enabled", true)))
+    }
+    var pinchZoomEnabled by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("pinch_zoom_enabled", true)) }
+    var horizontalSeekGesture by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("gesture_horizontal_seek_enabled", true)) }
+    var showDoubleTapIndicator by remember(backupTick) { mutableStateOf(vidmaxPrefs.getBoolean("show_double_tap_indicator", true)) }
+    var doubleTapSeekSeconds by remember(backupTick) { mutableStateOf(vidmaxPrefs.getInt("double_tap_seek_seconds", 10)) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateResult by remember { mutableStateOf<UpdateChecker.CheckResult?>(null) }
     val scope = rememberCoroutineScope()
@@ -276,6 +301,139 @@ fun SettingsScreen(
         }
     }
 
+    // ── Flow-style settings search ───────────────────────────────────────
+    // Flow's home screen puts a search field under the title and ranks
+    // matches (title > keyword > summary). VidMax is a single screen, so
+    // the same idea is applied as whole-section filtering: every word of
+    // the query must appear somewhere in a section's localized titles and
+    // subtitles, and matching sections stay fully usable in place.
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val appearanceBlob = listOf(
+        stringResource(R.string.sett_header_appearance),
+        stringResource(R.string.sett_amoled_title),
+        stringResource(R.string.sett_amoled_sub),
+        stringResource(R.string.language_title),
+        stringResource(R.string.sett_add_font),
+        "theme font dark light system"
+    ).joinToString(" ")
+    val audioBlob = listOf(
+        stringResource(R.string.sett_header_audio),
+        stringResource(R.string.sett_volume_boost_title),
+        stringResource(R.string.sett_volume_boost_sub),
+        stringResource(R.string.sett_skipsilence_title),
+        stringResource(R.string.sett_skipsilence_sub),
+        "audio sound"
+    ).joinToString(" ")
+    val engineBlob = listOf(
+        stringResource(R.string.sett_header_engine),
+        stringResource(R.string.sett_engine_exo_title),
+        stringResource(R.string.sett_engine_exo_sub),
+        stringResource(R.string.sett_engine_mpv_title),
+        stringResource(R.string.sett_engine_mpv_sub),
+        "player engine exoplayer mpv"
+    ).joinToString(" ")
+    val playbackBlob = listOf(
+        stringResource(R.string.sett_header_playback),
+        stringResource(R.string.sett_resume_title),
+        stringResource(R.string.sett_resume_sub),
+        stringResource(R.string.sett_autorotate_title),
+        stringResource(R.string.sett_autorotate_sub),
+        stringResource(R.string.sett_intro_title),
+        stringResource(R.string.sett_intro_sub),
+        stringResource(R.string.sett_minimalist_title),
+        stringResource(R.string.sett_minimalist_sub),
+        stringResource(R.string.sett_bgplay_title),
+        stringResource(R.string.sett_bgplay_sub),
+        stringResource(R.string.sett_autohide_title),
+        stringResource(R.string.sett_autohide_sub),
+        "playback background"
+    ).joinToString(" ")
+    val overlayBlob = listOf(
+        stringResource(R.string.sett_header_overlay),
+        stringResource(R.string.sett_speed_title),
+        stringResource(R.string.sett_speed_sub),
+        stringResource(R.string.sett_loop_title),
+        stringResource(R.string.sett_loop_sub),
+        stringResource(R.string.sett_zoom_title),
+        stringResource(R.string.sett_zoom_sub),
+        stringResource(R.string.sett_extra_title),
+        stringResource(R.string.sett_extra_sub),
+        "buttons overlay"
+    ).joinToString(" ")
+    val gesturesBlob = listOf(
+        stringResource(R.string.sett_header_gestures),
+        stringResource(R.string.sett_gesture_brightness_title),
+        stringResource(R.string.sett_gesture_brightness_sub),
+        stringResource(R.string.sett_gesture_volume_title),
+        stringResource(R.string.sett_gesture_volume_sub),
+        stringResource(R.string.sett_pinch_title),
+        stringResource(R.string.sett_pinch_sub),
+        stringResource(R.string.sett_hseek_title),
+        stringResource(R.string.sett_hseek_sub),
+        stringResource(R.string.sett_dtap_indicator_title),
+        stringResource(R.string.sett_dtap_indicator_sub),
+        stringResource(R.string.sett_dtap_seek_title),
+        stringResource(R.string.sett_dtap_seek_sub),
+        "gestures swipe double tap"
+    ).joinToString(" ")
+    val libraryBlob = listOf(
+        stringResource(R.string.sett_header_library),
+        stringResource(R.string.sett_music_title),
+        stringResource(R.string.sett_music_sub),
+        stringResource(R.string.sett_local_title),
+        stringResource(R.string.sett_local_sub),
+        "library music local"
+    ).joinToString(" ")
+    val storageBlob = listOf(
+        stringResource(R.string.sett_header_storage),
+        stringResource(R.string.sett_storage_all_title),
+        stringResource(R.string.sett_storage_enabled_sub),
+        stringResource(R.string.sett_storage_perm_sub),
+        stringResource(R.string.sett_storage_allow_title),
+        stringResource(R.string.sett_storage_allow_sub),
+        "storage files access"
+    ).joinToString(" ")
+    val updatesBlob = listOf(
+        stringResource(R.string.sett_header_updates),
+        stringResource(R.string.sett_update_notif_title),
+        stringResource(R.string.sett_update_notif_sub),
+        stringResource(R.string.sett_check_updates_title),
+        "VidMax v${BuildConfig.VERSION_NAME}",
+        "updates version"
+    ).joinToString(" ")
+    val backupBlob = listOf(
+        stringResource(R.string.sett_header_backup),
+        stringResource(R.string.sett_export_title),
+        stringResource(R.string.sett_export_sub),
+        stringResource(R.string.sett_import_title),
+        stringResource(R.string.sett_import_sub),
+        "backup restore export import"
+    ).joinToString(" ")
+    val aboutBlob = listOf(
+        stringResource(R.string.sett_about_license),
+        "telegram github about HATAKE2008 VidMax open source"
+    ).joinToString(" ")
+    fun sectionMatches(blob: String): Boolean {
+        val words = searchQuery.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (words.isEmpty()) return true
+        val haystack = blob.lowercase()
+        return words.all { haystack.contains(it) }
+    }
+    val appearanceVisible = sectionMatches(appearanceBlob)
+    val audioVisible = sectionMatches(audioBlob)
+    val engineVisible = sectionMatches(engineBlob)
+    val playbackVisible = sectionMatches(playbackBlob)
+    val overlayVisible = sectionMatches(overlayBlob)
+    val gesturesVisible = sectionMatches(gesturesBlob)
+    val libraryVisible = sectionMatches(libraryBlob)
+    val storageVisible = sectionMatches(storageBlob)
+    val updatesVisible = sectionMatches(updatesBlob)
+    val backupVisible = sectionMatches(backupBlob)
+    val aboutVisible = sectionMatches(aboutBlob)
+    val anySectionVisible = appearanceVisible || audioVisible || engineVisible ||
+        playbackVisible || overlayVisible || gesturesVisible || libraryVisible ||
+        storageVisible || updatesVisible || backupVisible || aboutVisible
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -303,13 +461,22 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.width(4.dp))
 
-                Text(
-                    text = stringResource(R.string.sett_title),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.5).sp
-                )
+                Column {
+                    Text(
+                        text = stringResource(R.string.sett_title),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 34.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.5).sp
+                    )
+                    Text(
+                        text = "VidMax v${BuildConfig.VERSION_NAME}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                    )
+                }
             }
 
             // ── Content ──────────────────────────────────────────────────────────
@@ -321,10 +488,42 @@ fun SettingsScreen(
                     .padding(horizontal = 16.dp),
                 contentPadding = PaddingValues(top = 16.dp, bottom = 40.dp)
             ) {
+                // ── Search field (Flow-style: under the title) ─────────────
+                item {
+                    VidMaxSearchBar(
+                        query = searchQuery,
+                        onQueryChange = { searchQuery = it },
+                        placeholder = stringResource(R.string.sett_search_hint),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+                if (searchQuery.isNotBlank() && !anySectionVisible) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = stringResource(R.string.sett_search_no_results),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = stringResource(R.string.sett_search_no_results_sub),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                        }
+                    }
+                }
 
                 // ── Dark / Light / System toggle ──────────────────────────────
-                item { SettingsSectionHeader(title = stringResource(R.string.sett_header_appearance)) }
-                item {
+                if (appearanceVisible) item { SettingsSectionHeader(title = stringResource(R.string.sett_header_appearance)) }
+                if (appearanceVisible) item {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -381,7 +580,7 @@ fun SettingsScreen(
                 }
 
                 // ── App Theme picker ──────────────────────────────────────────
-                item {
+                if (appearanceVisible) item {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         contentPadding = PaddingValues(vertical = 8.dp, horizontal = 2.dp),
@@ -401,8 +600,8 @@ fun SettingsScreen(
                 }
 
                 // ── AMOLED toggle (Appearance group) ──────────────────────────
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-                item {
+                if (appearanceVisible) item { Spacer(modifier = Modifier.height(8.dp)) }
+                if (appearanceVisible) item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_amoled_title),
@@ -416,8 +615,8 @@ fun SettingsScreen(
                 }
 
                 // ── Language (same pref + dialog as onboarding) ───────────────
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-                item {
+                if (appearanceVisible) item { Spacer(modifier = Modifier.height(8.dp)) }
+                if (appearanceVisible) item {
                     SettingsGroupCard {
                         SettingsGroupItem(
                             title = stringResource(R.string.language_title),
@@ -443,7 +642,7 @@ fun SettingsScreen(
                 }
 
                 // ── App Font (font changer + importer) ────────────────────────
-                item {
+                if (appearanceVisible) item {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         contentPadding = PaddingValues(vertical = 8.dp, horizontal = 2.dp),
@@ -491,11 +690,11 @@ fun SettingsScreen(
                 }
 
                 // ── Advanced player ───────────────────────────────────────────
-                item {
+                if (audioVisible) item {
                     SettingsDivider()
-                    SettingsSectionHeader(title = stringResource(R.string.sett_header_advanced), paddingTop = 4.dp)
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_audio), paddingTop = 4.dp)
                 }
-                item {
+                if (audioVisible) item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_volume_boost_title),
@@ -504,15 +703,24 @@ fun SettingsScreen(
                             checked = audioBoost,
                             onCheckedChange = { viewModel.setAudioBoost(it) }
                         )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_skipsilence_title),
+                            subtitle = stringResource(R.string.sett_skipsilence_sub),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_music),
+                            checked = skipSilence,
+                            isNew = true,
+                            onCheckedChange = { viewModel.setSkipSilence(it) }
+                        )
                     }
                 }
 
                 // ── Player engine ─────────────────────────────────────────────
-                item {
+                if (engineVisible) item {
                     SettingsDivider()
                     SettingsSectionHeader(title = stringResource(R.string.sett_header_engine), paddingTop = 4.dp)
                 }
-                item {
+                if (engineVisible) item {
                     SettingsGroupCard {
                         SettingsGroupItem(
                             title = stringResource(R.string.sett_engine_exo_title),
@@ -565,11 +773,11 @@ fun SettingsScreen(
                 }
 
                 // ── Playback ──────────────────────────────────────────────────
-                item {
+                if (playbackVisible) item {
                     SettingsDivider()
                     SettingsSectionHeader(title = stringResource(R.string.sett_header_playback), paddingTop = 4.dp)
                 }
-                item {
+                if (playbackVisible) item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_resume_title),
@@ -605,15 +813,39 @@ fun SettingsScreen(
                             checked = minimalistPlayer,
                             onCheckedChange = { viewModel.setMinimalistPlayer(it) }
                         )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_bgplay_title),
+                            subtitle = stringResource(R.string.sett_bgplay_sub),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_player_play),
+                            checked = bgPlayEnabled,
+                            isNew = true,
+                            onCheckedChange = { on ->
+                                bgPlayEnabled = on
+                                vidmaxPrefs.edit().putBoolean("bg_play_enabled", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_autohide_title),
+                            subtitle = stringResource(R.string.sett_autohide_sub),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_dots_vertical),
+                            checked = autoHideControls,
+                            isNew = true,
+                            onCheckedChange = { on ->
+                                autoHideControls = on
+                                vidmaxPrefs.edit().putBoolean("auto_hide_controls", on).apply()
+                            }
+                        )
                     }
                 }
 
                 // ── Player Buttons ────────────────────────────────────────────
-                item {
+                if (overlayVisible) item {
                     SettingsDivider()
                     SettingsSectionHeader(title = stringResource(R.string.sett_header_overlay), paddingTop = 4.dp)
                 }
-                item {
+                if (overlayVisible) item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_speed_title),
@@ -661,12 +893,98 @@ fun SettingsScreen(
                     }
                 }
 
+                // ── Gestures & Controls (new: rows the player already reads) ──
+                if (gesturesVisible) item {
+                    SettingsDivider()
+                    SettingsSectionHeader(title = stringResource(R.string.sett_header_gestures), paddingTop = 4.dp)
+                }
+                if (gesturesVisible) item {
+                    SettingsGroupCard {
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_gesture_brightness_title),
+                            subtitle = stringResource(R.string.sett_gesture_brightness_sub),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_brightness),
+                            checked = brightnessGesture,
+                            isNew = true,
+                            onCheckedChange = { on ->
+                                brightnessGesture = on
+                                vidmaxPrefs.edit().putBoolean("gesture_brightness_enabled", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_gesture_volume_title),
+                            subtitle = stringResource(R.string.sett_gesture_volume_sub),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_volume),
+                            checked = volumeGesture,
+                            isNew = true,
+                            onCheckedChange = { on ->
+                                volumeGesture = on
+                                vidmaxPrefs.edit().putBoolean("gesture_volume_enabled", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_pinch_title),
+                            subtitle = stringResource(R.string.sett_pinch_sub),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_zoom_in),
+                            checked = pinchZoomEnabled,
+                            isNew = true,
+                            onCheckedChange = { on ->
+                                pinchZoomEnabled = on
+                                vidmaxPrefs.edit().putBoolean("pinch_zoom_enabled", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_hseek_title),
+                            subtitle = stringResource(R.string.sett_hseek_sub),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_player_skip_forward),
+                            checked = horizontalSeekGesture,
+                            isNew = true,
+                            onCheckedChange = { on ->
+                                horizontalSeekGesture = on
+                                vidmaxPrefs.edit().putBoolean("gesture_horizontal_seek_enabled", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupToggle(
+                            title = stringResource(R.string.sett_dtap_indicator_title),
+                            subtitle = stringResource(R.string.sett_dtap_indicator_sub),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_aspect_ratio),
+                            checked = showDoubleTapIndicator,
+                            isNew = true,
+                            onCheckedChange = { on ->
+                                showDoubleTapIndicator = on
+                                vidmaxPrefs.edit().putBoolean("show_double_tap_indicator", on).apply()
+                            }
+                        )
+                        SettingsGroupDivider()
+                        SettingsGroupSegmented(
+                            title = stringResource(R.string.sett_dtap_seek_title),
+                            subtitle = stringResource(R.string.sett_dtap_seek_sub),
+                            icon = ImageVector.vectorResource(R.drawable.ic_tabler_hand_click),
+                            options = listOf("10s", "30s", "60s"),
+                            selectedIndex = when (doubleTapSeekSeconds) {
+                                30 -> 1
+                                60 -> 2
+                                else -> 0
+                            },
+                            isNew = true,
+                            onSelect = { index ->
+                                doubleTapSeekSeconds = listOf(10, 30, 60)[index]
+                                vidmaxPrefs.edit().putInt("double_tap_seek_seconds", doubleTapSeekSeconds).apply()
+                            }
+                        )
+                    }
+                }
+
                 // ── Library / Content ─────────────────────────────────────────
-                item {
+                if (libraryVisible) item {
                     SettingsDivider()
                     SettingsSectionHeader(title = stringResource(R.string.sett_header_library), paddingTop = 4.dp)
                 }
-                item {
+                if (libraryVisible) item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_music_title),
@@ -687,11 +1005,11 @@ fun SettingsScreen(
                 }
 
                 // ── Storage Access (All files access) ─────────────────────────
-                item {
+                if (storageVisible) item {
                     SettingsDivider()
                     SettingsSectionHeader(title = stringResource(R.string.sett_header_storage), paddingTop = 4.dp)
                 }
-                item {
+                if (storageVisible) item {
                     SettingsGroupCard {
                         SettingsGroupItem(
                             title = stringResource(R.string.sett_storage_all_title),
@@ -762,11 +1080,11 @@ fun SettingsScreen(
                 }
 
                 // ── Updates ───────────────────────────────────────────────────
-                item {
+                if (updatesVisible) item {
                     SettingsDivider()
                     SettingsSectionHeader(title = stringResource(R.string.sett_header_updates), paddingTop = 4.dp)
                 }
-                item {
+                if (updatesVisible) item {
                     SettingsGroupCard {
                         SettingsGroupToggle(
                             title = stringResource(R.string.sett_update_notif_title),
@@ -813,11 +1131,11 @@ fun SettingsScreen(
                 }
 
                 // ── Backup & Restore (P4b) ────────────────────────────────────
-                item {
+                if (backupVisible) item {
                     SettingsDivider()
                     SettingsSectionHeader(title = stringResource(R.string.sett_header_backup), paddingTop = 4.dp)
                 }
-                item {
+                if (backupVisible) item {
                     SettingsGroupCard {
                         SettingsGroupItem(
                             title = stringResource(R.string.sett_export_title),
@@ -865,8 +1183,8 @@ fun SettingsScreen(
                 }
 
                 // ── About / Links ─────────────────────────────────────────────
-                item { SettingsDivider() }
-                item {
+                if (aboutVisible) item { SettingsDivider() }
+                if (aboutVisible) item {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -892,7 +1210,7 @@ fun SettingsScreen(
                 }
 
                 // Version chip at the very bottom
-                item {
+                if (aboutVisible) item {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1224,12 +1542,14 @@ private fun SettingsGroupToggle(
     icon: ImageVector,
     checked: Boolean,
     enabled: Boolean = true,
+    isNew: Boolean = false,
     onCheckedChange: (Boolean) -> Unit
 ) {
     SettingsGroupItem(
         title = title,
         subtitle = subtitle,
         enabled = enabled,
+        isNew = isNew,
         role = Role.Switch,
         icon = {
             Icon(
@@ -1256,6 +1576,114 @@ private fun SettingsGroupToggle(
     )
 }
 
+// ── Segmented choice row for use inside SettingsGroupCard ──────────────
+// Same pill style as the dark-mode selector at the top of the screen.
+@Composable
+private fun SettingsGroupSegmented(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    options: List<String>,
+    selectedIndex: Int,
+    isNew: Boolean = false,
+    onSelect: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = subtitle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 2.dp),
+                    lineHeight = 16.sp
+                )
+            }
+            if (isNew) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.sett_new_badge),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant,
+                    RoundedCornerShape(50)
+                )
+                .clip(RoundedCornerShape(50))
+        ) {
+            options.forEachIndexed { index, option ->
+                val isSelected = index == selectedIndex
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.secondaryContainer
+                            else Color.Transparent
+                        )
+                        .clickable { onSelect(index) }
+                        .semantics {
+                            role = Role.RadioButton
+                            selected = isSelected
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = option,
+                        color = if (isSelected)
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
 // ── Generic tappable row for use inside SettingsGroupCard ───────────────
 @Composable
 private fun SettingsGroupItem(
@@ -1265,11 +1693,13 @@ private fun SettingsGroupItem(
     icon: @Composable () -> Unit,
     trailing: @Composable () -> Unit,
     onClick: (() -> Unit)? = null,
-    role: Role? = null
+    role: Role? = null,
+    isNew: Boolean = false
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 56.dp)
             .then(
                 if (onClick != null && enabled) Modifier.clickable { onClick() } else Modifier
             )
@@ -1304,6 +1734,22 @@ private fun SettingsGroupItem(
                 modifier = Modifier.padding(top = 2.dp),
                 lineHeight = 16.sp
             )
+        }
+        if (isNew) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.sett_new_badge),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
         }
         Spacer(modifier = Modifier.width(10.dp))
         trailing()
